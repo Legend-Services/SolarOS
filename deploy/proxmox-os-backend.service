@@ -1,0 +1,14 @@
+[Unit]
+Description=ProxmoxOS backend (FastAPI)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+# Runs as container root, which maps to unprivileged uid 100000 on the host (the uid granted on /mnt/storage).
+WorkingDirectory=/opt/proxmox-os/backend
+ExecStart=/opt/proxmox-os/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --proxy-headers
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

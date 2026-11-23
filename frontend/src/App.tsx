@@ -1,0 +1,40 @@
+import { useEffect } from "react";
+import { useAuth, useTelemetry } from "./lib/stores";
+import LockScreen from "./components/LockScreen";
+import TopBar from "./components/TopBar";
+import Desktop from "./components/Desktop";
+import Dock from "./components/Dock";
+import WindowLayer from "./components/WindowLayer";
+
+export default function App() {
+  const status = useAuth((s) => s.status);
+  const init = useAuth((s) => s.init);
+  const start = useTelemetry((s) => s.start);
+
+  useEffect(() => {
+    init();
+  }, [init]);
+
+  useEffect(() => (status === "unlocked" ? start() : undefined), [status, start]);
+
+  return (
+    <div className="wallpaper relative h-full w-full overflow-hidden">
+      <div
+        className={`absolute inset-0 transition-all duration-700 ${
+          status === "unlocked" ? "scale-100 opacity-100" : "pointer-events-none scale-105 opacity-0 blur-sm"
+        }`}
+        aria-hidden={status !== "unlocked"}
+      >
+        {status === "unlocked" && (
+          <>
+            <Desktop />
+            <WindowLayer />
+            <TopBar />
+            <Dock />
+          </>
+        )}
+      </div>
+      <LockScreen visible={status !== "unlocked"} checking={status === "checking"} />
+    </div>
+  );
+}
