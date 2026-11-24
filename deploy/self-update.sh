@@ -36,7 +36,8 @@ fi
 SHALLOW=(); [[ -f .git/shallow ]] && SHALLOW=(--unshallow)
 git fetch -q --tags --force "${SHALLOW[@]}" origin "+refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"
 TARGET="${TARGET:-$(git rev-parse "origin/${BRANCH}")}"
-git -c advice.detachedHead=false checkout -q -B "$BRANCH" "$TARGET"
+# -f: a deploy.sh install has files that differ from HEAD; untracked state (.env, data/) is never touched.
+git -c advice.detachedHead=false checkout -q -f -B "$BRANCH" "$TARGET"
 git reset -q --hard "$TARGET"
 git rev-parse HEAD >.build-commit
 echo "    now at $(git log -1 --format='%h %s')"
