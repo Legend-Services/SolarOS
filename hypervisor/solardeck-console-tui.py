@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SolarDeck Hypervisor console dashboard for the server's own monitor (tty1). Python standard library only.
+"""SolarOS console dashboard for the server's own monitor (tty1). Python standard library only.
 
 Shows the host summary, LAN addresses with the web management URL and ZFS pool health, plus a numbered menu:
 network setup (Netplan), admin password reset / initial-password dismissal, update from Git, root shell,
@@ -28,16 +28,16 @@ NETPLAN_DIR = Path("/etc/netplan")
 UPDATE_UNIT = "proxmox-os-self-update"
 UPDATE_LOG = Path("/var/log/proxmox-os-self-update.log")
 BANNER = r"""
-  ____        _            ____            _
- / ___|  ___ | | __ _ _ __|  _ \  ___  ___| | __
- \___ \ / _ \| |/ _` | '__| | | |/ _ \/ __| |/ /
-  ___) | (_) | | (_| | |  | |_| |  __/ (__|   <
- |____/ \___/|_|\__,_|_|  |____/ \___|\___|_|\_\   Hypervisor
+  ____        _              ___  ____
+ / ___|  ___ | | __ _ _ __  / _ \/ ___|
+ \___ \ / _ \| |/ _` | '__|| | | \___ \
+  ___) | (_) | | (_| | |   | |_| |___) |
+ |____/ \___/|_|\__,_|_|    \___/|____/
 """
 MENU = [
     ("1", "Configure Network Interface / Static IP (Netplan)"),
     ("2", "Reset / Clear Initial Password Display"),
-    ("3", "Update SolarDeck from Git (main)"),
+    ("3", "Update SolarOS from Git (main)"),
     ("4", "Open Root Diagnostic Shell"),
     ("5", "Reboot or Shut Down Server"),
     ("6", "Show Nested Virtualization & Hardware Readiness"),
@@ -184,7 +184,10 @@ def probe_readiness() -> dict:
     virt = sh("systemd-detect-virt").strip()
     return {"cpu_flag": "vmx" if re.search(r"\bvmx\b", flags) else "svm" if re.search(r"\bsvm\b", flags) else "",
             "kvm": Path("/dev/kvm").exists(), "nested": nested,
-            "libvirtd": sh("systemctl", "is-active", "libvirtd").strip(), "incus": sh("systemctl", "is-active", "incus").strip(),
+            # Ubuntu starts libvirtd on demand: an active socket is ready.
+            "libvirtd": "active" if "active" in sh("systemctl", "is-active", "libvirtd", "libvirtd.socket").split() else
+                        sh("systemctl", "is-active", "libvirtd").strip(),
+            "incus": sh("systemctl", "is-active", "incus").strip(),
             "zfs": f"zfs {zfs.read_text().strip()}" if zfs.exists() else "", "br0": br0,
             "virt": f"virtual machine ({virt})" if virt and virt != "none" else ""}
 
@@ -218,7 +221,8 @@ class Console:
 
     def dashboard(self) -> None:
         f = facts()
-        self.scr.erase()
+        # clear(), not erase(): a full repaint wipes kernel/journal lines written to tty1 behind curses' back.
+        self.scr.clear()
         y = 0
         for line in BANNER.strip("\n").splitlines():
             self.put(y, 2, line, curses.color_pair(1) | curses.A_BOLD)
@@ -350,7 +354,7 @@ class Console:
         CREDS_FILE.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         ENV_FILE.write_text(set_env(ENV_FILE.read_text() if ENV_FILE.exists() else "", "ADMIN_PASSWORD", pw))
         ENV_FILE.chmod(0o600)
-        CREDS_FILE.write_text(f"SolarDeck Hypervisor Web UI\nUsername: {env_get('ADMIN_USERNAME') or 'admin'}\nPassword: {pw}\n")
+        CREDS_FILE.write_text(f"SolarOS Web UI\nUsername: {env_get('ADMIN_USERNAME') or 'admin'}\nPassword: {pw}\n")
         CREDS_FILE.chmod(0o600)
         subprocess.run(["systemctl", "restart", "solardeck-backend"], capture_output=True)
         self.message([f"Username:  {env_get('ADMIN_USERNAME') or 'admin'}", f"Password:  {pw}", "",
@@ -444,7 +448,7 @@ def self_test() -> None:
     assert set_env("A=1\nADMIN_PASSWORD=old\n", "ADMIN_PASSWORD", "new") == "A=1\nADMIN_PASSWORD='new'\n"
     assert set_env("A=1", "B", "2") == "A=1\nB='2'\n"
     assert len(new_password()) == 14 and new_password().isalnum()
-    assert initial_password("SolarDeck Hypervisor Web UI\nUsername: admin\nPassword: Ab12\n") == "Ab12"
+    assert initial_password("SolarOS Web UI\nUsername: admin\nPassword: Ab12\n") == "Ab12"
     assert initial_password("nothing") == ""
     rows = readiness({"cpu_flag": "vmx", "kvm": True, "nested": "Y\n", "libvirtd": "active", "incus": "inactive",
                       "zfs": "zfs 2.2.2", "br0": "10.0.0.5/24", "virt": ""})

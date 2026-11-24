@@ -1,5 +1,5 @@
 [Unit]
-Description=SolarDeck backend (FastAPI) - SolarDeck Hypervisor
+Description=SolarOS backend (SolarDeck FastAPI)
 After=network-online.target libvirtd.service incus.service zfs-mount.service
 Wants=network-online.target
 

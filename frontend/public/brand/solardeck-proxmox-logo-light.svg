@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1143 240" width="1143" height="240" role="img" aria-label="SolarDeck for Proxmox VE">
+  <title>SolarDeck for Proxmox VE</title>
+  <defs>
+    <linearGradient id="gOrange" x1="0" y1="1" x2="0.6" y2="0"><stop offset="0" stop-color="#FF6A00"/><stop offset="1" stop-color="#FFB23E"/></linearGradient>
+    <linearGradient id="gWhite" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#C9D3E3"/></linearGradient>
+    <linearGradient id="gRay" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFB23E"/><stop offset="1" stop-color="#FF7414"/></linearGradient>
+    <radialGradient id="gSun" cx="0.42" cy="0.38" r="0.7"><stop offset="0" stop-color="#FFD45C"/><stop offset="0.55" stop-color="#FF9A26"/><stop offset="1" stop-color="#FF6A00"/></radialGradient>
+    <radialGradient id="gShine" cx="0.35" cy="0.28" r="0.45"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.35"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+    <linearGradient id="gText" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FFB23E"/><stop offset="1" stop-color="#FF7414"/></linearGradient>
+  </defs>
+  <g>
+    <path d="M38.80,188.14 A106,106 0 0 1 143.99,16.75" fill="none" stroke="url(#gOrange)" stroke-width="12" stroke-linecap="round"/>
+    <path d="M173.21,23.54 L145.89,-0.26 L138.20,32.86 Z" fill="#FF8A1F"/>
+    <path d="M203.53,54.74 A106,106 0 0 1 99.63,224.02" fill="none" stroke="#1C2A45" stroke-width="12" stroke-linecap="round"/>
+    <path d="M70.19,218.26 L98.32,241.09 L104.86,207.73 Z" fill="#1C2A45"/>
+    <g stroke="url(#gRay)" stroke-width="7.5" stroke-linecap="round"><line x1="180.81" y1="132.10" x2="196.50" y2="135.22"/><line x1="171.55" y1="154.45" x2="184.85" y2="163.33"/><line x1="154.45" y1="171.55" x2="163.33" y2="184.85"/><line x1="132.10" y1="180.81" x2="135.22" y2="196.50"/><line x1="107.90" y1="180.81" x2="104.78" y2="196.50"/><line x1="85.55" y1="171.55" x2="76.67" y2="184.85"/><line x1="68.45" y1="154.45" x2="55.15" y2="163.33"/><line x1="59.19" y1="132.10" x2="43.50" y2="135.22"/><line x1="59.19" y1="107.90" x2="43.50" y2="104.78"/><line x1="68.45" y1="85.55" x2="55.15" y2="76.67"/><line x1="85.55" y1="68.45" x2="76.67" y2="55.15"/><line x1="107.90" y1="59.19" x2="104.78" y2="43.50"/><line x1="132.10" y1="59.19" x2="135.22" y2="43.50"/><line x1="154.45" y1="68.45" x2="163.33" y2="55.15"/><line x1="171.55" y1="85.55" x2="184.85" y2="76.67"/><line x1="180.81" y1="107.90" x2="196.50" y2="104.78"/></g>
+    <circle cx="120" cy="120" r="50" fill="url(#gSun)"/>
+    <circle cx="120" cy="120" r="50" fill="url(#gShine)"/>
+    <g fill="#fff"><rect x="100.5" y="100.5" width="17" height="17" rx="4.5"/><rect x="100.5" y="122.5" width="17" height="17" rx="4.5"/><rect x="122.5" y="100.5" width="17" height="17" rx="4.5"/><rect x="122.5" y="122.5" width="17" height="17" rx="4.5"/></g>
+  </g>
+  <g fill="none" stroke="#13203A" stroke-width="19.88" stroke-linecap="round" stroke-linejoin="round">
+    <path transform="translate(277.94 71.94) scale(0.6212)" d="M100,0 H25 A25,25 0 0 0 0,25 A25,25 0 0 0 25,50 H75 A25,25 0 0 1 100,75 A25,25 0 0 1 75,100 H0"/>
+    <path transform="translate(376.09 71.94) scale(0.6212)" d="M40,0 H72 A40,40 0 0 1 112,40 V60 A40,40 0 0 1 72,100 H40 A40,40 0 0 1 0,60 V40 A40,40 0 0 1 40,0 Z"/>
+    <path transform="translate(481.70 71.94) scale(0.6212)" d="M0,0 V100 H84"/>
+    <path transform="translate(569.91 71.94) scale(0.6212)" d="M0,100 V40 A40,40 0 0 1 40,0 H66 A40,40 0 0 1 106,40 V100 M0,62 H106"/>
+    <path transform="translate(671.79 71.94) scale(0.6212)" d="M0,100 V0 H75 A25,25 0 0 1 100,25 A25,25 0 0 1 75,50 H0 M62,50 L100,100"/>
+  </g>
+  <g fill="none" stroke="url(#gText)" stroke-width="19.88" stroke-linecap="round" stroke-linejoin="round">
+    <path transform="translate(769.94 71.94) scale(0.6212)" d="M0,0 H66 A40,40 0 0 1 106,40 V60 A40,40 0 0 1 66,100 H0 Z"/>
+    <path transform="translate(871.82 71.94) scale(0.6212)" d="M88,0 H0 V100 H88 M0,50 H74"/>
+    <path transform="translate(962.52 71.94) scale(0.6212)" d="M98,0 H40 A40,40 0 0 0 0,40 V60 A40,40 0 0 0 40,100 H98"/>
+    <path transform="translate(1059.42 71.94) scale(0.6212)" d="M0,0 V100 M94,0 L0,52 M30,36 L94,100"/>
+  </g>
+  <g fill="none" stroke="#FF9A2E" stroke-width="5.23" stroke-linecap="round" stroke-linejoin="round">
+    <path transform="translate(274.61 170.61) scale(0.2177)" d="M84,0 H0 V100 M0,50 H70"/>
+    <path transform="translate(310.32 170.61) scale(0.2177)" d="M40,0 H72 A40,40 0 0 1 112,40 V60 A40,40 0 0 1 72,100 H40 A40,40 0 0 1 0,60 V40 A40,40 0 0 1 40,0 Z"/>
+    <path transform="translate(352.13 170.61) scale(0.2177)" d="M0,100 V0 H75 A25,25 0 0 1 100,25 A25,25 0 0 1 75,50 H0 M62,50 L100,100"/>
+    <path transform="translate(411.35 170.61) scale(0.2177)" d="M0,100 V0 H71 A25,25 0 0 1 96,25 A25,25 0 0 1 71,50 H0"/>
+    <path transform="translate(449.68 170.61) scale(0.2177)" d="M0,100 V0 H75 A25,25 0 0 1 100,25 A25,25 0 0 1 75,50 H0 M62,50 L100,100"/>
+    <path transform="translate(488.87 170.61) scale(0.2177)" d="M40,0 H72 A40,40 0 0 1 112,40 V60 A40,40 0 0 1 72,100 H40 A40,40 0 0 1 0,60 V40 A40,40 0 0 1 40,0 Z"/>
+    <path transform="translate(530.68 170.61) scale(0.2177)" d="M0,0 L100,100 M100,0 L0,100"/>
+    <path transform="translate(569.87 170.61) scale(0.2177)" d="M0,100 V0 L58,58 L116,0 V100"/>
+    <path transform="translate(612.55 170.61) scale(0.2177)" d="M40,0 H72 A40,40 0 0 1 112,40 V60 A40,40 0 0 1 72,100 H40 A40,40 0 0 1 0,60 V40 A40,40 0 0 1 40,0 Z"/>
+    <path transform="translate(654.35 170.61) scale(0.2177)" d="M0,0 L100,100 M100,0 L0,100"/>
+    <path transform="translate(713.58 170.61) scale(0.2177)" d="M0,0 L53,100 L106,0"/>
+    <path transform="translate(754.08 170.61) scale(0.2177)" d="M88,0 H0 V100 H88 M0,50 H74"/>
+  </g>
+</svg>

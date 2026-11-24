@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SolarDeck Hypervisor installer: turns a clean Ubuntu Server 24.04 / 26.04 LTS machine into a standalone SolarDeck
+# SolarOS installer: turns a clean Ubuntu Server 24.04 / 26.04 LTS machine into a SolarOS
 # host (HYPERVISOR_DRIVER=native_ubuntu) with QEMU/KVM + libvirt, Incus containers, OpenZFS and the SolarDeck desktop.
 # Run as root:
 #   bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/main/hypervisor/install-hypervisor.sh)" -- --with-console-tui
@@ -45,9 +45,9 @@ done
 
 # ---------------------------------------------------------------- 1. Checks
 [[ $EUID -eq 0 ]] || die "Run as root."
-command -v pveversion >/dev/null && die "This is a Proxmox VE host: use install.sh (Proxmox VE Deck) instead."
+command -v pveversion >/dev/null && die "This is a Proxmox VE host: use install.sh (SolarDeck for Proxmox VE) instead."
 . /etc/os-release
-[[ "${ID:-}" == ubuntu ]] || die "SolarDeck Hypervisor needs Ubuntu Server LTS (found ${PRETTY_NAME:-unknown})."
+[[ "${ID:-}" == ubuntu ]] || die "SolarOS needs Ubuntu Server LTS (found ${PRETTY_NAME:-unknown})."
 case "${VERSION_ID:-}" in 24.04|26.04) ok "${PRETTY_NAME}" ;; *) warn "Tested on Ubuntu 24.04 / 26.04 LTS; found ${VERSION_ID}" ;; esac
 grep -Eq 'vmx|svm' /proc/cpuinfo || warn "No hardware virtualization flags: enable VT-x / AMD-V in the BIOS for KVM"
 UPGRADE=""; [[ -f "${APP_DIR}/backend/.env" ]] && UPGRADE=1 && msg "Existing installation found: Upgrade Mode"
@@ -122,7 +122,9 @@ if [[ -n "$SRC" && "$(realpath "$SRC")" != "$(realpath -m "$APP_DIR")" ]]; then
   cp "${SRC%/}/backend/data/app_catalog.json" "${APP_DIR}/backend/data/app_catalog.json"
   [[ -n "$PREBUILT" ]] && rsync -a --delete "${SRC%/}/frontend/dist/" "${APP_DIR}/frontend/dist/"
   [[ -f "${SRC%/}/.build-commit" ]] && cp "${SRC%/}/.build-commit" "${APP_DIR}/.build-commit"
-  git -C "$SRC" rev-parse HEAD >"${APP_DIR}/.build-commit" 2>/dev/null || true
+  # A bundle has no .git: keep the .build-commit copied above instead of truncating it.
+  COMMIT="$(git -C "$SRC" rev-parse HEAD 2>/dev/null || true)"
+  if [[ -n "$COMMIT" ]]; then echo "$COMMIT" >"${APP_DIR}/.build-commit"; fi
 elif [[ -d "${APP_DIR}/.git" ]]; then
   # Re-run on a git checkout: move to the tip of the branch (untracked state files are untouched).
   git -C "$APP_DIR" -c safe.directory='*' fetch -q --tags origin "+refs/heads/${REPO_BRANCH}:refs/remotes/origin/${REPO_BRANCH}"
@@ -156,7 +158,7 @@ REPO_BRANCH=${REPO_BRANCH}
 EOF
   umask 022
   mkdir -p "$(dirname "$CREDS_FILE")" && chmod 700 "$(dirname "$CREDS_FILE")"
-  printf 'SolarDeck Hypervisor Web UI\nUsername: admin\nPassword: %s\n' "$ADMIN_PASSWORD" >"$CREDS_FILE"
+  printf 'SolarOS Web UI\nUsername: admin\nPassword: %s\n' "$ADMIN_PASSWORD" >"$CREDS_FILE"
   chmod 600 "$CREDS_FILE"
   ok "Wrote backend/.env"
 else
@@ -246,7 +248,7 @@ row() { printf "${C_GREEN}║${C_RESET}  %-16s %-56s ${C_GREEN}║${C_RESET}\n" 
 edge() { echo "${C_GREEN}$1${BAR}$2${C_RESET}"; }
 echo
 edge ╔ ╗
-row "" "SolarDeck Hypervisor v${VERSION} $([[ -n "$UPGRADE" ]] && echo upgraded || echo "is ready")"
+row "" "SolarOS v${VERSION} $([[ -n "$UPGRADE" ]] && echo upgraded || echo "is ready")"
 edge ╠ ╣
 row "Web UI URL:" "http://${IP}"
 row "HTTPS:" "https://${IP} (self-signed certificate)"
@@ -257,7 +259,7 @@ else
   row "Password:" "${ADMIN_PASSWORD}"
   row "" "(Saved in ${CREDS_FILE} and backend/.env)"
 fi
-row "Edition:" "SolarDeck Standalone Hypervisor (native_ubuntu)"
+row "Edition:" "SolarOS (native_ubuntu)"
 row "Bridge:" "${BRIDGE}"
 row "Console:" "$([[ -n "$WITH_TUI" ]] && echo "dashboard on tty1" || echo "add --with-console-tui for the tty1 dashboard")"
 edge ╠ ╣

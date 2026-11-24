@@ -1,4 +1,4 @@
-# `native_ubuntu` driver (SolarDeck Hypervisor)
+# `native_ubuntu` driver (SolarOS)
 
 Phase 18 split SolarDeck into a platform-neutral contract (`providers/base.py`) and drivers. `HYPERVISOR_DRIVER`
 in `backend/.env` picks the driver (`proxmox` when unset). **Status (Phase 19, v1.14.0): implemented.**
@@ -26,7 +26,7 @@ local RBAC in `data/local_rbac.json`, the VNC bridge in-process instead of a sep
 
 | Flag | Value | UI effect |
 |---|---|---|
-| `driver` / `platform_label` | `native_ubuntu` / `SolarDeck Hypervisor` | Driver badge "Standalone Hypervisor", labels |
+| `driver` / `platform_label` | `native_ubuntu` / `SolarOS` | Driver badge "SolarOS", labels |
 | `supports_clustering` | `false` | Hides the cluster task/access log |
 | `supports_rbac_realms` | `false` | Hides Datacenter → Realms |
 | `supports_lxc` / `supports_qemu` / `supports_zfs` | `true` | Create buttons, filters, ZFS tabs |

@@ -1,7 +1,7 @@
 [Unit]
-# Installed by the SolarDeck Hypervisor ISO (autoinstall late-commands): turns the fresh Ubuntu install into the
+# Installed by the SolarOS installer ISO (autoinstall late-commands): turns the fresh Ubuntu install into the
 # SolarDeck appliance on first boot (hypervisor/firstboot-setup.sh), then disables itself.
-Description=SolarDeck Hypervisor first-boot appliance setup
+Description=SolarOS first-boot appliance setup
 After=network-online.target
 Wants=network-online.target
 ConditionPathExists=!/var/lib/solardeck-firstboot.done

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Build a bootable SolarDeck Hypervisor installer ISO from an Ubuntu Server LTS live ISO (run on Linux).
-#   hypervisor/build-iso.sh [--source-iso ubuntu-24.04.x-live-server-amd64.iso] [--output dist/SolarDeck-Hypervisor-vX-amd64.iso]
-#                           [--auto-disk /dev/sda] [--deploy-to-pve] [--ubuntu-release 24.04] [--hostname solardeck]
+# Build a bootable SolarOS installer ISO from an Ubuntu Server LTS live ISO (run on Linux).
+#   hypervisor/build-iso.sh [--source-iso ubuntu-24.04.x-live-server-amd64.iso] [--output dist/SolarOS-vX-amd64.iso]
+#                           [--auto-disk /dev/sda] [--deploy-to-pve] [--ubuntu-release 24.04] [--hostname solaros]
 #                           [--password <console user password>]
 # Without --source-iso the latest official live-server ISO of --ubuntu-release is downloaded and SHA256-verified.
 # The default boot entry is an Ubuntu autoinstall that asks for the target disk (safe on bare metal); --auto-disk adds
@@ -14,7 +14,7 @@ set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="$(sed -n 's/^  "version": "\(.*\)",$/\1/p' "${ROOT}/frontend/package.json" | head -n1)"
-SOURCE_ISO="" OUTPUT="" RELEASE="24.04" HOSTNAME_="solardeck" PASSWORD="" AUTO_DISK="" DEPLOY_PVE=""
+SOURCE_ISO="" OUTPUT="" RELEASE="24.04" HOSTNAME_="solaros" PASSWORD="" AUTO_DISK="" DEPLOY_PVE=""
 PVE_ISO_DIR="/var/lib/vz/template/iso"
 CACHE="${ROOT}/hypervisor/.cache"
 
@@ -36,7 +36,7 @@ done
 [[ "$RELEASE" =~ ^[0-9]{2}\.04$ ]] || die "invalid --ubuntu-release (e.g. 24.04)"
 [[ -z "$AUTO_DISK" || "$AUTO_DISK" =~ ^/dev/[a-z][a-z0-9/_-]*$ ]] || die "invalid --auto-disk (e.g. /dev/sda or /dev/vda)"
 [[ -z "$DEPLOY_PVE" || -d "$PVE_ISO_DIR" ]] || die "--deploy-to-pve: ${PVE_ISO_DIR} not found (run on a Proxmox VE host)"
-OUTPUT="${OUTPUT:-${PWD}/dist/SolarDeck-Hypervisor-v${VERSION}-amd64.iso}"
+OUTPUT="${OUTPUT:-${PWD}/dist/SolarOS-v${VERSION}-amd64.iso}"
 mkdir -p "$(dirname "$OUTPUT")"
 for bin in xorriso curl gzip; do command -v "$bin" >/dev/null || die "missing $bin (apt install xorriso curl git)"; done
 
@@ -81,7 +81,7 @@ for mode in manual ${AUTO_DISK:+auto}; do
   sed -e "s|@@INTERACTIVE@@|${inter}|" -e "s|@@DISK_MATCH@@|${match}|" -e "s|@@HOSTNAME@@|${HOSTNAME_}|" -e "s|@@PASSWORD_HASH@@|${HASH}|" \
     "${ROOT}/hypervisor/autoinstall/user-data.template" >"$WORK/iso/nocloud/$mode/user-data"
   cp "${ROOT}/hypervisor/autoinstall/meta-data" "$WORK/iso/nocloud/$mode/meta-data"
-  grep -q '@@' "$WORK/iso/nocloud/$mode/user-data" && die "unfilled placeholder in user-data"
+  grep -qE '@@[A-Z_]+@@' "$WORK/iso/nocloud/$mode/user-data" && die "unfilled placeholder in user-data"
 done
 
 # ---------------------------------------------------------------- Embedded SolarDeck bundle (source + desktop + wheels)
@@ -129,14 +129,14 @@ INITRD="$(grep -m1 -oE 'initrd\s+\S+' "$CFG" | awk '{print $2}')"
 [[ -n "$KERNEL" && -n "$INITRD" ]] || die "cannot find the kernel/initrd in grub.cfg"
 ENTRIES="$WORK/entries.cfg"
 cat >"$ENTRIES" <<EOF
-menuentry "Install SolarDeck Hypervisor (Interactive Disk Selection)" {
+menuentry "Install SolarOS (Interactive Disk Selection)" {
 	set gfxpayload=keep
 	linux	${KERNEL} autoinstall ds=nocloud\\;s=/cdrom/nocloud/manual/ ---
 	initrd	${INITRD}
 }
 EOF
 [[ -n "$AUTO_DISK" ]] && cat >>"$ENTRIES" <<EOF
-menuentry "SolarDeck Hypervisor — Automated VM Test Install (erases ${AUTO_DISK})" {
+menuentry "SolarOS - Automated VM Test Install (erases ${AUTO_DISK})" {
 	set gfxpayload=keep
 	linux	${KERNEL} autoinstall ds=nocloud\\;s=/cdrom/nocloud/auto/ ---
 	initrd	${INITRD}
@@ -154,7 +154,7 @@ eval "xorriso -as mkisofs ${OPTS[*]} -o \"\$OUTPUT\" \"\$WORK/iso\"" 2>&1 | grep
 [[ -s "$OUTPUT" ]] || die "xorriso did not write ${OUTPUT}"
 
 echo
-echo "SolarDeck Hypervisor ISO: ${OUTPUT} ($(du -h "$OUTPUT" | cut -f1))"
+echo "SolarOS installer ISO: ${OUTPUT} ($(du -h "$OUTPUT" | cut -f1))"
 echo "  Console user: solardeck / ${PASSWORD}$([[ -n "${GENERATED:-}" ]] && echo "  (generated; keep it)")"
 echo "  Web UI admin password: generated on first boot, shown on the server's console (tty1)."
 echo "  SHA-256: $(sha256sum "$OUTPUT" | cut -d' ' -f1)"

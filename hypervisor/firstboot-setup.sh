@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SolarDeck Hypervisor first-boot appliance setup, run once by solardeck-firstboot.service after the ISO's autoinstall.
+# SolarOS first-boot appliance setup, run once by solardeck-firstboot.service after the ISO's autoinstall.
 #   firstboot-setup.sh [--bundle /opt/solardeck-src]
 # 1. Bridges the primary Ethernet port into br0 (DHCP) with a clean Netplan file, replacing the installer's config.
 # 2. Runs install-hypervisor.sh in bundle mode: KVM/libvirt, Incus, OpenZFS, Samba, nginx, SolarDeck in /opt/solardeck

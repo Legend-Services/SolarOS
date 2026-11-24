@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SolarDeck self-updater. Started by the backend (POST /api/system/updates/apply|rollback) inside the SolarDeck
-# container (or on a standalone SolarDeck Hypervisor host) as a transient systemd unit:
+# container (or on a SolarOS host) as a transient systemd unit:
 #   self-update.sh <app dir> <repo url> <branch> [<target commit>] [<system packages 0|1>]
 # Without a target it updates to the tip of <branch>; with one it checks out that commit (update or downgrade).
 # Both editions update from the same branch; HYPERVISOR_DRIVER in backend/.env picks the service layout. With
@@ -19,7 +19,7 @@ export DEBIAN_FRONTEND=noninteractive
 cd "$APP_DIR"
 DRIVER="$(sed -n 's/^HYPERVISOR_DRIVER=//p' backend/.env 2>/dev/null | tail -n1 | tr -d "'\"" || true)"
 DRIVER="${DRIVER:-proxmox}"
-echo "==> Edition: $([[ "$DRIVER" == native_ubuntu ]] && echo "SolarDeck Standalone Hypervisor" || echo "Proxmox VE Deck") (driver ${DRIVER})"
+echo "==> Edition: $([[ "$DRIVER" == native_ubuntu ]] && echo "SolarOS" || echo "SolarDeck for Proxmox VE") (driver ${DRIVER})"
 # Private repositories: authenticate with GITHUB_TOKEN from backend/.env when it is set.
 TOKEN="$(sed -n 's/^GITHUB_TOKEN=//p' backend/.env 2>/dev/null | head -n1 || true)"
 AUTH=(); [[ -n "$TOKEN" ]] && AUTH=(-c "http.https://github.com/.extraheader=Authorization: Basic $(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)")

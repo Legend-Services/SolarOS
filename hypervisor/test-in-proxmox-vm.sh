@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Boot the SolarDeck Hypervisor ISO in a nested test VM on a Proxmox VE host (run as root on the host).
+# Boot the SolarOS installer ISO in a nested test VM on a Proxmox VE host (run as root on the host).
 #   hypervisor/test-in-proxmox-vm.sh [--iso <path|storage:iso/name.iso>] [--vmid <id>] [--storage <pool>]
 #                                    [--bridge vmbr0] [--enable-nested] [--dry-run]
-# Defaults: --iso /var/lib/vz/template/iso/SolarDeck-Hypervisor-v<version>-amd64.iso, --vmid the next free id >= 900,
+# Defaults: --iso /var/lib/vz/template/iso/SolarOS-v<version>-amd64.iso, --vmid the next free id >= 900,
 # --storage local-zfs or local-lvm (else the first pool that holds VM disks), --bridge vmbr0.
 # The VM: q35 + OVMF (EFI disk), host CPU, 4 cores, 8 GiB RAM, a 32 GB OS disk (scsi0) plus two 32 GB data disks
-# (scsi1, scsi2) for ZFS mirror / RAIDZ, SMART and benchmark tests, virtio NIC, the ISO on ide2, boot order ide2;scsi0.
+# (scsi1, scsi2) for ZFS mirror / RAIDZ, SMART and benchmark tests, virtio NIC, the ISO on ide2, boot order scsi0;ide2
+# (the blank disk falls through to the ISO once; after the install the disk boots, so no reinstall loop).
 # --enable-nested turns on KVM nested virtualization on this host when it is off and no VM is running.
 # An existing VMID is never touched. --dry-run prints the qm commands instead of running them.
 set -Eeuo pipefail
@@ -13,7 +14,7 @@ set -Eeuo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="$(sed -n 's/^  "version": "\(.*\)",$/\1/p' "${ROOT}/frontend/package.json" 2>/dev/null | head -n1)"
 ISO_DIR="/var/lib/vz/template/iso"
-ISO="${ISO_DIR}/SolarDeck-Hypervisor-v${VERSION:-2.2.0}-amd64.iso"
+ISO="${ISO_DIR}/SolarOS-v${VERSION:-2.2.1}-amd64.iso"
 VMID="" STORAGE="" BRIDGE="vmbr0" ENABLE_NESTED="" DRY=""
 
 die() { echo "test-in-proxmox-vm: $*" >&2; exit 1; }
@@ -80,23 +81,24 @@ fi
 # ---------------------------------------------------------------- 3. VM
 echo "==> Creating VM ${VMID} (storage ${STORAGE}, bridge ${BRIDGE}, ISO ${ISO_VOL})"
 DISK="discard=on,ssd=1,iothread=1"
-run qm create "$VMID" --name "solardeck-hv-test-${VMID}" --ostype l26 --machine q35 --bios ovmf \
+run qm create "$VMID" --name "solaros-test-${VMID}" --ostype l26 --machine q35 --bios ovmf \
   --efidisk0 "${STORAGE}:1,efitype=4m,pre-enrolled-keys=0" --cpu host --cores 4 --sockets 1 --memory 8192 --balloon 0 \
   --scsihw virtio-scsi-single --scsi0 "${STORAGE}:32,${DISK}" --scsi1 "${STORAGE}:32,${DISK}" --scsi2 "${STORAGE}:32,${DISK}" \
-  --net0 "virtio,bridge=${BRIDGE}" --ide2 "${ISO_VOL},media=cdrom" --boot "order=ide2;scsi0" --vga std --agent 0 \
-  --description "SolarDeck Hypervisor ISO test VM (created by hypervisor/test-in-proxmox-vm.sh)"
+  --net0 "virtio,bridge=${BRIDGE}" --ide2 "${ISO_VOL},media=cdrom" --boot "order=scsi0;ide2" --vga std --agent 0 \
+  --description "SolarOS installer test VM (created by hypervisor/test-in-proxmox-vm.sh)"
 run qm start "$VMID"
 
 NODE="$(hostname -s)"
 IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 cat <<EOF
 
-SolarDeck Hypervisor test VM ${VMID} is booting.
-  1. Open the noVNC console: https://${IP:-<proxmox-host>}:8006 -> ${NODE} -> ${VMID} (solardeck-hv-test-${VMID}) -> Console
-  2. In the boot menu pick "SolarDeck Hypervisor — Automated VM Test Install" (ISO built with --auto-disk /dev/sda)
-     or "Install SolarDeck Hypervisor (Interactive Disk Selection)" and choose the 32 GB disk on scsi0.
-  3. After the reboot, first-boot setup runs (watch it on the console); then the SolarDeck console on tty1 shows the
+SolarOS test VM ${VMID} is booting.
+  1. Open the noVNC console: https://${IP:-<proxmox-host>}:8006 -> ${NODE} -> ${VMID} (solaros-test-${VMID}) -> Console
+  2. In the boot menu pick "SolarOS - Automated VM Test Install" (ISO built with --auto-disk /dev/sda)
+     or "Install SolarOS (Interactive Disk Selection)" and choose the 32 GB disk on scsi0.
+  3. After the reboot, first-boot setup runs (watch it on the console); then the SolarOS console on tty1 shows the
      web URL and the initial admin password. scsi1 + scsi2 are blank for a ZFS mirror / RAIDZ test in Storage & ZFS.
+  Find the VM's address on the console screen (br0 gets its own MAC, so the NIC's MAC does not show it in ARP).
   Eject the ISO after the install:  qm set ${VMID} --ide2 none,media=cdrom
   Remove the test VM:               qm stop ${VMID} && qm destroy ${VMID} --purge
 EOF

@@ -199,7 +199,7 @@ def edition() -> dict:
     """Both editions track the same branch of the same repository; only the driver (backend/.env) differs."""
     native = settings.hypervisor_driver.strip().lower() == "native_ubuntu"
     return {"driver": "native_ubuntu" if native else "proxmox",
-            "edition": "SolarDeck Standalone Hypervisor" if native else "Proxmox VE Deck",
+            "edition": "SolarOS" if native else "SolarDeck for Proxmox VE",
             "service": "solardeck-backend" if native else "proxmox-os-backend",
             "supports_system_packages": native}
 
@@ -287,7 +287,7 @@ async def apply(body: ApplyBody | None = None):
     return {"ok": True, "target": target, "include_system_packages": system_packages}
 
 
-# ---------------------------------------------------------------- Standalone Hypervisor ISO
+# ---------------------------------------------------------------- SolarOS installer ISO
 
 ISO_BUILD_COMMAND = "sudo bash /opt/proxmox-os/hypervisor/build-iso.sh"
 _iso_sums: dict[tuple[str, int, int], str] = {}  # (path, size, mtime) -> sha256: an ISO is hashed once
@@ -302,11 +302,12 @@ def _sha256(path: Path) -> str:
 
 
 def find_isos(dirs: list[Path]) -> list[Path]:
-    """SolarDeck Hypervisor ISOs in the given folders (unreadable or missing folders are skipped), newest first."""
+    """SolarOS installer ISOs in the given folders (unreadable or missing folders are skipped), newest first."""
     found = {}
     for d in dirs:
         with suppress(OSError):
-            for f in d.glob("SolarDeck-Hypervisor-*.iso"):
+            # SolarDeck-Hypervisor-*.iso: ISOs built before the SolarOS name (v2.2.0)
+            for f in [*d.glob("SolarOS-*.iso"), *d.glob("SolarDeck-Hypervisor-*.iso")]:
                 if f.is_file():
                     found.setdefault(f.resolve(), f)
     return sorted(found.values(), key=lambda f: f.stat().st_mtime, reverse=True)

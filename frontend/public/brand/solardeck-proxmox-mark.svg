@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240" role="img" aria-label="SolarDeck for Proxmox VE">
+  <title>SolarDeck for Proxmox VE</title>
+  <defs>
+    <linearGradient id="gOrange" x1="0" y1="1" x2="0.6" y2="0"><stop offset="0" stop-color="#FF6A00"/><stop offset="1" stop-color="#FFB23E"/></linearGradient>
+    <linearGradient id="gWhite" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#C9D3E3"/></linearGradient>
+    <linearGradient id="gRay" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFB23E"/><stop offset="1" stop-color="#FF7414"/></linearGradient>
+    <radialGradient id="gSun" cx="0.42" cy="0.38" r="0.7"><stop offset="0" stop-color="#FFD45C"/><stop offset="0.55" stop-color="#FF9A26"/><stop offset="1" stop-color="#FF6A00"/></radialGradient>
+    <radialGradient id="gShine" cx="0.35" cy="0.28" r="0.45"><stop offset="0" stop-color="#FFFFFF" stop-opacity="0.35"/><stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/></radialGradient>
+    <linearGradient id="gText" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FFB23E"/><stop offset="1" stop-color="#FF7414"/></linearGradient>
+  </defs>
+  <g>
+    <path d="M38.80,188.14 A106,106 0 0 1 143.99,16.75" fill="none" stroke="url(#gOrange)" stroke-width="12" stroke-linecap="round"/>
+    <path d="M173.21,23.54 L145.89,-0.26 L138.20,32.86 Z" fill="#FF8A1F"/>
+    <path d="M203.53,54.74 A106,106 0 0 1 99.63,224.02" fill="none" stroke="url(#gWhite)" stroke-width="12" stroke-linecap="round"/>
+    <path d="M70.19,218.26 L98.32,241.09 L104.86,207.73 Z" fill="#E9EEF6"/>
+    <g stroke="url(#gRay)" stroke-width="7.5" stroke-linecap="round"><line x1="180.81" y1="132.10" x2="196.50" y2="135.22"/><line x1="171.55" y1="154.45" x2="184.85" y2="163.33"/><line x1="154.45" y1="171.55" x2="163.33" y2="184.85"/><line x1="132.10" y1="180.81" x2="135.22" y2="196.50"/><line x1="107.90" y1="180.81" x2="104.78" y2="196.50"/><line x1="85.55" y1="171.55" x2="76.67" y2="184.85"/><line x1="68.45" y1="154.45" x2="55.15" y2="163.33"/><line x1="59.19" y1="132.10" x2="43.50" y2="135.22"/><line x1="59.19" y1="107.90" x2="43.50" y2="104.78"/><line x1="68.45" y1="85.55" x2="55.15" y2="76.67"/><line x1="85.55" y1="68.45" x2="76.67" y2="55.15"/><line x1="107.90" y1="59.19" x2="104.78" y2="43.50"/><line x1="132.10" y1="59.19" x2="135.22" y2="43.50"/><line x1="154.45" y1="68.45" x2="163.33" y2="55.15"/><line x1="171.55" y1="85.55" x2="184.85" y2="76.67"/><line x1="180.81" y1="107.90" x2="196.50" y2="104.78"/></g>
+    <circle cx="120" cy="120" r="50" fill="url(#gSun)"/>
+    <circle cx="120" cy="120" r="50" fill="url(#gShine)"/>
+    <g fill="#fff"><rect x="100.5" y="100.5" width="17" height="17" rx="4.5"/><rect x="100.5" y="122.5" width="17" height="17" rx="4.5"/><rect x="122.5" y="100.5" width="17" height="17" rx="4.5"/><rect x="122.5" y="122.5" width="17" height="17" rx="4.5"/></g>
+  </g>
+</svg>

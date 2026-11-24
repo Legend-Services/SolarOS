@@ -44,12 +44,29 @@ export const useCapabilities = create<CapabilitiesState>((set) => ({
   loaded: false,
   load: async () => {
     const c = await api<Partial<Capabilities>>("/system/capabilities").catch(() => null);
-    set({ capabilities: { ...PROXMOX_DEFAULTS, ...(c ?? {}) }, loaded: true });
+    const capabilities = { ...PROXMOX_DEFAULTS, ...(c ?? {}) };
+    set({ capabilities, loaded: true });
+    // Tab title and icon follow the edition (index.html starts with the Proxmox VE edition's).
+    const product = productOf(capabilities.driver);
+    document.title = product.name;
+    document.querySelector<HTMLLinkElement>('link[rel="icon"]')?.setAttribute("href", `/brand/${product.slug}-mark.svg`);
   },
 }));
 
 export const usePlatformLabel = () => useCapabilities((s) => s.capabilities.platform_label);
 export const useSupports = (flag: CapabilityFlag) => useCapabilities((s) => s.capabilities[flag]);
 export const useDriver = () => useCapabilities((s) => s.capabilities.driver);
-/** i18n key of the driver badge: "Proxmox VE" or "Standalone Hypervisor". */
+
+/** Product branding: the standalone edition is SolarOS, the Proxmox VE edition is SolarDeck for Proxmox VE. */
+export interface Product {
+  name: string;
+  short: string;
+  slug: "solaros" | "solardeck-proxmox";
+}
+export const productOf = (driver: string): Product =>
+  driver === "native_ubuntu"
+    ? { name: "SolarOS", short: "SolarOS", slug: "solaros" }
+    : { name: "SolarDeck for Proxmox VE", short: "SolarDeck", slug: "solardeck-proxmox" };
+export const useProduct = () => productOf(useDriver());
+/** i18n key of the driver badge: "Proxmox VE" or "SolarOS". */
 export const driverBadgeKey = (driver: string): TKey => (driver === "proxmox" ? "driver.proxmox" : "driver.standalone");

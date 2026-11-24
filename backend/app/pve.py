@@ -36,7 +36,7 @@ async def pve(method: str, path: str, **kw):
     if settings.hypervisor_driver == "native_ubuntu":
         # Proxmox-only features (cluster log, PVE storage backends, API tokens, ACME, ...) on the standalone driver.
         # _safe() callers degrade to their default; direct callers get a clear 501.
-        raise HTTPException(501, "This feature needs a Proxmox VE host; it is not available on SolarDeck Hypervisor")
+        raise HTTPException(501, "This feature needs a Proxmox VE host; it is not available on SolarOS")
     try:
         r = await client().request(method, path, **kw)
     except httpx.HTTPError as e:

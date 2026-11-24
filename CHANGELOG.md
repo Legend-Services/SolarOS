@@ -1,10 +1,26 @@
 # Changelog
 
+## v2.2.1 - SolarOS Name, Product Logos & ISO Live-Test Fixes — 2026-11-24
+
+### Changed
+- The standalone edition is now called **SolarOS** everywhere you can see it: sign-in and lock screen, top bar, About card, driver badge, Control Panel, browser tab, tty1 console, GRUB menu, installer messages and the ISO name (`SolarOS-v<version>-amd64.iso`, default host name `solaros`). The Proxmox VE edition is **SolarDeck for Proxmox VE**, installed as its own LXC container. The sign-in screen no longer reads "SolarDeck for SolarDeck Hypervisor". Internal names (`/opt/solardeck`, the `solardeck-*` units, `HYPERVISOR_DRIVER=native_ubuntu`) are unchanged, so existing installs update normally.
+- The ISO card lists both `SolarOS-*.iso` and older `SolarDeck-Hypervisor-*.iso` builds.
+
+### Added
+- **Product logos** for SolarOS and SolarDeck for Proxmox VE (`frontend/public/brand/`): an orange sun with orbit arrows, a power symbol (SolarOS) or an app grid (SolarDeck), and a stroke-drawn wordmark. Each has a dark-background version, a light-mode version and an icon-only mark. They are used on the sign-in screen (following the color mode), as the browser tab icon and in the READMEs. Regenerate them with `python3 frontend/scripts/generate-logos.py frontend/public/brand`.
+
+### Fixed (found by booting the v2.2.0 ISO in a nested Proxmox VE VM)
+- `build-iso.sh` stopped every build with "unfilled placeholder": its check matched the template's own comment.
+- The GRUB entry for the automated install showed blank space where the em dash was; it now uses a plain hyphen.
+- `test-in-proxmox-vm.sh` boots `scsi0;ide2`, so the installed disk starts after the install instead of the installer running again.
+- `install-hypervisor.sh --bundle` left `.build-commit` empty, so the updater showed no version.
+- Console: libvirtd counts as ready when its socket is active (Ubuntu starts it on demand), and the screen repaints fully, so boot messages no longer stay on top of it.
+
 ## v2.2.0 - Phase 20: Offline-Capable Bootable ISO Builder, First-Boot Appliance Setup & Proxmox Nested-VM Test Harness — 2026-11-24
 
 ### Added
 - **Self-contained ISO bundle**: `hypervisor/build-iso.sh` now builds the desktop (`npm ci && npm run build`) and downloads the backend's Python wheels for Ubuntu's CPython (`pip download --only-binary`) into the embedded SolarDeck bundle, so first boot needs no Node.js build and no PyPI. Missing build tools fall back to fetching that part on first boot. The default output is `./dist/SolarDeck-Hypervisor-v<version>-amd64.iso`, and the SHA-256 is printed.
-- `build-iso.sh --auto-disk <device>` adds a **SolarDeck Hypervisor — Automated VM Test Install** boot entry that installs to that disk unattended. `--deploy-to-pve` copies the ISO to `/var/lib/vz/template/iso/` on a Proxmox VE host.
+- `build-iso.sh --auto-disk <device>` adds a **SolarDeck Hypervisor - Automated VM Test Install** boot entry that installs to that disk unattended. `--deploy-to-pve` copies the ISO to `/var/lib/vz/template/iso/` on a Proxmox VE host.
 - **`hypervisor/firstboot-setup.sh`** (run once by `solardeck-firstboot.service`):
   - bridges the primary Ethernet port into `br0` with DHCP (`/etc/netplan/60-solardeck-bridge.yaml`). The installer's Netplan files are parked, and put back if the bridge gets no address.
   - runs `install-hypervisor.sh --bundle`.
@@ -17,7 +33,7 @@
 - **`hypervisor/test-in-proxmox-vm.sh`**: one command on a Proxmox VE host creates and starts a nested test VM:
   - q35, OVMF + EFI disk, host CPU, 4 cores, 8 GiB.
   - a 32 GB OS disk and two 32 GB data disks for ZFS mirror/RAIDZ1, SMART and benchmark tests.
-  - virtio NIC on `vmbr0`, the ISO on `ide2`, boot order `ide2;scsi0`.
+  - virtio NIC on `vmbr0`, the ISO on `ide2`, boot order `scsi0;ide2` (QEMU's boot order beats the installer's UEFI entry, so CD-first would reinstall on every reboot; the blank disk falls through to the ISO once).
   - it checks nested virtualization (`--enable-nested` turns it on when no VM runs), picks the next free VMID from 900 and `local-zfs`/`local-lvm`, never touches an existing VMID, and supports `--dry-run`.
 - **Control Panel → System & Updates → Standalone Hypervisor ISO**: the build and test commands with copy buttons, and every built `SolarDeck-Hypervisor-*.iso` in `/mnt/storage/isos/` or `/var/lib/vz/template/iso/` with its size and SHA-256 (`GET /api/system/updates/iso`; each ISO is hashed once).
 - README: **Testing SolarDeck Hypervisor ISO inside a Proxmox VE VM**.
