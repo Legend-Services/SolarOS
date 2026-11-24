@@ -1,17 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Rocket } from "lucide-react";
 import { api } from "../lib/api";
-import type { PciDevice, StorageVolume, SystemInfo, TaskState, ZfsDatasetInfo } from "../lib/types";
+import type { StorageVolume, SystemInfo, TaskState, ZfsDatasetInfo } from "../lib/types";
+import { PassthroughPicker, usePassthroughDevices, type PciSel, type UsbSel } from "./guest/passthrough";
 import { bytes } from "../lib/format";
 import { useRunner } from "../lib/hooks";
 import { useTelemetry } from "../lib/stores";
-import { Field, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
+import { Field, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
 import { TaskLog } from "../components/TaskCenterPopover";
 
 export type GuestKind = "qemu" | "lxc";
 
 const STEPS: Record<GuestKind, string[]> = {
-  qemu: ["General", "OS / ISO", "Disk & Storage", "CPU & Memory", "Network & PCIe", "Review & Deploy"],
+  qemu: ["General", "OS / ISO", "Disk & Storage", "CPU & Memory", "Network & Passthrough", "Review & Deploy"],
   lxc: ["General", "Template", "Disk & Storage", "CPU & Memory", "Network & Mounts", "Review & Deploy"],
 };
 
@@ -46,7 +47,8 @@ const initial = {
   gateway: "",
   nesting: true,
   onboot: false,
-  hostpci: [] as string[],
+  hostpci: [] as PciSel[],
+  usb: [] as UsbSel[],
   bind: "",
 };
 
@@ -65,7 +67,7 @@ export default function GuestWizard({ kind, open, onClose, onCreated }: { kind: 
   const [f, setF] = useState(initial);
   const [isos, setIsos] = useState<StorageVolume[]>([]);
   const [bridges, setBridges] = useState<string[]>([]);
-  const [pci, setPci] = useState<PciDevice[] | null>(null);
+  const devices = usePassthroughDevices(open && k === "qemu");
   const [datasets, setDatasets] = useState<string[]>([]);
   const [job, setJob] = useState<{ vmid: number; upid: string } | null>(null);
   const [state, setState] = useState<TaskState | null>(null);
@@ -92,8 +94,7 @@ export default function GuestWizard({ kind, open, onClose, onCreated }: { kind: 
       },
       () => setBridges(["vmbr0"]),
     );
-    if (k === "qemu") api<PciDevice[]>("/pve/hardware/pci").then(setPci, () => setPci([]));
-    else
+    if (k === "lxc")
       api<ZfsDatasetInfo[]>("/pve/zfs/datasets").then(
         (d) => setDatasets(d.filter((x) => x.type === "filesystem" && !x.guest_volume && x.name.includes("/")).map((x) => x.name)),
         () => setDatasets([]),
@@ -134,7 +135,7 @@ export default function GuestWizard({ kind, open, onClose, onCreated }: { kind: 
           ? {
               vmid: f.vmid, name: f.name, cores: f.cores, sockets: f.sockets, memory: f.memory, bios: f.bios, efidisk: f.efidisk,
               iso_volume: f.iso || null, storage: f.storage, disk_gb: f.disk, bridge: f.bridge, ostype: f.ostype,
-              start_on_boot: f.onboot, hostpci: f.hostpci,
+              start_on_boot: f.onboot, hostpci: f.hostpci, usb: f.usb,
             }
           : {
               vmid: f.vmid, hostname: f.name, cores: f.cores, memory: f.memory, swap: f.swap, ostemplate: f.template,
@@ -145,7 +146,6 @@ export default function GuestWizard({ kind, open, onClose, onCreated }: { kind: 
     });
 
   const title = k === "qemu" ? "Create Virtual Machine" : "Create Container";
-  const togglePci = (id: string) => set({ hostpci: f.hostpci.includes(id) ? f.hostpci.filter((x) => x !== id) : [...f.hostpci, id] });
 
   return (
     <GlassModal
@@ -207,7 +207,7 @@ export default function GuestWizard({ kind, open, onClose, onCreated }: { kind: 
         <div className="space-y-3 text-xs">
           <p className="text-slate-300">
             Creating {k === "qemu" ? "VM" : "container"} <span className="font-semibold text-white">{f.name}</span> ({job.vmid}).
-            {(f.hostpci.length > 0 || f.bind) && " Host options (PCIe passthrough / bind mount) were applied after creation."}
+            {(f.hostpci.length > 0 || f.usb.length > 0 || f.bind) && " Host options (device passthrough / bind mount) were applied after creation."}
           </p>
           <TaskLog upid={job.upid} className="h-56" onDone={setState} />
           {state === "ok" && <Notice notice={`${k === "qemu" ? "VM" : "Container"} ${job.vmid} is ready. Start it from Compute Manager.`} />}
@@ -367,27 +367,9 @@ export default function GuestWizard({ kind, open, onClose, onCreated }: { kind: 
                 )}
               </div>
               {k === "qemu" ? (
-                <div className="glass-soft rounded-xl p-3">
-                  <p className="mb-2 text-[11px] text-slate-400">PCIe passthrough (needs IOMMU enabled on the host; whole IOMMU groups are passed together)</p>
-                  {pci === null ? (
-                    <p className="text-[11px] text-slate-500">Loading devices…</p>
-                  ) : (
-                    <ul className="max-h-48 space-y-1 overflow-auto pr-1">
-                      {[...pci].sort((a, b) => Number(b.gpu) - Number(a.gpu)).map((d) => (
-                        <li key={d.id}>
-                          <label className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-[11px] hover:bg-white/5">
-                            <input type="checkbox" checked={f.hostpci.includes(d.id)} onChange={() => togglePci(d.id)} />
-                            <span className="font-mono text-slate-400">{d.id}</span>
-                            <span className="min-w-0 flex-1 truncate text-slate-200">
-                              {d.vendor_name} {d.device_name}
-                            </span>
-                            {d.gpu && <GlassBadge tone="info">GPU</GlassBadge>}
-                            <span className="text-slate-500">group {d.iommugroup}</span>
-                          </label>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                <div className="glass-soft max-h-80 overflow-auto rounded-xl p-3">
+                  <p className="mb-2 text-[11px] text-slate-400">Device passthrough (optional). Needs IOMMU on the host; devices sharing an IOMMU group move to the VM together.</p>
+                  <PassthroughPicker devices={devices} hostpci={f.hostpci} usb={f.usb} onChange={(hostpci, usb) => set({ hostpci, usb })} />
                 </div>
               ) : (
                 <Field label="Bind-mount a ZFS dataset (optional)" hint="Mounted at /mnt/storage/<dataset> inside the container">
@@ -414,7 +396,11 @@ export default function GuestWizard({ kind, open, onClose, onCreated }: { kind: 
                   ["CPU", k === "qemu" ? `${f.cores} core(s) × ${f.sockets} socket(s)` : `${f.cores} core(s)`],
                   ["Memory", `${f.memory} MB${k === "lxc" ? ` + ${f.swap} MB swap` : ""}`],
                   ["Network", `${f.bridge} · ${k === "qemu" || f.dhcp ? "DHCP" : `${f.cidr} via ${f.gateway}`}`],
-                  ...(k === "qemu" ? [["PCIe passthrough", f.hostpci.join(", ") || "None"], ["Start at boot", f.onboot ? "Yes" : "No"]] : [["Nesting", f.nesting ? "On" : "Off"], ["Bind mount", f.bind || "None"]]),
+                  ...(k === "qemu" ? [
+                        ["PCI passthrough", f.hostpci.map((p) => `${p.id}${p.include_audio ? " (+audio)" : ""}${p.x_vga ? " primary" : ""}`).join(", ") || "None"],
+                        ["USB passthrough", f.usb.map((u) => u.host + (u.usb3 ? " (USB 3)" : "")).join(", ") || "None"],
+                        ["Start at boot", f.onboot ? "Yes" : "No"],
+                      ] : [["Nesting", f.nesting ? "On" : "Off"], ["Bind mount", f.bind || "None"]]),
                 ] as [string, string][]
               ).map(([a, b]) => (
                 <div key={a} className="contents">

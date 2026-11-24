@@ -11,10 +11,14 @@ import SharesManager from "../apps/SharesManager";
 import ControlPanelApp from "../apps/ControlPanelApp";
 import SystemApp from "../apps/SystemApp";
 import BackupCenterApp from "../apps/BackupCenterApp";
+import NetworkServicesApp from "../apps/NetworkServicesApp";
+import DatacenterApp from "../apps/DatacenterApp";
+import HelpCenterApp from "../apps/HelpCenterApp";
 import WindowFrame from "./WindowFrame";
 import type { ConsoleTarget } from "../lib/types";
 // noVNC + xterm.js are only downloaded when a console is opened.
 const ConsoleApp = lazy(() => import("../apps/ConsoleApp"));
+const HostShell = lazy(() => import("../apps/ConsoleApp").then((m) => ({ default: m.HostShell })));
 
 const COMPONENTS: Record<AppId, ComponentType<{ params?: ConsoleTarget }>> = {
   monitor: ResourceMonitor,
@@ -26,6 +30,10 @@ const COMPONENTS: Record<AppId, ComponentType<{ params?: ConsoleTarget }>> = {
   shares: SharesManager,
   controlpanel: ControlPanelApp,
   system: SystemApp,
+  netservices: NetworkServicesApp,
+  datacenter: DatacenterApp,
+  terminal: HostShell,
+  help: HelpCenterApp,
   console: ConsoleApp,
 };
 

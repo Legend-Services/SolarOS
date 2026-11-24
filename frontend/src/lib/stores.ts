@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware";
 import { api, setUnauthorizedHandler } from "./api";
 import type { ConsoleTarget, HardwareInfo, Overview, StorageInfo } from "./types";
 import type { AppId } from "../apps/registry";
-import { APPS } from "../apps/registry";
+import { APPS, APP_IDS } from "../apps/registry";
 
 /* ---------------- Auth ---------------- */
 
@@ -135,7 +135,8 @@ export interface Intents {
   files?: string; // File Station path
   compute?: "vm" | "lxc" | "iso"; // open a wizard or the ISO tab
   storage?: "pool"; // open the Create Pool dialog
-  controlpanel?: "security" | "network" | "appearance" | "power";
+  controlpanel?: "security" | "network" | "appearance" | "hardware" | "power";
+  help?: "ask" | "fix" | "bios" | "tutorials" | "faq";
 }
 
 interface IntentState extends Intents {
@@ -175,6 +176,60 @@ export const usePrefs = create<PrefsState>()(
     name: "proxmoxos-prefs",
     partialize: ({ wallpaper, widgets }) => ({ wallpaper, widgets }),
   }),
+);
+
+/* ---------------- Dock (per browser) ---------------- */
+
+/** Peak icon scale under the cursor for each Magnification Strength setting. */
+export const MAGNIFICATION = { off: 1, subtle: 1.35, macos: 1.75, large: 2.2 } as const;
+export type Magnification = keyof typeof MAGNIFICATION;
+
+interface DockState {
+  pinned: AppId[];
+  autoHide: boolean;
+  baseSize: number; // px, 36–64
+  magnification: Magnification;
+  launchpad: boolean; // not persisted
+  pin: (id: AppId) => void;
+  unpin: (id: AppId) => void;
+  move: (id: AppId, to: number) => void;
+  set: (patch: Partial<Pick<DockState, "autoHide" | "baseSize" | "magnification" | "launchpad">>) => void;
+}
+
+export const useDock = create<DockState>()(
+  persist(
+    (set) => ({
+      pinned: [...APP_IDS],
+      autoHide: false,
+      baseSize: 46,
+      magnification: "macos",
+      launchpad: false,
+      pin: (id) => set((s) => (s.pinned.includes(id) ? s : { pinned: [...s.pinned, id] })),
+      unpin: (id) => set((s) => ({ pinned: s.pinned.filter((x) => x !== id) })),
+      move: (id, to) =>
+        set((s) => {
+          const rest = s.pinned.filter((x) => x !== id);
+          rest.splice(Math.max(0, Math.min(to, rest.length)), 0, id);
+          return { pinned: rest };
+        }),
+      set: (patch) => set(patch),
+    }),
+    {
+      name: "proxmoxos-dock",
+      partialize: ({ pinned, autoHide, baseSize, magnification }) => ({ pinned, autoHide, baseSize, magnification }),
+      // Drop apps that no longer exist and clamp values edited by hand in localStorage.
+      merge: (saved, cur) => {
+        const p = (saved ?? {}) as Partial<DockState>;
+        return {
+          ...cur,
+          ...p,
+          pinned: Array.isArray(p.pinned) ? p.pinned.filter((id) => (APP_IDS as AppId[]).includes(id)) : cur.pinned,
+          baseSize: Math.max(36, Math.min(64, Number(p.baseSize) || cur.baseSize)),
+          magnification: p.magnification && p.magnification in MAGNIFICATION ? p.magnification : cur.magnification,
+        };
+      },
+    },
+  ),
 );
 
 /* ---------------- Telemetry ---------------- */

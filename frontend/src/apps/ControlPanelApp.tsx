@@ -1,18 +1,22 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { ChevronLeft, CloudDownload, KeyRound, Network, Palette, Power, RefreshCw, RotateCcw, ShieldCheck, Smartphone } from "lucide-react";
+import { ChevronLeft, Cpu, CloudDownload, KeyRound, Network, Palette, Power, RefreshCw, RotateCcw, ShieldCheck, Smartphone, SquareTerminal } from "lucide-react";
 import { api } from "../lib/api";
 import type { SystemInfo, UpdateStatus } from "../lib/types";
 import { uptime } from "../lib/format";
 import { usePoll, useRunner } from "../lib/hooks";
-import { useIntent, usePrefs, WALLPAPERS } from "../lib/stores";
-import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassSwitch, Notice } from "../components/ui/GlassKit";
+import { MAGNIFICATION, useDock, useIntent, usePrefs, useWindows, WALLPAPERS, type Magnification } from "../lib/stores";
+import { APPS, APP_IDS } from "./registry";
+import { AppIcon } from "../components/icons/AppIcons";
+import HardwarePanel from "./HardwarePanel";
+import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
 
-type Section = "security" | "network" | "appearance" | "power";
+type Section = "security" | "network" | "appearance" | "hardware" | "power";
 
 const SECTIONS: { id: Section; title: string; desc: string; icon: ReactNode; tint: string }[] = [
   { id: "security", title: "User & Security", desc: "Admin password, API token status", icon: <ShieldCheck size={22} />, tint: "from-indigo-400 to-violet-600" },
   { id: "network", title: "Network & DNS", desc: "Host interfaces, bridges, resolvers", icon: <Network size={22} />, tint: "from-sky-400 to-cyan-600" },
-  { id: "appearance", title: "Appearance & Desktop", desc: "Wallpaper, desktop widgets", icon: <Palette size={22} />, tint: "from-pink-400 to-rose-600" },
+  { id: "appearance", title: "Appearance & Dock", desc: "Wallpaper, widgets, Dock size and magnification", icon: <Palette size={22} />, tint: "from-pink-400 to-rose-600" },
+  { id: "hardware", title: "Hardware & System", desc: "CPU, memory, GPUs, drives, NICs, GPU drivers", icon: <Cpu size={22} />, tint: "from-emerald-400 to-teal-600" },
   { id: "power", title: "System & Power", desc: "Proxmox VE version, reboot, shut down", icon: <Power size={22} />, tint: "from-amber-300 to-orange-600" },
 ];
 
@@ -74,6 +78,7 @@ function Security({ info }: { info: SystemInfo }) {
         </form>
       </Card>
       <TwoFactorCard />
+      <BridgeCard />
       <Card title="Proxmox API connection" action={<GlassBadge tone={info.api.connected ? "success" : "danger"}>{info.api.connected ? "CONNECTED" : "UNREACHABLE"}</GlassBadge>}>
         <Rows
           rows={[
@@ -85,6 +90,53 @@ function Security({ info }: { info: SystemInfo }) {
         />
       </Card>
     </div>
+  );
+}
+
+interface Bridge {
+  target: string;
+  public_key: string;
+  connected: boolean;
+  error: string | null;
+  hostname?: string;
+  host_key_pinned: boolean;
+}
+
+function BridgeCard() {
+  const [b, setB] = useState<Bridge | null>(null);
+  const open = useWindows((s) => s.open);
+  useEffect(() => {
+    api<Bridge>("/host/bridge").then(setB, (e) => setB({ target: "", public_key: "", connected: false, error: e.message, host_key_pinned: false }));
+  }, []);
+  return (
+    <Card
+      title="Host root shell (SSH key bridge)"
+      action={b && <GlassBadge tone={b.connected ? "success" : "danger"}>{b.connected ? "CONNECTED" : "UNAVAILABLE"}</GlassBadge>}
+    >
+      <p className="mb-3 text-xs text-slate-400">
+        ProxmoxOS reaches <span className="font-mono">{b?.target || "the Proxmox host"}</span> as root with its own ed25519 key, so Host Shell, container shells, GPU drivers and network
+        services work without a second login. Anyone signed in to ProxmoxOS has full root on the host; keep 2FA on.
+      </p>
+      {b && (
+        <Rows
+          rows={[
+            ["Host", b.hostname ?? "—"],
+            ["Host key", b.host_key_pinned ? "Pinned (known_hosts)" : "Not pinned; re-run install.sh"],
+            ["Public key", <span className="font-mono text-[10px] break-all whitespace-normal select-all">{b.public_key}</span>],
+          ]}
+        />
+      )}
+      {b?.error && (
+        <div className="mt-3">
+          <Notice error={b.error} />
+        </div>
+      )}
+      <div className="mt-3">
+        <GlassButton variant="primary" onClick={() => open("terminal")} disabled={!b?.connected}>
+          <SquareTerminal size={13} /> Open Host Shell
+        </GlassButton>
+      </div>
+    </Card>
   );
 }
 
@@ -292,7 +344,39 @@ function Appearance() {
         <GlassSwitch checked={widgets} onChange={(v) => set({ widgets: v })} label="Show desktop widgets (system health, GPU, ZFS, compute)" />
         <p className="mt-2 text-[11px] text-slate-500">Appearance settings are stored in this browser.</p>
       </Card>
+      <DockCard />
     </div>
+  );
+}
+
+const MAG_LABELS: Record<Magnification, string> = { off: "Off", subtle: "Subtle", macos: "macOS", large: "Large" };
+
+function DockCard() {
+  const { pinned, autoHide, baseSize, magnification, pin, unpin, set } = useDock();
+  return (
+    <Card title="Dock">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={`Base icon size: ${baseSize}px`}>
+          <input type="range" min={36} max={64} step={1} value={baseSize} onChange={(e) => set({ baseSize: Number(e.target.value) })} className="w-full accent-sky-400" aria-label="Base icon size" />
+        </Field>
+        <Field label="Magnification strength">
+          <Segmented value={magnification} onChange={(v) => set({ magnification: v })} options={(Object.keys(MAGNIFICATION) as Magnification[]).map((id) => ({ id, label: MAG_LABELS[id] }))} />
+        </Field>
+      </div>
+      <div className="mt-4">
+        <GlassSwitch checked={autoHide} onChange={(v) => set({ autoHide: v })} label="Automatically hide and show the Dock" />
+      </div>
+      <p className="mt-4 mb-2 text-[11px] text-slate-400">Apps in the Dock (drag icons in the Dock to reorder; right-click an icon to keep or remove it). Every app stays available in Launchpad.</p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {APP_IDS.map((id) => (
+          <label key={id} className="glass-soft flex cursor-pointer items-center gap-2 rounded-xl px-2 py-1.5 text-xs text-slate-200">
+            <input type="checkbox" checked={pinned.includes(id)} onChange={(e) => (e.target.checked ? pin : unpin)(id)} />
+            <AppIcon id={id} size={22} />
+            <span className="truncate">{APPS[id].title}</span>
+          </label>
+        ))}
+      </div>
+    </Card>
   );
 }
 
@@ -403,6 +487,8 @@ export default function ControlPanelApp() {
           </div>
         ) : section === "appearance" ? (
           <Appearance />
+        ) : section === "hardware" ? (
+          <HardwarePanel />
         ) : !info ? (
           !error && <p className="text-sm text-slate-400">Loading…</p>
         ) : section === "security" ? (

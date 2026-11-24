@@ -1,16 +1,17 @@
 """Guest provisioning: ISO / template / backup volumes, URL downloads, PCIe discovery, VM and LXC creation.
 
-Guests created here are tagged "proxmox-os-guest". Raw PCIe passthrough and host bind mounts need root on the PVE
-host (the API token cannot set them), so they are applied by the host helper, which only touches tagged guests.
+Guests created here are tagged "proxmox-os-guest". Raw PCI/USB passthrough needs root@pam (the API token cannot set
+it), so it is applied with `qm set` over the root SSH bridge; host bind mounts still go through the host helper.
 """
 import re
+import shlex
 from typing import Literal
 from urllib.parse import quote, urlparse
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
-from . import host
+from . import host, host_ssh, pci
 from .apps import StaticIP
 from .auth import require_user
 from .pve import DATASET_RE, _node, pve
@@ -27,7 +28,8 @@ ISO_RE = r"^[a-z][a-z0-9_.-]*:iso/[^,\s]+$"
 TMPL_RE = r"^[a-z][a-z0-9_.-]*:vztmpl/[^,\s]+$"
 PCI_RE = r"^([0-9a-f]{4}:)?[0-9a-f]{2}:[0-9a-f]{2}(\.[0-7])?$"
 BRIDGE_RE = r"^[A-Za-z][A-Za-z0-9_.-]{0,14}$"
-FILENAME_RE = r"^[A-Za-z0-9][A-Za-z0-9_.+-]{0,200}\.(iso|img|tar\.(gz|xz|zst))$"
+USB_HOST_RE = r"^([0-9a-f]{4}:[0-9a-f]{4}|\d+-[\d.]+)$"
+FILENAME_RE =r"^[A-Za-z0-9][A-Za-z0-9_.+-]{0,200}\.(iso|img|tar\.(gz|xz|zst))$"
 
 
 def volume(v: dict, storage: str) -> dict:
@@ -82,15 +84,75 @@ async def delete_content(storage: str = Path(pattern=STORAGE_RE), volume: str = 
     return {"upid": await pve("DELETE", _node(f"/storage/{storage}/content/{quote(volume, safe='')}"))}
 
 
+def pci_category(cls: str) -> str:
+    """PCI class code ("0x030000" from PVE or "0300" from lspci) → passthrough category."""
+    c = cls.removeprefix("0x")
+    return ("gpu" if c.startswith("03") else "audio" if c.startswith(("0401", "0403")) else "nvme" if c.startswith("0108")
+            else "usb-controller" if c.startswith("0c03") else "network" if c.startswith("02") else "other")
+
+
 @router.get("/hardware/pci")
 async def pci_devices():
     items = await pve("GET", _node("/hardware/pci")) or []
-    return [{"id": d.get("id", ""), "iommugroup": d.get("iommugroup", -1), "vendor": d.get("vendor", ""),
-             "device": d.get("device", ""), "vendor_name": d.get("vendor_name", ""),
-             "device_name": d.get("device_name", ""), "class": d.get("class", ""),
-             # PCI class 0x03xxxx = display controller.
-             "gpu": str(d.get("class", "")).startswith("0x03"), "mdev": bool(d.get("mdev"))}
-            for d in sorted(items, key=lambda d: d.get("id", ""))]
+    try:
+        probed = {d["slot"]: d for d in (await pci.probe())["devices"]}
+    except HTTPException:
+        probed = {}  # SSH bridge unavailable: PVE's list without driver / warning details
+    out = []
+    for d in sorted(items, key=lambda d: d.get("id", "")):
+        p = probed.get(d.get("id", ""), {})
+        out.append({"id": d.get("id", ""), "iommugroup": d.get("iommugroup", -1), "vendor": d.get("vendor", ""),
+                    "device": d.get("device", ""), "vendor_name": d.get("vendor_name", ""),
+                    "device_name": d.get("device_name", ""), "class": d.get("class", ""),
+                    # PCI class 0x03xxxx = display controller.
+                    "gpu": str(d.get("class", "")).startswith("0x03"), "mdev": bool(d.get("mdev")),
+                    "category": pci_category(str(d.get("class", ""))), "driver": p.get("driver"),
+                    "iommu_shared_with": p.get("iommu_shared_with", []), "warnings": p.get("warnings", []),
+                    "audio_function": p.get("audio_function")})
+    return out
+
+
+@router.get("/hardware/gpus")
+async def gpus():
+    return [pci.gpu_view(d) for d in (await pci.probe())["devices"] if d["gpu"]]
+
+
+@router.get("/hardware/usb")
+async def usb_devices():
+    items = await pve("GET", _node("/hardware/usb")) or []
+    devices = [{"host": f"{d['vendid']}:{d['prodid']}", "port": f"{d['busnum']}-{d['usbpath']}" if d.get("usbpath") else None,
+                "product": (d.get("product") or "").strip(), "manufacturer": (d.get("manufacturer") or "").strip(),
+                "speed": d.get("speed", ""), "usb3": float(d.get("speed") or 0) >= 5000}
+               for d in items if d.get("class") != 9 and d.get("vendid")]  # class 9 = hubs / root controllers
+    return {"devices": devices, "ports": sorted({d["port"] for d in devices if d["port"]})}
+
+
+class PciPassthrough(BaseModel):
+    id: str = Field(pattern=PCI_RE)
+    pcie: bool = True
+    rombar: bool = True
+    x_vga: bool = False
+    include_audio: bool = True  # pass the whole slot (01:00 = GPU + HDMI audio function)
+
+
+class UsbPassthrough(BaseModel):
+    host: str = Field(pattern=USB_HOST_RE)
+    usb3: bool = False
+
+
+def hostpci_value(p: PciPassthrough) -> str:
+    dev = p.id.rsplit(".", 1)[0] if p.include_audio else p.id
+    return ",".join([dev, *(["pcie=1"] if p.pcie else []), f"rombar={int(p.rombar)}", *(["x-vga=1"] if p.x_vga else [])])
+
+
+def usb_value(u: UsbPassthrough) -> str:
+    return f"host={u.host}" + (",usb3=1" if u.usb3 else "")
+
+
+async def qm_set(vmid: int, opts: dict[str, str]) -> None:
+    """Root-only VM options (hostpciN, usbN, -delete) via `qm set` over the SSH bridge."""
+    args = [x for k, v in opts.items() for x in (f"-{k}", v)]
+    await host_ssh.run(shlex.join(["qm", "set", str(int(vmid)), *args]))
 
 
 @router.get("/nextid")
@@ -112,14 +174,8 @@ class QemuBody(BaseModel):
     bridge: str = Field("vmbr0", pattern=BRIDGE_RE)
     ostype: Literal["l26", "win11", "win10", "win8", "win7", "w2k8", "solaris", "other"] = "l26"
     start_on_boot: bool = False
-    hostpci: list[str] = Field([], max_length=8)
-
-    @model_validator(mode="after")
-    def _pci(self):
-        bad = [p for p in self.hostpci if not re.fullmatch(PCI_RE, p)]
-        if bad:
-            raise ValueError(f"Invalid PCI device id: {bad[0]}")
-        return self
+    hostpci: list[PciPassthrough] = Field([], max_length=8)
+    usb: list[UsbPassthrough] = Field([], max_length=5)
 
 
 def qemu_params(b: QemuBody) -> dict:
@@ -142,9 +198,10 @@ def qemu_params(b: QemuBody) -> dict:
 @router.post("/guests/qemu")
 async def create_qemu(body: QemuBody):
     upid = await pve("POST", _node("/qemu"), data=qemu_params(body))
-    if body.hostpci:
+    if body.hostpci or body.usb:
         await wait_task(upid, 600)
-        await host.run(["guest-hostpci", str(body.vmid), *body.hostpci])
+        await qm_set(body.vmid, {**{f"hostpci{i}": hostpci_value(p) for i, p in enumerate(body.hostpci)},
+                                 **{f"usb{i}": usb_value(u) for i, u in enumerate(body.usb)}})
     return {"vmid": body.vmid, "upid": upid}
 
 

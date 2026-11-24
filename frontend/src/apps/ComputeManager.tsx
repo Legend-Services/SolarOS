@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Container, Monitor, MonitorPlay, Play, Plus, Power, RotateCw, Search, SlidersHorizontal, Square, SquareTerminal } from "lucide-react";
 import { api } from "../lib/api";
-import type { Guest, GuestConfig } from "../lib/types";
+import type { Guest } from "../lib/types";
 import { bytes, pct, uptime } from "../lib/format";
-import { usePoll, useRunner } from "../lib/hooks";
-import { Field, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
+import { usePoll } from "../lib/hooks";
+import { GlassButton, Segmented } from "../components/ui/GlassKit";
 import { useIntent, useWindows } from "../lib/stores";
 import GuestWizard, { type GuestKind } from "./GuestWizard";
 import IsoLibrary from "./IsoLibrary";
+import GuestDrawer from "./GuestDrawer";
 import { Bar } from "../components/charts";
 
 type Filter = "all" | "qemu" | "lxc";
@@ -18,102 +19,6 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "qemu", label: "VMs" },
   { id: "lxc", label: "Containers" },
 ];
-
-function EditGuestModal({ guest, onClose, onSaved }: { guest: Guest | null; onClose: () => void; onSaved: () => void }) {
-  const [cfg, setCfg] = useState<GuestConfig | null>(null);
-  const [f, setF] = useState({ cores: 1, memory: 512, swap: 0, onboot: false, description: "", tags: "" });
-  const [disk, setDisk] = useState("");
-  const [grow, setGrow] = useState(0);
-  const { busy, error, notice, run, setError } = useRunner();
-
-  useEffect(() => {
-    setCfg(null);
-    setGrow(0);
-    setError("");
-    if (!guest) return;
-    api<GuestConfig>(`/pve/guests/${guest.type}/${guest.vmid}/config`).then((c) => {
-      setCfg(c);
-      setF({ cores: c.cores, memory: c.memory, swap: c.swap ?? 0, onboot: c.onboot, description: c.description, tags: c.tags });
-      setDisk(c.disks.find((d) => d.resizable)?.key ?? "");
-    }, (e) => setError(e.message));
-  }, [guest, setError]);
-
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!guest || !cfg) return;
-    // Only send what changed, so untouched settings never become pending changes.
-    const json: Record<string, unknown> = {};
-    (["cores", "memory", "onboot", "description", "tags"] as const).forEach((k) => f[k] !== cfg[k] && (json[k] = f[k]));
-    if (guest.type === "lxc" && f.swap !== (cfg.swap ?? 0)) json.swap = f.swap;
-    if (grow > 0 && disk) Object.assign(json, { resize_disk: disk, resize_to: `+${grow}G` });
-    if (!Object.keys(json).length) return onClose();
-    if (await run(() => api(`/pve/guests/${guest.type}/${guest.vmid}/config`, { method: "PATCH", json }))) {
-      onSaved();
-      onClose();
-    }
-  };
-
-  const resizable = cfg?.disks.filter((d) => d.resizable) ?? [];
-  return (
-    <GlassModal open={!!guest} onClose={onClose} title={guest ? `Edit hardware — ${guest.name} (${guest.vmid})` : ""}>
-      {!cfg ? (
-        error ? <Notice error={error} /> : <p className="text-sm text-slate-400">Loading configuration…</p>
-      ) : (
-        <form onSubmit={submit} className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label={guest?.type === "qemu" ? `CPU cores (× ${cfg.sockets} socket${cfg.sockets > 1 ? "s" : ""})` : "CPU cores"}>
-              <GlassInput type="number" min={1} max={512} className="w-full" value={f.cores} onChange={(e) => setF({ ...f, cores: Number(e.target.value) })} required />
-            </Field>
-            <Field label="Memory (MB)" hint={bytes(f.memory * 1024 * 1024)}>
-              <GlassInput type="number" min={16} step={256} className="w-full" value={f.memory} onChange={(e) => setF({ ...f, memory: Number(e.target.value) })} required />
-            </Field>
-            {guest?.type === "lxc" && (
-              <Field label="Swap (MB)">
-                <GlassInput type="number" min={0} step={256} className="w-full" value={f.swap} onChange={(e) => setF({ ...f, swap: Number(e.target.value) })} />
-              </Field>
-            )}
-            <Field label="Tags" hint="Separated by ; or ,">
-              <GlassInput className="w-full" value={f.tags} pattern="[A-Za-z0-9_.;, \-]*" onChange={(e) => setF({ ...f, tags: e.target.value })} />
-            </Field>
-          </div>
-          <Field label="Description / notes">
-            <textarea className="glass-field h-16 w-full resize-none" value={f.description} maxLength={8000} onChange={(e) => setF({ ...f, description: e.target.value })} />
-          </Field>
-          <GlassSwitch checked={f.onboot} onChange={(v) => setF({ ...f, onboot: v })} label="Start at boot" />
-          <div className="glass-soft rounded-xl p-3">
-            <p className="mb-2 text-[11px] text-slate-400">Expand disk (disks can only grow)</p>
-            {resizable.length === 0 ? (
-              <p className="text-[11px] text-slate-500">No resizable disks.</p>
-            ) : (
-              <div className="flex flex-wrap items-end gap-2">
-                <Field label="Disk">
-                  <GlassSelect value={disk} onChange={(e) => setDisk(e.target.value)}>
-                    {resizable.map((d) => (
-                      <option key={d.key} value={d.key}>
-                        {d.key} · {d.size} · {d.volume}
-                      </option>
-                    ))}
-                  </GlassSelect>
-                </Field>
-                <Field label="Add (GB)">
-                  <GlassInput type="number" min={0} max={65536} className="w-24" value={grow} onChange={(e) => setGrow(Math.max(0, Number(e.target.value)))} />
-                </Field>
-              </div>
-            )}
-          </div>
-          {guest?.status === "running" && <p className="text-[11px] text-amber-300/90">Some changes (e.g. VM memory or cores without hotplug) take effect after the next guest restart.</p>}
-          <Notice error={error} notice={notice} />
-          <div className="flex justify-end gap-2">
-            <GlassButton onClick={onClose}>Cancel</GlassButton>
-            <GlassButton type="submit" variant="primary" disabled={busy}>
-              Save changes
-            </GlassButton>
-          </div>
-        </form>
-      )}
-    </GlassModal>
-  );
-}
 
 export default function ComputeManager() {
   const [guests, setGuests] = useState<Guest[] | null>(null);
@@ -250,7 +155,9 @@ export default function ComputeManager() {
                     <div className="flex items-center gap-2">
                       {g.type === "qemu" ? <Monitor size={15} className="text-sky-300" /> : <Container size={15} className="text-violet-300" />}
                       <div>
-                        <div className="font-medium text-slate-100">{g.name}</div>
+                        <button className="font-medium text-slate-100 hover:text-sky-200 hover:underline" onClick={() => setEditing(g)} title="Open guest details">
+                          {g.name}
+                        </button>
                         <div className="text-[11px] text-slate-500">
                           {g.vmid} · {g.type === "qemu" ? "VM" : "LXC"}
                         </div>
@@ -289,7 +196,7 @@ export default function ComputeManager() {
                       >
                         <SquareTerminal size={12} /> Shell
                       </button>
-                      <button className="btn" onClick={() => setEditing(g)} title="Edit hardware / resources">
+                      <button className="btn" onClick={() => setEditing(g)} title="Hardware, network, cloud-init, snapshots and options">
                         <SlidersHorizontal size={12} /> Edit
                       </button>
                       <button className="btn" disabled={b || running} onClick={() => run(g, "start")} title="Start">
@@ -314,7 +221,7 @@ export default function ComputeManager() {
       </div>
         </>
       )}
-      <EditGuestModal guest={editing} onClose={() => setEditing(null)} onSaved={load} />
+      <GuestDrawer guest={editing} onClose={() => setEditing(null)} onSaved={load} />
       <GuestWizard kind={wizard} open={!!wizard} onClose={() => setWizard(null)} onCreated={load} />
     </div>
   );

@@ -213,7 +213,7 @@ msg "Deploying application to ${APP_DIR}"
 if [[ -n "$SRC_DIR" ]]; then
   TARBALL="$(mktemp --suffix=.tar.gz)"
   tar -C "$SRC_DIR" --exclude=node_modules --exclude=dist --exclude=.venv --exclude=.git \
-    --exclude=backend/.env --exclude=__pycache__ --exclude=.claude --exclude=backend/data/schedules.json --exclude=backend/data/security.json \
+    --exclude=backend/.env --exclude=__pycache__ --exclude=.claude --exclude=backend/data/schedules.json --exclude=backend/data/security.json --exclude=backend/.ssh \
     -czf "$TARBALL" .
   pct push "$CTID" "$TARBALL" /tmp/proxmox-os.tar.gz
   rm -f "$TARBALL"
@@ -252,6 +252,33 @@ if pct exec "$CTID" -- ssh -i /root/.ssh/proxmox-os-helper -o BatchMode=yes -o S
   ok "Host helper reachable from the container"
 else
   warn "Host helper check failed (no ZFS, or root SSH login disabled); ZFS snapshots and App Center host options may not work"
+fi
+
+# ---------------------------------------------------------------- Root SSH bridge (passwordless Host Shell)
+# Host Shell, instant `pct enter` container shells, GPU drivers and network services run as root on this host over
+# SSH with the backend's own key. Unlike the helper key above it is unrestricted: anyone signed in to ProxmoxOS is root.
+msg "Authorizing the ProxmoxOS root SSH bridge"
+BRIDGE_DIR="${APP_DIR}/backend/.ssh"
+ct "mkdir -p ${BRIDGE_DIR} && chmod 700 ${BRIDGE_DIR}
+[ -f ${BRIDGE_DIR}/id_ed25519 ] || ssh-keygen -q -t ed25519 -N '' -C proxmox-os-root -f ${BRIDGE_DIR}/id_ed25519"
+PUB_FILE="$(mktemp)"
+pct pull "$CTID" "${BRIDGE_DIR}/id_ed25519.pub" "$PUB_FILE"
+AUTH_TMP="$(mktemp)"
+{ grep -v ' proxmox-os-root$' "$AUTH_KEYS" || true; awk '{print $1, $2, "proxmox-os-root"}' "$PUB_FILE"; } >"$AUTH_TMP"
+cat "$AUTH_TMP" >"$AUTH_KEYS"
+rm -f "$AUTH_TMP" "$PUB_FILE"
+# Pin this host's SSH keys so the backend refuses any other machine answering on ${HOST_IP}.
+KNOWN_TMP="$(mktemp)"
+for k in /etc/ssh/ssh_host_ed25519_key.pub /etc/ssh/ssh_host_ecdsa_key.pub /etc/ssh/ssh_host_rsa_key.pub; do
+  [[ -f "$k" ]] && echo "${HOST_IP} $(cut -d' ' -f1,2 "$k")" >>"$KNOWN_TMP"
+done
+pct push "$CTID" "$KNOWN_TMP" "${BRIDGE_DIR}/known_hosts" --perms 644
+rm -f "$KNOWN_TMP"
+if pct exec "$CTID" -- ssh -i "${BRIDGE_DIR}/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=yes \
+    -o UserKnownHostsFile="${BRIDGE_DIR}/known_hosts" -o ConnectTimeout=10 "root@${HOST_IP}" true >/dev/null 2>&1; then
+  ok "Root SSH bridge ready (Host Shell, container shells, drivers, network services)"
+else
+  warn "Root SSH bridge check failed (is PermitRootLogin disabled in /etc/ssh/sshd_config?); Host Shell will not work"
 fi
 
 msg "Configuring Samba"

@@ -39,6 +39,16 @@ A web desktop for Proxmox VE, in the style of Synology DSM, QNAP QTS and ZimaOS.
 - **Two-factor authentication** (TOTP) in Control Panel → User & Security, with a QR code for any authenticator app. When it is on, the lock screen asks for the 6-digit code.
 - **System Update** in Control Panel → System & Power: shows the version and commit, compares it with GitHub, and installs updates (git pull, `pip install`, frontend rebuild, service restart) in a detached systemd unit inside the container.
 
+**Phase 6 (v0.6.0): root shell, Dock, Datacenter, network services and GPUs**
+
+- **Host Shell** (Dock, TopBar, Control Panel) drops you into `root@pve:~#` with no second login, and container shells go straight into `pct enter`. Both run over a root SSH key bridge that `install.sh` sets up. Anyone signed in to ProxmoxOS is root on the host, so keep 2FA on.
+- **Dock** with true macOS magnification, pin/unpin, drag to reorder, auto-hide, size and magnification settings, plus **Launchpad**.
+- **Datacenter** app: users, groups, roles, ACLs, pools, API tokens, realms, firewall and logs. Storage Manager adds Directory/LVM/LVM-Thin/ZFS/NFS/CIFS storages.
+- **Compute Manager**: GPU/PCI/USB passthrough in the VM wizard and in a new guest drawer (hardware, network, cloud-init, snapshots, options).
+- **Network & Services** app: DNS server + AdBlocker, DHCP, WireGuard server/client with QR codes, router/NAT with port forwarding, Let's Encrypt and custom certificates.
+- **Help & Support** app: ask questions in plain words, run a health check with one-click **Fix it for me** wizards (each ends with do-it-yourself steps), 24 tutorials that link straight to the right settings, an FAQ, and BIOS instructions for your exact motherboard. The BIOS instructions come with QR codes that carry the text itself, so you can read them on your phone while the server is offline.
+- **Control Panel → Hardware & System**: full hardware inventory and one-click NVIDIA/Intel/AMD driver installs or VFIO passthrough mode. GPU passthrough needs IOMMU (VT-d) enabled in the BIOS and kernel.
+
 ## Deploy from a checkout (`deploy.sh`)
 
 ```bash
