@@ -36,6 +36,8 @@ if NATIVE:
     # The standalone driver's routes shadow the Proxmox ones (first match wins), so they are mounted first.
     from providers.native_ubuntu import routes as native_routes
     app.include_router(native_routes.router)
+    from providers.native_ubuntu import guest_edit as native_guest_edit
+    app.include_router(native_guest_edit.router)
     app.include_router(native_routes.ws_router)
 app.include_router(pve.router)
 app.include_router(files.router)

@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.2.2 - SolarOS: VM Creation Fix and VM / Container Editing — 2026-11-25
+
+### Fixed
+- **Creating a VM on SolarOS failed** with `virsh define failed: Failed to open file '/dev/stdin'`: virsh cannot open the socket that asyncio uses as stdin. The domain XML now goes through a private temp file (create, CPU resize and restore).
+- A failed VM create now removes the disk it made, so a retry with the same VMID no longer stops at "already exists".
+- **Creating a container on SolarOS failed** with "The device already exists". A successful `incus config device set` prints nothing, and that empty output was read as a failure (also when resizing a container disk).
+- Container templates `alpine/3.20` and `fedora/41` are gone from the image server; they are now `alpine/3.22` and `fedora/43`.
+- The VM wizard, App Center and VM drawer no longer say "Proxmox" for tasks that run on SolarOS's own hypervisor.
+
+### Added
+- **VM and container editing on SolarOS**. The Network, Hardware & Passthrough, Cloud-Init and Options tabs answered "This feature needs a Proxmox VE host"; they now run on libvirt and Incus (`backend/providers/native_ubuntu/guest_edit.py`).
+  - VM network cards: bridge, model, MAC and rate limit. Changes are saved to the VM definition and apply at its next start.
+  - Container network cards: bridge, VLAN (on bridges with VLAN filtering) and rate limit. If a change is rejected, the previous NIC is put back.
+  - VM PCI/GPU passthrough (with the HDMI audio function) and USB passthrough by vendor:product.
+  - Cloud-Init for VMs: user, password (stored only as a SHA-512 hash), SSH keys, DNS, IP per NIC and package upgrade, written to a NoCloud seed drive. "Regenerate" makes the guest apply it again.
+  - Options for VMs: name (VM shut off), start at boot, guest agent, tablet, OS type. Options for containers: hostname (stopped), start at boot, protection, nesting. Anything else gets a clear "Not adjustable on SolarOS" message.
+  - VLAN tags on VMs are refused with a hint to use a VLAN bridge, because libvirt cannot tag on a Linux bridge.
+
 ## v2.2.1 - SolarOS Name, Product Logos & ISO Live-Test Fixes — 2026-11-24
 
 ### Changed

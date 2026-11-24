@@ -41,8 +41,10 @@ LOCAL = "local"  # directory storage below STORAGE_ROOT: isos/, templates/, back
 IMAGES_STORE = "images"  # Incus image server (container templates)
 CONTENT_DIRS = {"iso": "isos", "vztmpl": "templates", "backup": "backups"}
 # Container templates offered by the "images" storage (Incus image server aliases).
-INCUS_IMAGES = ("debian/12", "debian/13", "ubuntu/24.04", "ubuntu/22.04", "alpine/3.20", "rockylinux/9",
-                "almalinux/9", "fedora/41", "archlinux")
+# shortcut: fixed list (checked against images: on 2026-11-24); the image server drops old releases, so re-check it
+# when a template fails with "image couldn't be found".
+INCUS_IMAGES = ("debian/12", "debian/13", "ubuntu/24.04", "ubuntu/22.04", "alpine/3.22", "rockylinux/9",
+                "almalinux/9", "fedora/43", "archlinux")
 ARCHIVE_RE = re.compile(r"^solardeck-(qemu|lxc)-(\d+)-(\d{4}_\d\d_\d\d-\d\d_\d\d_\d\d)\.tar\.(zst|gz)$")
 SCHEDULES_FILE = host.DATA / "native_backup_jobs.json"
 POWER = {"qemu": {"start": ["virsh", "start"], "shutdown": ["virsh", "shutdown"], "stop": ["virsh", "destroy"],
@@ -333,7 +335,8 @@ class NativeUbuntuProvider(HypervisorProvider):
             want = cur + host.size_bytes(body.resize_to) if body.resize_to.startswith("+") else host.size_bytes(body.resize_to)
             size = f"{want // 2**20}MiB"
             # A root disk inherited from a profile must be overridden; a local one is set.
-            if not await ok("incus", "config", "device", "set", name, "root", f"size={size}"):
+            # ok() returns the (empty) output on success, so only None means the set failed.
+            if await ok("incus", "config", "device", "set", name, "root", f"size={size}") is None:
                 await run("incus", "config", "device", "override", name, "root", f"size={size}")
         return {"ok": True, "task": None}
 
@@ -502,7 +505,7 @@ class NativeUbuntuProvider(HypervisorProvider):
         host.register(vmid, "lxc", name, tags)
         await run("incus", "config", "device", "add", name, "eth0", "nic", "nictype=bridged", f"parent={bridge}",
                   "name=eth0")
-        if not await ok("incus", "config", "device", "set", name, "root", f"size={disk_gb}GiB"):
+        if await ok("incus", "config", "device", "set", name, "root", f"size={disk_gb}GiB") is None:
             await run("incus", "config", "device", "override", name, "root", f"size={disk_gb}GiB")
         if description:
             await run("incus", "query", "-X", "PATCH", f"/1.0/instances/{name}", "--data",
