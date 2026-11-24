@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.6.6 - Window Buttons That Match Your Device — 2026-11-24
+
+### Added
+- **Window buttons follow the device you sign in from.** On devices whose browser reports a Mac, iPhone or iPad platform, windows get red/yellow/green circles on the left (close, minimize, maximize; the symbols appear on hover) with a centered title. On all other devices they get flat, full-height minimize / maximize / close buttons on the right, with a red close button on hover.
+- **Window buttons** setting in Control Panel → Appearance & Layout (and View Options): *Automatic* (default), *Circles left* or *Buttons right*. It is saved with the other layout preferences.
+
 ## v1.6.5 - Single-Click Desktop Icons — 2026-11-24
 
 ### Changed
