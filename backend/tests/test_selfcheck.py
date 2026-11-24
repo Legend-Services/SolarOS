@@ -84,7 +84,7 @@ FAKE2 = {
     "/tasks": [{"upid": "UPID:pve:1:2:3:vzcreate:105:root@pam:", "type": "vzcreate", "id": "105", "starttime": 5},
                {"upid": "UPID:pve:1:2:3:qmstart:101:root@pam:", "status": "OK", "endtime": 9},
                {"upid": "UPID:pve:1:2:3:qmstop:101:root@pam:", "status": "command failed", "endtime": 9}],
-    "/lxc": [{"vmid": 110, "name": "jf", "status": "running", "tags": "proxmox-os-app;pos-jellyfin"},
+    "/lxc": [{"vmid": 110, "name": "jf", "status": "running", "tags": f"{apps.TAG};pos-jellyfin"},
              {"vmid": 111, "name": "other", "tags": "pos-jellyfin"}],
 }
 calls = []
@@ -112,7 +112,7 @@ body = apps.DeployBody(app_id="jellyfin", hostname="jf", cores=2, memory=2048, d
                        mount_storage=True, enable_igpu=True)
 cp_ = apps.create_params(120, apps.BY_ID["jellyfin"], body, "local:vztmpl/debian-12-standard_12.7-1.tar.zst", "tank")
 assert cp_["net0"] == "name=eth0,bridge=vmbr0,ip=192.168.1.50/24,gw=192.168.1.1" and cp_["unprivileged"] == 1, cp_
-assert cp_["tags"] == "proxmox-os-app;pos-jellyfin" and cp_["rootfs"] == "tank:16", cp_
+assert cp_["tags"] == f"{apps.TAG};pos-jellyfin" and cp_["rootfs"] == "tank:16", cp_
 assert apps.configure_opts(apps.BY_ID["jellyfin"], body) == ["storage", "igpu"]
 assert apps.configure_opts(apps.BY_ID["adguard-home"], body) == []  # unsupported options are dropped
 assert sorted(["a_12.10-1", "a_12.7-1"], key=apps._natural)[-1] == "a_12.10-1"
@@ -296,8 +296,8 @@ assert fl["repositories"] == [{"path": "/etc/apt/sources.list.d/pve-enterprise.s
                                "types": ["deb"], "uris": ["https://enterprise.proxmox.com/debian/pve"],
                                "suites": ["trixie"], "components": ["pve-enterprise"], "handle": "enterprise"}], fl
 assert fl["available"] == [{"handle": "no-subscription", "name": "No-Subscription", "description": "free"}], fl
-st = system.parse_upgrade_status("state:inactive\nReading package lists...\nproxmox-os: exit 0")
-assert st == {"running": False, "exit_code": 0, "log": ["Reading package lists...", "proxmox-os: exit 0"]}, st
+st = system.parse_upgrade_status("state:inactive\nReading package lists...\nsolardeck: exit 0")
+assert st == {"running": False, "exit_code": 0, "log": ["Reading package lists...", "solardeck: exit 0"]}, st
 assert system.parse_upgrade_status("state:active\nUnpacking x")["running"] is True
 
 sys_calls = []
@@ -557,7 +557,7 @@ assert c.get("/api/v1/nextid").json() == {"vmid": 105}
 vm = {"vmid": 105, "name": "win", "storage": "local-zfs", "bios": "ovmf", "ostype": "win11", "iso_volume": "local:iso/w.iso"}
 qp = provisioning.qemu_params(provisioning.QemuBody(**vm))
 assert qp["efidisk0"].startswith("local-zfs:1,") and qp["tpmstate0"] and qp["machine"] == "q35", qp
-assert qp["ide2"] == "local:iso/w.iso,media=cdrom" and qp["tags"] == "proxmox-os-guest", qp
+assert qp["ide2"] == "local:iso/w.iso,media=cdrom" and qp["tags"] == provisioning.GUEST_TAG, qp
 assert "efidisk0" not in provisioning.qemu_params(provisioning.QemuBody(**{**vm, "bios": "seabios", "ostype": "l26"}))
 assert c.post("/api/v1/guests/qemu", json={**vm, "iso_volume": "local:iso/a.iso,file=/etc"}).status_code == 422
 assert c.post("/api/v1/guests/qemu", json={**vm, "hostpci": [{"id": "01:00.0;rm"}]}).status_code == 422

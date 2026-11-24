@@ -1,0 +1,3 @@
+# Defaults for SolarDeck for Proxmox VE installs only (merge-env.sh adds them when HYPERVISOR_DRIVER=proxmox).
+# Existing containers keep their host-side names: helper, units, logs, Samba file and guest tags.
+SYSTEM_PREFIX=proxmox-os

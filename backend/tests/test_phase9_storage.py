@@ -127,7 +127,7 @@ nrun = s.parse_selftest({"nvme_self_test_log": {"current_self_test_operation": {
 assert nrun["running"] and nrun["progress_pct"] == 50 and nrun["eta_seconds"] == 60 and nrun["history"][0]["passed"]
 bb = s.parse_badblocks("active", "Checking for bad blocks (read-only test): \n  1.00% done, 0:10 elapsed. (0/0/0 errors)\n 25.00% done, 1:00 elapsed. (1/0/0 errors)\n", "1\n")
 assert bb["running"] and bb["progress_pct"] == 25.0 and bb["eta_seconds"] == 180 and bb["errors"] == 1 and bb["bad_blocks"] == 1, bb
-done = s.parse_badblocks("inactive", "Pass completed, 0 bad blocks found. (0/0/0 errors)\nproxmox-os: exit 0\n", "")
+done = s.parse_badblocks("inactive", "Pass completed, 0 bad blocks found. (0/0/0 errors)\nsolardeck: exit 0\n", "")
 assert not done["running"] and done["exit_code"] == 0 and done["bad_blocks"] == 0
 assert s._scan_job("/dev/nvme0n1") == "scan-nvme0n1" and s._scan_job("/dev/disk/by-id/ata-X_Y.1")[:5] == "scan-"
 

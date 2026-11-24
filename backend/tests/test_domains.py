@@ -75,7 +75,7 @@ ss = d.cert_info(make_cert("SolarDeck self-signed", "SolarDeck self-signed", Non
 assert ss["self_signed"] and not ss["lets_encrypt"] and ss["expires"] > le["expires"], ss
 
 # Integration: changing host names re-renders dnsmasq with them (host SSH faked).
-files: dict[str, str] = {"/etc/proxmox-os/net/dns.json": '{"enabled": true, "interfaces": ["vmbr0"]}'}
+files: dict[str, str] = {f"{ns.STATE_DIR}/dns.json": '{"enabled": true, "interfaces": ["vmbr0"]}'}
 
 
 async def fake_read(path, default=""):

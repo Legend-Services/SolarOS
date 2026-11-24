@@ -757,7 +757,7 @@ function RouterTab({ status, reload }: { status: NetStatus; reload: () => void }
           method: "PUT",
           json: { ipv4_forward: r.ipv4_forward, ipv6_forward: r.ipv6_forward, wan: r.wan, lan: r.lan, masquerade: r.masquerade, forwards: r.forwards, routes: r.routes },
         }).then(() => (load(), reload())),
-      "Router configuration applied and persisted (proxmox-os-router.service).",
+      "Router configuration applied and persisted (router service).",
     );
   return (
     <div className="space-y-4">
@@ -776,7 +776,7 @@ function RouterTab({ status, reload }: { status: NetStatus; reload: () => void }
               <IfaceSelect value={r.lan} onChange={(v) => setR({ ...r, lan: v })} ifaces={status.interfaces} allowEmpty="Any" />
             </Field>
           </div>
-          <p className="text-[11px] text-slate-500">Rules live in their own nftables table (ip proxmox_os); the Proxmox firewall is not touched.</p>
+          <p className="text-[11px] text-slate-500">Rules live in their own nftables table; other firewall rules on the host are not touched.</p>
         </div>
       </Card>
       <Card title="Port forwarding (DNAT)">

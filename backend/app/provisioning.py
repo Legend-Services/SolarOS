@@ -1,6 +1,6 @@
 """Guest provisioning: ISO / template / backup volumes, URL downloads, PCIe discovery, VM and LXC creation.
 
-Guests created here are tagged "proxmox-os-guest". Raw PCI/USB passthrough needs root@pam (the API token cannot set
+Guests created here are tagged "<prefix>-guest". Raw PCI/USB passthrough needs root@pam (the API token cannot set
 it), so it is applied with `qm set` over the root SSH bridge; host bind mounts still go through the host helper.
 """
 import re
@@ -21,7 +21,7 @@ from .tasks import wait_task
 
 router = APIRouter(prefix="/api/v1", tags=["provisioning"], dependencies=[Depends(require_user)])
 
-GUEST_TAG = "proxmox-os-guest"
+GUEST_TAG = settings.name("guest")
 CONTENT = ("iso", "vztmpl", "backup")
 # No commas or whitespace: a volid is embedded in PVE property strings ("<volid>,media=cdrom").
 VOLID_RE = r"^[a-z][a-z0-9_.-]*:(iso|vztmpl|backup)/[^,\s]+$"

@@ -118,7 +118,7 @@ sh = ns.render_router_script(rt)
 assert 'iifname "vmbr0" tcp dport 8080 dnat to 10.0.0.5:80' in sh
 assert 'iifname "vmbr0" meta l4proto { tcp, udp } th dport 27015-27020 dnat to 10.0.0.6\n' in sh
 assert 'iifname "vmbr1" oifname "vmbr0" masquerade' in sh and "ip route replace 172.16.0.0/16 via 10.0.0.254" in sh
-assert "nft delete table ip proxmox_os" in sh and "flush ruleset" not in sh
+assert f"nft delete table ip {ns.NFT_TABLE}" in sh and "flush ruleset" not in sh
 for bad in ({"masquerade": True, "wan": ""}, {"forwards": [{"proto": "tcp", "ext_port": "70000", "int_ip": "10.0.0.5"}]},
             {"forwards": [{"proto": "tcp", "ext_port": "10-5", "int_ip": "10.0.0.5"}]},
             {"routes": [{"dest": "10.1.0.0/16"}]}, {"wan": "eth0;reboot"}):

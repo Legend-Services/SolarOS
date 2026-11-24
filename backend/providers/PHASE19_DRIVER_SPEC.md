@@ -17,7 +17,7 @@ local RBAC in `data/local_rbac.json`, the VNC bridge in-process instead of a sep
 - **Stubs raise `NotImplementedError`.** The API turns that into HTTP 501 (`app/main.py`), so the desktop shows a clear
   "planned" error instead of a crash. Replace stubs one at a time; each new method overrides the generated stub.
 - **Host access.** The backend runs on the host itself. Root-only commands go through an allowlisted helper, the same
-  pattern as `deploy/proxmox-os-helper.sh`. Never use a shell string built from user input. Validate with the request
+  pattern as `deploy/solardeck-helper.sh`. Never use a shell string built from user input. Validate with the request
   models the Proxmox driver already uses (`app/*` `*Body` classes).
 - **Job handles.** Long operations return `TaskInfo(task=<job id>)`. Phase 19 adds a small job registry (systemd
   transient units or asyncio tasks with a log file) behind `list_tasks` / `get_task_status` / `get_task_log`.

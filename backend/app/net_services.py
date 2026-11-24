@@ -1,6 +1,6 @@
 """Network & Services: DNS + AdBlock, DHCP, WireGuard server/client, router/NAT and certificates.
 
-Everything runs ON THE PVE HOST through the root SSH bridge. Service state lives as JSON under /etc/proxmox-os/net/ on
+Everything runs ON THE PVE HOST through the root SSH bridge. Service state lives as JSON under /etc/<prefix>/net/ on
 the host (survives container redeploys); config files are rendered from it by the pure render_* functions below.
 """
 import asyncio
@@ -32,11 +32,14 @@ from .pve import _node, _safe, pve
 
 router = APIRouter(prefix="/api/net", tags=["net_services"], dependencies=[Depends(require_user)])
 
-STATE_DIR = "/etc/proxmox-os/net"
-DNS_CONF = "/etc/dnsmasq.d/proxmox-os-dns.conf"
-DHCP_CONF = "/etc/dnsmasq.d/proxmox-os-dhcp.conf"
-ADBLOCK_CONF = "/etc/dnsmasq.d/proxmox-os-adblock.conf"
-DNS_LOG = "/var/log/proxmox-os-dnsmasq.log"
+P = settings.system_prefix
+NFT_TABLE = P.replace("-", "_")  # nft identifiers: letters, digits, _
+STATE_DIR = f"/etc/{P}/net"
+DNS_CONF = f"/etc/dnsmasq.d/{P}-dns.conf"
+DHCP_CONF = f"/etc/dnsmasq.d/{P}-dhcp.conf"
+ADBLOCK_CONF = f"/etc/dnsmasq.d/{P}-adblock.conf"
+DNS_LOG = f"/var/log/{P}-dnsmasq.log"
+ROUTER = f"{P}-router"
 LEASES = "/var/lib/misc/dnsmasq.leases"
 WG_CONF = "/etc/wireguard/wg0.conf"
 ROUTER_SH = f"{STATE_DIR}/router.sh"
@@ -100,7 +103,7 @@ STATUS_CMD = r"""for p in dnsmasq wireguard-tools nftables; do
   dpkg-query -W -f='${Status}' $p 2>/dev/null | grep -q 'install ok installed' && echo "pkg:$p:1" || echo "pkg:$p:0"; done
 echo "svc:dnsmasq:$(systemctl is-active dnsmasq 2>/dev/null)"
 echo "svc:wg0:$(systemctl is-active wg-quick@wg0 2>/dev/null)"
-echo "svc:router:$(systemctl is-active proxmox-os-router 2>/dev/null)"
+echo "svc:router:$(systemctl is-active {ROUTER} 2>/dev/null)"
 echo "fwd:ipv4:$(sysctl -n net.ipv4.ip_forward 2>/dev/null)"
 echo "fwd:ipv6:$(sysctl -n net.ipv6.conf.all.forwarding 2>/dev/null)"
 echo "wgif:x:$(wg show interfaces 2>/dev/null)"
@@ -137,12 +140,12 @@ PACKAGE_SCRIPTS = {
 [ -f {DNS_CONF} ] || printf '{HEADER.strip()}\\nport=0\\n' > {DNS_CONF}
 apt-get update && apt-get install -y dnsmasq || exit 1
 systemctl disable --now dnsmasq
-printf '{DNS_LOG} {{\\n  daily\\n  rotate 3\\n  maxsize 50M\\n  compress\\n  missingok\\n  notifempty\\n  copytruncate\\n}}\\n' > /etc/logrotate.d/proxmox-os-dnsmasq
+printf '{DNS_LOG} {{\\n  daily\\n  rotate 3\\n  maxsize 50M\\n  compress\\n  missingok\\n  notifempty\\n  copytruncate\\n}}\\n' > /etc/logrotate.d/{P}-dnsmasq
 echo "dnsmasq installed (disabled until you enable DNS or DHCP)"
 """,
     ("dnsmasq", "uninstall"): f"""systemctl disable --now dnsmasq 2>/dev/null
 apt-get purge -y dnsmasq dnsmasq-base || exit 1
-rm -f {DNS_CONF} {DHCP_CONF} {ADBLOCK_CONF} /etc/logrotate.d/proxmox-os-dnsmasq
+rm -f {DNS_CONF} {DHCP_CONF} {ADBLOCK_CONF} /etc/logrotate.d/{P}-dnsmasq
 echo "dnsmasq removed (settings kept in {STATE_DIR})"
 """,
     ("wireguard", "install"): "apt-get update && apt-get install -y wireguard-tools || exit 1\necho 'wireguard-tools installed'\n",
@@ -718,7 +721,7 @@ def render_nft(r: dict) -> str:
     if r["masquerade"]:
         lan = f'iifname "{r["lan"]}" ' if r["lan"] else ""
         post.append(f'    {lan}oifname "{r["wan"]}" masquerade')
-    return ("table ip proxmox_os {\n"
+    return (f"table ip {NFT_TABLE} {{\n"
             "  chain prerouting {\n    type nat hook prerouting priority dstnat; policy accept;\n" +
             "".join(x + "\n" for x in pre) + "  }\n"
             "  chain postrouting {\n    type nat hook postrouting priority srcnat; policy accept;\n" +
@@ -727,7 +730,7 @@ def render_nft(r: dict) -> str:
 
 def render_router_script(r: dict) -> str:
     # Only our own table is replaced; the PVE firewall and other rulesets are never flushed.
-    return ("#!/bin/bash\n" + HEADER + "nft delete table ip proxmox_os 2>/dev/null || true\n"
+    return ("#!/bin/bash\n" + HEADER + f"nft delete table ip {NFT_TABLE} 2>/dev/null || true\n"
             f"nft -f - <<'NFT'\n{render_nft(r)}NFT\n" + "".join(route_cmd(x, "replace") + "\n" for x in r["routes"]))
 
 
@@ -739,8 +742,8 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/bash /etc/proxmox-os/net/router.sh
-ExecStop=/usr/sbin/nft delete table ip proxmox_os
+ExecStart=/bin/bash {STATE_DIR}/router.sh
+ExecStop=/usr/sbin/nft delete table ip {NFT_TABLE}
 
 [Install]
 WantedBy=multi-user.target
@@ -750,7 +753,7 @@ WantedBy=multi-user.target
 @router.get("/router")
 async def get_router():
     r, rules = await asyncio.gather(load("router", ROUTER_DEFAULT),
-                                    host_ssh.run("nft list table ip proxmox_os 2>/dev/null || true", check=False))
+                                    host_ssh.run(f"nft list table ip {NFT_TABLE} 2>/dev/null || true", check=False))
     return {**r, "ruleset": rules}
 
 
@@ -760,11 +763,11 @@ async def put_router(body: RouterBody):
     for gone in [x for x in old["routes"] if x not in new["routes"]]:
         await host_ssh.run(route_cmd(gone, "del") + " 2>/dev/null || true", check=False)
     sysctl = f"{HEADER}net.ipv4.ip_forward={int(new['ipv4_forward'])}\nnet.ipv6.conf.all.forwarding={int(new['ipv6_forward'])}\n"
-    await host_ssh.write_file("/etc/sysctl.d/99-proxmox-os-router.conf", sysctl)
+    await host_ssh.write_file(f"/etc/sysctl.d/99-{ROUTER}.conf", sysctl)
     await host_ssh.write_file(ROUTER_SH, render_router_script(new), "700")
-    await host_ssh.write_file("/etc/systemd/system/proxmox-os-router.service", ROUTER_UNIT)
-    await host_ssh.run("sysctl -q --system >/dev/null; systemctl daemon-reload && systemctl enable -q proxmox-os-router "
-                       "&& systemctl restart proxmox-os-router", timeout=60)
+    await host_ssh.write_file(f"/etc/systemd/system/{ROUTER}.service", ROUTER_UNIT)
+    await host_ssh.run(f"sysctl -q --system >/dev/null; systemctl daemon-reload && systemctl enable -q {ROUTER} "
+                       f"&& systemctl restart {ROUTER}", timeout=60)
     await save("router", new)
     return {"ok": True}
 
@@ -772,7 +775,7 @@ async def put_router(body: RouterBody):
 # ---------------------------------------------------------------- Certificates
 
 NGINX_SSL_DIR = FsPath("/etc/nginx/ssl")
-NGINX_SNIPPET = FsPath("/etc/nginx/proxmox-os-ssl.conf")
+NGINX_SNIPPET = FsPath(f"/etc/nginx/{P}-ssl.conf")
 ACME_DIRS = {"production": "https://acme-v02.api.letsencrypt.org/directory",
              "staging": "https://acme-staging-v02.api.letsencrypt.org/directory"}
 
@@ -904,7 +907,7 @@ async def _sh(*argv: str) -> tuple[int, str]:
 
 async def apply_nginx_cert(cert: str | None, key: str | None) -> None:
     """Install (or with None remove) the SolarDeck HTTPS certificate in this container; roll back if nginx -t fails."""
-    crt, kf = NGINX_SSL_DIR / "proxmox-os.crt", NGINX_SSL_DIR / "proxmox-os.key"
+    crt, kf = NGINX_SSL_DIR / f"{P}.crt", NGINX_SSL_DIR / f"{P}.key"
     backup = {p: p.read_bytes() for p in (crt, kf, NGINX_SNIPPET) if p.exists()}
     try:
         if cert is None:

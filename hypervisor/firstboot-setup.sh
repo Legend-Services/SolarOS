@@ -3,7 +3,7 @@
 #   firstboot-setup.sh [--bundle /opt/solardeck-src]
 # 1. Bridges the primary Ethernet port into br0 (DHCP) with a clean Netplan file, replacing the installer's config.
 # 2. Runs install-hypervisor.sh in bundle mode: KVM/libvirt, Incus, OpenZFS, Samba, nginx, SolarDeck in /opt/solardeck
-#    (/opt/proxmox-os -> /opt/solardeck) from the bundled wheels and desktop build, backend/.env with a generated
+#    from the bundled wheels and desktop build, backend/.env with a generated
 #    ADMIN_PASSWORD and JWT_SECRET, and the tty1 console dashboard.
 # 3. Puts the Incus default profile on br0, enables the hypervisor services and disables itself.
 # Initial login: /etc/solardeck/initial-credentials.txt (0600), also shown on tty1. Log: journalctl -u solardeck-firstboot

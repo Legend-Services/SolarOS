@@ -60,7 +60,7 @@ def _read(path: str) -> str:
 
 
 async def _journal() -> list[str]:
-    rc, out = await updater._cmd("journalctl", "-u", "proxmox-os-backend", "-n", "30", "--no-pager", "-o", "cat")
+    rc, out = await updater._cmd("journalctl", "-u", settings.name("backend"), "-n", "30", "--no-pager", "-o", "cat")
     return redact(out).splitlines() if rc == 0 else [f"(journal unavailable: {redact(out)[:200]})"]
 
 
@@ -70,7 +70,7 @@ async def diagnostics():
     cpu = re.search(r"^model name\s*:\s*(.+)$", _read("/proc/cpuinfo"), re.M)
     mem = re.search(r"^MemTotal:\s*(\d+)", _read("/proc/meminfo"), re.M)
     return {
-        "proxmox_os_version": src["version"], "proxmox_os_tag": src["tag"], "commit": (src["commit"] or "")[:12] or None,
+        "solardeck_version": src["version"], "solardeck_tag": src["tag"], "commit": (src["commit"] or "")[:12] or None,
         "pve_version": (pve_version or {}).get("version"), "kernel": platform.release(),
         "cpu": f"{cpu.group(1).strip() if cpu else platform.machine()} ({os.cpu_count()} threads)",
         "memory_gb": round(int(mem.group(1)) / 1024 ** 2, 1) if mem else None,
@@ -93,7 +93,7 @@ def format_body(r: BugReport, diag: dict | None) -> str:
     if r.steps_to_reproduce.strip():
         parts += ["", "### Steps to reproduce", r.steps_to_reproduce.strip()]
     if diag:
-        rows = [("SolarDeck", f"{diag['proxmox_os_version'] or '?'} ({diag['proxmox_os_tag'] or 'untagged'}, {diag['commit'] or '?'})"),
+        rows = [("SolarDeck", f"{diag['solardeck_version'] or '?'} ({diag['solardeck_tag'] or 'untagged'}, {diag['commit'] or '?'})"),
                 ("Proxmox VE", diag["pve_version"]), ("Kernel", diag["kernel"]), ("CPU", diag["cpu"]),
                 ("Memory", f"{diag['memory_gb']} GB" if diag["memory_gb"] else None),
                 ("Browser", redact(r.user_agent) or diag["user_agent"])]

@@ -18,7 +18,6 @@ export LANG=C.UTF-8 LC_ALL=C.UTF-8 DEBIAN_FRONTEND=noninteractive
 REPO_URL="${REPO_URL:-https://github.com/Legend-Services/SolarOS.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
 APP_DIR="/opt/solardeck"
-LEGACY_LINK="/opt/proxmox-os"  # paths shared with the Proxmox edition (nginx root, updater, helper) keep working
 STORAGE_ROOT="/mnt/storage"
 BRIDGE="br0"
 CREDS_FILE="/etc/solardeck/initial-credentials.txt"  # shown on the tty1 console until dismissed
@@ -134,7 +133,6 @@ else
   git clone -q --branch "$REPO_BRANCH" "$REPO_URL" "$APP_DIR"
   git -C "$APP_DIR" rev-parse HEAD >"${APP_DIR}/.build-commit"
 fi
-[[ -e "$LEGACY_LINK" ]] || ln -s "$APP_DIR" "$LEGACY_LINK"
 mkdir -p "${STORAGE_ROOT}"/{isos,templates,backups,ai-models}
 ok "Code in ${APP_DIR} ($(cat "${APP_DIR}/.build-commit" 2>/dev/null | cut -c1-12))"
 
@@ -168,7 +166,7 @@ bash "${APP_DIR}/deploy/merge-env.sh" "$ENV_FILE" "${APP_DIR}/deploy/env-default
 
 # ---------------------------------------------------------------- 7. Root helper + local SSH bridge
 msg "Installing the root helper and the local SSH bridge"
-install -m 755 "${APP_DIR}/deploy/proxmox-os-helper.sh" /usr/local/sbin/proxmox-os-helper
+install -m 755 "${APP_DIR}/deploy/solardeck-helper.sh" /usr/local/sbin/solardeck-helper
 KEY="${APP_DIR}/backend/.ssh/id_ed25519"
 mkdir -p "$(dirname "$KEY")" && chmod 700 "$(dirname "$KEY")"
 [[ -f "$KEY" ]] || ssh-keygen -q -t ed25519 -N '' -C solardeck-root -f "$KEY"
@@ -203,13 +201,13 @@ else
 fi
 
 # ---------------------------------------------------------------- 9. Samba, nginx, services
-touch /etc/samba/proxmox-os-shares.conf
-grep -q 'proxmox-os-shares.conf' /etc/samba/smb.conf || printf '\n# SolarDeck Network Shares\ninclude = /etc/samba/proxmox-os-shares.conf\n' >>/etc/samba/smb.conf
+touch /etc/samba/solardeck-shares.conf
+grep -q 'solardeck-shares.conf' /etc/samba/smb.conf || printf '\n# SolarDeck Network Shares\ninclude = /etc/samba/solardeck-shares.conf\n' >>/etc/samba/smb.conf
 systemctl enable -q smbd && systemctl restart smbd
 
 msg "Configuring nginx"
-install -m 644 "${APP_DIR}/deploy/nginx.conf" /etc/nginx/sites-available/proxmox-os
-ln -sf /etc/nginx/sites-available/proxmox-os /etc/nginx/sites-enabled/proxmox-os
+install -m 644 "${APP_DIR}/deploy/nginx.conf" /etc/nginx/sites-available/solardeck
+ln -sf /etc/nginx/sites-available/solardeck /etc/nginx/sites-enabled/solardeck
 rm -f /etc/nginx/sites-enabled/default
 bash "${APP_DIR}/deploy/selfsigned-cert.sh" || warn "Could not create the HTTPS certificate; SolarDeck stays on http"
 nginx -t -q

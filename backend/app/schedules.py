@@ -16,7 +16,7 @@ from .config import settings
 from .pve import DATASET_RE, parse_zfs_list
 
 router = APIRouter(prefix="/api/schedules", tags=["schedules"], dependencies=[Depends(require_user)])
-log = logging.getLogger("proxmox-os.schedules")
+log = logging.getLogger("solardeck.schedules")
 
 POOL_RE = r"^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
 PERIOD = {"hourly": 3600, "daily": 86400, "weekly": 7 * 86400, "monthly": 30 * 86400}

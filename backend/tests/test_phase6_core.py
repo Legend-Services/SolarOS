@@ -44,6 +44,6 @@ assert d["00:1f.3"]["iommu_shared_with"] == ["02:00.0"]
 assert not pci.parse(LSPCI.split("---IOMMU---")[0])["iommu_enabled"]
 
 assert host_ssh.parse_job_status("state:active\nGet:1 x") == {"running": True, "exit_code": None, "log": ["Get:1 x"]}
-assert host_ssh.parse_job_status("state:inactive\nok\nproxmox-os: exit 3")["exit_code"] == 3
+assert host_ssh.parse_job_status("state:inactive\nok\nold-helper: exit 3")["exit_code"] == 3  # any "<name>: exit N" marker
 assert host_ssh.target() == ("root", "127.0.0.1")
 print("phase6 core self-check OK")

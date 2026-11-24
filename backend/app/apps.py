@@ -20,7 +20,7 @@ router = APIRouter(prefix="/api/apps", tags=["apps"], dependencies=[Depends(requ
 DATA = Path(__file__).resolve().parent.parent / "data"
 CATALOG: list[dict] = json.loads((DATA / "app_catalog.json").read_text())
 BY_ID = {a["id"]: a for a in CATALOG}
-TAG = "proxmox-os-app"
+TAG = settings.name("app")
 ALIASES = {"ollama": "local-ai"}  # pre-v1.6 Ollama installs show up under Local AI Studio
 # Local AI compute targets: "cpu", "nvidia:<index or PCI address>", "intel|amd:/dev/dri/renderD<N>".
 TARGET_RE = r"^(cpu|nvidia:([0-9]{1,2}|([0-9a-f]{4}:)?[0-9a-f]{2}:[0-9a-f]{2}\.[0-7])|(intel|amd):/dev/dri/renderD[0-9]{3})$"

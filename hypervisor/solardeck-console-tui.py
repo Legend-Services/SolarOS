@@ -25,8 +25,9 @@ ENV_FILE = APP_DIR / "backend/.env"
 CREDS_FILE = Path("/etc/solardeck/initial-credentials.txt")
 LEGACY_CREDS = Path("/root/solardeck-credentials.txt")  # v1.14 installs
 NETPLAN_DIR = Path("/etc/netplan")
-UPDATE_UNIT = "proxmox-os-self-update"
-UPDATE_LOG = Path("/var/log/proxmox-os-self-update.log")
+UPDATE_UNIT = "solardeck-self-update"
+UPDATE_LOG = Path(f"/var/log/{UPDATE_UNIT}.log")
+EXIT_MARK = re.compile(r"[\w-]+: exit \d+$")
 BANNER = r"""
   ____        _              ___  ____
  / ___|  ___ | | __ _ _ __  / _ \/ ___|
@@ -366,7 +367,7 @@ class Console:
         if self.ask("Update SolarDeck to the latest version of main? (yes/no)", "no").lower() != "yes":
             self.status = "Cancelled"
             return
-        script = Path("/tmp/proxmox-os-self-update.sh")
+        script = Path(f"/tmp/{UPDATE_UNIT}.sh")
         shutil.copy(APP_DIR / "deploy/self-update.sh", script)
         subprocess.run(["systemctl", "reset-failed", UPDATE_UNIT], capture_output=True)
         # Detached unit: the update restarts this console, which must not stop the update.
@@ -386,9 +387,9 @@ class Console:
             for i, line in enumerate(lines):
                 self.put(3 + i, 2, line)
             self.scr.refresh()
-            done = any(x.startswith("proxmox-os: exit") for x in lines)
+            done = any(EXIT_MARK.match(x) for x in lines)
             if self.scr.getch() in (ord("q"), ord("Q")) or done:
-                self.status = next((x for x in reversed(lines) if x.startswith("proxmox-os: exit")), "Update running")
+                self.status = next((x for x in reversed(lines) if EXIT_MARK.match(x)), "Update running")
                 return
 
     # [4]

@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# SolarDeck host helper. Installed by install.sh at /usr/local/sbin/proxmox-os-helper and reachable from the
+# SolarDeck host helper. Installed as /usr/local/sbin/<prefix>-helper and reachable from the
 # SolarDeck container only through a forced-command SSH key. It runs a fixed allowlist of root-only operations
 # that the Proxmox API token cannot do. Every argument is re-validated here.
 set -euo pipefail
+# Host-side names follow the name this helper was installed under (<prefix>-helper).
+PREFIX="$(basename "$0")"; PREFIX="${PREFIX%-helper}"; [[ "$PREFIX" =~ ^[a-z][a-z0-9-]*$ ]] || PREFIX=solardeck
 
 if [[ -n "${SSH_ORIGINAL_COMMAND:-}" ]]; then read -r -a ARGS <<<"$SSH_ORIGINAL_COMMAND"; else ARGS=("$@"); fi
 CMD="${ARGS[0]:-}"
@@ -30,7 +32,7 @@ prop_ok() {
 
 pos_ct() {
   local ct
-  ct="$(pct list | awk '$NF=="solardeck" || $NF=="proxmox-os" || $NF=="proxmos-os" {print $1; exit}')"
+  ct="$(pct list | awk -v p="$PREFIX" '$NF=="solardeck" || $NF==p {print $1; exit}')"
   [[ -n "$ct" ]] || die "SolarDeck container not found"
   echo "$ct"
 }
@@ -58,7 +60,7 @@ app_vmid() {
   local vmid="${ARGS[1]:-}"
   [[ "$vmid" =~ ^[0-9]+$ ]] || die "invalid vmid"
   # Only containers created by the App Center can be touched.
-  pct config "$vmid" | grep -Eq '^tags:.*proxmox-os-app' || die "container $vmid is not a SolarDeck app"
+  pct config "$vmid" | grep -Eq "^tags:.*${PREFIX}-app" || die "container $vmid is not a SolarDeck app"
   echo "$vmid"
 }
 
@@ -66,7 +68,7 @@ app_vmid() {
 guest_vmid() {
   local vmid="${ARGS[1]:-}" kind="$1"
   [[ "$vmid" =~ ^[0-9]+$ ]] || die "invalid vmid"
-  if [[ "$kind" == lxc ]]; then pct config "$vmid"; else qm config "$vmid"; fi | grep -Eq '^tags:.*proxmox-os-guest' \
+  if [[ "$kind" == lxc ]]; then pct config "$vmid"; else qm config "$vmid"; fi | grep -Eq "^tags:.*${PREFIX}-guest" \
     || die "guest $vmid was not created by SolarDeck"
   echo "$vmid"
 }
@@ -139,17 +141,17 @@ case "$CMD" in
     ;;
   apt-upgrade)
     # Runs detached in a transient systemd unit: a dropped SSH session or backend restart can't kill dpkg midway.
-    unit=proxmox-os-apt-upgrade
+    unit="${PREFIX}-apt-upgrade"
     if systemctl is-active -q "$unit"; then die "an upgrade is already running"; fi
     systemctl reset-failed "$unit" 2>/dev/null || true
-    systemd-run --quiet --unit="$unit" --collect -p StandardOutput=truncate:/var/log/proxmox-os-upgrade.log \
+    systemd-run --quiet --unit="$unit" --collect -p StandardOutput="truncate:/var/log/${PREFIX}-upgrade.log" \
       -p StandardError=inherit -E DEBIAN_FRONTEND=noninteractive -E APT_LISTCHANGES_FRONTEND=none \
-      bash -c '{ apt-get update && apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold dist-upgrade; }; echo "proxmox-os: exit $?"'
+      bash -c '{ apt-get update && apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold dist-upgrade; }; echo "solardeck: exit $?"'
     echo "started"
     ;;
   apt-upgrade-status)
-    echo "state:$(systemctl is-active proxmox-os-apt-upgrade 2>/dev/null || true)"
-    tail -n 400 /var/log/proxmox-os-upgrade.log 2>/dev/null || true
+    echo "state:$(systemctl is-active "${PREFIX}-apt-upgrade" 2>/dev/null || true)"
+    tail -n 400 "/var/log/${PREFIX}-upgrade.log" 2>/dev/null || true
     ;;
   hw-info)
     # GPU probe for the telemetry API: "dri:<render node>:<PCI vendor>" and "nvidia:<csv>" lines.
@@ -168,7 +170,7 @@ case "$CMD" in
       case "$opt" in
         storage)
           # Reuse the bind mounts of the SolarDeck container, so apps see the same /mnt/storage layout.
-          src="$(pct list | awk '$NF=="solardeck" || $NF=="proxmox-os" || $NF=="proxmos-os" {print $1; exit}')"
+          src="$(pct list | awk -v p="$PREFIX" '$NF=="solardeck" || $NF==p {print $1; exit}')"
           [[ -n "$src" ]] || die "SolarDeck container not found"
           i=0
           while read -r mp; do

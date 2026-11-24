@@ -26,7 +26,7 @@ from .schedules import AUTO_PREFIX, LEGACY_AUTO_PREFIX
 
 router = APIRouter(prefix="/api/automation", tags=["automation"], dependencies=[Depends(require_user)])
 topology_router = APIRouter(prefix="/api/v1/network", tags=["automation"], dependencies=[Depends(require_user)])
-log = logging.getLogger("proxmox-os.automation")
+log = logging.getLogger("solardeck.automation")
 
 TICK_S = 60
 SCHEDULE_GRACE_S = 600  # a scheduled rule still fires if the tick lands up to 10 minutes late

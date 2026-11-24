@@ -291,7 +291,7 @@ fi
 # ZFS snapshots, bind mounts, /dev/dri passthrough and app provisioning (pct exec) are not possible with the API
 # token, so the container gets an SSH key that can only run the allowlisted helper on this host.
 msg "Installing host helper"
-pct pull "$CTID" "${APP_DIR}/deploy/proxmox-os-helper.sh" /usr/local/sbin/proxmox-os-helper
+pct pull "$CTID" "${APP_DIR}/deploy/solardeck-helper.sh" /usr/local/sbin/proxmox-os-helper
 chmod 755 /usr/local/sbin/proxmox-os-helper
 ct "mkdir -p /root/.ssh && chmod 700 /root/.ssh
 [ -f /root/.ssh/proxmox-os-helper ] || ssh-keygen -q -t ed25519 -N '' -C proxmox-os-helper -f /root/.ssh/proxmox-os-helper"
@@ -355,6 +355,7 @@ ENV_FILE="$(mktemp)"
 chmod 600 "$ENV_FILE"
 cat >"$ENV_FILE" <<EOF
 HYPERVISOR_DRIVER=proxmox
+SYSTEM_PREFIX=proxmox-os
 PVE_HOST=${PVE_HOST}
 PVE_PORT=${PVE_PORT}
 NODE_NAME=${PVE_NODE}
@@ -396,7 +397,7 @@ msg "Configuring nginx"
 ct "install -m 644 ${APP_DIR}/deploy/nginx.conf /etc/nginx/sites-available/proxmox-os
 ln -sf /etc/nginx/sites-available/proxmox-os /etc/nginx/sites-enabled/proxmox-os
 rm -f /etc/nginx/sites-enabled/default
-bash ${APP_DIR}/deploy/selfsigned-cert.sh || echo '!! Could not create the HTTPS certificate; SolarDeck stays on http'
+SYSTEM_PREFIX=proxmox-os bash ${APP_DIR}/deploy/selfsigned-cert.sh || echo '!! Could not create the HTTPS certificate; SolarDeck stays on http'
 nginx -t -q
 systemctl enable -q nginx
 systemctl reload nginx || systemctl restart nginx"

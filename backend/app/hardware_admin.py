@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from . import host_ssh, pci
+from .config import settings
 from .auth import require_user
 from .pve import _node, _safe
 
@@ -22,7 +23,9 @@ log = logging.getLogger(__name__)
 
 PKGS = ("nvidia-container-toolkit", "intel-media-va-driver-non-free", "intel-gpu-tools", "vainfo", "pve-firmware",
         "radeontop", "rocminfo", "rocm-smi", "lm-sensors")
-VFIO_CONF = "/etc/modprobe.d/proxmox-os-vfio.conf"
+VFIO_CONF = f"/etc/modprobe.d/{settings.name('vfio')}.conf"
+BLACKLIST_CONF = f"/etc/modprobe.d/{settings.name('blacklist')}.conf"
+VFIO_MODULES = f"/etc/modules-load.d/{settings.name('vfio')}.conf"
 NVIDIA_Q = "pci.bus_id,name,driver_version,memory.total,memory.used,utilization.gpu,temperature.gpu,power.draw"
 NVIDIA_CMD = f"command -v nvidia-smi >/dev/null && nvidia-smi --query-gpu={NVIDIA_Q} --format=csv,noheader,nounits 2>/dev/null"
 AMD_CMD = "for f in /sys/bus/pci/devices/*/mem_info_vram_total; do [ -e \"$f\" ] && echo \"$f $(cat $f)\"; done"
@@ -214,15 +217,15 @@ def gpu_mode(gpu: dict, vfio_ids: list[str], nvidia_built: bool) -> dict:
 def vfio_files(ids: list[str], vendors: set[str]) -> dict[str, str | None]:
     """Contents of the managed modprobe/modules files for a set of passthrough ids (None = delete the file)."""
     if not ids:
-        return {VFIO_CONF: None, "/etc/modprobe.d/proxmox-os-blacklist.conf": None,
-                "/etc/modules-load.d/proxmox-os-vfio.conf": None}
+        return {VFIO_CONF: None, BLACKLIST_CONF: None,
+                VFIO_MODULES: None}
     mods = {"nvidia": ["nouveau", "nvidia", "nvidiafb", "nvidia_drm"], "amd": ["amdgpu", "radeon"]}
     black = [m for v in sorted(vendors) for m in mods.get(v, [])]
     soft = "".join(f"softdep {m} pre: vfio-pci\n" for m in ["nouveau", "nvidia", "amdgpu", "radeon", "snd_hda_intel", "i915"])
     return {VFIO_CONF: f"# Managed by SolarDeck (GPU passthrough)\noptions vfio-pci ids={','.join(ids)}\n{soft}",
-            "/etc/modprobe.d/proxmox-os-blacklist.conf": "# Managed by SolarDeck\n" + "".join(f"blacklist {m}\n" for m in black)
+            BLACKLIST_CONF: "# Managed by SolarDeck\n" + "".join(f"blacklist {m}\n" for m in black)
             if black else None,
-            "/etc/modules-load.d/proxmox-os-vfio.conf": "vfio\nvfio_iommu_type1\nvfio_pci\n"}
+            VFIO_MODULES: "vfio\nvfio_iommu_type1\nvfio_pci\n"}
 
 
 # ---------------------------------------------------------------- Inventory
@@ -384,7 +387,7 @@ APT_UPDATE = 'apt-get update || echo "!! apt-get update reported errors (an unli
 NONFREE = APT_UPDATE + """if [ -z "$(apt-cache madison __PROBE_PKG__ 2>/dev/null)" ]; then
   CODENAME=$(. /etc/os-release; echo $VERSION_CODENAME)
   echo "==> Enabling the Debian non-free component for $CODENAME"
-  cat > /etc/apt/sources.list.d/proxmox-os-nonfree.sources <<EOF
+  cat > /etc/apt/sources.list.d/{P}-nonfree.sources <<EOF
 Types: deb
 URIs: http://deb.debian.org/debian
 Suites: $CODENAME $CODENAME-updates
@@ -400,16 +403,16 @@ SCRIPTS = {
 apt-get install -y "proxmox-headers-$K" || apt-get install -y "pve-headers-$K"
 apt-get install -y build-essential dkms pkg-config libglvnd-dev curl gpg
 echo '==> Blacklisting nouveau'
-printf 'blacklist nouveau\noptions nouveau modeset=0\n' > /etc/modprobe.d/proxmox-os-nouveau.conf
+printf 'blacklist nouveau\noptions nouveau modeset=0\n' > /etc/modprobe.d/{P}-nouveau.conf
 update-initramfs -u
 if grep -q '^nouveau ' /proc/modules; then
   rmmod nouveau 2>/dev/null || { echo '!! nouveau is still loaded and in use. Reboot the host, then click Install NVIDIA driver again.'; exit 3; }
 fi
 VER=$(curl -fsSL https://download.nvidia.com/XFree86/Linux-x86_64/latest.txt | awk '{print $1}')
 [[ "$VER" =~ ^[0-9.]+$ ]] || { echo '!! Could not determine the latest NVIDIA driver version'; exit 1; }
-RUN=/var/lib/proxmox-os/NVIDIA-Linux-x86_64-$VER.run
+RUN=/var/lib/{P}/NVIDIA-Linux-x86_64-$VER.run
 echo "==> Downloading NVIDIA driver $VER"
-mkdir -p /var/lib/proxmox-os
+mkdir -p /var/lib/{P}
 curl -fsSL -o "$RUN" "https://download.nvidia.com/XFree86/Linux-x86_64/$VER/NVIDIA-Linux-x86_64-$VER.run"
 echo "==> Installing NVIDIA driver $VER (DKMS)"
 sh "$RUN" --silent --dkms || { echo '!! Installer failed; see /var/log/nvidia-installer.log'; tail -n 30 /var/log/nvidia-installer.log; exit 1; }
@@ -439,6 +442,8 @@ update-initramfs -u
 echo '==> Done.'
 """,
 }
+# Host-side file names carry the system prefix (solardeck-nouveau.conf, /var/lib/solardeck, ...).
+SCRIPTS = {k: v.replace("{P}", settings.system_prefix) for k, v in SCRIPTS.items()}
 
 
 def mode_script(files: dict[str, str | None]) -> str:

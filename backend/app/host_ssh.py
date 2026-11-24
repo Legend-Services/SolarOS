@@ -20,8 +20,8 @@ router = APIRouter(prefix="/api/host", tags=["host"], dependencies=[Depends(requ
 _conn: asyncssh.SSHClientConnection | None = None
 _lock = asyncio.Lock()
 JOB_RE = r"^[a-z0-9][a-z0-9-]{0,39}$"
-JOB_DIR = "/var/lib/proxmox-os/jobs"
-JOB_LOG_DIR = "/var/log/proxmox-os/jobs"
+JOB_DIR = f"/var/lib/{settings.system_prefix}/jobs"
+JOB_LOG_DIR = f"/var/log/{settings.system_prefix}/jobs"
 
 
 def target() -> tuple[str, str]:
@@ -36,7 +36,7 @@ def ensure_key() -> str:
     key = settings.host_root_key
     if not key.exists():
         key.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        k = asyncssh.generate_private_key("ssh-ed25519", comment="proxmox-os-root")
+        k = asyncssh.generate_private_key("ssh-ed25519", comment=settings.name("root"))
         k.write_private_key(str(key))
         k.write_public_key(str(key) + ".pub")
         key.chmod(0o600)
@@ -162,28 +162,28 @@ def parse_job_status(out: str) -> dict:
     lines = out.splitlines()
     state = lines[0].removeprefix("state:") if lines and lines[0].startswith("state:") else "unknown"
     log = lines[1:]
-    m = next((re.match(r"proxmox-os: exit (\d+)", x) for x in reversed(log) if x.startswith("proxmox-os: exit")), None)
+    m = next((re.fullmatch(r"[\w-]+: exit (\d+)", x.strip()) for x in reversed(log) if re.fullmatch(r"[\w-]+: exit (\d+)", x.strip())), None)
     return {"running": state in ("active", "activating"), "exit_code": int(m.group(1)) if m else None, "log": log}
 
 
 async def start_job(name: str, script: str) -> None:
-    """Run a bash script detached on the host as unit proxmox-os-job-<name>; follow it with job_status(name)."""
+    """Run a bash script detached on the host as unit <prefix>-job-<name>; follow it with job_status(name)."""
     if not re.fullmatch(JOB_RE, name):
         raise ValueError(name)
-    unit, sh, log = f"proxmox-os-job-{name}", f"{JOB_DIR}/{name}.sh", f"{JOB_LOG_DIR}/{name}.log"
+    unit, sh, log = settings.name(f"job-{name}"), f"{JOB_DIR}/{name}.sh", f"{JOB_LOG_DIR}/{name}.log"
     if (await run(f"systemctl is-active {unit} || true")).strip() in ("active", "activating"):
         raise HTTPException(409, f"{name} is already running")
     await write_file(sh, "set -uo pipefail\n" + script, "700")
     await run(f"mkdir -p {JOB_LOG_DIR} && systemctl reset-failed {unit} 2>/dev/null; "
               f"systemd-run --quiet --unit={unit} --collect -p StandardOutput=truncate:{log} -p StandardError=inherit "
               f"-E DEBIAN_FRONTEND=noninteractive -E APT_LISTCHANGES_FRONTEND=none "
-              f"bash -c 'bash {sh}; echo \"proxmox-os: exit $?\"'")
+              f"bash -c 'bash {sh}; echo \"solardeck: exit $?\"'")
 
 
 async def job_status(name: str) -> dict:
     if not re.fullmatch(JOB_RE, name):
         raise ValueError(name)
-    out = await run(f"echo state:$(systemctl is-active proxmox-os-job-{name} 2>/dev/null || true); "
+    out = await run(f"echo state:$(systemctl is-active {settings.name('job-' + name)} 2>/dev/null || true); "
                     f"tail -n 400 {JOB_LOG_DIR}/{name}.log 2>/dev/null || true")
     return {"name": name, **parse_job_status(out)}
 

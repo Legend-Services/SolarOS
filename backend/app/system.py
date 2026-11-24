@@ -89,7 +89,7 @@ def parse_upgrade_status(out: str) -> dict:
     lines = out.splitlines()
     state = lines[0].removeprefix("state:") if lines and lines[0].startswith("state:") else "unknown"
     log = lines[1:]
-    m = next((re.match(r"proxmox-os: exit (\d+)", x) for x in reversed(log) if x.startswith("proxmox-os: exit")), None)
+    m = next((re.fullmatch(r"[\w-]+: exit (\d+)", x.strip()) for x in reversed(log) if re.fullmatch(r"[\w-]+: exit (\d+)", x.strip())), None)
     return {"running": state in ("active", "activating"), "exit_code": int(m.group(1)) if m else None, "log": log}
 
 

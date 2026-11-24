@@ -44,7 +44,7 @@ assert row == [{"hash": "abc123", "short_hash": "abc", "tag": "v1.3.0", "date": 
 raw = """login from 192.168.68.230 user=admin password=hunter2 ADMIN_PASSWORD=Abc123
 Authorization: Bearer abc.def JWT_SECRET: "deadbeef" token eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.sig-_x
 PVEAPIToken=pve-desktop@pve!webui=4f9e2c1a-1111-2222-3333-444455556666 ghp_abcdefghijklmnopqrstuvwx1234
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample proxmox-os-root fe80::1ff:fe23:4567:890a at 12:30:45 aa:bb:cc:dd:ee:ff
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIExample solardeck-root fe80::1ff:fe23:4567:890a at 12:30:45 aa:bb:cc:dd:ee:ff
 mail me@example.com
 -----BEGIN OPENSSH PRIVATE KEY-----
 b3BlbnNzaC1rZXktdjEAAAAA

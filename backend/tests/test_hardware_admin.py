@@ -52,7 +52,7 @@ assert h.parse_dimms("Handle 0x1, DMI type 17\nMemory Device\n\tSize: No Module 
 # vfio-pci mode files.
 conf = h.vfio_files(["10de:1aef", "10de:2204"], {"nvidia"})
 assert h.parse_vfio_ids(conf[h.VFIO_CONF]) == ["10de:1aef", "10de:2204"]
-assert "blacklist nouveau" in conf["/etc/modprobe.d/proxmox-os-blacklist.conf"]
+assert "blacklist nouveau" in conf[h.BLACKLIST_CONF]
 assert all(v is None for v in h.vfio_files([], set()).values())
 gpu = {**g["01:00.0"], "driver": "nouveau"}
 assert h.gpu_mode(gpu, ["10de:2204"], False) == {"mode": "passthrough", "reboot_required": True}

@@ -1,4 +1,4 @@
-"""Client for deploy/proxmox-os-helper.sh, the root-only helper on the PVE host (forced SSH command)."""
+"""Client for deploy/solardeck-helper.sh, the root-only helper on the host (local, or a forced SSH command)."""
 import asyncio
 from collections.abc import Callable
 
@@ -9,7 +9,7 @@ from .config import settings
 
 def _argv(args: list[str]) -> list[str]:
     if not settings.host_ssh:
-        return ["proxmox-os-helper", *args]
+        return [settings.name("helper"), *args]
     return ["ssh", "-i", settings.host_ssh_key, "-o", "BatchMode=yes", "-o", "StrictHostKeyChecking=accept-new",
             "-o", "ConnectTimeout=10", settings.host_ssh, *args]
 

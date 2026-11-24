@@ -34,7 +34,7 @@ The installer:
    stays static). Run it from the console, or expect a short network drop over SSH. `--bridge-nic <nic>` or
    `--no-bridge` change this,
 3. initializes Incus (`incus admin init --minimal`) if needed,
-4. deploys SolarDeck to `/opt/solardeck` (`/opt/proxmox-os` links to it), writes `backend/.env` with
+4. deploys SolarDeck to `/opt/solardeck`, writes `backend/.env` with
    `HYPERVISOR_DRIVER=native_ubuntu` and a generated `ADMIN_PASSWORD` and `JWT_SECRET`,
 5. installs the root helper locally and authorizes the backend's SSH key for `root@127.0.0.1` only,
 6. builds the desktop, configures nginx (HTTP + self-signed HTTPS) and Samba, starts `solardeck-backend`,

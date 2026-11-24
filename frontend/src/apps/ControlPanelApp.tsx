@@ -289,8 +289,8 @@ function HypervisorIsoCard() {
       <p className="mb-2 text-[11px] text-slate-400">
         Build a bootable SolarOS installer (USB stick, bare metal or a nested test VM). Run on a Linux host with xorriso; add <span className="font-mono">--auto-disk /dev/sda</span> for an unattended VM test entry and <span className="font-mono">--deploy-to-pve</span> on a Proxmox VE host.
       </p>
-      {command(st?.build_command ?? "sudo bash /opt/proxmox-os/hypervisor/build-iso.sh")}
-      {st && <div className="mt-2">{command(st.test_command)}</div>}
+      {st && command(st.build_command)}
+      {st?.test_command && <div className="mt-2">{command(st.test_command)}</div>}
       <div className="mt-3">
         {st && st.isos.length === 0 && <p className="text-xs text-slate-400">No built ISO found in {st.search_paths.join(" or ")}.</p>}
         {busy && !st && <p className="text-xs text-slate-400">Looking for built ISOs…</p>}
@@ -384,7 +384,7 @@ function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; run
       {(running || done) && (
         <pre className="mt-3 max-h-48 overflow-auto rounded-lg bg-black/40 p-2 font-mono text-[10px] whitespace-pre-wrap text-slate-300">{st?.log.join("\n") || "Starting…"}</pre>
       )}
-      {done && st.exit_code !== 0 && <Notice error={`Update failed (exit code ${st.exit_code}); see the log above. Your previous settings are saved in /tmp/proxmox-os-state-backup.`} />}
+      {done && st.exit_code !== 0 && <Notice error={`Update failed (exit code ${st.exit_code}); see the log above. Your previous settings are saved in the state backup folder named in the log.`} />}
       <p className="mt-2 text-[11px] text-slate-500">
         Both editions (SolarDeck for Proxmox VE and SolarOS) update from the same branch. Updates pull the new code, sync dependencies, rebuild the desktop and restart the services. Settings, users, 2FA, schedules, shares and ZFS pools are kept.
         {st?.driver === "proxmox" ? " Host helper changes still need install.sh on the Proxmox host." : " The host helper and the console dashboard are updated as well."}

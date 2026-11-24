@@ -24,8 +24,8 @@ router = APIRouter(prefix="/api/system/updates", tags=["updater"], dependencies=
 log = logging.getLogger(__name__)
 
 APP_DIR = Path(__file__).resolve().parents[2]
-UNIT = "proxmox-os-self-update"
-LOG = Path("/var/log/proxmox-os-self-update.log")
+UNIT = settings.name("self-update")
+LOG = Path(f"/var/log/{UNIT}.log")
 REF_RE = r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$"
 SEP = "\x1f"
 DEFAULTS = {"mode": "notify", "schedule_frequency": "daily", "schedule_time": "03:00", "schedule_day": 0,
@@ -200,7 +200,7 @@ def edition() -> dict:
     native = settings.hypervisor_driver.strip().lower() == "native_ubuntu"
     return {"driver": "native_ubuntu" if native else "proxmox",
             "edition": "SolarOS" if native else "SolarDeck for Proxmox VE",
-            "service": "solardeck-backend" if native else "proxmox-os-backend",
+            "service": settings.name("backend"),
             "supports_system_packages": native}
 
 
@@ -208,7 +208,7 @@ async def start(target: str, branch: str, system_packages: bool = False) -> None
     if (await job())["running"]:
         raise HTTPException(409, "An update is already running")
     # Run a copy: git reset rewrites deploy/self-update.sh while bash is still reading it.
-    script = Path("/tmp/proxmox-os-self-update.sh")
+    script = Path(f"/tmp/{UNIT}.sh")
     shutil.copy(APP_DIR / "deploy/self-update.sh", script)
     await _cmd("systemctl", "reset-failed", UNIT)
     # Detached transient unit: the script restarts this backend, which must not kill the update midway.
@@ -289,7 +289,7 @@ async def apply(body: ApplyBody | None = None):
 
 # ---------------------------------------------------------------- SolarOS installer ISO
 
-ISO_BUILD_COMMAND = "sudo bash /opt/proxmox-os/hypervisor/build-iso.sh"
+ISO_BUILD_COMMAND = f"sudo bash {APP_DIR}/hypervisor/build-iso.sh"
 _iso_sums: dict[tuple[str, int, int], str] = {}  # (path, size, mtime) -> sha256: an ISO is hashed once
 
 
@@ -327,7 +327,9 @@ async def hypervisor_iso():
                 log.warning("cannot hash %s: %s", f, e)
         out.append({"name": f.name, "path": str(f), "size": st.st_size, "modified": int(st.st_mtime),
                     "sha256": _iso_sums.get(key)})
-    return {"build_command": ISO_BUILD_COMMAND, "test_command": "bash /opt/proxmox-os/hypervisor/test-in-proxmox-vm.sh",
+    # The nested-VM test script ships only where a hypervisor to test on exists.
+    test = next(iter(sorted(APP_DIR.glob("hypervisor/test-in-*-vm.sh"))), None)
+    return {"build_command": ISO_BUILD_COMMAND, "test_command": f"bash {test}" if test else None,
             "search_paths": [str(d) for d in dirs], "isos": out}
 
 

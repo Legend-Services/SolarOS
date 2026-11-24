@@ -728,7 +728,7 @@ async def disk_settings_update(disk: str, body: DiskSettings):
 
 # ---------------------------------------------------------------- SMART self-tests & read-only surface scan
 
-JOB_LOG = "/var/log/proxmox-os/jobs"
+JOB_LOG = f"/var/log/{settings.system_prefix}/jobs"
 NVME_SHORT_MINUTES = 2  # NVMe short self-tests are capped at 2 minutes by the spec
 
 
@@ -770,7 +770,7 @@ def parse_selftest(smart: dict, kind: str = "") -> dict:
 def parse_badblocks(state: str, tail: str, bad_count: str) -> dict:
     """Surface-scan job state + the last badblocks -s progress line ("12.34% done, 0:10 elapsed. (0/0/0 errors)")."""
     prog = re.findall(r"([\d.]+)% done, ([\d:]+) elapsed\. \((\d+)/(\d+)/(\d+) errors\)", tail)
-    code = re.findall(r"proxmox-os: exit (\d+)", tail)
+    code = re.findall(r"[\w-]+: exit (\d+)", tail)
     running = state in ("active", "activating")
     last = prog[-1] if prog else None
     pct = float(last[0]) if last else None
@@ -790,7 +790,7 @@ async def disk_scan_status(disk: str):
     job, q = _scan_job(path), shlex.quote(path)
     s = split_sections(await host_ssh.run(
         f"echo @@smart@@; smartctl -j -c -l selftest {q}; echo @@kind@@; cat {JOB_LOG}/{job}.smart 2>/dev/null; "
-        f"echo @@state@@; systemctl is-active proxmox-os-job-{job} 2>/dev/null; "
+        f"echo @@state@@; systemctl is-active {settings.name('job-' + job)} 2>/dev/null; "
         f"echo @@tail@@; tail -c 700 {JOB_LOG}/{job}.log 2>/dev/null | tr '\\b' '\\n'; "
         f"echo @@bad@@; wc -l < {JOB_LOG}/{job}.bad 2>/dev/null; true", check=False))
     try:
@@ -825,5 +825,5 @@ async def disk_scan_start(disk: str, body: ScanBody):
 @router.delete("/disks/{disk:path}/scan")
 async def disk_scan_abort(disk: str):
     path = _resolve(disk)
-    await host_ssh.run(f"systemctl stop proxmox-os-job-{_scan_job(path)} 2>/dev/null; smartctl -X {shlex.quote(path)} >/dev/null; true")
+    await host_ssh.run(f"systemctl stop {settings.name('job-' + _scan_job(path))} 2>/dev/null; smartctl -X {shlex.quote(path)} >/dev/null; true")
     return {"ok": True}

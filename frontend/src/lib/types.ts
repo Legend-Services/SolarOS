@@ -576,7 +576,7 @@ export interface HypervisorIsoFile {
 
 export interface HypervisorIsoStatus {
   build_command: string;
-  test_command: string;
+  test_command: string | null;
   search_paths: string[];
   isos: HypervisorIsoFile[];
 }

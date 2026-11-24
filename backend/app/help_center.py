@@ -13,6 +13,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from . import bios_guides, host, host_ssh, notifications, pci
+from .config import settings
 from .auth import load_security, require_user
 from .backups import ScheduleBody, schedule_params
 from .pve import _node, _safe, pve
@@ -282,14 +283,14 @@ IOMMU_SCRIPT = r"""
 P="__FLAG__ iommu=pt"
 # Never pipe into grep -q here: jobs run with pipefail and its early exit SIGPIPEs the writer, failing the test.
 if [ -d /sys/firmware/efi ] && [ -f /etc/kernel/cmdline ] && [[ "$(proxmox-boot-tool status 2>/dev/null)" == *uefi* ]]; then
-  echo "==> systemd-boot detected: editing /etc/kernel/cmdline (backup: /etc/kernel/cmdline.proxmox-os.bak)"
-  cp -n /etc/kernel/cmdline /etc/kernel/cmdline.proxmox-os.bak
+  echo "==> systemd-boot detected: editing /etc/kernel/cmdline (backup: /etc/kernel/cmdline.{P}.bak)"
+  cp -n /etc/kernel/cmdline /etc/kernel/cmdline.{P}.bak
   for p in $P; do grep -qw -- "$p" /etc/kernel/cmdline || sed -i "1 s/[[:space:]]*\$/ $p/" /etc/kernel/cmdline; done
   cat /etc/kernel/cmdline
   proxmox-boot-tool refresh
 else
-  echo "==> GRUB detected: editing /etc/default/grub (backup: /etc/default/grub.proxmox-os.bak)"
-  cp -n /etc/default/grub /etc/default/grub.proxmox-os.bak
+  echo "==> GRUB detected: editing /etc/default/grub (backup: /etc/default/grub.{P}.bak)"
+  cp -n /etc/default/grub /etc/default/grub.{P}.bak
   for p in $P; do
     grep -q "^GRUB_CMDLINE_LINUX_DEFAULT=.*$p" /etc/default/grub \
       || sed -i "s/^GRUB_CMDLINE_LINUX_DEFAULT=\"\(.*\)\"/GRUB_CMDLINE_LINUX_DEFAULT=\"\1 $p\"/" /etc/default/grub
@@ -297,10 +298,11 @@ else
   grep ^GRUB_CMDLINE_LINUX_DEFAULT /etc/default/grub
   update-grub
 fi
-printf 'vfio\nvfio_iommu_type1\nvfio_pci\n' > /etc/modules-load.d/proxmox-os-iommu.conf
+printf 'vfio\nvfio_iommu_type1\nvfio_pci\n' > /etc/modules-load.d/{P}-iommu.conf
 update-initramfs -u -k all
 echo "==> Done. Reboot the host. If IOMMU is still off afterwards, enable VT-d / AMD-Vi in the BIOS/UEFI setup."
 """
+IOMMU_SCRIPT = IOMMU_SCRIPT.replace("{P}", settings.system_prefix)
 
 
 @router.post("/fix/{fix_id}")

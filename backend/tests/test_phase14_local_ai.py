@@ -77,7 +77,7 @@ try:
 except ValidationError:
     pass
 assert apps.BY_ID["local-ai"]["category"] == "AI & Compute" and (apps.DATA / "apps/local-ai.sh").exists()
-assert apps.installed_map([{"vmid": 105, "tags": "proxmox-os-app;pos-ollama", "name": "ollama"}])["local-ai"][0]["vmid"] == 105
+assert apps.installed_map([{"vmid": 105, "tags": f"{apps.TAG};pos-ollama", "name": "ollama"}])["local-ai"][0]["vmid"] == 105
 assert ai.LocalAiDeployBody(ip_config={"cidr": "10.0.0.9/24", "gateway": "10.0.0.1"}).ip_config.cidr == "10.0.0.9/24"
 
 # Model storage location: only below /mnt or /srv, no traversal or shell characters.

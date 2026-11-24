@@ -24,3 +24,9 @@ while IFS= read -r line; do
   echo "$line" >>"$LIVE"
   echo "    added ${key} to $(basename "$LIVE")"
 done <"$EXAMPLE"
+# Edition defaults (env-defaults-<driver> next to the example), e.g. the Proxmox VE edition's SYSTEM_PREFIX.
+DRIVER="$(sed -n 's/^HYPERVISOR_DRIVER=//p' "$LIVE" | tail -n1 | tr -d "'\"")"
+EDITION="$(dirname "$EXAMPLE")/env-defaults-${DRIVER:-proxmox}"
+if [[ -f "$EDITION" && "$EDITION" != "$EXAMPLE" ]]; then
+  bash "$0" "$LIVE" "$EDITION"
+fi
