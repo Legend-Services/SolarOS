@@ -74,8 +74,8 @@ def parse_dmi(text: str) -> list[tuple[str, dict]]:
         kv = {}
         for x in lines[i + 2:]:
             if x.startswith("\t") and not x.startswith("\t\t") and ": " in x:
-                k, v = x.strip().split(": ", 1)
-                kv[k] = v.strip()
+                k, _, v = x.partition(": ")  # not strip() first: "\tAsset Tag:  " (empty value) loses its ": "
+                kv[k.strip()] = v.strip()
         blocks.append((lines[i + 1].strip(), kv))
     return blocks
 
@@ -190,7 +190,8 @@ def parse_nics(ipaddr: str, netsys: str) -> list[dict]:
         name = link.get("ifname", "")
         if name == "lo":
             continue
-        addrs = [f"{a['local']}/{a['prefixlen']}" for a in link.get("addr_info", []) if a.get("scope") != "link"]
+        addrs = [f"{a['local']}/{a.get('prefixlen', '')}" for a in link.get("addr_info") or []
+                 if a.get("local") and a.get("scope") != "link"]
         out.append({"name": name, "mac": link.get("address"), "state": link.get("operstate"), "mtu": link.get("mtu"),
                     "master": link.get("master"), "addresses": addrs,
                     **sysinfo.get(name, {"speed_mbps": None, "driver": None, "physical": False})})
@@ -262,32 +263,50 @@ def fill_from_pve(inv: dict, st: dict) -> dict:
     return inv
 
 
+def guard(section: str, fn, default):
+    """Run one section parser; unexpected host output empties that section only (logged), never the whole inventory."""
+    try:
+        return fn()
+    except Exception:
+        log.exception("hardware inventory: could not parse the %s section", section)
+        return default
+
+
+def _gpu(d: dict, vfio: list[str], nvidia_built: bool, nv: dict, amd: dict, intel: list[str]) -> dict:
+    g = {**pci.gpu_view(d), **gpu_mode(d, vfio, nvidia_built), "metrics": nv.get(d["id"]),
+         "vram_bytes": int(nv[d["id"]]["vram_total_mib"] * 1024 * 1024) if d["id"] in nv and nv[d["id"]]["vram_total_mib"]
+         else amd.get(d["id"])}
+    if d["vendor"] == "intel":
+        uc = {m.group(1): m.group(2) for m in (re.search(r"/uc/(guc|huc)_info:\s*status:\s*(\S+)", x) for x in intel[1:]) if m}
+        g["firmware"] = {"enable_guc": intel[0] if intel else None, "guc": uc.get("guc"), "huc": uc.get("huc")}
+    return g
+
+
+def _drive(x: dict, smart: dict[str, str]) -> dict:
+    t = smart.get(x.get("devpath") or "", "")
+    return {"devpath": x.get("devpath"), "model": x.get("model"), "serial": x.get("serial"), "size": x.get("size"),
+            "type": x.get("type"), "wearout": x.get("wearout"), "health": x.get("health"),
+            "temp_c": int(t) if t.isdigit() else None}
+
+
 def build_inventory(s: dict[str, str], probe: dict, disks: list[dict]) -> dict:
-    dmi = {t: kv for t, kv in parse_dmi(s.get("dmi", ""))}
+    dmi = guard("dmi", lambda: {t: kv for t, kv in parse_dmi(s.get("dmi", ""))}, {})
     sysi, board, bios = dmi.get("System Information", {}), dmi.get("Base Board Information", {}), dmi.get("BIOS Information", {})
-    cpu = parse_lscpu(s.get("lscpu", ""))
-    mhz = [float(x) for x in re.findall(r"cpu MHz\s*:\s*([\d.]+)", s.get("mhz", ""))]
-    temps = parse_hwmon(s.get("hwmon", ""))
-    mem = parse_meminfo(s.get("meminfo", ""))
+    cpu = guard("lscpu", lambda: parse_lscpu(s.get("lscpu", "")), {})
+    mhz = guard("mhz", lambda: [float(x) for x in re.findall(r"cpu MHz\s*:\s*([\d.]+)", s.get("mhz", ""))], [])
+    temps = guard("hwmon", lambda: parse_hwmon(s.get("hwmon", "")), {"package_c": None, "cores": [], "other": []})
+    mem = guard("meminfo", lambda: parse_meminfo(s.get("meminfo", "")), {})
     arc = re.search(r"(\d+)\s*$", s.get("arc", ""))
-    nv, amd = parse_nvidia(s.get("nvidia", "")), parse_amd_vram(s.get("amd", ""))
+    nv = guard("nvidia", lambda: parse_nvidia(s.get("nvidia", "")), {})
+    amd = guard("amd", lambda: parse_amd_vram(s.get("amd", "")), {})
     intel = s.get("intel", "").splitlines()
-    vfio = parse_vfio_ids(s.get("vfio", ""))
+    vfio = guard("vfio", lambda: parse_vfio_ids(s.get("vfio", "")), [])
     kernel = s.get("kernel", "").splitlines()
     nvidia_built = len(kernel) > 1
-    smart = parse_kv_lines(s.get("smart", ""))
+    smart = guard("smart", lambda: parse_kv_lines(s.get("smart", "")), {})
     devs = probe["devices"]
-    gpus = []
-    for d in devs:
-        if not d["gpu"]:
-            continue
-        g = {**pci.gpu_view(d), **gpu_mode(d, vfio, nvidia_built), "metrics": nv.get(d["id"]),
-             "vram_bytes": int(nv[d["id"]]["vram_total_mib"] * 1024 * 1024) if d["id"] in nv and nv[d["id"]]["vram_total_mib"]
-             else amd.get(d["id"])}
-        if d["vendor"] == "intel":
-            uc = {m.group(1): m.group(2) for m in (re.search(r"/uc/(guc|huc)_info:\s*status:\s*(\S+)", x) for x in intel[1:]) if m}
-            g["firmware"] = {"enable_guc": intel[0] if intel else None, "guc": uc.get("guc"), "huc": uc.get("huc")}
-        gpus.append(g)
+    gpus = [g for g in (guard(f"gpu {d.get('id')}", lambda d=d: _gpu(d, vfio, nvidia_built, nv, amd, intel), None)
+                        for d in devs if d.get("gpu")) if g]
     return {
         "system": {"manufacturer": sysi.get("Manufacturer"), "product": sysi.get("Product Name"),
                    "board_manufacturer": board.get("Manufacturer"), "board": board.get("Product Name"),
@@ -305,17 +324,14 @@ def build_inventory(s: dict[str, str], probe: dict, disks: list[dict]) -> dict:
                    "used": mem.get("MemTotal", 0) - mem.get("MemAvailable", 0),
                    "cached": mem.get("Cached", 0) + mem.get("Buffers", 0), "arc": int(arc.group(1)) if arc else 0,
                    "swap_total": mem.get("SwapTotal", 0), "swap_used": mem.get("SwapTotal", 0) - mem.get("SwapFree", 0),
-                   "dimms": parse_dimms(s.get("dimm", ""))},
+                   "dimms": guard("dimm", lambda: parse_dimms(s.get("dimm", "")), [])},
         "gpus": gpus,
         "storage": {"controllers": [{"id": d["id"], "name": d["name"], "class_name": d["class_name"], "driver": d["driver"]}
                                     for d in devs if d["class"].startswith("01")],
-                    "drives": [{"devpath": x.get("devpath"), "model": x.get("model"), "serial": x.get("serial"),
-                                "size": x.get("size"), "type": x.get("type"), "wearout": x.get("wearout"),
-                                "health": x.get("health"), "temp_c": int(smart[x["devpath"]]) if
-                                smart.get(x.get("devpath", ""), "").isdigit() else None} for x in disks]},
-        "network": parse_nics(s.get("ipaddr", ""), s.get("netsys", "")),
+                    "drives": [d for d in (guard("drive", lambda x=x: _drive(x, smart), None) for x in disks) if d]},
+        "network": guard("network", lambda: parse_nics(s.get("ipaddr", ""), s.get("netsys", "")), []),
         "sensors": temps["other"],
-        "packages": parse_pkgs(s.get("pkgs", "")),
+        "packages": guard("pkgs", lambda: parse_pkgs(s.get("pkgs", "")), {p: None for p in PKGS}),
     }
 
 
