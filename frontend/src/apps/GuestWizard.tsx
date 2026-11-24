@@ -212,13 +212,13 @@ export default function GuestWizard({ kind, open, onClose, onCreated }: { kind: 
           </p>
           <TaskLog upid={job.upid} className="h-56" onDone={setState} />
           {state === "ok" && <Notice notice={`${k === "qemu" ? "VM" : "Container"} ${job.vmid} is ready. Start it from Compute Manager.`} />}
-          {state === "error" && <Notice error="The Proxmox task failed; see the log above." />}
+          {state === "error" && <Notice error="The task failed; see the log above." />}
         </div>
       ) : (
         <div className="space-y-3">
           {step === 0 && (
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="VM ID" hint="Next free ID suggested by Proxmox">
+              <Field label="VM ID" hint="Next free ID suggested by the host">
                 <GlassInput type="number" min={100} className="w-full" value={f.vmid || ""} onChange={(e) => set({ vmid: Number(e.target.value) })} />
               </Field>
               <Field label={k === "qemu" ? "Name" : "Hostname"} hint={k === "qemu" ? "Letters, digits, dots and dashes" : "Lowercase letters, digits and dashes"}>

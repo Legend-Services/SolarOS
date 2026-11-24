@@ -452,7 +452,7 @@ function NetworkTab({ guest, hw, reload }: { guest: Guest; hw: Hardware; reload:
               </Field>
             )}
           </div>
-          <GlassSwitch checked={f.firewall} onChange={(v) => setF({ ...f, firewall: v })} label="Proxmox firewall" />
+          <GlassSwitch checked={f.firewall} onChange={(v) => setF({ ...f, firewall: v })} label="Host firewall" />
           <Notice error={error} />
           <div className="flex justify-end gap-2">
             <GlassButton onClick={() => setEdit(null)}>Cancel</GlassButton>

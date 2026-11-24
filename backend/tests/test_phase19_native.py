@@ -64,6 +64,8 @@ calls: list[tuple] = []
 
 
 async def fake_run(*argv, input=None, stdin_path=None, stdout_path=None, timeout=120, check=True, log=None):
+    if argv[:2] == ("virsh", "define"):  # host.define passes the XML as a temp file
+        input = Path(argv[2]).read_text()
     calls.append((argv, input))
     for n in (2, 1):
         if argv[:n] in OUT:
@@ -207,4 +209,21 @@ from app import updater  # noqa: E402
 assert updater.edition() == {"driver": "native_ubuntu", "edition": "SolarOS",
                              "service": "solardeck-backend", "supports_system_packages": True}
 asyncio.run(asyncio.sleep(0))
+# ---- virsh define goes through a real file (not /dev/stdin), and a failed create rolls its disk back
+seen = {}
+async def fake_run(*argv, **kw):
+    seen["argv"], seen["xml"] = argv, Path(argv[-1]).read_text()
+    return "defined"
+real_run, host.run = host.run, fake_run
+try:
+    assert asyncio.run(host.define("<domain/>")) == "defined"
+finally:
+    host.run = real_run
+assert seen["argv"][:2] == ("virsh", "define") and seen["xml"] == "<domain/>" and not Path(seen["argv"][-1]).exists()
+with tempfile.TemporaryDirectory() as d:
+    f = Path(d) / "vm-1-disk-0.qcow2"
+    f.write_bytes(b"x")
+    lines = []
+    asyncio.run(nat.NativeUbuntuProvider()._drop_disk({"type": "file", "path": str(f)}, lines.append))
+    assert not f.exists() and lines == [f"removed {f}"]
 print("phase 19 native driver self-check OK")

@@ -5,8 +5,10 @@ with asyncio subprocesses: no shell, no SSH. Every value that reaches an argv ha
 """
 import asyncio
 import json
+import os
 import re
 import secrets
+import tempfile
 import time
 import xml.etree.ElementTree as ET
 from collections.abc import Awaitable, Callable
@@ -79,6 +81,18 @@ async def ok(*argv: str, timeout: float = 30) -> str | None:
         return await run(*argv, timeout=timeout)
     except HTTPException:
         return None
+
+
+async def define(xml: str) -> str:
+    """`virsh define` from an XML string. virsh opens its input by path, and /dev/stdin fails (ENXIO) on asyncio's
+    socketpair stdin, so the XML goes through a private temp file."""
+    fd, path = tempfile.mkstemp(prefix="solardeck-domain-", suffix=".xml")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(xml)
+        return await run("virsh", "define", path)
+    finally:
+        os.unlink(path)
 
 
 async def run_json(*argv: str, timeout: float = 60):

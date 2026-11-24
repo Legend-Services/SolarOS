@@ -303,8 +303,7 @@ class NativeUbuntuProvider(HypervisorProvider):
         if kind == "qemu":
             if body.cores:
                 # vcpu count and topology must change together (libvirt rejects a mismatch), so edit the XML.
-                await run("virsh", "define", "/dev/stdin",
-                          input=host.set_vcpus(await run("virsh", "dumpxml", "--inactive", name), body.cores))
+                await host.define(host.set_vcpus(await run("virsh", "dumpxml", "--inactive", name), body.cores))
             if body.memory:
                 await run("virsh", "setmaxmem", name, f"{body.memory}M", "--config")
                 await run("virsh", "setmem", name, f"{body.memory}M", "--config")
@@ -385,6 +384,17 @@ class NativeUbuntuProvider(HypervisorProvider):
         await ok("udevadm", "settle", "--timeout=15")  # udev creates /dev/zvol/... asynchronously
         return {"path": f"/dev/zvol/{vol}", "type": "block", "format": "raw"}
 
+    async def _drop_disk(self, disk: dict, log) -> None:
+        """Remove a disk made by _disk_target (QCOW2 file or ZVOL); never raises."""
+        try:
+            if disk["type"] == "file":
+                Path(disk["path"]).unlink(missing_ok=True)
+            else:
+                await run("zfs", "destroy", disk["path"].removeprefix("/dev/zvol/"), check=False)
+            log(f"removed {disk['path']}")
+        except Exception as e:  # noqa: BLE001 - the original error is what the user needs to see
+            log(f"could not remove {disk['path']}: {e}")
+
     async def create_vm(self, spec: dict) -> TaskInfo:
         body = NativeQemuBody(**spec)
         reg, doms, _ = await self._registry()
@@ -396,6 +406,14 @@ class NativeUbuntuProvider(HypervisorProvider):
 
         async def job(log):
             disk = await self._disk_target(body.storage, body.vmid, 0, body.disk_gb, log)
+            try:
+                await define_vm(disk, log)
+            except BaseException:
+                # Roll back the new disk so a retry with the same VMID does not stop at "already exists".
+                await self._drop_disk(disk, log)
+                raise
+
+        async def define_vm(disk, log):
             if body.cloudinit:
                 cdroms.append(await self._cloudinit_seed(body, log))
             uefi = body.bios == "ovmf"
@@ -407,7 +425,7 @@ class NativeUbuntuProvider(HypervisorProvider):
                 [f"{p.id.rsplit('.', 1)[0]}.1" for p in body.hostpci if p.include_audio and "." in p.id],
                 usb=[u.host for u in body.usb if ":" in u.host])
             host.NVRAM.mkdir(parents=True, exist_ok=True)
-            log(await run("virsh", "define", "/dev/stdin", input=xml))
+            log(await host.define(xml))
             host.register(body.vmid, "qemu", body.name)
             if body.start_on_boot:
                 await run("virsh", "autostart", body.name)
@@ -1126,7 +1144,7 @@ class NativeUbuntuProvider(HypervisorProvider):
                 src.set("file" if kind == "file" else "dev", path)
                 log(f"    disk {disk['target']} -> {path}")
             host.NVRAM.mkdir(parents=True, exist_ok=True)
-            await run("virsh", "define", "/dev/stdin", input=ET.tostring(d, encoding="unicode"))
+            await host.define(ET.tostring(d, encoding="unicode"))
             host.register(body.vmid, "qemu", name)
             log(f"==> VM {body.vmid} ({name}) restored")
         finally:
