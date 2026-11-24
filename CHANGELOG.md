@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.6.1 — 2026-11-24
+
+### Fixed
+- **Help Center IOMMU fix** chose the GRUB path on systemd-boot hosts (ZFS on UEFI), so `/etc/kernel/cmdline` was left unchanged while the job still reported success. Host jobs run with `pipefail`, and `proxmox-boot-tool status | grep -q uefi` failed on SIGPIPE even when it matched. The check no longer uses a pipe. The NVIDIA install job had the same pattern (`lsmod | grep -q`) and now reads `/proc/modules`. A self-check now rejects `| grep -q` in host job scripts.
+
 ## v0.6.0 - Phase 6 — 2026-11-24
 
 ### Added

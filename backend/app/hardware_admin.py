@@ -316,7 +316,7 @@ apt-get install -y build-essential dkms pkg-config libglvnd-dev curl gpg
 echo '==> Blacklisting nouveau'
 printf 'blacklist nouveau\noptions nouveau modeset=0\n' > /etc/modprobe.d/proxmox-os-nouveau.conf
 update-initramfs -u
-if lsmod | grep -q '^nouveau '; then
+if grep -q '^nouveau ' /proc/modules; then
   rmmod nouveau 2>/dev/null || { echo '!! nouveau is still loaded and in use. Reboot the host, then click Install NVIDIA driver again.'; exit 3; }
 fi
 VER=$(curl -fsSL https://download.nvidia.com/XFree86/Linux-x86_64/latest.txt | awk '{print $1}')

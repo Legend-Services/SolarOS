@@ -40,6 +40,11 @@ assert h.check_bridge("refused")["status"] == "error" and h.check_bridge(None)["
 a = h.from_alerts([{"id": "zfs-health:tank", "severity": "critical", "category": "zfs", "title": "t", "message": "m"}])
 assert a[0]["status"] == "error" and a[0]["link"] == {"app": "storage"}
 assert "__FLAG__" in h.IOMMU_SCRIPT
+# Host jobs run under pipefail: "cmd | grep -q" can fail on SIGPIPE even when it matches (broke the v0.6.0 IOMMU fix).
+from app import hardware_admin  # noqa: E402
+
+for script in [h.IOMMU_SCRIPT, *(v for v in vars(hardware_admin).values() if isinstance(v, str) and "\n" in v)]:
+    assert not __import__("re").search(r"\|\s*grep -[a-zA-Z]*q", script), script[:80]
 assert h.check_iommu(False, True, "intel")["bios"] == "vt-d" and h.check_vtx(False)["bios"] == "vt-x"
 assert h.check_vtx(True)["status"] == "ok"
 

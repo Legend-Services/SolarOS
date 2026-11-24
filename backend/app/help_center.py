@@ -271,7 +271,8 @@ async def bios(vendor: str | None = Query(None, pattern=r"^[a-z]{2,12}$")):
 
 IOMMU_SCRIPT = r"""
 P="__FLAG__ iommu=pt"
-if [ -d /sys/firmware/efi ] && [ -f /etc/kernel/cmdline ] && proxmox-boot-tool status 2>/dev/null | grep -q uefi; then
+# Never pipe into grep -q here: jobs run with pipefail and its early exit SIGPIPEs the writer, failing the test.
+if [ -d /sys/firmware/efi ] && [ -f /etc/kernel/cmdline ] && [[ "$(proxmox-boot-tool status 2>/dev/null)" == *uefi* ]]; then
   echo "==> systemd-boot detected: editing /etc/kernel/cmdline (backup: /etc/kernel/cmdline.proxmox-os.bak)"
   cp -n /etc/kernel/cmdline /etc/kernel/cmdline.proxmox-os.bak
   for p in $P; do grep -qw -- "$p" /etc/kernel/cmdline || sed -i "1 s/[[:space:]]*\$/ $p/" /etc/kernel/cmdline; done
