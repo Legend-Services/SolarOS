@@ -136,6 +136,7 @@ export interface Intents {
   compute?: "vm" | "lxc" | "iso"; // open a wizard or the ISO tab
   storage?: "pool"; // open the Create Pool dialog
   controlpanel?: "security" | "network" | "appearance" | "hardware" | "power";
+  help?: "ask" | "fix" | "bios" | "tutorials" | "faq";
 }
 
 interface IntentState extends Intents {

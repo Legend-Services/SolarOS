@@ -46,6 +46,7 @@ A web desktop for Proxmox VE, in the style of Synology DSM, QNAP QTS and ZimaOS.
 - **Datacenter** app: users, groups, roles, ACLs, pools, API tokens, realms, firewall and logs. Storage Manager adds Directory/LVM/LVM-Thin/ZFS/NFS/CIFS storages.
 - **Compute Manager**: GPU/PCI/USB passthrough in the VM wizard and in a new guest drawer (hardware, network, cloud-init, snapshots, options).
 - **Network & Services** app: DNS server + AdBlocker, DHCP, WireGuard server/client with QR codes, router/NAT with port forwarding, Let's Encrypt and custom certificates.
+- **Help & Support** app: ask questions in plain words, run a health check with one-click **Fix it for me** wizards (each ends with do-it-yourself steps), 24 tutorials that link straight to the right settings, an FAQ, and BIOS instructions for your exact motherboard. The BIOS instructions come with QR codes that carry the text itself, so you can read them on your phone while the server is offline.
 - **Control Panel → Hardware & System**: full hardware inventory and one-click NVIDIA/Intel/AMD driver installs or VFIO passthrough mode. GPU passthrough needs IOMMU (VT-d) enabled in the BIOS and kernel.
 
 ## Deploy from a checkout (`deploy.sh`)

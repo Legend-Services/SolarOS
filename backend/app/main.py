@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 
-from . import (apps, auth, backups, console, files, guest_hardware, hardware_admin, host_ssh, net_services, notifications,
+from . import (apps, auth, backups, console, files, guest_hardware, hardware_admin, help_center, host_ssh, net_services, notifications,
                provisioning, pve, pve_access, pve_datacenter, schedules, shares, storage_admin, system, system_extra, tasks,
                telemetry)
 from .config import settings
@@ -36,7 +36,7 @@ app.include_router(storage_admin.router)
 app.include_router(provisioning.router)
 app.include_router(backups.router)
 app.include_router(system_extra.router)
-for module in (host_ssh, pve_access, pve_datacenter, net_services, hardware_admin, guest_hardware):
+for module in (host_ssh, pve_access, pve_datacenter, net_services, hardware_admin, guest_hardware, help_center):
     app.include_router(module.router)
 
 

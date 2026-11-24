@@ -13,6 +13,7 @@ import SystemApp from "../apps/SystemApp";
 import BackupCenterApp from "../apps/BackupCenterApp";
 import NetworkServicesApp from "../apps/NetworkServicesApp";
 import DatacenterApp from "../apps/DatacenterApp";
+import HelpCenterApp from "../apps/HelpCenterApp";
 import WindowFrame from "./WindowFrame";
 import type { ConsoleTarget } from "../lib/types";
 // noVNC + xterm.js are only downloaded when a console is opened.
@@ -32,6 +33,7 @@ const COMPONENTS: Record<AppId, ComponentType<{ params?: ConsoleTarget }>> = {
   netservices: NetworkServicesApp,
   datacenter: DatacenterApp,
   terminal: HostShell,
+  help: HelpCenterApp,
   console: ConsoleApp,
 };
 

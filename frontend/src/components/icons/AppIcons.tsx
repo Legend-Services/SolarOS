@@ -159,6 +159,19 @@ const ICONS: Record<AppId, { stops: [string, string, string]; glyph: ReactNode }
       </>
     ),
   },
+  help: {
+    stops: ["#fef08a", "#f43f5e", "#7e1d6b"],
+    glyph: (
+      <>
+        {/* Lifebuoy: help, support and automatic fixes. */}
+        <circle cx="32" cy="32" r="17" fill="none" stroke={W} strokeWidth="9" />
+        <g stroke="#f43f5e" strokeWidth="5" strokeLinecap="butt">
+          <path d="M32 15v9M32 40v9M15 32h9M40 32h9" />
+        </g>
+        <circle cx="32" cy="32" r="7.5" fill={W} fillOpacity=".25" />
+      </>
+    ),
+  },
   console: {
     stops: ["#94a3b8", "#334155", "#0f172a"],
     glyph: (

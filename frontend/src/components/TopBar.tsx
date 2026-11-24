@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Cpu, Database, LayoutGrid, Lock, LogOut, MemoryStick, Search, SlidersHorizontal, SquareTerminal, User } from "lucide-react";
+import { CircleHelp, Cpu, Database, LayoutGrid, Lock, LogOut, MemoryStick, Search, SlidersHorizontal, SquareTerminal, User } from "lucide-react";
 import { activeWindow, useAuth, useSpotlight, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
 import { useClock, useDismiss } from "../lib/hooks";
 import TaskCenterPopover from "./TaskCenterPopover";
@@ -91,6 +91,14 @@ export default function TopBar() {
         title="Host Shell (root on the Proxmox host)"
       >
         <SquareTerminal size={14} />
+      </button>
+      <button
+        onClick={() => open("help")}
+        className="flex items-center gap-1 rounded-md px-2 py-1 text-slate-200 hover:bg-white/10"
+        aria-label="Help & Support"
+        title="Help & Support: tutorials, FAQ and automatic fixes"
+      >
+        <CircleHelp size={14} />
       </button>
       <TaskCenterPopover />
       <NotificationPopover />
