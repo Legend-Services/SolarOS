@@ -490,9 +490,7 @@ async def switch(body: SwitchBody):
     vmid, log = s["vmid"], (lambda _m: None)
     patch: dict = {}
     if body.compute_target != s.get("compute_target"):
-        status = (await _safe(_node(f"/lxc/{vmid}/status/current"), {}) or {}).get("status")
-        if status == "running":
-            await wait_task(await pve("POST", _node(f"/lxc/{vmid}/status/shutdown"), data={"timeout": 60, "forceStop": 1}), 120)
+        await _stop(vmid)
         patch = await attach_compute(vmid, body.compute_target, log)
         await wait_task(await pve("POST", _node(f"/lxc/{vmid}/status/start")), 120)
         if patch["driver_version"]:  # first switch to the GPU of a container installed in CPU mode
@@ -504,6 +502,46 @@ async def switch(body: SwitchBody):
     await _exec(vmid, _env_script(ollama_env(body.compute_target, body.flash_attention, body.kv_cache_q8)))
     return save_state(**patch, compute_target=body.compute_target, flash_attention=body.flash_attention,
                       kv_cache_q8=body.kv_cache_q8)
+
+
+async def _stop(vmid: int) -> None:
+    if (await _safe(_node(f"/lxc/{vmid}/status/current"), {}) or {}).get("status") == "running":
+        await wait_task(await pve("POST", _node(f"/lxc/{vmid}/status/shutdown"), data={"timeout": 60, "forceStop": 1}), 120)
+
+
+def storage_script(old: str | None, new: str, move: bool) -> str:
+    """Host shell that prepares `new` for the container (and moves models from `old`). Paths are pre-validated."""
+    o, n = shlex.quote(old or ""), shlex.quote(new)
+    lines = ["set -e",
+             # A new folder goes to the container's root (host uid 100000) so it can hand it to the ollama user.
+             f"[ -d {n} ] || {{ mkdir -p {n} && chown 100000:100000 {n}; }}"]
+    if move and old and old != new:
+        lines.append(f"if [ -d {o} ]; then cp -a --reflink=auto {o}/. {n}/ && find {o} -mindepth 1 -delete; fi")
+    lines.append(f"du -sb {n} | cut -f1")
+    return "\n".join(lines) + "\n"
+
+
+class StorageBody(BaseModel):
+    # Only below /mnt or /srv (SolarDeck's storage areas), so a typo can never point Ollama at a system folder.
+    path: str = Field(pattern=r"^/(mnt|srv)(/[A-Za-z0-9_][A-Za-z0-9._-]*)+$", max_length=200)
+    move: bool = True
+
+
+@router.post("/storage")
+async def set_storage(body: StorageBody):
+    """Bind another host folder at Ollama's models folder, optionally moving the downloaded models along."""
+    s = _installed()
+    vmid, old = s["vmid"], s.get("model_storage")
+    if "/.." in body.path or body.path.rstrip("/") == (old or "").rstrip("/"):
+        raise HTTPException(422, "Choose a different folder")
+    await _stop(vmid)
+    try:
+        size = (await host_ssh.run(storage_script(old, body.path, body.move), timeout=3600)).strip().splitlines()[-1]
+        await _pct(vmid, "-mp0", f"{body.path},mp={MODELS_DIR}")
+    finally:  # never leave the AI container stopped, even when the move failed
+        await wait_task(await pve("POST", _node(f"/lxc/{vmid}/status/start")), 120)
+    await _exec(vmid, f"chown -R ollama:ollama {MODELS_DIR}\nsystemctl restart ollama\n")
+    return save_state(model_storage=body.path) | {"models_bytes": int(size) if size.isdigit() else None}
 
 
 # ---------------------------------------------------------------- Routes: status & models

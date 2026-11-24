@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.7.0 - Local AI Opens as a Chat — 2026-11-24
+
+### Changed
+- **Local AI opens straight into a chat**, laid out like the familiar AI assistants: a centered greeting and message box when empty, then a centered conversation with the message box at the bottom. The box grows with your text (Enter sends, Shift+Enter adds a line). A **model picker** under the box lists your installed models (size, quantization, loaded in VRAM) and links to *Download more models*. Replies render code blocks with a language label and **Copy** button, plus `inline code` and **bold**. Each reply shows tokens/sec and can be copied; reasoning models show a collapsible thought process. **New chat** starts over; the round Stop button stops a reply.
+- Model management moved to **Settings** (gear in the top bar): *Download models*, *Installed models*, *Hardware* (GPU/CPU, Flash Attention, KV cache, API endpoints), *Storage* and *Chat* (custom instructions sent as the system prompt, saved in the browser). The conversation stays put while you visit Settings.
+
+### Added
+- **Change where models are stored** (Settings → Storage, `POST /api/ai/storage`): pick any folder below `/mnt` or `/srv`, optionally moving the downloaded models along (copied with `cp -a --reflink=auto`, then removed from the old folder). The AI container is stopped, the folder is bind-mounted at Ollama's models folder, and the container is always started again, even if the move fails.
+
 ## v1.6.6 - Window Buttons That Match Your Device — 2026-11-24
 
 ### Added

@@ -377,7 +377,7 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     cards: [
       { title: "VRAM fit", body: "Green means the whole model fits in GPU memory and runs at full speed. Amber is a tight fit. Hybrid means part of it runs on the CPU, which is much slower." },
       { title: "Model sizes", body: "The number with a B is billions of parameters. Bigger is smarter but needs more memory: a 24 GB card like the RTX 3090 runs models up to about 32B at full speed." },
-      { title: "API for other apps", body: "Copy the OpenAI-compatible address from Hardware & Performance into any tool that supports a custom OpenAI endpoint." },
+      { title: "API for other apps", body: "Copy the OpenAI-compatible address from Settings → Hardware into any tool that supports a custom OpenAI endpoint." },
     ],
     when: [
       "You want a private assistant for writing, coding or questions about your documents.",
@@ -386,11 +386,11 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     ],
     how: [
       "Install Local AI Studio from App Center → AI & Compute and pick your GPU in the hardware picker.",
-      "Open Local AI → Online Models, search or filter by category, and click Download Model.",
-      "Test it in Playground Chat and watch the tokens-per-second badge.",
-      "Use Installed Models to unload a model from VRAM or delete it to free disk space.",
+      "Open Local AI → Settings → Download models, search or filter by category, and click Download Model.",
+      "Back in the chat, pick the model under the message box and start typing; each reply shows its tokens per second.",
+      "Use Settings → Installed models to unload a model from VRAM or delete it, and Settings → Storage to move your models to another disk.",
     ],
-    tip: "Turn on KV Cache Quantization in Hardware & Performance to fit longer conversations into the same VRAM.",
+    tip: "Turn on KV Cache Quantization in Settings → Hardware to fit longer conversations into the same VRAM.",
     action: { label: "Open Local AI", app: "local-ai" },
   }),
   console: guide({
