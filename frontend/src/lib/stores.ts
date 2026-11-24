@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { api, setUnauthorizedHandler } from "./api";
-import type { ConsoleTarget, Overview, StorageInfo } from "./types";
+import type { ConsoleTarget, HardwareInfo, Overview, StorageInfo } from "./types";
 import type { AppId } from "../apps/registry";
 import { APPS } from "../apps/registry";
 
@@ -131,6 +131,7 @@ export interface Sample {
 interface TelemetryState {
   overview: Overview | null;
   storage: StorageInfo | null;
+  hardware: HardwareInfo | null;
   history: Sample[];
   error: string | null;
   start: () => () => void;
@@ -140,6 +141,7 @@ interface TelemetryState {
 export const useTelemetry = create<TelemetryState>((set, get) => ({
   overview: null,
   storage: null,
+  hardware: null,
   history: [],
   error: null,
   refreshStorage: async () => {
@@ -167,13 +169,18 @@ export const useTelemetry = create<TelemetryState>((set, get) => ({
         set({ error: (e as Error).message });
       }
     };
+    // Hardware is optional telemetry (no GPU, no helper): failures keep the last value and show no error.
+    const pollHardware = () => api<HardwareInfo>("/pve/telemetry/hardware").then((hardware) => set({ hardware }), () => {});
     poll();
     get().refreshStorage();
+    pollHardware();
     const a = setInterval(poll, 2000);
     const b = setInterval(() => get().refreshStorage(), 30000);
+    const c = setInterval(pollHardware, 15000);
     return () => {
       clearInterval(a);
       clearInterval(b);
+      clearInterval(c);
     };
   },
 }));

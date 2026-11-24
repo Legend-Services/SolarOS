@@ -35,12 +35,19 @@ HOST_IP="$(hostname -I | awk '{print $1}')"
 PVE_HOST="https://${HOST_IP}:8006"
 ok "Node ${PVE_NODE}, API ${PVE_HOST}"
 
-# Source checkout? (empty when piped through bash -c "$(curl ...)")
-SRC_DIR=""
+# Local source tree, first match wins: $SRC_DIR, the script's own directory (checkout, tarball or deploy.sh
+# upload), then /opt/proxmox-os on the host. Empty means clone REPO_URL (piped through bash -c "$(curl ...)").
+export DEBIAN_FRONTEND=noninteractive
+CANDIDATES=("${SRC_DIR:-}")
 if [[ -n "${BASH_SOURCE[0]:-}" && -f "${BASH_SOURCE[0]}" ]]; then
-  d="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  [[ -d "$d/backend" && -d "$d/frontend" ]] && SRC_DIR="$d"
+  CANDIDATES+=("$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)")
 fi
+CANDIDATES+=("$APP_DIR")
+SRC_DIR=""
+for d in "${CANDIDATES[@]}"; do
+  if [[ -n "$d" && -d "$d/backend" && -d "$d/frontend" ]]; then SRC_DIR="$d"; break; fi
+done
+if [[ -n "$SRC_DIR" ]]; then ok "Installing from local source ${SRC_DIR}"; else ok "Installing from ${REPO_URL} (${REPO_BRANCH})"; fi
 
 EXISTING_CTID="$(pct list | awk -v h="$CT_HOSTNAME" 'NR>1 && $NF==h {print $1; exit}')"
 
@@ -205,7 +212,8 @@ msg "Deploying application to ${APP_DIR}"
 if [[ -n "$SRC_DIR" ]]; then
   TARBALL="$(mktemp --suffix=.tar.gz)"
   tar -C "$SRC_DIR" --exclude=node_modules --exclude=dist --exclude=.venv --exclude=.git \
-    --exclude=backend/.env --exclude=__pycache__ -czf "$TARBALL" .
+    --exclude=backend/.env --exclude=__pycache__ --exclude=.claude --exclude=backend/data/schedules.json \
+    -czf "$TARBALL" .
   pct push "$CTID" "$TARBALL" /tmp/proxmox-os.tar.gz
   rm -f "$TARBALL"
   ct "mkdir -p ${APP_DIR} && tar -xzf /tmp/proxmox-os.tar.gz -C ${APP_DIR} && rm /tmp/proxmox-os.tar.gz"

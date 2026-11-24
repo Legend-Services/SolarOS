@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
-import { Boxes, Container, Database, HeartPulse, Monitor } from "lucide-react";
+import { Boxes, Container, Database, Gauge as GaugeIcon, HeartPulse, Monitor } from "lucide-react";
 import { useTelemetry, useWindows } from "../lib/stores";
-import { bytes, healthColor, pct, uptime } from "../lib/format";
+import { bytes, healthColor, pct, tempColor, uptime } from "../lib/format";
 import { APPS, APP_IDS } from "../apps/registry";
 import { Bar, Gauge } from "./charts";
 
@@ -19,7 +19,8 @@ function Widget({ title, icon, children }: { title: string; icon: ReactNode; chi
 
 export default function Desktop() {
   const open = useWindows((s) => s.open);
-  const { overview: o, storage, error } = useTelemetry();
+  const { overview: o, storage, hardware, error } = useTelemetry();
+  const gpu = hardware?.gpu;
 
   return (
     <div className="absolute inset-0 flex gap-6 overflow-y-auto px-4 pt-14 pb-28">
@@ -63,6 +64,26 @@ export default function Desktop() {
             <span>Load {o?.loadavg.map((l) => l.toFixed(2)).join(" ") ?? "—"}</span>
           </div>
         </Widget>
+
+        {gpu?.available && (
+          <Widget title="GPU" icon={<GaugeIcon size={14} />}>
+            <button onClick={() => open("monitor")} className="w-full space-y-2 text-left">
+              <div className="flex items-center justify-between text-xs">
+                <span className="truncate font-medium text-slate-100">{gpu.name}</span>
+                <span className="shrink-0 pl-2 tabular-nums text-slate-300">
+                  <span className={tempColor(gpu.temp_c)}>{gpu.temp_c ?? "—"}°C</span> · {gpu.power_w?.toFixed(0) ?? "—"} W
+                </span>
+              </div>
+              <div className="flex justify-between text-[11px] text-slate-400">
+                <span>Core {gpu.utilization_pct ?? 0}%</span>
+                <span className="tabular-nums">
+                  VRAM {((gpu.vram_used_mb ?? 0) / 1024).toFixed(1)} / {((gpu.vram_total_mb ?? 0) / 1024).toFixed(1)} GB
+                </span>
+              </div>
+              <Bar value={pct(gpu.vram_used_mb ?? 0, gpu.vram_total_mb ?? 0)} className="bg-emerald-400" />
+            </button>
+          </Widget>
+        )}
 
         <Widget title="ZFS Storage" icon={<Database size={14} />}>
           {!storage ? (
