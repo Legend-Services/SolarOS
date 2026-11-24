@@ -2,7 +2,8 @@
 """SolarDeck Hypervisor console dashboard for the server's own monitor (tty1). Python standard library only.
 
 Shows the host summary, LAN addresses with the web management URL and ZFS pool health, plus a numbered menu:
-network setup (Netplan), admin password reset, update from Git, root shell, reboot / shut down.
+network setup (Netplan), admin password reset / initial-password dismissal, update from Git, root shell,
+reboot / shut down, and a nested virtualization & hardware readiness check.
 Installed as /usr/local/bin/solardeck-console and run by solardeck-console.service.
   solardeck-console --self-test   checks the pure helpers (CI).
 """
@@ -21,7 +22,8 @@ from pathlib import Path
 
 APP_DIR = Path(os.environ.get("SOLARDECK_DIR", "/opt/solardeck"))
 ENV_FILE = APP_DIR / "backend/.env"
-CREDS_FILE = Path("/root/solardeck-credentials.txt")
+CREDS_FILE = Path("/etc/solardeck/initial-credentials.txt")
+LEGACY_CREDS = Path("/root/solardeck-credentials.txt")  # v1.14 installs
 NETPLAN_DIR = Path("/etc/netplan")
 UPDATE_UNIT = "proxmox-os-self-update"
 UPDATE_LOG = Path("/var/log/proxmox-os-self-update.log")
@@ -34,10 +36,11 @@ BANNER = r"""
 """
 MENU = [
     ("1", "Configure Network Interface / Static IP (Netplan)"),
-    ("2", "Reset Web UI Admin Password"),
+    ("2", "Reset / Clear Initial Password Display"),
     ("3", "Update SolarDeck from Git (main)"),
     ("4", "Open Root Diagnostic Shell"),
     ("5", "Reboot or Shut Down Server"),
+    ("6", "Show Nested Virtualization & Hardware Readiness"),
 ]
 
 
@@ -115,6 +118,26 @@ def new_password(n: int = 14) -> str:
     return "".join(secrets.choice(alphabet) for _ in range(n))
 
 
+def initial_password(text: str) -> str:
+    m = re.search(r"^Password:\s*(\S+)", text, re.M)
+    return m.group(1) if m else ""
+
+
+def readiness(f: dict) -> list[tuple[str, bool, str]]:
+    """Hardware / hypervisor readiness rows (label, ok, detail) from raw probe results (see probe_readiness)."""
+    nested = f.get("nested", "").strip()
+    return [
+        ("CPU virtualization (VT-x / AMD-V)", bool(f.get("cpu_flag")), f.get("cpu_flag") or "no vmx/svm flag: enable it in the BIOS or the VM's CPU type"),
+        ("/dev/kvm", bool(f.get("kvm")), "present" if f.get("kvm") else "missing: KVM guests cannot start"),
+        ("Nested virtualization", nested in ("Y", "1"), f"kvm nested={nested}" if nested else "kvm module not loaded"),
+        ("libvirtd", f.get("libvirtd") == "active", f.get("libvirtd") or "unknown"),
+        ("Incus", f.get("incus") == "active", f.get("incus") or "unknown"),
+        ("OpenZFS", bool(f.get("zfs")), f.get("zfs") or "zfs module not loaded"),
+        ("Bridge br0", bool(f.get("br0")), f.get("br0") or "missing: guests have no LAN bridge"),
+        ("Platform", True, f.get("virt") or "bare metal"),
+    ]
+
+
 def env_get(key: str) -> str:
     try:
         for line in ENV_FILE.read_text().splitlines():
@@ -149,6 +172,30 @@ def facts() -> dict:
             "ips": parse_ipv4(sh("ip", "-j", "-4", "addr")),
             "pools": parse_pools(sh("zpool", "list", "-H", "-o", "name,health,size,alloc")),
             "backend": sh("systemctl", "is-active", "solardeck-backend").strip() or "unknown"}
+
+
+def probe_readiness() -> dict:
+    flags = Path("/proc/cpuinfo").read_text() if Path("/proc/cpuinfo").exists() else ""
+    nested = next((p.read_text() for p in (Path("/sys/module/kvm_intel/parameters/nested"),
+                                           Path("/sys/module/kvm_amd/parameters/nested")) if p.exists()), "")
+    zfs = Path("/sys/module/zfs/version")
+    br0 = next((cidr for iface, cidr in parse_ipv4(sh("ip", "-j", "-4", "addr", "show", "dev", "br0")) if iface == "br0"),
+               "up, no IPv4 address" if Path("/sys/class/net/br0").exists() else "")
+    virt = sh("systemd-detect-virt").strip()
+    return {"cpu_flag": "vmx" if re.search(r"\bvmx\b", flags) else "svm" if re.search(r"\bsvm\b", flags) else "",
+            "kvm": Path("/dev/kvm").exists(), "nested": nested,
+            "libvirtd": sh("systemctl", "is-active", "libvirtd").strip(), "incus": sh("systemctl", "is-active", "incus").strip(),
+            "zfs": f"zfs {zfs.read_text().strip()}" if zfs.exists() else "", "br0": br0,
+            "virt": f"virtual machine ({virt})" if virt and virt != "none" else ""}
+
+
+def read_initial_password() -> str:
+    for f in (CREDS_FILE, LEGACY_CREDS):
+        try:
+            return initial_password(f.read_text())
+        except OSError:
+            continue
+    return ""
 
 
 # ---------------------------------------------------------------- Screens
@@ -190,13 +237,11 @@ class Console:
             self.put(y, 4, f"http://{cidr.split('/')[0]}", curses.color_pair(2) | curses.A_BOLD)
             self.put(y, 30, f"{iface}  {cidr}")
             y += 1
-        initial = ""
-        if CREDS_FILE.exists():
-            m = re.search(r"Password:\s*(\S+)", CREDS_FILE.read_text())
-            initial = m.group(1) if m else ""
+        initial = read_initial_password()
         if initial:
-            self.put(y, 4, f"Sign in as {env_get('ADMIN_USERNAME') or 'admin'} / {initial}", curses.color_pair(3))
-            y += 1
+            self.put(y, 4, f"Initial login:  {env_get('ADMIN_USERNAME') or 'admin'} / {initial}", curses.color_pair(3) | curses.A_BOLD)
+            self.put(y + 1, 4, "Change it after signing in, then clear this display with [2].", curses.A_DIM)
+            y += 2
         y += 1
         self.put(y, 2, "ZFS Pools", curses.A_BOLD)
         y += 1
@@ -292,10 +337,17 @@ class Console:
 
     # [2]
     def reset_password(self) -> None:
-        if self.ask("Generate a new Web UI admin password? (yes/no)", "no").lower() != "yes":
+        choice = self.ask("r = reset the admin password, c = clear the initial password display, x = cancel", "x").lower()
+        if choice == "c":
+            for f in (CREDS_FILE, LEGACY_CREDS):
+                f.unlink(missing_ok=True)
+            self.status = "Initial password removed from this screen and from disk"
+            return
+        if choice != "r" or self.ask("Generate a new Web UI admin password? (yes/no)", "no").lower() != "yes":
             self.status = "Cancelled"
             return
         pw = new_password()
+        CREDS_FILE.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
         ENV_FILE.write_text(set_env(ENV_FILE.read_text() if ENV_FILE.exists() else "", "ADMIN_PASSWORD", pw))
         ENV_FILE.chmod(0o600)
         CREDS_FILE.write_text(f"SolarDeck Hypervisor Web UI\nUsername: {env_get('ADMIN_USERNAME') or 'admin'}\nPassword: {pw}\n")
@@ -350,8 +402,18 @@ class Console:
             return
         subprocess.run(["systemctl", "reboot" if choice == "r" else "poweroff"])
 
+    # [6]
+    def hardware(self) -> None:
+        rows = readiness(probe_readiness())
+        lines = [f"{'OK  ' if ok else 'FAIL'}  {label:<36} {detail}" for label, ok, detail in rows]
+        # Nested virtualization (row 2) only matters for VMs inside guests, so it does not block readiness.
+        ready = all(ok for i, (_, ok, _) in enumerate(rows) if i != 2)
+        lines += ["", "Ready to host VMs and containers." if ready else "Not fully ready: fix the FAIL rows above."]
+        self.message(lines, "Nested Virtualization & Hardware Readiness")
+
     def loop(self) -> None:
-        actions = {"1": self.network, "2": self.reset_password, "3": self.update, "4": self.shell, "5": self.power}
+        actions = {"1": self.network, "2": self.reset_password, "3": self.update, "4": self.shell, "5": self.power,
+                   "6": self.hardware}
         while True:
             self.dashboard()
             self.scr.timeout(5000)  # refresh the dashboard every 5 s
@@ -382,6 +444,12 @@ def self_test() -> None:
     assert set_env("A=1\nADMIN_PASSWORD=old\n", "ADMIN_PASSWORD", "new") == "A=1\nADMIN_PASSWORD='new'\n"
     assert set_env("A=1", "B", "2") == "A=1\nB='2'\n"
     assert len(new_password()) == 14 and new_password().isalnum()
+    assert initial_password("SolarDeck Hypervisor Web UI\nUsername: admin\nPassword: Ab12\n") == "Ab12"
+    assert initial_password("nothing") == ""
+    rows = readiness({"cpu_flag": "vmx", "kvm": True, "nested": "Y\n", "libvirtd": "active", "incus": "inactive",
+                      "zfs": "zfs 2.2.2", "br0": "10.0.0.5/24", "virt": ""})
+    assert [ok for _, ok, _ in rows] == [True, True, True, True, False, True, True, True]
+    assert rows[-1][2] == "bare metal" and not readiness({})[0][1]
     print("solardeck-console self-test OK")
 
 

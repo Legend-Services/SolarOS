@@ -566,6 +566,21 @@ export interface VersionEntry {
   is_current: boolean;
 }
 
+export interface HypervisorIsoFile {
+  name: string;
+  path: string;
+  size: number;
+  modified: number;
+  sha256: string | null;
+}
+
+export interface HypervisorIsoStatus {
+  build_command: string;
+  test_command: string;
+  search_paths: string[];
+  isos: HypervisorIsoFile[];
+}
+
 export interface UpdateStatus {
   git: boolean;
   commit: string | null;

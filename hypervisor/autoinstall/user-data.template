@@ -1,7 +1,7 @@
 #cloud-config
 # SolarDeck Hypervisor unattended installation (Ubuntu autoinstall v1). build-iso.sh fills the @@...@@ fields.
-# Subiquity installs the OS; on first boot solardeck-firstboot.service runs hypervisor/install-hypervisor.sh from the
-# SolarDeck source copied off the ISO (it needs the network for packages and the desktop build).
+# Subiquity installs the OS; on first boot solardeck-firstboot.service runs hypervisor/firstboot-setup.sh from the
+# SolarDeck bundle copied off the ISO (source, prebuilt desktop and Python wheels; APT packages need the network).
 autoinstall:
   version: 1
   @@INTERACTIVE@@
@@ -23,6 +23,7 @@ autoinstall:
     layout:
       name: lvm
       sizing-policy: all
+      @@DISK_MATCH@@
   identity:
     hostname: @@HOSTNAME@@
     username: solardeck
