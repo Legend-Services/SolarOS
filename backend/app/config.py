@@ -24,6 +24,10 @@ class Settings(BaseSettings):
     # Empty HOST_SSH runs the helper locally (backend on the PVE host itself).
     host_ssh: str = ""
     host_ssh_key: str = "/root/.ssh/proxmox-os-helper"
+    # Unrestricted root key for the asyncssh bridge (host shells, pct enter, drivers, network services).
+    # install.sh authorizes it in root@PVE_HOST:/root/.ssh/authorized_keys; the target defaults to HOST_SSH.
+    host_root_key: Path = Path(__file__).resolve().parent.parent / ".ssh" / "id_ed25519"
+    host_root_target: str = ""
     samba_conf: Path = Path("/etc/samba/proxmox-os-shares.conf")
     schedules_file: Path = Path(__file__).resolve().parent.parent / "data" / "schedules.json"
     security_file: Path = Path(__file__).resolve().parent.parent / "data" / "security.json"

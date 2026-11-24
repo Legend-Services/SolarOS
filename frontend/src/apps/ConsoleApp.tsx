@@ -6,6 +6,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import { api } from "../lib/api";
 import type { ConsoleTarget } from "../lib/types";
+import { useTelemetry } from "../lib/stores";
 
 type Status = "connecting" | "connected" | "disconnected" | "error";
 
@@ -54,7 +55,11 @@ export default function ConsoleApp({ params }: { params?: ConsoleTarget }) {
             r.disconnect();
           };
         } else {
-          const { session } = await api<{ session: string }>(`/pve/guests/${t.type}/${t.vmid}/terminal`, { method: "POST" });
+          // Host shells open a root PTY over the SSH bridge directly; guests get a single-use session first.
+          const url =
+            t.type === "node"
+              ? `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/pve/ws/host-shell`
+              : wsUrl("terminal", t, (await api<{ session: string }>(`/pve/guests/${t.type}/${t.vmid}/terminal`, { method: "POST" })).session);
           if (cancelled) return;
           const term = new Terminal({
             cursorBlink: true,
@@ -65,7 +70,7 @@ export default function ConsoleApp({ params }: { params?: ConsoleTarget }) {
           const fit = new FitAddon();
           term.loadAddon(fit);
           term.open(el);
-          const ws = new WebSocket(wsUrl("terminal", t, session), "binary");
+          const ws = new WebSocket(url, "binary");
           ws.binaryType = "arraybuffer";
           const enc = new TextEncoder();
           const send = (m: string) => ws.readyState === WebSocket.OPEN && ws.send(m);
@@ -117,7 +122,7 @@ export default function ConsoleApp({ params }: { params?: ConsoleTarget }) {
       <div className="flex shrink-0 items-center gap-2 border-b border-white/10 bg-slate-900/80 px-3 py-1.5">
         <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${BADGE[status]}`}>{status}</span>
         <span className="min-w-0 flex-1 truncate text-[11px] text-slate-400">
-          {detail || `${t.mode === "vnc" ? "noVNC" : "Shell"} · ${t.type === "qemu" ? "VM" : "LXC"} ${t.vmid}`}
+          {detail || (t.type === "node" ? `root@${t.name} · host shell (SSH key bridge)` : `${t.mode === "vnc" ? "noVNC" : "Shell"} · ${t.type === "qemu" ? "VM" : "LXC"} ${t.vmid}`)}
         </span>
         {t.mode === "vnc" && (
           <button className="btn" disabled={status !== "connected"} onClick={() => rfb.current?.sendCtrlAltDel()} title="Send Ctrl+Alt+Del">
@@ -134,4 +139,10 @@ export default function ConsoleApp({ params }: { params?: ConsoleTarget }) {
       <div ref={screen} className="min-h-0 flex-1 overflow-hidden p-1" />
     </div>
   );
+}
+
+/** "Host Shell" app: an instant root@pve prompt over the SSH key bridge. */
+export function HostShell() {
+  const node = useTelemetry((s) => s.overview?.node) ?? "pve";
+  return <ConsoleApp params={{ type: "node", vmid: 0, name: node, mode: "shell" }} />;
 }

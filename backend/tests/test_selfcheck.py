@@ -319,8 +319,9 @@ assert c.post("/api/system/repositories/add", json={"handle": "x; rm"}).status_c
 assert c.post("/api/system/power", json={"command": "destroy"}).status_code == 422
 assert c.post("/api/system/power", json={"command": "reboot"}).status_code == 200
 assert sys_calls[-1] == ("POST", "/status", "command=reboot")
-c.post("/api/pve/guests/node/0/terminal")
-assert sys_calls[-1][:2] == ("POST", "/termproxy"), sys_calls  # host shell, not /node/0/termproxy
+n = len(sys_calls)
+assert c.post("/api/pve/guests/node/0/terminal").json()["session"]  # host shell: SSH bridge session, no termproxy
+assert c.post("/api/pve/guests/lxc/101/terminal").json()["session"] and len(sys_calls) == n  # pct enter, no ticket
 assert c.post("/api/pve/guests/node/0/vnc").status_code == 422  # graphical console stays guests-only
 
 # ---------------- Phase 4 ----------------

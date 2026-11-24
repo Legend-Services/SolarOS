@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { ChevronLeft, CloudDownload, KeyRound, Network, Palette, Power, RefreshCw, RotateCcw, ShieldCheck, Smartphone } from "lucide-react";
+import { ChevronLeft, Cpu, CloudDownload, KeyRound, Network, Palette, Power, RefreshCw, RotateCcw, ShieldCheck, Smartphone, SquareTerminal } from "lucide-react";
 import { api } from "../lib/api";
 import type { SystemInfo, UpdateStatus } from "../lib/types";
 import { uptime } from "../lib/format";
 import { usePoll, useRunner } from "../lib/hooks";
-import { useIntent, usePrefs, WALLPAPERS } from "../lib/stores";
+import { useIntent, usePrefs, useWindows, WALLPAPERS } from "../lib/stores";
+import HardwarePanel from "./HardwarePanel";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassSwitch, Notice } from "../components/ui/GlassKit";
 
-type Section = "security" | "network" | "appearance" | "power";
+type Section = "security" | "network" | "appearance" | "hardware" | "power";
 
 const SECTIONS: { id: Section; title: string; desc: string; icon: ReactNode; tint: string }[] = [
   { id: "security", title: "User & Security", desc: "Admin password, API token status", icon: <ShieldCheck size={22} />, tint: "from-indigo-400 to-violet-600" },
   { id: "network", title: "Network & DNS", desc: "Host interfaces, bridges, resolvers", icon: <Network size={22} />, tint: "from-sky-400 to-cyan-600" },
-  { id: "appearance", title: "Appearance & Desktop", desc: "Wallpaper, desktop widgets", icon: <Palette size={22} />, tint: "from-pink-400 to-rose-600" },
+  { id: "appearance", title: "Appearance & Dock", desc: "Wallpaper, widgets, Dock size and magnification", icon: <Palette size={22} />, tint: "from-pink-400 to-rose-600" },
+  { id: "hardware", title: "Hardware & System", desc: "CPU, memory, GPUs, drives, NICs, GPU drivers", icon: <Cpu size={22} />, tint: "from-emerald-400 to-teal-600" },
   { id: "power", title: "System & Power", desc: "Proxmox VE version, reboot, shut down", icon: <Power size={22} />, tint: "from-amber-300 to-orange-600" },
 ];
 
@@ -74,6 +76,7 @@ function Security({ info }: { info: SystemInfo }) {
         </form>
       </Card>
       <TwoFactorCard />
+      <BridgeCard />
       <Card title="Proxmox API connection" action={<GlassBadge tone={info.api.connected ? "success" : "danger"}>{info.api.connected ? "CONNECTED" : "UNREACHABLE"}</GlassBadge>}>
         <Rows
           rows={[
@@ -85,6 +88,53 @@ function Security({ info }: { info: SystemInfo }) {
         />
       </Card>
     </div>
+  );
+}
+
+interface Bridge {
+  target: string;
+  public_key: string;
+  connected: boolean;
+  error: string | null;
+  hostname?: string;
+  host_key_pinned: boolean;
+}
+
+function BridgeCard() {
+  const [b, setB] = useState<Bridge | null>(null);
+  const open = useWindows((s) => s.open);
+  useEffect(() => {
+    api<Bridge>("/host/bridge").then(setB, (e) => setB({ target: "", public_key: "", connected: false, error: e.message, host_key_pinned: false }));
+  }, []);
+  return (
+    <Card
+      title="Host root shell (SSH key bridge)"
+      action={b && <GlassBadge tone={b.connected ? "success" : "danger"}>{b.connected ? "CONNECTED" : "UNAVAILABLE"}</GlassBadge>}
+    >
+      <p className="mb-3 text-xs text-slate-400">
+        ProxmoxOS reaches <span className="font-mono">{b?.target || "the Proxmox host"}</span> as root with its own ed25519 key, so Host Shell, container shells, GPU drivers and network
+        services work without a second login. Anyone signed in to ProxmoxOS has full root on the host; keep 2FA on.
+      </p>
+      {b && (
+        <Rows
+          rows={[
+            ["Host", b.hostname ?? "—"],
+            ["Host key", b.host_key_pinned ? "Pinned (known_hosts)" : "Not pinned; re-run install.sh"],
+            ["Public key", <span className="font-mono text-[10px] break-all whitespace-normal select-all">{b.public_key}</span>],
+          ]}
+        />
+      )}
+      {b?.error && (
+        <div className="mt-3">
+          <Notice error={b.error} />
+        </div>
+      )}
+      <div className="mt-3">
+        <GlassButton variant="primary" onClick={() => open("terminal")} disabled={!b?.connected}>
+          <SquareTerminal size={13} /> Open Host Shell
+        </GlassButton>
+      </div>
+    </Card>
   );
 }
 
@@ -403,6 +453,8 @@ export default function ControlPanelApp() {
           </div>
         ) : section === "appearance" ? (
           <Appearance />
+        ) : section === "hardware" ? (
+          <HardwarePanel />
         ) : !info ? (
           !error && <p className="text-sm text-slate-400">Loading…</p>
         ) : section === "security" ? (

@@ -1,0 +1,3 @@
+export default function NetworkServicesApp() {
+  return <p className="p-4 text-sm text-slate-400">Coming soon…</p>;
+}

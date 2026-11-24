@@ -135,7 +135,7 @@ export interface Intents {
   files?: string; // File Station path
   compute?: "vm" | "lxc" | "iso"; // open a wizard or the ISO tab
   storage?: "pool"; // open the Create Pool dialog
-  controlpanel?: "security" | "network" | "appearance" | "power";
+  controlpanel?: "security" | "network" | "appearance" | "hardware" | "power";
 }
 
 interface IntentState extends Intents {

@@ -1,4 +1,4 @@
-import { Activity, ArchiveRestore, Boxes, FolderOpen, HardDrive, Settings, Share2, SlidersHorizontal, Store, SquareTerminal, type LucideIcon } from "lucide-react";
+import { Activity, ArchiveRestore, Boxes, Building2, FolderOpen, Globe, HardDrive, Settings, Share2, SlidersHorizontal, Store, SquareTerminal, Terminal, type LucideIcon } from "lucide-react";
 
 // Metadata only (no components) so stores can import it without a circular dependency.
 // `icon` is the small title-bar glyph; launchers and the dock use the bespoke icons in components/icons/AppIcons.
@@ -10,6 +10,9 @@ export const APPS = {
   appcenter: { title: "App Center", icon: Store, size: { w: 1040, h: 660 } },
   backup: { title: "Backup Center", icon: ArchiveRestore, size: { w: 980, h: 640 } },
   shares: { title: "Network Shares", icon: Share2, size: { w: 940, h: 640 } },
+  netservices: { title: "Network & Services", icon: Globe, size: { w: 1060, h: 680 } },
+  datacenter: { title: "Datacenter", icon: Building2, size: { w: 1080, h: 680 } },
+  terminal: { title: "Host Shell", icon: Terminal, size: { w: 900, h: 560 } },
   controlpanel: { title: "Control Panel", icon: SlidersHorizontal, size: { w: 940, h: 640 } },
   system: { title: "System", icon: Settings, size: { w: 960, h: 640 } },
   // Opened per guest from Compute Manager, so it is not in the dock or launcher.

@@ -118,6 +118,47 @@ const ICONS: Record<AppId, { stops: [string, string, string]; glyph: ReactNode }
       </>
     ),
   },
+  netservices: {
+    stops: ["#86efac", "#0ea5e9", "#1e3a8a"],
+    glyph: (
+      <>
+        {/* Globe with a shield: DNS, VPN and router services. */}
+        <circle cx="28" cy="30" r="15" fill="none" stroke={W} strokeWidth="2.6" />
+        <ellipse cx="28" cy="30" rx="6.5" ry="15" fill="none" stroke={W} strokeOpacity=".75" strokeWidth="2" />
+        <path d="M13.5 25h29M13.5 35h29" stroke={W} strokeOpacity=".75" strokeWidth="2" />
+        <path d="M44 34l8 3v6c0 5-3.5 8-8 9.5-4.5-1.5-8-4.5-8-9.5v-6Z" fill={W} />
+        <path d="m40.5 43.5 2.5 2.5 4.5-5" fill="none" stroke="#0ea5e9" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      </>
+    ),
+  },
+  datacenter: {
+    stops: ["#fdba74", "#ea580c", "#7c1d0b"],
+    glyph: (
+      <>
+        {/* Server racks with a key: permissions, firewall and logs. */}
+        <rect x="12" y="13" width="26" height="38" rx="4" fill={W} fillOpacity=".9" />
+        {[19, 28, 37].map((y) => (
+          <g key={y}>
+            <rect x="16" y={y} width="18" height="5" rx="1.5" fill="#ea580c" fillOpacity=".35" />
+            <circle cx="31" cy={y + 2.5} r="1.3" fill="#ea580c" />
+          </g>
+        ))}
+        <circle cx="45" cy="33" r="6.5" fill="none" stroke={W} strokeWidth="3" />
+        <path d="M45 39.5V51m0-4h4m-4-4h3" stroke={W} strokeWidth="3" strokeLinecap="round" />
+      </>
+    ),
+  },
+  terminal: {
+    stops: ["#4ade80", "#15803d", "#052e16"],
+    glyph: (
+      <>
+        <rect x="11" y="15" width="42" height="34" rx="6" fill="#03140a" fillOpacity=".6" stroke={W} strokeOpacity=".55" strokeWidth="1.5" />
+        <path d="m18 26 7 6-7 6" fill="none" stroke={W} strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
+        <rect x="29" y="36" width="15" height="3.4" rx="1.7" fill={W} />
+        <circle cx="47" cy="20" r="2" fill="#86efac" />
+      </>
+    ),
+  },
   console: {
     stops: ["#94a3b8", "#334155", "#0f172a"],
     glyph: (

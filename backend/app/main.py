@@ -3,8 +3,9 @@ from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 
-from . import (apps, auth, backups, console, files, notifications, provisioning, pve, schedules, shares, storage_admin,
-               system, system_extra, tasks, telemetry)
+from . import (apps, auth, backups, console, files, guest_hardware, hardware_admin, host_ssh, net_services, notifications,
+               provisioning, pve, pve_access, pve_datacenter, schedules, shares, storage_admin, system, system_extra, tasks,
+               telemetry)
 from .config import settings
 
 
@@ -16,6 +17,7 @@ async def lifespan(_: FastAPI):
     with suppress(asyncio.CancelledError):
         await scheduler
     await pve.close_client()
+    await host_ssh.close()
 
 
 app = FastAPI(title="ProxmoxOS API", lifespan=lifespan, docs_url="/api/docs", openapi_url="/api/openapi.json")
@@ -34,6 +36,8 @@ app.include_router(storage_admin.router)
 app.include_router(provisioning.router)
 app.include_router(backups.router)
 app.include_router(system_extra.router)
+for module in (host_ssh, pve_access, pve_datacenter, net_services, hardware_admin, guest_hardware):
+    app.include_router(module.router)
 
 
 @app.get("/api/health")
