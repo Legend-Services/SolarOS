@@ -99,9 +99,13 @@ export function LayoutControls() {
 /** Floating View Options panel under the TopBar; opened from the TopBar, desktop menu or Control Panel. */
 export function ViewOptionsPanel({ up = false }: { up?: boolean }) {
   const { t } = useTranslation();
+  const dockSize = useDock((s) => s.baseSize);
   const set = useLayout((s) => s.set);
   return (
-    <div className={`glass-panel absolute ${up ? "bottom-full mb-5 bg-slate-950/90" : "top-8"} right-0 max-h-[calc(100vh-5rem)] w-80 overflow-auto rounded-2xl p-4 text-xs`} role="dialog" aria-label="View options">
+    <div className={`glass-panel absolute ${up ? "bottom-full mb-5 bg-slate-950/90" : "top-8"} right-0 w-80 overflow-auto rounded-2xl p-4 text-xs`}
+      // Top bar: end above the floating Dock (icon + padding + bottom offset) and scroll inside; taskbar: fit above the bar.
+      style={{ maxHeight: up ? "calc(100vh - 5rem)" : `calc(100vh - ${dockSize + 96}px)` }}
+      role="dialog" aria-label="View options">
       <div className="mb-3 flex items-center">
         <h3 className="flex-1 text-sm font-semibold text-white">{t("view.title")}</h3>
         <GlassButton variant="ghost" size="xs" onClick={() => set({ panel: false })} aria-label="Close view options">

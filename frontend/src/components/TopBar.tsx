@@ -45,8 +45,9 @@ export default function TopBar() {
   const health = zfsHealth(storage);
   const ram = overview ? pct(overview.memory.used, overview.memory.total) : 0;
 
+  // z above the Dock (9000): the top bar popovers (View Options, Help, notifications) must open over the Dock.
   return (
-    <header className="glass fixed inset-x-0 top-0 z-[9000] flex h-9 items-center gap-3 border-x-0 border-t-0 bg-slate-900/55 px-2 text-xs">
+    <header className="glass fixed inset-x-0 top-0 z-[9100] flex h-9 items-center gap-3 border-x-0 border-t-0 bg-slate-900/55 px-2 text-xs">
       <div ref={launcherRef} className="relative">
         <button
           onClick={() => setLauncher((v) => !v)}
