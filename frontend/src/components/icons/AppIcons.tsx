@@ -208,8 +208,13 @@ export function AppIcon({ id, size = 48, className = "" }: { id: AppId; size?: n
   const uid = useId().replace(/:/g, "");
   const { stops, glyph } = ICONS[id];
   return (
-    <svg width={size} height={size} viewBox="0 0 64 64" className={`shrink-0 drop-shadow-[0_6px_10px_rgba(0,0,0,0.35)] ${className}`} aria-hidden>
+    // The outer shadow is an SVG filter, not CSS filter: drop-shadow: a CSS filter puts every icon on its own GPU layer,
+    // and Chrome sometimes paints those layers sharp through the windows' backdrop-filter glass.
+    <svg width={size} height={size} viewBox="0 0 64 64" overflow="visible" className={`shrink-0 ${className}`} aria-hidden>
       <defs>
+        <filter id={`o${uid}`} x="-30%" y="-30%" width="160%" height="170%">
+          <feDropShadow dx="0" dy="5" stdDeviation="4" floodColor="#000" floodOpacity=".35" />
+        </filter>
         <linearGradient id={`b${uid}`} x1="0" y1="0" x2="0.9" y2="1">
           <stop offset="0" stopColor={stops[0]} />
           <stop offset=".55" stopColor={stops[1]} />
@@ -230,7 +235,7 @@ export function AppIcon({ id, size = 48, className = "" }: { id: AppId; size?: n
           <path d={SQUIRCLE} />
         </clipPath>
       </defs>
-      <path d={SQUIRCLE} fill={`url(#b${uid})`} />
+      <path d={SQUIRCLE} fill={`url(#b${uid})`} filter={`url(#o${uid})`} />
       <path d={SQUIRCLE} fill={`url(#i${uid})`} />
       <g filter={`url(#s${uid})`}>{glyph}</g>
       {/* Glass reflection on the upper half. */}
