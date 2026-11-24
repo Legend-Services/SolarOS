@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.6.4 - Resize Windows From Every Edge and Corner — 2026-11-24
+
+### Fixed
+- **Windows could hardly be resized.** The only grip was an invisible 16×16 px square in the bottom-right corner, and the window's 16 px rounded corner clipped almost all of it. Windows now resize from all four edges (6 px) and all four corners, with matching resize cursors. Dragging the top or left edge grows the window in that direction while the opposite edge stays put; windows never go under the top bar and keep the 360×240 px minimum. The top corner grips stay clear of the close button.
+
 ## v1.6.3 - Hotfix: Desktop Icons Flickering Through Windows — 2026-11-24
 
 ### Fixed
