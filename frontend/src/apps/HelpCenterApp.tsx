@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react
 import { ArrowRight, BookOpen, Check, ChevronDown, Copy, Cpu, ExternalLink, HelpCircle, Printer, QrCode, RefreshCw, Search, Sparkles, Wrench } from "lucide-react";
 import { api } from "../lib/api";
 import { useRunner } from "../lib/hooks";
-import { useIntent, useWindows, type Intents } from "../lib/stores";
+import { openLink, useIntent, type Intents } from "../lib/stores";
 import type { AppId } from "./registry";
 import { APPS } from "./registry";
 import { Field, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, Notice, Segmented } from "../components/ui/GlassKit";
@@ -46,7 +46,6 @@ interface BiosInfo {
 
 const TONE: Record<Status, "success" | "info" | "warning" | "danger"> = { ok: "success", info: "info", warning: "warning", error: "danger" };
 const LABEL: Record<Status, string> = { ok: "ALL GOOD", info: "TIP", warning: "NEEDS ATTENTION", error: "PROBLEM" };
-const INTENT_APPS: AppId[] = ["files", "compute", "storage", "controlpanel", "help"];
 const EXAMPLES = ["My updates fail with 401", "Use my graphics card in a Windows VM", "Block ads on my network", "Connect from my phone when I'm away", "Back up my VMs automatically"];
 
 const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
@@ -69,8 +68,6 @@ export default function HelpCenterApp() {
   const [wizard, setWizard] = useState<Diag | null>(null);
   const [tutorial, setTutorial] = useState<Tutorial | null>(null);
   const [biosFocus, setBiosFocus] = useState<string | null>(null);
-  const openApp = useWindows((s) => s.open);
-  const go = useIntent((s) => s.go);
   const intent = useIntent((s) => s.help);
   const take = useIntent((s) => s.take);
 
@@ -86,8 +83,7 @@ export default function HelpCenterApp() {
   const follow = (l: HelpLink | Diag["link"]) => {
     if (!l) return;
     if (l.app === "help") return setTab((l.intent as Tab) || "fix");
-    if (l.intent !== undefined && INTENT_APPS.includes(l.app)) go(l.app as keyof Intents & AppId, l.intent as never);
-    else openApp(l.app);
+    openLink(l.app, l.intent);
   };
   const showBios = (id: string) => {
     setBiosFocus(id);

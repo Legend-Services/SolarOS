@@ -4,6 +4,10 @@ import { api } from "../lib/api";
 import type { Share, ZfsDatasetInfo } from "../lib/types";
 import { useRunner } from "../lib/hooks";
 import { Field, GlassBadge, GlassButton, GlassInput, GlassSelect, GlassSwitch, Notice } from "../components/ui/GlassKit";
+import { ViewToggle } from "../components/ViewOptions";
+import { GuideBanner } from "../components/wizards/GuidedWizardModal";
+import { useIntentFor } from "../lib/stores";
+import { useAppView } from "../store/layoutStore";
 
 type Tab = "shares" | "users";
 
@@ -101,7 +105,7 @@ function ShareForm({ users, onDone }: { users: string[]; onDone: () => void }) {
         <GlassSwitch checked={f.read_only} onChange={toggle("read_only")} label="Read-only" />
         <GlassSwitch checked={f.guest_ok} onChange={toggle("guest_ok")} label="Guest access (no password)" />
         <GlassSwitch checked={f.recycle_bin} onChange={toggle("recycle_bin")} label="Recycle bin (.recycle folder)" />
-        <GlassSwitch checked={f.timemachine} onChange={toggle("timemachine")} label="macOS Time Machine target" />
+        <GlassSwitch checked={f.timemachine} onChange={toggle("timemachine")} label="Time Machine backup target" />
         <GlassSwitch checked={f.browseable} onChange={toggle("browseable")} label="Visible in network browsing" />
       </div>
       <fieldset>
@@ -199,6 +203,8 @@ export default function SharesManager() {
   const [users, setUsers] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
+  const [view] = useAppView("shares");
+  useIntentFor("shares", (v) => (v === "create" ? (setTab("shares"), setCreating(true)) : setTab("users")));
   const host = location.hostname;
 
   const load = useCallback(() => {
@@ -252,16 +258,58 @@ export default function SharesManager() {
           <>
             <div className="flex items-center">
               <h3 className="text-sm font-semibold text-white">SMB shared folders</h3>
+              <span className="ml-auto">
+                <ViewToggle app="shares" />
+              </span>
               {!creating && (
-                <GlassButton variant="primary" className="ml-auto" onClick={() => setCreating(true)}>
+                <GlassButton variant="primary" onClick={() => setCreating(true)}>
                   <Plus size={12} /> Create share
                 </GlassButton>
               )}
             </div>
             {creating && <ShareForm users={users} onDone={() => (setCreating(false), load())} />}
             {shares === null && !error && <p className="text-sm text-slate-400">Loading…</p>}
-            {shares?.length === 0 && !creating && <p className="text-sm text-slate-400">No shares yet. Create one to access /mnt/storage folders from your computers.</p>}
-            {shares?.map((s) => (
+            {shares?.length === 0 && !creating && (
+              <>
+                <p className="text-sm text-slate-400">No shares yet. Create one to access /mnt/storage folders from your computers.</p>
+                <GuideBanner guide="shares" text="See how to share a folder and connect to it from Windows, Linux or your phone." />
+              </>
+            )}
+            {view === "list" && !!shares?.length && (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] text-left text-xs">
+                  <thead className="text-slate-400">
+                    <tr>
+                      <th className="py-2 font-medium">Share</th>
+                      <th className="px-2 font-medium">Folder</th>
+                      <th className="px-2 font-medium">Access</th>
+                      <th className="px-2 font-medium">Users</th>
+                      <th className="px-2 font-medium">Address</th>
+                      <th className="px-2" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shares.map((s) => (
+                      <tr key={s.name} className="border-t border-white/5 hover:bg-white/[0.03]">
+                        <td className="py-2 font-medium text-white">{s.name}</td>
+                        <td className="px-2 font-mono text-slate-400">{s.path}</td>
+                        <td className="px-2">
+                          <GlassBadge tone={s.read_only ? "warning" : "success"}>{s.read_only ? "READ-ONLY" : "READ/WRITE"}</GlassBadge>
+                        </td>
+                        <td className="max-w-40 truncate px-2 text-slate-300">{s.users.length ? s.users.join(", ") : "any Samba user"}</td>
+                        <td className="px-2 font-mono text-slate-300">{`\\\\${host}\\${s.name}`}</td>
+                        <td className="px-2 text-right">
+                          <GlassButton size="xs" variant="danger" onClick={() => remove(s)} aria-label={`Delete share ${s.name}`}>
+                            <Trash2 size={12} />
+                          </GlassButton>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {view === "grid" && shares?.map((s) => (
               <section key={s.name} className="glass-soft space-y-2 rounded-2xl p-4">
                 <div className="flex flex-wrap items-center gap-2">
                   <FolderOpen size={16} className="text-cyan-300" />
@@ -279,7 +327,7 @@ export default function SharesManager() {
                 {s.comment && <p className="text-xs text-slate-400">{s.comment}</p>}
                 <p className="text-[11px] text-slate-400">Users: {s.users.length ? s.users.join(", ") : "any Samba user"}</p>
                 <div className="grid gap-1.5 sm:grid-cols-2">
-                  <CopyPath label="macOS / Linux" value={`smb://${host}/${s.name}`} />
+                  <CopyPath label="SMB address" value={`smb://${host}/${s.name}`} />
                   <CopyPath label="Windows" value={`\\\\${host}\\${s.name}`} />
                 </div>
               </section>

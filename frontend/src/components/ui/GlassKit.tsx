@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
+import { useEffect, useId, useState, type ButtonHTMLAttributes, type CSSProperties, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
 import { X } from "lucide-react";
 
 /* Liquid Glass primitives. Surfaces, rims and press physics live in index.css (.glass-btn, .glass-field, …). */
@@ -75,6 +75,59 @@ export function GlassSelect({ className = "", children, ...rest }: SelectHTMLAtt
     <select className={`glass-field pr-7 ${className}`} {...rest}>
       {children}
     </select>
+  );
+}
+
+/** Liquid Glass range slider with a live numeric readout; the filled part of the track follows the value. */
+export function GlassSlider({
+  label,
+  value,
+  min,
+  max,
+  step = 1,
+  unit = "px",
+  onChange,
+}: {
+  label: ReactNode;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  unit?: string;
+  onChange: (v: number) => void;
+}) {
+  const fill = `${((value - min) / (max - min)) * 100}%`;
+  return (
+    <label className="block select-none">
+      <span className="mb-1.5 flex items-center justify-between text-[11px] text-slate-300">
+        <span>{label}</span>
+        <span className="rounded-md bg-white/10 px-1.5 py-0.5 font-medium text-white tabular-nums ring-1 ring-white/10 ring-inset">
+          {value}
+          {unit}
+        </span>
+      </span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="glass-slider w-full"
+        style={{ "--fill": fill } as CSSProperties}
+        aria-valuetext={`${value}${unit}`}
+      />
+      <span className="mt-0.5 flex justify-between text-[10px] text-slate-500 tabular-nums">
+        <span>
+          {min}
+          {unit}
+        </span>
+        <span>
+          {max}
+          {unit}
+        </span>
+      </span>
+    </label>
   );
 }
 

@@ -25,7 +25,7 @@ PER_KIND = 8
 SECTIONS = [
     ("security", "User & Security", "password two-factor 2fa totp authenticator api token login"),
     ("network", "Network & DNS", "interfaces bridge vmbr dns resolver ip gateway"),
-    ("appearance", "Appearance & Desktop", "wallpaper widgets theme background"),
+    ("appearance", "Appearance & Layout", "wallpaper widgets theme background layout grid list view icon size spacing dock"),
     ("power", "System & Power", "reboot shutdown version update upgrade kernel"),
 ]
 

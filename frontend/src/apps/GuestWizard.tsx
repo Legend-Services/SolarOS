@@ -6,6 +6,7 @@ import { PassthroughPicker, usePassthroughDevices, type PciSel, type UsbSel } fr
 import { bytes } from "../lib/format";
 import { useRunner } from "../lib/hooks";
 import { useTelemetry } from "../lib/stores";
+import { GuideBanner } from "../components/wizards/GuidedWizardModal";
 import { Field, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
 import { TaskLog } from "../components/TaskCenterPopover";
 
@@ -368,6 +369,7 @@ export default function GuestWizard({ kind, open, onClose, onCreated }: { kind: 
               </div>
               {k === "qemu" ? (
                 <div className="glass-soft max-h-80 overflow-auto rounded-xl p-3">
+                  <GuideBanner className="mb-2" guide="compute-passthrough" text="Passing a GPU or USB device needs IOMMU turned on. See what that means and how to do it safely." />
                   <p className="mb-2 text-[11px] text-slate-400">Device passthrough (optional). Needs IOMMU on the host; devices sharing an IOMMU group move to the VM together.</p>
                   <PassthroughPicker devices={devices} hostpci={f.hostpci} usb={f.usb} onChange={(hostpci, usb) => set({ hostpci, usb })} />
                 </div>

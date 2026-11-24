@@ -1,8 +1,11 @@
-import { useState, type ReactNode } from "react";
+import { useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { Boxes, Container, Database, Gauge as GaugeIcon, HeartPulse, Monitor } from "lucide-react";
-import { usePrefs, useTelemetry, useWindows } from "../lib/stores";
+import { useDock, usePrefs, useTelemetry, useWindows } from "../lib/stores";
+import { useLayout } from "../store/layoutStore";
 import { bytes, healthColor, pct, tempColor, uptime } from "../lib/format";
-import { APPS, APP_IDS } from "../apps/registry";
+import { APPS, APP_IDS, type AppId } from "../apps/registry";
+import { AppListRow } from "./ViewOptions";
+import { TOP } from "./WindowFrame";
 import { Bar, Gauge } from "./charts";
 import { AppIcon } from "./icons/AppIcons";
 import DesktopContextMenu from "./DesktopContextMenu";
@@ -25,31 +28,50 @@ export default function Desktop() {
   const gpu = hardware?.gpu;
   const widgets = usePrefs((s) => s.widgets);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const { desktopView, iconSize, colGap, rowGap } = useLayout();
+  const dockSize = useDock((s) => s.baseSize);
+
+  // Shortcuts fill columns top to bottom and wrap into a new column when the next one would pass the Dock.
+  // Row height is fixed per mode so `repeat(auto-fill, …)` can count how many rows fit.
+  const font = Math.round(Math.min(14, Math.max(10, iconSize * 0.2)));
+  const list = desktopView === "list";
+  const listIcon = Math.round(Math.min(56, Math.max(28, iconSize * 0.6)));
+  const cellW = list ? 300 : Math.max(84, iconSize + 32);
+  const cellH = list ? Math.max(listIcon, 38) + 18 : iconSize + 22 + Math.ceil(font * 1.25 * 2); // list: two text lines need ~38px
+  const launch = (id: AppId) => ({
+    onDoubleClick: () => open(id),
+    onKeyDown: (e: KeyboardEvent) => e.key === "Enter" && open(id),
+    // Single tap opens on touch devices, which have no double-click.
+    onPointerUp: (e: PointerEvent) => e.pointerType === "touch" && open(id),
+  });
 
   return (
     <div
-      className="absolute inset-0 flex gap-6 overflow-y-auto px-4 pt-14 pb-28"
+      className="absolute inset-0 flex gap-6 overflow-auto px-4"
+      style={{ paddingTop: TOP + 20, paddingBottom: dockSize + 52 }}
       onContextMenu={(e) => (e.preventDefault(), setMenu({ x: e.clientX, y: e.clientY }))}
     >
       <DesktopContextMenu at={menu} onClose={() => setMenu(null)} />
       {/* Shortcuts */}
-      <div className="grid h-max grid-cols-1 gap-2">
-        {APP_IDS.map((id) => {
-          const { title } = APPS[id];
-          return (
+      <div
+        className="grid h-full shrink-0 content-start"
+        style={{ gridAutoFlow: "column", gridTemplateRows: `repeat(auto-fill, ${cellH}px)`, gridAutoColumns: cellW, columnGap: colGap, rowGap }}
+      >
+        {APP_IDS.map((id) =>
+          list ? (
+            <AppListRow key={id} id={id} iconSize={listIcon} title={`Double-click to open ${APPS[id].title}`} {...launch(id)} />
+          ) : (
             <button
               key={id}
-              onDoubleClick={() => open(id)}
-              onKeyDown={(e) => e.key === "Enter" && open(id)}
-              // Single tap opens on touch devices, which have no double-click.
-              onPointerUp={(e) => e.pointerType === "touch" && open(id)}
-              className="group flex w-24 flex-col items-center gap-1.5 rounded-xl p-2 text-center text-xs text-slate-100 drop-shadow hover:bg-white/10 focus:bg-white/10 focus:outline-none"
+              {...launch(id)}
+              className="group flex flex-col items-center gap-1.5 rounded-xl p-2 text-center text-slate-100 drop-shadow hover:bg-white/10 focus:bg-white/10 focus:outline-none"
+              style={{ fontSize: font, lineHeight: 1.25 }}
             >
-              <AppIcon id={id} size={52} className="transition-transform group-hover:scale-105 group-active:scale-95" />
-              {title}
+              <AppIcon id={id} size={iconSize} className="shrink-0 transition-transform group-hover:scale-105 group-active:scale-95" />
+              <span className="line-clamp-2">{APPS[id].title}</span>
             </button>
-          );
-        })}
+          ),
+        )}
       </div>
 
       {/* Widgets */}

@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { Container, Database, Image, Monitor, RefreshCw, SquareTerminal } from "lucide-react";
+import { Container, Database, Image, LayoutDashboard, Monitor, RefreshCw, SquareTerminal } from "lucide-react";
+import { useLayout } from "../store/layoutStore";
 import { useDismiss } from "../lib/hooks";
 import { useIntent, useTelemetry, useWindows } from "../lib/stores";
 
@@ -9,6 +10,7 @@ export default function DesktopContextMenu({ at, onClose }: { at: { x: number; y
   const box = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState(at);
   const go = useIntent((s) => s.go);
+  const setLayout = useLayout((s) => s.set);
   const open = useWindows((s) => s.open);
   const refreshStorage = useTelemetry((s) => s.refreshStorage);
   const node = useTelemetry((s) => s.overview?.node ?? "host");
@@ -50,6 +52,7 @@ export default function DesktopContextMenu({ at, onClose }: { at: { x: number; y
       {item(<Database size={14} />, "Create ZFS Pool", () => go("storage", "pool"))}
       {sep}
       {item(<SquareTerminal size={14} />, "Open Terminal", () => open("console", { type: "node", vmid: 0, name: node, mode: "shell" }))}
+      {item(<LayoutDashboard size={14} />, "View Options…", () => setLayout({ panel: true }))}
       {item(<Image size={14} />, "Change Wallpaper", () => go("controlpanel", "appearance"))}
       {sep}
       {item(<RefreshCw size={14} />, "Refresh Telemetry", () => refreshStorage())}

@@ -213,7 +213,7 @@ msg "Deploying application to ${APP_DIR}"
 if [[ -n "$SRC_DIR" ]]; then
   TARBALL="$(mktemp --suffix=.tar.gz)"
   tar -C "$SRC_DIR" --exclude=node_modules --exclude=dist --exclude=.venv --exclude=.git \
-    --exclude=backend/.env --exclude=__pycache__ --exclude=.claude --exclude=backend/data/schedules.json --exclude=backend/data/security.json --exclude=backend/.ssh \
+    --exclude=backend/.env --exclude=__pycache__ --exclude=.claude --exclude=backend/data/schedules.json --exclude=backend/data/security.json --exclude=backend/data/user_preferences.json --exclude=backend/.ssh \
     -czf "$TARBALL" .
   pct push "$CTID" "$TARBALL" /tmp/proxmox-os.tar.gz
   rm -f "$TARBALL"

@@ -6,6 +6,8 @@ import {
 import { api } from "../lib/api";
 import type { CatalogApp, Deployment } from "../lib/types";
 import { TaskLog } from "../components/TaskCenterPopover";
+import { ViewToggle } from "../components/ViewOptions";
+import { useAppView } from "../store/layoutStore";
 
 const ICONS: Record<string, LucideIcon> = { Clapperboard, Container, FolderTree, ShieldCheck, Waypoints, Images, BrainCircuit };
 
@@ -256,6 +258,7 @@ export default function AppCenter() {
   const [query, setQuery] = useState("");
   const [installing, setInstalling] = useState<CatalogApp | null>(null);
   const [error, setError] = useState("");
+  const [view] = useAppView("appcenter");
 
   const load = useCallback(() => {
     api<CatalogApp[]>("/apps/catalog")
@@ -295,7 +298,10 @@ export default function AppCenter() {
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex items-center gap-2 border-b border-white/10 p-3">
           <h2 className="text-sm font-semibold text-white">{CATEGORIES.find((c) => c.id === category)?.label}</h2>
-          <label className="relative ml-auto">
+          <span className="ml-auto">
+            <ViewToggle app="appcenter" />
+          </span>
+          <label className="relative">
             <Search size={14} className="absolute top-1/2 left-2.5 -translate-y-1/2 text-slate-500" />
             <input className="input w-56 py-1.5 pl-8 text-xs max-sm:w-36" placeholder="Search apps" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search apps" />
           </label>
@@ -304,6 +310,29 @@ export default function AppCenter() {
         <div className="min-h-0 flex-1 overflow-auto p-4">
           {!apps && !error && <p className="text-sm text-slate-400">Loading…</p>}
           {apps && shown.length === 0 && <p className="text-sm text-slate-400">No apps match.</p>}
+          {view === "list" ? (
+            <div className="space-y-1.5">
+              {shown.map((a) => (
+                <article key={a.id} className="glass-soft flex items-center gap-3 rounded-xl px-3 py-2">
+                  <AppIcon app={a} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="truncate text-sm font-semibold text-white">{a.name}</h3>
+                      <span className="text-[10px] text-slate-500">{a.category}</span>
+                      {a.installed.length > 0 && <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-medium text-emerald-300">Installed</span>}
+                    </div>
+                    <p className="truncate text-[11px] text-slate-400">{a.description}</p>
+                  </div>
+                  <span className="hidden shrink-0 text-[10px] text-slate-400 tabular-nums md:block">
+                    {a.cores} vCPU · {a.memory_mb / 1024} GB · {a.disk_gb} GB{a.supports_igpu && " · iGPU"}
+                  </span>
+                  <button className="btn shrink-0 border-sky-400/30 bg-sky-500/20 text-white hover:bg-sky-500/30" onClick={() => setInstalling(a)}>
+                    {a.installed.length ? "Install another" : "Install"}
+                  </button>
+                </article>
+              ))}
+            </div>
+          ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {shown.map((a) => (
               <article key={a.id} className="glass-soft flex flex-col rounded-xl p-4">
@@ -332,6 +361,7 @@ export default function AppCenter() {
               </article>
             ))}
           </div>
+          )}
         </div>
       </div>
       {installing && (

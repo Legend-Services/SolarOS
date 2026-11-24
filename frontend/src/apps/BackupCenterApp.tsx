@@ -4,7 +4,8 @@ import { api } from "../lib/api";
 import type { BackupArchive, BackupsInfo, Guest, TaskState } from "../lib/types";
 import { bytes } from "../lib/format";
 import { useRunner } from "../lib/hooks";
-import { useTelemetry } from "../lib/stores";
+import { useIntentFor, useTelemetry } from "../lib/stores";
+import { GuideBanner } from "../components/wizards/GuidedWizardModal";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
 import { TaskLog } from "../components/TaskCenterPopover";
 
@@ -168,6 +169,7 @@ function RestoreModal({ archive, onClose, guests, onDone }: { archive: BackupArc
     >
       {archive && (
         <div className="space-y-3 text-xs">
+          <GuideBanner guide="backup" text="Restoring replaces or recreates a machine from this backup. See how restores work before you start." />
           <div className="glass-soft flex items-center gap-3 rounded-xl p-3">
             <GuestIcon type={archive.type} />
             <div className="min-w-0">
@@ -211,8 +213,7 @@ function RestoreModal({ archive, onClose, guests, onDone }: { archive: BackupArc
   );
 }
 
-function Backups({ data, guests, reload }: { data: BackupsInfo; guests: Guest[]; reload: () => void }) {
-  const [backupNow, setBackupNow] = useState(false);
+function Backups({ data, guests, reload, backupNow, setBackupNow }: { data: BackupsInfo; guests: Guest[]; reload: () => void; backupNow: boolean; setBackupNow: (v: boolean) => void }) {
   const [restore, setRestore] = useState<BackupArchive | null>(null);
   const [del, setDel] = useState<BackupArchive | null>(null);
   const [filter, setFilter] = useState("");
@@ -236,6 +237,7 @@ function Backups({ data, guests, reload }: { data: BackupsInfo; guests: Guest[];
           <UploadCloud size={13} /> Backup Now
         </GlassButton>
       </div>
+      {data.archives.length === 0 && <GuideBanner guide="backup" text="No backups yet. Learn how backups protect your machines and how to schedule them automatically." />}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] text-left text-xs">
           <thead className="text-slate-400">
@@ -428,6 +430,8 @@ function Schedules({ data, guests, reload }: { data: BackupsInfo; guests: Guest[
 
 export default function BackupCenterApp() {
   const [tab, setTab] = useState<Tab>("backups");
+  const [backupNow, setBackupNow] = useState(false);
+  useIntentFor("backup", (v) => (v === "now" ? (setTab("backups"), setBackupNow(true)) : setTab(v)));
   const [data, setData] = useState<BackupsInfo | null>(null);
   const [guests, setGuests] = useState<Guest[]>([]);
   const [error, setError] = useState("");
@@ -463,7 +467,7 @@ export default function BackupCenterApp() {
         {!data ? (
           !error && <p className="text-sm text-slate-400">Loading…</p>
         ) : tab === "backups" ? (
-          <Backups data={data} guests={guests} reload={load} />
+          <Backups data={data} guests={guests} reload={load} backupNow={backupNow} setBackupNow={setBackupNow} />
         ) : (
           <Schedules data={data} guests={guests} reload={load} />
         )}

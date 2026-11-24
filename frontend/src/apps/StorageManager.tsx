@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import {
+  BookOpen,
   CalendarClock,
   Camera,
   Database,
@@ -18,7 +19,11 @@ import {
   Trash2,
   Wrench,
 } from "lucide-react";
-import { useIntent, useTelemetry } from "../lib/stores";
+import { useIntentFor, useTelemetry } from "../lib/stores";
+import { useAppView } from "../store/layoutStore";
+import { useWizard } from "../store/wizardStore";
+import { ViewToggle } from "../components/ViewOptions";
+import { GuideBanner } from "../components/wizards/GuidedWizardModal";
 import { api } from "../lib/api";
 import type { PveDisk, Schedule, Share, SmartReport, StorageInfo, ZfsDataset, ZfsDatasetInfo, ZfsSnapshot, ZfsVdev } from "../lib/types";
 import { bytes, healthColor, pct, tempColor } from "../lib/format";
@@ -101,6 +106,7 @@ function CreatePoolModal({ open, onClose, disks, onDone }: { open: boolean; onCl
       }
     >
       <div className="space-y-4">
+        <GuideBanner guide="storage-raid" text="Not sure which RAID level to pick? See Single, Mirror, RAIDZ1 and RAIDZ2 explained in plain language." />
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label="Pool name">
             <GlassInput className="w-full" value={name} onChange={(e) => setName(e.target.value)} pattern="[A-Za-z][A-Za-z0-9_.:\-]{0,63}" required />
@@ -383,7 +389,12 @@ function Pools({ storage, onCreate, onChanged }: { storage: StorageInfo; onCreat
         </GlassButton>
       </div>
       <Notice error={destroy ? undefined : error} notice={notice} />
-      {storage.pools.length === 0 && <p className="text-sm text-slate-400">No ZFS pools yet.</p>}
+      {storage.pools.length === 0 && (
+        <>
+          <p className="text-sm text-slate-400">No ZFS pools yet.</p>
+          <GuideBanner guide="storage-pool" text="Learn how to turn empty drives into a protected pool and organize it with datasets." />
+        </>
+      )}
       {storage.pools.map((p) => (
         <section key={p.name} className="glass-soft rounded-2xl p-4">
           <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -739,6 +750,8 @@ function Disks({ disks, onChanged }: { disks: PveDisk[] | null; onChanged: () =>
   const [smart, setSmart] = useState<PveDisk | null>(null);
   const [wipe, setWipe] = useState<PveDisk | null>(null);
   const [format, setFormat] = useState<PveDisk | null>(null);
+  const [view] = useAppView("disks");
+  const showGuide = useWizard((s) => s.show);
   const { busy, error, notice, run } = useRunner(onChanged);
   const initGpt = (d: PveDisk) => {
     if (window.confirm(`Initialize a new, empty GPT partition table on ${d.devpath}?`)) run(() => api("/pve/disks/initgpt", { method: "POST", json: { disk: d.devpath } }), TASK_NOTE);
@@ -747,12 +760,75 @@ function Disks({ disks, onChanged }: { disks: PveDisk[] | null; onChanged: () =>
     if (await run(() => api("/pve/disks/wipe", { method: "POST", json: { disk: wipe!.devpath, confirm_device: wipe!.devpath } }), TASK_NOTE)) setWipe(null);
   };
   if (!disks) return <p className="text-sm text-slate-400">Loading…</p>;
+  const tempOf = (d: PveDisk) => temps?.find((t) => t.devpath === d.devpath)?.temp_c ?? null;
+  const actions = (d: PveDisk, compact = false) => (
+    <>
+      <GlassButton size="xs" onClick={() => setSmart(d)} title="Inspect SMART">
+        <ScanSearch size={12} /> {compact ? "SMART" : "Inspect SMART"}
+      </GlassButton>
+      <GlassButton size="xs" disabled={busy || !!d.used} onClick={() => initGpt(d)} title={d.used ? "Disk is in use" : "Write an empty GPT"}>
+        <Wrench size={12} /> {compact ? "GPT" : "Initialize GPT"}
+      </GlassButton>
+      <GlassButton size="xs" disabled={busy || !!d.used} onClick={() => setFormat(d)} title={d.used ? "Disk is in use" : "Directory / LVM storage"}>
+        <Plus size={12} /> {compact ? "Storage" : "Create storage"}
+      </GlassButton>
+      <GlassButton size="xs" variant="danger" disabled={busy} onClick={() => setWipe(d)} title="Wipe Disk">
+        <Eraser size={12} /> {compact ? "Wipe" : "Wipe Disk"}
+      </GlassButton>
+    </>
+  );
   return (
     <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <h3 className="flex-1 text-sm font-semibold text-slate-100">Physical disks</h3>
+        <GlassButton size="xs" variant="ghost" onClick={() => showGuide("storage-smart")}>
+          <BookOpen size={12} /> How do I read disk health?
+        </GlassButton>
+        <ViewToggle app="disks" />
+      </div>
       <Notice error={wipe ? undefined : error} notice={notice} />
+      {view === "list" ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px] text-left text-xs">
+            <thead className="text-slate-400">
+              <tr>
+                <th className="py-2 font-medium">Device</th>
+                <th className="px-2 font-medium">Model</th>
+                <th className="px-2 font-medium">Bus</th>
+                <th className="px-2 text-right font-medium">Size</th>
+                <th className="px-2 font-medium">Health</th>
+                <th className="px-2 text-right font-medium">Temp</th>
+                <th className="px-2 text-right font-medium">Life</th>
+                <th className="px-2 font-medium">Usage</th>
+                <th className="px-2 text-right font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {disks.map((d) => {
+                const temp = tempOf(d);
+                return (
+                  <tr key={d.devpath} className="border-t border-white/5 hover:bg-white/[0.03]">
+                    <td className="py-2 font-mono text-slate-200">{d.devpath}</td>
+                    <td className="max-w-48 truncate px-2 text-slate-200" title={d.serial || undefined}>{d.model || "Unknown model"}</td>
+                    <td className="px-2"><GlassBadge tone="info">{d.bus}</GlassBadge></td>
+                    <td className="px-2 text-right text-slate-200 tabular-nums">{bytes(d.size)}</td>
+                    <td className="px-2"><GlassBadge tone={healthTone(d.health)}>{d.health}</GlassBadge></td>
+                    <td className={`px-2 text-right tabular-nums ${tempColor(temp)}`}>{temp ?? "—"} °C</td>
+                    <td className="px-2 text-right text-slate-300 tabular-nums">{d.wearout != null ? `${d.wearout}%` : d.rpm ? `${d.rpm} rpm` : "N/A"}</td>
+                    <td className={`max-w-40 truncate px-2 ${d.used ? "text-slate-300" : "text-emerald-300"}`}>{d.used || "Unused"}</td>
+                    <td className="px-2">
+                      <div className="flex justify-end gap-1">{actions(d, true)}</div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
       <div className="grid gap-3 lg:grid-cols-2">
         {disks.map((d) => {
-          const temp = temps?.find((t) => t.devpath === d.devpath)?.temp_c ?? null;
+          const temp = tempOf(d);
           const life = d.wearout;
           return (
             <section key={d.devpath} className="glass-soft rounded-2xl p-4">
@@ -792,24 +868,12 @@ function Disks({ disks, onChanged }: { disks: PveDisk[] | null; onChanged: () =>
                   {d.gpt && <span className="text-slate-500"> · GPT</span>}
                 </div>
               </div>
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                <GlassButton size="xs" onClick={() => setSmart(d)}>
-                  <ScanSearch size={12} /> Inspect SMART
-                </GlassButton>
-                <GlassButton size="xs" disabled={busy || !!d.used} onClick={() => initGpt(d)} title={d.used ? "Disk is in use" : "Write an empty GPT"}>
-                  <Wrench size={12} /> Initialize GPT
-                </GlassButton>
-                <GlassButton size="xs" disabled={busy || !!d.used} onClick={() => setFormat(d)} title={d.used ? "Disk is in use" : "Directory / LVM storage"}>
-                  <Plus size={12} /> Create storage
-                </GlassButton>
-                <GlassButton size="xs" variant="danger" disabled={busy} onClick={() => setWipe(d)}>
-                  <Eraser size={12} /> Wipe Disk
-                </GlassButton>
-              </div>
+              <div className="mt-3 flex flex-wrap gap-1.5">{actions(d)}</div>
             </section>
           );
         })}
       </div>
+      )}
       <SmartDrawer disk={smart} onClose={() => setSmart(null)} />
       <FormatDiskModal disk={format} onClose={() => setFormat(null)} onDone={onChanged} />
       <ConfirmModal
@@ -1350,11 +1414,12 @@ export default function StorageManager() {
   }, [refreshAll]);
 
   useEffect(refreshAll, [refreshAll]);
-  const intent = useIntent((s) => s.storage);
-  const takeIntent = useIntent((s) => s.take);
-  useEffect(() => {
-    if (intent === "pool") (setModal("pool"), takeIntent("storage"));
-  }, [intent, takeIntent]);
+  useIntentFor("storage", (v) => {
+    if (v === "pool" || v === "dataset") {
+      if (v === "pool") loadDisks();
+      setModal(v);
+    } else setTab(v);
+  });
   useEffect(() => {
     if (modal === "dataset")
       api<ZfsDatasetInfo[]>("/pve/zfs/datasets").then(

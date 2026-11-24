@@ -1,11 +1,12 @@
 """Host administration: APT repositories, package updates, power. Needs the Administrator role (Sys.Modify)."""
 import asyncio
+import json
 import re
 import secrets
 from pathlib import Path
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from . import config, host
@@ -167,3 +168,32 @@ def change_password(body: PasswordBody):
     write_env(config.ENV_FILE, "ADMIN_PASSWORD", body.new_password)
     settings.admin_password = body.new_password
     return {"ok": True}
+
+
+PREFS_MAX_BYTES = 64 * 1024
+
+
+def load_preferences() -> dict:
+    try:
+        data = json.loads(settings.preferences_file.read_text())
+    except (FileNotFoundError, ValueError):  # missing or hand-damaged file: start from defaults
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+@router.get("/preferences")
+def get_preferences():
+    return load_preferences()
+
+
+@router.put("/preferences")
+def put_preferences(body: dict = Body(...)):
+    """Replace the stored preferences. The frontend owns the schema (layout, dock, wizard); the backend only stores it."""
+    raw = json.dumps(body, indent=2)
+    if len(raw) > PREFS_MAX_BYTES:
+        raise HTTPException(413, "Preferences are too large")
+    settings.preferences_file.parent.mkdir(parents=True, exist_ok=True)
+    tmp = settings.preferences_file.with_suffix(".tmp")
+    tmp.write_text(raw)
+    tmp.replace(settings.preferences_file)  # atomic: a crash never leaves a half-written file
+    return body
