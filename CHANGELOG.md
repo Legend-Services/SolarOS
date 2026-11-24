@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.9.0 - Domains and Let's Encrypt for SolarDeck — 2026-11-24
+
+### Added
+- **Network & Services → Domains**: add your own domain names and, per domain, host names with their IP address, for example `solardeck` → `192.168.68.230` (`@` is the domain itself).
+  - Host names become local DNS records in SolarDeck's DNS service as soon as it is installed and on, and are kept until then. dnsmasq still checks every change, and a rejected change keeps the previous working set.
+  - Domains are stored with the other network settings on the host (`/etc/proxmox-os/net/domains.json`), so they survive a container reinstall.
+  - API: `GET|POST /api/domains`, `DELETE /api/domains/{name}`, `PUT /api/domains/{name}/hosts`.
+- **Let's Encrypt certificate for SolarDeck** with a DNS-01 check, so SolarDeck never has to be reachable from the internet.
+  - Pick a host name, a DNS provider (Cloudflare, Hetzner DNS, DigitalOcean, or any acme.sh DNS API plugin), its API token and an email address.
+  - SolarDeck installs acme.sh (pinned 3.1.7) in its container, requests the certificate, installs it in nginx, and lets acme.sh's cron job renew and reload it automatically.
+  - Credentials are entered in SolarDeck, passed to acme.sh as environment variables, masked in the progress log, and stored only in acme.sh's root-only settings file.
+  - Certificates are only requested for domains you added. *Back to self-signed* stops renewing and restores SolarDeck's self-signed certificate.
+  - API: `POST|DELETE /api/domains/certificate`, `GET /api/domains/certificate/job`.
+
 ## v1.8.2 - HTTPS Out of the Box — 2026-11-24
 
 ### Added

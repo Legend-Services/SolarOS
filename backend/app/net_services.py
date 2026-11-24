@@ -261,7 +261,10 @@ def parse_dns_log_stats(text: str) -> dict:
 
 async def apply_dnsmasq(dns: dict, dhcp: dict) -> None:
     """Write both dnsmasq confs, validate with `dnsmasq --test` (restoring the old files on failure), then restart."""
+    from .domains import domain_records, load as load_domains  # lazy: domains imports this module
     old = await asyncio.gather(host_ssh.read_file(DNS_CONF), host_ssh.read_file(DHCP_CONF))
+    # Host names of your domains (Network & Services → Domains) resolve like the records entered in the DNS tab.
+    dns = {**dns, "records": [*dns.get("records", []), *domain_records(await load_domains())]}
     await host_ssh.write_file(DNS_CONF, render_dnsmasq_dns(dns))
     await host_ssh.write_file(DHCP_CONF, render_dnsmasq_dhcp(dhcp))
     out = await host_ssh.run("dnsmasq --test 2>&1", check=False)

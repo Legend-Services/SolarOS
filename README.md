@@ -51,7 +51,7 @@ You need a Proxmox VE 8 or 9 server with internet access. That's all.
 
    ```
    ╔════════════════════════════════════════════════════════════════════════════╗
-   ║                   SolarDeck for Proxmox VE v1.8.2 is ready                 ║
+   ║                   SolarDeck for Proxmox VE v1.9.0 is ready                 ║
    ╠════════════════════════════════════════════════════════════════════════════╣
    ║  Web UI URL:      http://192.168.1.230                                     ║
    ║  Username:        admin                                                    ║
@@ -80,7 +80,7 @@ It finds everything by itself: the node name, the next free container ID, the be
 - generates a random 14-character admin password and JWT secret,
 - sets up passwordless SSH from the container to the host (for the Host Shell, ZFS snapshots, drivers and network services),
 - installs Python, Node 22, nginx and Samba, builds the app and runs a health check,
-- enables HTTPS on port 443 with a self-signed certificate for the container's IP and hostname (`deploy/selfsigned-cert.sh`, renewed automatically). Your browser warns about it once; replace it with your own or a Let's Encrypt certificate in Network & Services → Certificates, and updates will keep that one. Plain http keeps working,
+- enables HTTPS on port 443 with a self-signed certificate for the container's IP and hostname (`deploy/selfsigned-cert.sh`, renewed automatically). Your browser warns about it once; get a Let's Encrypt certificate for your own domain in Network & Services → Domains (DNS-01, renewed automatically) or upload one in Certificates, and updates will keep that one. Plain http keeps working,
 - runs a self-test that signs in and calls `/api/pve/bios/status` and `/api/hardware/inventory`, and prints the result in the final box.
 
 ## Updating & Downgrading Without Losing Settings
