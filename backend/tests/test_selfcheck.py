@@ -42,8 +42,8 @@ FAKE = {
     "/status": {"cpu": 0.1234, "loadavg": ["0.5", "0.4", "0.3"], "memory": {"used": 8, "total": 16, "free": 8},
                 "swap": {"used": 0, "total": 4}, "uptime": 99, "kversion": "k", "pveversion": "pve-manager/8",
                 "cpuinfo": {"model": "Ryzen", "cpus": 16, "sockets": 1, "cores": 8}},
-    "/qemu": [{"vmid": 101, "name": "vm", "status": "running"}, {"vmid": 102, "status": "stopped"}],
-    "/lxc": [{"vmid": "100", "name": "ct", "status": "running"}],
+    "/qemu": [{"vmid": 101, "name": "vm", "status": "running", "maxcpu": 4}, {"vmid": 102, "status": "stopped"}],
+    "/lxc": [{"vmid": "100", "name": "ct", "status": "running", "cpus": 2}],
     "/rrddata": [{"netin": 10, "netout": 20, "arcsize": 3}, {}],
     "/disks/zfs": [{"name": "tank", "health": "ONLINE"}],
     "/disks/zfs/tank": {"name": "tank", "children": []},
@@ -67,6 +67,7 @@ assert o["cpu"] == 12.34 and o["memory"]["arc"] == 3 and o["net"] == {"in": 10, 
 assert o["vms"] == {"running": 1, "stopped": 1, "total": 2} and o["containers"]["running"] == 1, o
 g = c.get("/api/pve/guests").json()
 assert [x["vmid"] for x in g] == [100, 101, 102] and g[0]["type"] == "lxc" and g[2]["name"] == "qemu-102", g
+assert [x["maxcpu"] for x in g] == [2, 4, 0], g  # node lists say "cpus", cluster resources "maxcpu"
 assert c.post("/api/pve/guests/lxc/100/action", json={"action": "reboot"}).status_code == 200
 assert posted == ["/lxc/100/status/reboot"], posted
 st = c.get("/api/pve/storage").json()
