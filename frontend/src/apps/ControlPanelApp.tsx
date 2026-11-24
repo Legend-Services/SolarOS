@@ -275,7 +275,7 @@ function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; run
             <CloudDownload size={13} /> {running ? "Updating…" : "Install Update Now"}
           </GlassButton>
         )}
-        {st && !st.update_available && st.settings.last_checked_at && !st.settings.last_check_error && !running && <span className="text-xs text-emerald-300">ProxmoxOS is up to date.</span>}
+        {st && !st.update_available && st.remote_commit && !st.settings.last_check_error && !running && <span className="text-xs text-emerald-300">ProxmoxOS is up to date.</span>}
         {done && st.exit_code === 0 && (
           <GlassButton onClick={() => window.location.reload()}>
             <RefreshCw size={13} /> Reload ProxmoxOS
@@ -400,6 +400,8 @@ function VersionHistory({ st, running, start }: { st: UpdateStatus | null; runni
     <Card title="Version History & Downgrade">
       {!versions ? (
         <p className="text-xs text-slate-400">{error ? "" : "Loading version history…"}</p>
+      ) : !versions.length ? (
+        <p className="text-xs text-slate-400">No version history yet. It appears after the first successful Check for Updates.</p>
       ) : (
         <ul className="max-h-80 divide-y divide-white/5 overflow-auto rounded-lg bg-black/20">
           {versions.map((v, i) => (
