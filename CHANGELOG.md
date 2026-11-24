@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.4.0 - Phase 11: Centered Desktop Icon Alignment, Vertical Placement & Safe-Zone Grid Layout — 2026-11-24
+
+### Added
+- **Desktop icon alignment**: `Left` (column-first, as before) or `Center` (row-first grid, centered in the free desktop area). In Center mode, **Vertical placement** (`Top` | `Middle`) and **Icons per row** (`Auto` | `4` | `5` | `6` | `8`) appear. List mode in Center stacks one centered column unless a column count is chosen.
+- The controls live in **View Options** and **Control Panel → Appearance & Layout**, below the Grid | List switch, and the desktop right-click menu has **Align Icons: Left** and **Align Icons: Center**.
+- **Preferences** (`GET|PUT /api/system/preferences`): the `layout` block gains `desktopAlignment` (`left` | `center`, default `left`), `desktopVerticalAlign` (`top` | `middle`, default `top`) and `desktopMaxColumns` (`"auto"` or 3–8, default `"auto"`). PUT rejects invalid values with 422; older saved layouts get the defaults filled in. The values are also kept in localStorage and restored by **Reset to Defaults**.
+
+### Changed
+- **Safe-zone layout**: desktop shortcuts sit in their own box between the top bar, the Dock and the widget column. At large icon sizes and spacing, extra columns scroll inside that box instead of sliding under the widgets. Switching alignment or moving a slider animates over 200 ms.
+
 ## v1.3.0 - Phase 7: Clean Brand Identity, Safe Installer Upgrades, Git Updater/Rollback & Bug Reporter — 2026-11-24
 
 ### Added

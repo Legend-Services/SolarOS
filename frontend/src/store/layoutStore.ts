@@ -5,6 +5,10 @@ import { useDock } from "../lib/stores";
 import { useWizard } from "./wizardStore";
 
 export type ViewMode = "grid" | "list";
+export type Align = "left" | "center";
+export type VAlign = "top" | "middle";
+/** "auto" fits as many columns as the safe width allows; a number caps it (3–8). */
+export type MaxColumns = "auto" | number;
 /** Apps with a Grid | List switcher. */
 export type ViewApp = "compute" | "disks" | "datasets" | "appcenter" | "shares";
 
@@ -15,11 +19,14 @@ export const LIMITS = {
   rowGap: [8, 56],
   dockSize: [36, 64],
   dockGap: [4, 20],
+  maxColumns: [3, 8],
 } as const;
 
-export const DEFAULTS = { desktopView: "grid" as ViewMode, iconSize: 56, colGap: 20, rowGap: 16, dockGap: 8, dockSize: 46 };
+export const DEFAULTS = { desktopView: "grid" as ViewMode, iconSize: 56, colGap: 20, rowGap: 16, dockGap: 8, dockSize: 46,
+  desktopAlignment: "left" as Align, desktopVerticalAlign: "top" as VAlign, desktopMaxColumns: "auto" as MaxColumns };
 
 type Numeric = "iconSize" | "colGap" | "rowGap" | "dockGap";
+type Placement = "desktopAlignment" | "desktopVerticalAlign" | "desktopMaxColumns";
 
 interface LayoutState {
   desktopView: ViewMode;
@@ -27,10 +34,13 @@ interface LayoutState {
   colGap: number;
   rowGap: number;
   dockGap: number;
+  desktopAlignment: Align;
+  desktopVerticalAlign: VAlign;
+  desktopMaxColumns: MaxColumns;
   appViews: Partial<Record<ViewApp, ViewMode>>;
   /** View Options popover (not persisted). */
   panel: boolean;
-  set: (patch: Partial<Pick<LayoutState, "desktopView" | Numeric | "panel">>) => void;
+  set: (patch: Partial<Pick<LayoutState, "desktopView" | Numeric | Placement | "panel">>) => void;
   setAppView: (app: ViewApp, mode: ViewMode) => void;
   reset: () => void;
 }
@@ -51,9 +61,16 @@ function sanitize(saved: Partial<LayoutState> | undefined, cur: LayoutState): Pa
     colGap: clamp(p.colGap, LIMITS.colGap, cur.colGap),
     rowGap: clamp(p.rowGap, LIMITS.rowGap, cur.rowGap),
     dockGap: clamp(p.dockGap, LIMITS.dockGap, cur.dockGap),
+    desktopAlignment: p.desktopAlignment === "left" || p.desktopAlignment === "center" ? p.desktopAlignment : cur.desktopAlignment,
+    desktopVerticalAlign: p.desktopVerticalAlign === "top" || p.desktopVerticalAlign === "middle" ? p.desktopVerticalAlign : cur.desktopVerticalAlign,
+    desktopMaxColumns: p.desktopMaxColumns === "auto" ? "auto" : typeof p.desktopMaxColumns === "number" ? clamp(p.desktopMaxColumns, LIMITS.maxColumns, 3) : cur.desktopMaxColumns,
     appViews: Object.fromEntries(Object.entries(views).map(([k, v]) => [k, mode(v, "grid")])),
   };
 }
+
+/** The fields saved to localStorage and /api/system/preferences. */
+const persisted = ({ desktopView, iconSize, colGap, rowGap, dockGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, appViews }: LayoutState) =>
+  ({ desktopView, iconSize, colGap, rowGap, dockGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, appViews });
 
 export const useLayout = create<LayoutState>()(
   persist(
@@ -63,18 +80,22 @@ export const useLayout = create<LayoutState>()(
       colGap: DEFAULTS.colGap,
       rowGap: DEFAULTS.rowGap,
       dockGap: DEFAULTS.dockGap,
+      desktopAlignment: DEFAULTS.desktopAlignment,
+      desktopVerticalAlign: DEFAULTS.desktopVerticalAlign,
+      desktopMaxColumns: DEFAULTS.desktopMaxColumns,
       appViews: {},
       panel: false,
       set: (patch) => set(patch),
       setAppView: (app, m) => set((s) => ({ appViews: { ...s.appViews, [app]: m } })),
       reset: () => {
-        set({ desktopView: DEFAULTS.desktopView, iconSize: DEFAULTS.iconSize, colGap: DEFAULTS.colGap, rowGap: DEFAULTS.rowGap, dockGap: DEFAULTS.dockGap });
+        set({ desktopView: DEFAULTS.desktopView, iconSize: DEFAULTS.iconSize, colGap: DEFAULTS.colGap, rowGap: DEFAULTS.rowGap, dockGap: DEFAULTS.dockGap,
+          desktopAlignment: DEFAULTS.desktopAlignment, desktopVerticalAlign: DEFAULTS.desktopVerticalAlign, desktopMaxColumns: DEFAULTS.desktopMaxColumns });
         useDock.getState().set({ baseSize: DEFAULTS.dockSize });
       },
     }),
     {
       name: "proxmoxos-layout",
-      partialize: ({ desktopView, iconSize, colGap, rowGap, dockGap, appViews }) => ({ desktopView, iconSize, colGap, rowGap, dockGap, appViews }),
+      partialize: (s) => persisted(s),
       merge: (saved, cur) => ({ ...cur, ...sanitize(saved as Partial<LayoutState>, cur) }),
     },
   ),
@@ -99,9 +120,8 @@ interface Preferences {
 }
 
 const snapshot = (): Preferences => {
-  const { desktopView, iconSize, colGap, rowGap, dockGap, appViews } = useLayout.getState();
   return {
-    layout: { desktopView, iconSize, colGap, rowGap, dockGap, appViews },
+    layout: persisted(useLayout.getState()),
     dock: { baseSize: useDock.getState().baseSize },
     wizard: { welcomeAuto: useWizard.getState().welcomeAuto },
   };

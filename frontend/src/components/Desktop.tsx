@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { Boxes, Container, Database, Gauge as GaugeIcon, HeartPulse, Monitor } from "lucide-react";
 import { useDock, usePrefs, useTelemetry, useWindows } from "../lib/stores";
 import { useLayout } from "../store/layoutStore";
@@ -28,7 +28,7 @@ export default function Desktop() {
   const gpu = hardware?.gpu;
   const widgets = usePrefs((s) => s.widgets);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
-  const { desktopView, iconSize, colGap, rowGap } = useLayout();
+  const { desktopView, iconSize, colGap, rowGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns } = useLayout();
   const dockSize = useDock((s) => s.baseSize);
 
   // Shortcuts fill columns top to bottom and wrap into a new column when the next one would pass the Dock.
@@ -38,6 +38,27 @@ export default function Desktop() {
   const listIcon = Math.round(Math.min(56, Math.max(28, iconSize * 0.6)));
   const cellW = list ? 300 : Math.max(84, iconSize + 32);
   const cellH = list ? Math.max(listIcon, 38) + 18 : iconSize + 22 + Math.ceil(font * 1.25 * 2); // list: two text lines need ~38px
+  // Safe zone = this flex item: the outer padding clears the TopBar and Dock, and the widget column is its flex sibling,
+  // so the shortcut box can never extend under either; extra columns scroll inside it instead.
+  // Left: column-first, wraps into a new column before the Dock. Center: row-first, auto-fit columns capped by
+  // "Icons per row" through max-width, centered horizontally and (Middle) vertically. List mode stacks one column unless capped.
+  const center = desktopAlignment === "center";
+  const maxCols = desktopMaxColumns === "auto" ? (list ? 1 : Infinity) : desktopMaxColumns;
+  const gridStyle: CSSProperties = center
+    ? {
+        gridAutoFlow: "row",
+        gridTemplateColumns: `repeat(auto-fit, ${cellW}px)`,
+        gridAutoRows: cellH,
+        justifyContent: "center",
+        justifyItems: "center",
+        alignContent: desktopVerticalAlign === "middle" ? "safe center" : "start",
+        maxWidth: Number.isFinite(maxCols) ? maxCols * cellW + (maxCols - 1) * colGap : undefined,
+        marginInline: "auto",
+        width: "100%",
+        columnGap: colGap,
+        rowGap,
+      }
+    : { gridAutoFlow: "column", gridTemplateRows: `repeat(auto-fill, ${cellH}px)`, gridAutoColumns: cellW, alignContent: "start", columnGap: colGap, rowGap };
   const launch = (id: AppId) => ({
     onDoubleClick: () => open(id),
     onKeyDown: (e: KeyboardEvent) => e.key === "Enter" && open(id),
@@ -53,25 +74,24 @@ export default function Desktop() {
     >
       <DesktopContextMenu at={menu} onClose={() => setMenu(null)} />
       {/* Shortcuts */}
-      <div
-        className="grid h-full shrink-0 content-start"
-        style={{ gridAutoFlow: "column", gridTemplateRows: `repeat(auto-fill, ${cellH}px)`, gridAutoColumns: cellW, columnGap: colGap, rowGap }}
-      >
-        {APP_IDS.map((id) =>
-          list ? (
-            <AppListRow key={id} id={id} iconSize={listIcon} title={`Double-click to open ${APPS[id].title}`} {...launch(id)} />
-          ) : (
-            <button
-              key={id}
-              {...launch(id)}
-              className="group flex flex-col items-center gap-1.5 rounded-xl p-2 text-center text-slate-100 drop-shadow hover:bg-white/10 focus:bg-white/10 focus:outline-none"
-              style={{ fontSize: font, lineHeight: 1.25 }}
-            >
-              <AppIcon id={id} size={iconSize} className="shrink-0 transition-transform group-hover:scale-105 group-active:scale-95" />
-              <span className="line-clamp-2">{APPS[id].title}</span>
-            </button>
-          ),
-        )}
+      <div className="h-full min-w-0 flex-1 overflow-auto">
+        <div className="grid h-full transition-all duration-200 ease-out" style={gridStyle}>
+          {APP_IDS.map((id) =>
+            list ? (
+              <AppListRow key={id} id={id} iconSize={listIcon} title={`Double-click to open ${APPS[id].title}`} {...launch(id)} />
+            ) : (
+              <button
+                key={id}
+                {...launch(id)}
+                className="group flex w-full flex-col items-center gap-1.5 rounded-xl p-2 text-center text-slate-100 drop-shadow hover:bg-white/10 focus:bg-white/10 focus:outline-none"
+                style={{ fontSize: font, lineHeight: 1.25 }}
+              >
+                <AppIcon id={id} size={iconSize} className="shrink-0 transition-transform group-hover:scale-105 group-active:scale-95" />
+                <span className="line-clamp-2">{APPS[id].title}</span>
+              </button>
+            ),
+          )}
+        </div>
       </div>
 
       {/* Widgets */}

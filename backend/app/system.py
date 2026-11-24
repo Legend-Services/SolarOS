@@ -4,10 +4,10 @@ import json
 import re
 import secrets
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Body, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from . import config, host
 from .auth import require_user
@@ -173,6 +173,22 @@ def change_password(body: PasswordBody):
 PREFS_MAX_BYTES = 64 * 1024
 
 
+class LayoutPrefs(BaseModel):
+    """Desktop layout block. Only the placement fields are typed; the other keys (icon size, gaps, views) pass through."""
+
+    model_config = ConfigDict(extra="allow")
+    desktopAlignment: Literal["left", "center"] = "left"
+    desktopVerticalAlign: Literal["top", "middle"] = "top"
+    desktopMaxColumns: Literal["auto"] | Annotated[int, Field(ge=3, le=8, strict=True)] = "auto"
+
+
+def with_layout_defaults(data: dict) -> dict:
+    """Fill placement defaults into a stored layout. No layout yet stays absent: the frontend then uploads its own."""
+    if isinstance(data.get("layout"), dict):
+        data = {**data, "layout": LayoutPrefs.model_validate(data["layout"]).model_dump()}
+    return data
+
+
 def load_preferences() -> dict:
     try:
         data = json.loads(settings.preferences_file.read_text())
@@ -183,12 +199,20 @@ def load_preferences() -> dict:
 
 @router.get("/preferences")
 def get_preferences():
-    return load_preferences()
+    data = load_preferences()
+    try:
+        return with_layout_defaults(data)
+    except ValidationError:  # hand-edited bad value: return as stored, the frontend sanitizes it
+        return data
 
 
 @router.put("/preferences")
 def put_preferences(body: dict = Body(...)):
-    """Replace the stored preferences. The frontend owns the schema (layout, dock, wizard); the backend only stores it."""
+    """Replace the stored preferences. The frontend owns the schema (layout, dock, wizard); only layout placement is validated."""
+    try:
+        body = with_layout_defaults(body)
+    except ValidationError as e:
+        raise HTTPException(422, f"Invalid layout preference: {e.errors()[0]['loc'][0]}")
     raw = json.dumps(body, indent=2)
     if len(raw) > PREFS_MAX_BYTES:
         raise HTTPException(413, "Preferences are too large")

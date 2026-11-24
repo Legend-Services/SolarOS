@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { Bug, Container, Database, Image, LayoutDashboard, Monitor, RefreshCw, SquareTerminal } from "lucide-react";
+import { AlignCenter, AlignLeft, Bug, Check, Container, Database, Image, LayoutDashboard, Monitor, RefreshCw, SquareTerminal } from "lucide-react";
 import { useLayout } from "../store/layoutStore";
 import { useDismiss } from "../lib/hooks";
 import { useBugReport, useIntent, useTelemetry, useWindows } from "../lib/stores";
@@ -11,6 +11,7 @@ export default function DesktopContextMenu({ at, onClose }: { at: { x: number; y
   const [pos, setPos] = useState(at);
   const go = useIntent((s) => s.go);
   const setLayout = useLayout((s) => s.set);
+  const align = useLayout((s) => s.desktopAlignment);
   const open = useWindows((s) => s.open);
   const refreshStorage = useTelemetry((s) => s.refreshStorage);
   const openBugReport = useBugReport((s) => s.set);
@@ -54,6 +55,8 @@ export default function DesktopContextMenu({ at, onClose }: { at: { x: number; y
       {sep}
       {item(<SquareTerminal size={14} />, "Open Terminal", () => open("console", { type: "node", vmid: 0, name: node, mode: "shell" }))}
       {item(<LayoutDashboard size={14} />, "View Options…", () => setLayout({ panel: true }))}
+      {item(align === "left" ? <Check size={14} /> : <AlignLeft size={14} />, "Align Icons: Left", () => setLayout({ desktopAlignment: "left" }))}
+      {item(align === "center" ? <Check size={14} /> : <AlignCenter size={14} />, "Align Icons: Center", () => setLayout({ desktopAlignment: "center" }))}
       {item(<Image size={14} />, "Change Wallpaper", () => go("controlpanel", "appearance"))}
       {sep}
       {item(<RefreshCw size={14} />, "Refresh Telemetry", () => refreshStorage())}
