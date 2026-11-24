@@ -62,4 +62,6 @@ script = h.mode_script(conf)
 assert "options vfio-pci ids=10de:1aef,10de:2204" in script and "update-initramfs -u -k all" in script
 assert all(a.split("-")[0] in ("nvidia", "intel", "amd") for a in h.SCRIPTS)
 assert "__PROBE_PKG__" not in h.SCRIPTS["intel-install"]
+# `apt-cache show` exits 0 for a package with no candidate, which skipped enabling non-free (trixie hosts).
+assert "apt-cache show" not in h.NONFREE and "apt-cache madison" in h.NONFREE
 print("hardware_admin self-check OK")

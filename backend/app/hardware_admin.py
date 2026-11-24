@@ -295,7 +295,8 @@ async def gpu_metrics():
 # ---------------------------------------------------------------- GPU drivers & modes
 
 APT_UPDATE = 'apt-get update || echo "!! apt-get update reported errors (an unlicensed enterprise repo?); continuing"\n'
-NONFREE = APT_UPDATE + """if ! apt-cache show __PROBE_PKG__ >/dev/null 2>&1; then
+# `apt-cache show` exits 0 for a package that is only referenced (no candidate); madison prints only real versions.
+NONFREE = APT_UPDATE + """if [ -z "$(apt-cache madison __PROBE_PKG__ 2>/dev/null)" ]; then
   CODENAME=$(. /etc/os-release; echo $VERSION_CODENAME)
   echo "==> Enabling Debian non-free / non-free-firmware components for $CODENAME"
   cat > /etc/apt/sources.list.d/proxmox-os-nonfree.sources <<EOF
@@ -338,7 +339,9 @@ apt-get install -y nvidia-container-toolkit
 echo '==> Done. Reboot the host if nvidia-smi above did not list the GPU.'
 """,
     "intel-install": "set -e\n" + NONFREE.replace("__PROBE_PKG__", "intel-media-va-driver-non-free") + """
-apt-get install -y intel-media-va-driver-non-free intel-gpu-tools vainfo firmware-misc-nonfree
+apt-get install -y intel-media-va-driver-non-free \\
+  || { echo '!! intel-media-va-driver-non-free is unavailable; installing the free intel-media-va-driver (no low-power encode)'; apt-get install -y intel-media-va-driver; }
+apt-get install -y intel-gpu-tools vainfo firmware-misc-nonfree
 echo 'options i915 enable_guc=3' > /etc/modprobe.d/i915.conf
 update-initramfs -u
 echo '==> Done. Reboot the host to load the GuC/HuC firmware (Quick Sync low-power encoding).'
