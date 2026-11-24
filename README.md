@@ -51,7 +51,7 @@ You need a Proxmox VE 8 or 9 server with internet access. That's all.
 
    ```
    ╔════════════════════════════════════════════════════════════════════════════╗
-   ║                   SolarDeck for Proxmox VE v1.7.1 is ready                 ║
+   ║                   SolarDeck for Proxmox VE v1.7.2 is ready                 ║
    ╠════════════════════════════════════════════════════════════════════════════╣
    ║  Web UI URL:      http://192.168.1.230                                     ║
    ║  Username:        admin                                                    ║

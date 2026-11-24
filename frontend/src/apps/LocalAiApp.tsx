@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   ArrowLeft, ArrowUp, BrainCircuit, Check, ChevronDown, Copy, Cpu, Download, ExternalLink, Gauge, HardDrive, MessageSquare, Search,
-  PanelLeft, Settings as SettingsIcon, Square, SquarePen, Thermometer, Trash2, Zap,
+  PanelLeft, Pencil, Settings as SettingsIcon, Square, SquarePen, Thermometer, Trash2, Zap,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { bytes, copyText, pct } from "../lib/format";
@@ -808,7 +808,7 @@ type SettingsTab = "download" | "installed" | "hardware" | "storage" | "chat";
 
 /* ---------------- Conversation list ---------------- */
 
-type ChatSummary = { id: string; title: string; model: string; updated: number; messages: number };
+type ChatSummary = { id: string; title: string; model: string; updated: number; messages: number; snippet?: string | null };
 
 /** Today / Yesterday / Previous 7 days / Older, newest first (the API already sorts by `updated`). */
 function groupChats(chats: ChatSummary[]): [string, ChatSummary[]][] {
@@ -821,42 +821,106 @@ function groupChats(chats: ChatSummary[]): [string, ChatSummary[]][] {
   return [...groups];
 }
 
-function ChatList({ chats, activeId, onSelect, onNew, onDelete }: {
-  chats: ChatSummary[]; activeId: string | null; onSelect: (id: string) => void; onNew: () => void; onDelete: (c: ChatSummary) => void;
+const ROW_ICON = "rounded p-1 text-slate-500 opacity-0 transition group-hover:opacity-100 focus:opacity-100";
+
+/** One conversation in the sidebar: click to open, double-click or the pencil to rename inline. */
+function ChatRow({ c, active, onSelect, onRename, onDelete }: {
+  c: ChatSummary; active: boolean; onSelect: (id: string) => void; onRename: (c: ChatSummary, title: string) => void; onDelete: (c: ChatSummary) => void;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(c.title);
+  const settled = useRef(false); // Enter (or Escape) followed by the input's blur must not act twice
+  const start = () => {
+    setTitle(c.title);
+    settled.current = false;
+    setEditing(true);
+  };
+  const finish = (save: boolean) => {
+    if (settled.current) return;
+    settled.current = true;
+    setEditing(false);
+    const t = title.trim();
+    if (save && t && t !== c.title) onRename(c, t);
+  };
+  if (editing)
+    return (
+      <div className="rounded-lg bg-white/10 p-0.5">
+        <input
+          autoFocus
+          value={title}
+          maxLength={120}
+          onChange={(e) => setTitle(e.target.value)}
+          onFocus={(e) => e.currentTarget.select()}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === "Escape") {
+              e.preventDefault();
+              finish(e.key === "Enter");
+            }
+          }}
+          onBlur={() => finish(true)}
+          aria-label="Conversation name"
+          className="glass-field w-full px-1.5 py-1 text-xs"
+        />
+      </div>
+    );
+  return (
+    <div className={`group flex items-center rounded-lg ${active ? "bg-white/10" : "hover:bg-white/5"}`}>
+      <button
+        type="button"
+        onClick={() => onSelect(c.id)}
+        onDoubleClick={start}
+        aria-current={active}
+        title={`${c.title}\n${c.model} · ${c.messages} messages · double-click to rename`}
+        className="min-w-0 flex-1 px-2 py-1.5 text-left"
+      >
+        <span className={`block truncate text-xs ${active ? "text-white" : "text-slate-300"}`}>{c.title}</span>
+        {c.snippet && <span className="block truncate text-[10px] text-slate-500">{c.snippet}</span>}
+      </button>
+      <button type="button" onClick={start} aria-label={`Rename ${c.title}`} title="Rename" className={`${ROW_ICON} hover:text-sky-300`}>
+        <Pencil size={12} />
+      </button>
+      <button type="button" onClick={() => onDelete(c)} aria-label={`Delete ${c.title}`} title="Delete conversation" className={`mr-1 ${ROW_ICON} hover:text-rose-300`}>
+        <Trash2 size={12} />
+      </button>
+    </div>
+  );
+}
+
+function ChatList({ chats, activeId, query, onQuery, onSelect, onNew, onRename, onDelete }: {
+  chats: ChatSummary[]; activeId: string | null; query: string; onQuery: (q: string) => void; onSelect: (id: string) => void;
+  onNew: () => void; onRename: (c: ChatSummary, title: string) => void; onDelete: (c: ChatSummary) => void;
+}) {
+  const [q, setQ] = useState(query);
+  useEffect(() => {
+    const t = setTimeout(() => onQuery(q.trim()), 250); // the server searches every message; don't ask on each key
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- onQuery is a state setter
+  }, [q]);
   return (
     <aside className="flex w-60 shrink-0 flex-col border-r border-white/10 bg-black/15 max-sm:w-48">
-      <div className="p-2">
+      <div className="space-y-2 p-2">
         <GlassButton className="w-full justify-start" onClick={onNew}>
           <SquarePen size={13} /> New chat
         </GlassButton>
+        <label className="relative block">
+          <Search size={12} className="absolute top-1/2 left-2 -translate-y-1/2 text-slate-500" />
+          <GlassInput type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search conversations" aria-label="Search conversations" className="w-full py-1.5 pl-7 text-xs" />
+        </label>
       </div>
       <nav className="min-h-0 flex-1 overflow-auto px-2 pb-2" aria-label="Previous conversations">
-        {chats.length === 0 && <p className="px-2 py-1 text-[11px] text-slate-500">Your conversations will appear here.</p>}
+        {chats.length === 0 && (
+          <p className="px-2 py-1 text-[11px] text-slate-500">{query ? `No conversations contain "${query}".` : "Your conversations will appear here."}</p>
+        )}
+        {query && chats.length > 0 && (
+          <p className="px-2 pt-1 text-[10px] text-slate-500">
+            {chats.length} result{chats.length === 1 ? "" : "s"}
+          </p>
+        )}
         {groupChats(chats).map(([label, items]) => (
           <div key={label} className="mb-2">
             <p className="px-2 pt-2 pb-1 text-[10px] font-semibold tracking-wide text-slate-500 uppercase">{label}</p>
             {items.map((c) => (
-              <div key={c.id} className={`group flex items-center rounded-lg ${c.id === activeId ? "bg-white/10" : "hover:bg-white/5"}`}>
-                <button
-                  type="button"
-                  onClick={() => onSelect(c.id)}
-                  aria-current={c.id === activeId}
-                  title={`${c.title}\n${c.model} · ${c.messages} messages`}
-                  className={`min-w-0 flex-1 truncate px-2 py-1.5 text-left text-xs ${c.id === activeId ? "text-white" : "text-slate-300"}`}
-                >
-                  {c.title}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDelete(c)}
-                  aria-label={`Delete ${c.title}`}
-                  title="Delete conversation"
-                  className="mr-1 rounded p-1 text-slate-500 opacity-0 transition group-hover:opacity-100 hover:text-rose-300 focus:opacity-100"
-                >
-                  <Trash2 size={12} />
-                </button>
-              </div>
+              <ChatRow key={c.id} c={c} active={c.id === activeId} onSelect={onSelect} onRename={onRename} onDelete={onDelete} />
             ))}
           </div>
         ))}
@@ -886,9 +950,16 @@ export default function LocalAiApp() {
   const setInstructions = (v: string) => (setInstructionsState(v), writePref("solardeck-ai-instructions", v));
   const setSidebar = (v: boolean) => (setSidebarState(v), writePref("solardeck-ai-sidebar", v ? "1" : "0"));
   const newChat = () => (setActiveId(null), setChatKey((k) => k + 1), setView("chat"));
+  const [chatQuery, setChatQuery] = useState("");
   const loadChats = useCallback(() => {
-    api<ChatSummary[]>("/ai/chats").then(setChats).catch(() => {});
-  }, []);
+    api<ChatSummary[]>(`/ai/chats${chatQuery ? `?q=${encodeURIComponent(chatQuery)}` : ""}`).then(setChats).catch(() => {});
+  }, [chatQuery]);
+  const renameChat = (c: ChatSummary, title: string) => {
+    setChats((cs) => cs.map((x) => (x.id === c.id ? { ...x, title } : x))); // show the new name right away
+    api(`/ai/chats/${c.id}`, { method: "PATCH", json: { title } })
+      .then(loadChats)
+      .catch((e) => (setError(e.message), loadChats()));
+  };
   const installed = !!status?.installed;
   useEffect(() => {
     if (installed) loadChats();
@@ -1002,7 +1073,9 @@ export default function LocalAiApp() {
       {error && <div className="bg-rose-500/10 px-4 py-2 text-xs text-rose-300">{error}</div>}
       {/* The chat stays mounted while Settings is open, so the conversation survives a trip to Settings. */}
       <div className={`min-h-0 flex-1 ${view === "chat" ? "flex" : "hidden"}`}>
-        {sidebar && <ChatList chats={chats} activeId={activeId} onSelect={setActiveId} onNew={newChat} onDelete={setDel} />}
+        {sidebar && (
+          <ChatList chats={chats} activeId={activeId} query={chatQuery} onQuery={setChatQuery} onSelect={setActiveId} onNew={newChat} onRename={renameChat} onDelete={setDel} />
+        )}
         <div className="min-w-0 flex-1">
           <ChatView
             status={status}

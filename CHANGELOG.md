@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.7.2 - Rename and Search Local AI Conversations — 2026-11-24
+
+### Added
+- **Rename conversations**: hover a conversation and click the pencil, or double-click its name, then type and press Enter (Escape cancels, clicking away saves). A chosen name is kept: replies saved afterwards no longer reset the title to the first question. Renaming doesn't move the conversation in the list. API: `PATCH /api/ai/chats/{id}` with `{title}`.
+- **Search conversations**: a search box at the top of the sidebar finds conversations by name **and by anything said in them** (case-insensitive, on the server). Matches inside the text show a short snippet around the match under the name, with a result count. API: `GET /api/ai/chats?q=…` (adds `snippet`).
+
 ## v1.7.1 - Local AI Conversation History — 2026-11-24
 
 ### Added
