@@ -31,7 +31,7 @@ echo "==> Checking ${TARGET}"
 echo "==> Uploading $(basename "$ROOT") to ${HOST}:${REMOTE_DIR}"
 # COPYFILE_DISABLE stops macOS tar from adding ._* resource-fork files.
 COPYFILE_DISABLE=1 tar -C "$ROOT" --exclude=.git --exclude=node_modules --exclude=.venv --exclude=.env \
-  --exclude=dist --exclude=__pycache__ --exclude=.claude --exclude=backend/data/schedules.json --exclude=backend/data/security.json -czf - . \
+  --exclude=dist --exclude=__pycache__ --exclude=.claude --exclude=backend/data/schedules.json --exclude=backend/data/security.json --exclude=backend/.ssh -czf - . \
   | "${SSH[@]}" "rm -rf ${REMOTE_DIR} && mkdir -p ${REMOTE_DIR} && tar -xzf - -C ${REMOTE_DIR}"
 
 # No .git is uploaded; record the commit so the System Update card can show it and compare against GitHub.
@@ -40,3 +40,14 @@ COMMIT="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || true)"
 
 echo "==> Running install.sh on ${HOST}"
 "${SSH[@]}" "${SUDO} bash ${REMOTE_DIR}/install.sh"
+
+# install.sh authorizes the backend's root key (backend/.ssh/id_ed25519); prove the bridge works end to end.
+echo "==> Verifying the root SSH bridge from the ProxmoxOS container"
+"${SSH[@]}" "${SUDO} bash -s" <<'EOF'
+set -euo pipefail
+CT="$(pct list | awk '$NF=="proxmox-os" {print $1; exit}')"
+IP="$(hostname -I | awk '{print $1}')"
+K=/opt/proxmox-os/backend/.ssh
+pct exec "$CT" -- ssh -i "$K/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$K/known_hosts" \
+  -o ConnectTimeout=10 "root@$IP" 'echo "    bridge OK: $(whoami)@$(hostname)"'
+EOF

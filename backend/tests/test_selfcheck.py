@@ -531,6 +531,21 @@ assert c.delete("/api/pve/storage/local/content", params={"volume": "local:iso/d
 assert p5[-1][0] == "DELETE" and p5[-1][1].startswith("/storage/local/content/local"), p5[-1]
 assert c.delete("/api/pve/storage/local/content", params={"volume": "other:iso/x.iso"}).status_code == 400
 assert c.delete("/api/pve/storage/local/content", params={"volume": "local:100/vm-100-disk-0.raw"}).status_code == 422
+from fastapi import HTTPException  # noqa: E402
+
+from app import host_ssh  # noqa: E402
+
+ssh5 = []
+
+
+async def fake_ssh5(cmd, **kw):
+    ssh5.append(cmd)
+    if cmd.startswith("lspci"):
+        raise HTTPException(503, "no bridge")  # /hardware/pci falls back to the PVE-only list
+    return ""
+
+
+host_ssh.run = fake_ssh5
 pci = c.get("/api/pve/hardware/pci").json()
 assert [d["gpu"] for d in pci] == [False, True] and pci[1]["iommugroup"] == 14, pci
 assert c.get("/api/pve/nextid").json() == {"vmid": 105}
@@ -541,9 +556,9 @@ assert qp["efidisk0"].startswith("local-zfs:1,") and qp["tpmstate0"] and qp["mac
 assert qp["ide2"] == "local:iso/w.iso,media=cdrom" and qp["tags"] == "proxmox-os-guest", qp
 assert "efidisk0" not in provisioning.qemu_params(provisioning.QemuBody(**{**vm, "bios": "seabios", "ostype": "l26"}))
 assert c.post("/api/pve/guests/qemu", json={**vm, "iso_volume": "local:iso/a.iso,file=/etc"}).status_code == 422
-assert c.post("/api/pve/guests/qemu", json={**vm, "hostpci": ["01:00.0;rm"]}).status_code == 422
-r = c.post("/api/pve/guests/qemu", json={**vm, "hostpci": ["0000:01:00.0"]})
-assert r.status_code == 200 and h5[-1] == ["guest-hostpci", "105", "0000:01:00.0"], (r.text, h5)
+assert c.post("/api/pve/guests/qemu", json={**vm, "hostpci": [{"id": "01:00.0;rm"}]}).status_code == 422
+r = c.post("/api/pve/guests/qemu", json={**vm, "hostpci": [{"id": "0000:01:00.0", "x_vga": True}], "usb": [{"host": "1532:025d"}]})
+assert r.status_code == 200 and ssh5[-1] == ("qm set 105 -hostpci0 0000:01:00,pcie=1,rombar=1,x-vga=1 -usb0 host=1532:025d"), (r.text, ssh5)
 ct = {"vmid": 106, "hostname": "box", "ostemplate": "local:vztmpl/deb.tar.zst", "storage": "local-zfs", "password": "secret1"}
 assert c.post("/api/pve/guests/lxc", json={**ct, "ip_config": {"cidr": "10.0.0.9/24", "gateway": "10.0.0.1"}}).status_code == 200
 assert form()["net0"] == "name=eth0,bridge=vmbr0,ip=10.0.0.9/24,gw=10.0.0.1" and form()["features"] == "nesting=1", form()

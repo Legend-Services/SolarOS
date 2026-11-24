@@ -4,9 +4,11 @@ import { api } from "../lib/api";
 import type { SystemInfo, UpdateStatus } from "../lib/types";
 import { uptime } from "../lib/format";
 import { usePoll, useRunner } from "../lib/hooks";
-import { useIntent, usePrefs, useWindows, WALLPAPERS } from "../lib/stores";
+import { MAGNIFICATION, useDock, useIntent, usePrefs, useWindows, WALLPAPERS, type Magnification } from "../lib/stores";
+import { APPS, APP_IDS } from "./registry";
+import { AppIcon } from "../components/icons/AppIcons";
 import HardwarePanel from "./HardwarePanel";
-import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassSwitch, Notice } from "../components/ui/GlassKit";
+import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
 
 type Section = "security" | "network" | "appearance" | "hardware" | "power";
 
@@ -342,7 +344,39 @@ function Appearance() {
         <GlassSwitch checked={widgets} onChange={(v) => set({ widgets: v })} label="Show desktop widgets (system health, GPU, ZFS, compute)" />
         <p className="mt-2 text-[11px] text-slate-500">Appearance settings are stored in this browser.</p>
       </Card>
+      <DockCard />
     </div>
+  );
+}
+
+const MAG_LABELS: Record<Magnification, string> = { off: "Off", subtle: "Subtle", macos: "macOS", large: "Large" };
+
+function DockCard() {
+  const { pinned, autoHide, baseSize, magnification, pin, unpin, set } = useDock();
+  return (
+    <Card title="Dock">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={`Base icon size: ${baseSize}px`}>
+          <input type="range" min={36} max={64} step={1} value={baseSize} onChange={(e) => set({ baseSize: Number(e.target.value) })} className="w-full accent-sky-400" aria-label="Base icon size" />
+        </Field>
+        <Field label="Magnification strength">
+          <Segmented value={magnification} onChange={(v) => set({ magnification: v })} options={(Object.keys(MAGNIFICATION) as Magnification[]).map((id) => ({ id, label: MAG_LABELS[id] }))} />
+        </Field>
+      </div>
+      <div className="mt-4">
+        <GlassSwitch checked={autoHide} onChange={(v) => set({ autoHide: v })} label="Automatically hide and show the Dock" />
+      </div>
+      <p className="mt-4 mb-2 text-[11px] text-slate-400">Apps in the Dock (drag icons in the Dock to reorder; right-click an icon to keep or remove it). Every app stays available in Launchpad.</p>
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        {APP_IDS.map((id) => (
+          <label key={id} className="glass-soft flex cursor-pointer items-center gap-2 rounded-xl px-2 py-1.5 text-xs text-slate-200">
+            <input type="checkbox" checked={pinned.includes(id)} onChange={(e) => (e.target.checked ? pin : unpin)(id)} />
+            <AppIcon id={id} size={22} />
+            <span className="truncate">{APPS[id].title}</span>
+          </label>
+        ))}
+      </div>
+    </Card>
   );
 }
 

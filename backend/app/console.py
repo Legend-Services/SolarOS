@@ -183,7 +183,10 @@ def parse_term_frame(msg: str) -> tuple[str, object]:
         _, _, data = msg[2:].partition(":")
         return "data", data
     if msg.startswith("1:"):
-        cols, rows = (int(x) for x in msg[2:].split(":")[:2])
+        try:
+            cols, rows = (int(x) for x in msg[2:].split(":")[:2])
+        except ValueError:
+            return "ping", None  # malformed resize: ignore rather than drop the shell
         return "resize", (max(1, min(cols, 1000)), max(1, min(rows, 500)))
     return "ping", None
 

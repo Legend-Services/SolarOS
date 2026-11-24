@@ -12,6 +12,7 @@ import {
   Plus,
   RefreshCw,
   ScanSearch,
+  Server,
   ShieldCheck,
   Thermometer,
   Trash2,
@@ -25,7 +26,7 @@ import { useRunner } from "../lib/hooks";
 import { Bar } from "../components/charts";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, healthTone, Notice, Segmented } from "../components/ui/GlassKit";
 
-type Tab = "overview" | "pools" | "datasets" | "disks" | "snapshots";
+type Tab = "overview" | "pools" | "datasets" | "disks" | "snapshots" | "backends";
 
 const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
   { id: "overview", label: "Overview", icon: <LayoutDashboard size={15} /> },
@@ -33,6 +34,7 @@ const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
   { id: "datasets", label: "Volumes & Datasets", icon: <Layers size={15} /> },
   { id: "disks", label: "Disks & SMART", icon: <HardDrive size={15} /> },
   { id: "snapshots", label: "Snapshots & Schedules", icon: <Camera size={15} /> },
+  { id: "backends", label: "Storage backends", icon: <Server size={15} /> },
 ];
 
 const TASK_NOTE = "Task started; follow it in the Task Center.";
@@ -1080,6 +1082,251 @@ function Schedules() {
 
 /* ================================================================ App shell */
 
+/* ---------------- Storage backends (Datacenter → Storage) ---------------- */
+
+interface StorageCfg {
+  storage: string;
+  type: string;
+  content?: string;
+  path?: string;
+  pool?: string;
+  vgname?: string;
+  thinpool?: string;
+  server?: string;
+  export?: string;
+  share?: string;
+  disable?: number;
+  shared?: number;
+}
+
+const ALL_CONTENT = ["iso", "vztmpl", "backup", "images", "rootdir", "snippets", "import"];
+const BACKENDS = [
+  { id: "dir", label: "Directory", content: ALL_CONTENT },
+  { id: "lvm", label: "LVM", content: ["images", "rootdir"] },
+  { id: "lvmthin", label: "LVM-Thin", content: ["images", "rootdir"] },
+  { id: "zfspool", label: "ZFS", content: ["images", "rootdir"] },
+  { id: "nfs", label: "NFS", content: ALL_CONTENT },
+  { id: "cifs", label: "CIFS / SMB", content: ALL_CONTENT },
+] as const;
+type Backend = (typeof BACKENDS)[number]["id"];
+const backendLabel = (t: string) => BACKENDS.find((b) => b.id === t)?.label ?? t;
+const emptyBackend = {
+  storage: "", type: "dir" as Backend, content: ["iso", "backup"], path: "", vgname: "", thinpool: "", pool: "",
+  server: "", export: "", share: "", username: "", password: "", domain: "", shared: false, enable: true,
+};
+
+function StorageBackends() {
+  const [items, setItems] = useState<StorageCfg[] | null>(null);
+  const targets = useTelemetry((s) => s.storage?.targets);
+  const refreshStorage = useTelemetry((s) => s.refreshStorage);
+  const [open, setOpen] = useState(false);
+  const [remove, setRemove] = useState<string | null>(null);
+  const { busy, error, run, setError } = useRunner();
+  const load = useCallback(() => {
+    api<StorageCfg[]>("/pve/storage-config").then(setItems, (e) => setError(e.message));
+    refreshStorage();
+  }, [setError, refreshStorage]);
+  useEffect(load, [load]);
+  const toggle = (s: StorageCfg) => run(() => api(`/pve/storage-config/${s.storage}`, { method: "PUT", json: { enable: !!s.disable } }).then(load));
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <h3 className="flex-1 text-sm font-semibold text-slate-100">Storage backends</h3>
+        <GlassButton variant="primary" onClick={() => setOpen(true)}>
+          <Plus size={13} /> Add storage
+        </GlassButton>
+      </div>
+      <Notice error={error} />
+      <div className="glass-soft overflow-x-auto rounded-2xl">
+        <table className="w-full min-w-[760px] text-left text-xs">
+          <thead className="text-slate-400">
+            <tr>
+              {["ID", "Type", "Content", "Location", "Usage", "Shared", "Enabled", ""].map((h) => (
+                <th key={h} className="px-3 py-2 font-medium">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {items === null && (
+              <tr>
+                <td colSpan={8} className="px-3 py-6 text-center text-slate-400">
+                  Loading…
+                </td>
+              </tr>
+            )}
+            {items?.map((s) => {
+              const t = targets?.find((x) => x.storage === s.storage);
+              const where = s.path || s.pool || [s.vgname, s.thinpool].filter(Boolean).join("/") || (s.server ? `${s.server}:${s.export ?? `//${s.share}`}` : "—");
+              return (
+                <tr key={s.storage} className="border-t border-white/5">
+                  <td className="px-3 py-2 font-mono text-slate-100">{s.storage}</td>
+                  <td className="px-3 py-2">
+                    <GlassBadge tone="info">{backendLabel(s.type)}</GlassBadge>
+                  </td>
+                  <td className="px-3 py-2 text-slate-300">{(s.content ?? "").split(",").join(", ")}</td>
+                  <td className="max-w-48 truncate px-3 py-2 font-mono text-slate-400" title={where}>
+                    {where}
+                  </td>
+                  <td className="w-40 px-3 py-2">
+                    {t?.total ? (
+                      <>
+                        <Bar value={pct(t.used, t.total)} />
+                        <div className="mt-1 text-[10px] text-slate-400 tabular-nums">
+                          {bytes(t.used)} / {bytes(t.total)}
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-slate-500">—</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-slate-300">{s.shared || s.type === "nfs" || s.type === "cifs" ? "Yes" : "No"}</td>
+                  <td className="px-3 py-2">
+                    <GlassSwitch checked={!s.disable} onChange={() => toggle(s)} disabled={busy} label="" />
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <GlassButton variant="ghost" size="xs" className="text-rose-300" onClick={() => setRemove(s.storage)} aria-label={`Remove ${s.storage}`}>
+                      <Trash2 size={12} />
+                    </GlassButton>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <AddStorageModal open={open} onClose={() => setOpen(false)} onDone={load} />
+      <ConfirmModal
+        open={!!remove}
+        onClose={() => setRemove(null)}
+        busy={busy}
+        error={error}
+        title={`Remove storage ${remove}`}
+        confirmLabel="Remove"
+        expect={remove ?? undefined}
+        message="Removes the storage definition from Proxmox only. Data on the disk, share or pool is not deleted, but guests using it lose access to their disks."
+        onConfirm={async () => {
+          if (await run(() => api(`/pve/storage-config/${remove}`, { method: "DELETE" }).then(load))) setRemove(null);
+        }}
+      />
+    </div>
+  );
+}
+
+function AddStorageModal({ open, onClose, onDone }: { open: boolean; onClose: () => void; onDone: () => void }) {
+  const [f, setF] = useState(emptyBackend);
+  const [scan, setScan] = useState<string[]>([]);
+  const [scan2, setScan2] = useState<string[]>([]);
+  const { busy, error, run, setError } = useRunner();
+  useEffect(() => {
+    if (!open) return;
+    setF(emptyBackend);
+    setError("");
+  }, [open, setError]);
+  const kind = BACKENDS.find((b) => b.id === f.type)!;
+  const pick = (type: Backend) => {
+    setF({ ...f, type, content: type === "dir" || type === "nfs" || type === "cifs" ? ["iso", "backup"] : ["images", "rootdir"] });
+    setScan([]);
+    setScan2([]);
+  };
+
+  // Local backends are scanned right away; network ones once a server is entered.
+  useEffect(() => {
+    if (!open) return;
+    const q = (k: string) => api<Record<string, string>[]>(`/pve/storage-scan/${k}`);
+    if (f.type === "lvm" || f.type === "lvmthin") q("lvm").then((r) => setScan(r.map((x) => x.vg)), () => setScan([]));
+    if (f.type === "zfspool") q("zfs").then((r) => setScan(r.map((x) => x.pool)), () => setScan([]));
+  }, [open, f.type]);
+  useEffect(() => {
+    if (f.type === "lvmthin" && f.vgname)
+      api<Record<string, string>[]>(`/pve/storage-scan/lvmthin?vg=${encodeURIComponent(f.vgname)}`).then((r) => setScan2(r.map((x) => x.lv)), () => setScan2([]));
+  }, [f.type, f.vgname]);
+  const scanServer = () => {
+    const p = new URLSearchParams({ server: f.server });
+    if (f.type === "cifs" && f.username) {
+      p.set("username", f.username);
+      p.set("password", f.password);
+      if (f.domain) p.set("domain", f.domain);
+    }
+    run(() => api<Record<string, string>[]>(`/pve/storage-scan/${f.type}?${p}`).then((r) => setScan(r.map((x) => (f.type === "nfs" ? x.path : x.share)))));
+  };
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (await run(() => api("/pve/storage-config", { method: "POST", json: f }))) {
+      onDone();
+      onClose();
+    }
+  };
+  type TextKey = "path" | "vgname" | "thinpool" | "pool" | "server" | "export" | "share" | "username" | "password" | "domain";
+  const text = (k: TextKey, label: string, opts: { hint?: string; mono?: boolean; type?: string; list?: string[] } = {}) => (
+    <Field label={label} hint={opts.hint}>
+      <GlassInput className={`w-full ${opts.mono ? "font-mono" : ""}`} type={opts.type} list={opts.list?.length ? `scan-${k}` : undefined} value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} />
+      {!!opts.list?.length && (
+        <datalist id={`scan-${k}`}>
+          {opts.list.map((v) => (
+            <option key={v} value={v} />
+          ))}
+        </datalist>
+      )}
+    </Field>
+  );
+  return (
+    <GlassModal open={open} onClose={onClose} title="Add storage" width="max-w-2xl">
+      <form onSubmit={submit} className="space-y-3">
+        <Segmented value={f.type} onChange={pick} options={BACKENDS.map((b) => ({ id: b.id, label: b.label }))} />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="ID" hint="Lowercase name, e.g. nas-backup">
+            <GlassInput className="w-full font-mono" value={f.storage} pattern="[a-z][a-z0-9_.\-]*[a-z0-9]" onChange={(e) => setF({ ...f, storage: e.target.value })} required />
+          </Field>
+          {f.type === "dir" && text("path", "Directory", { hint: "Absolute path on the host, e.g. /mnt/data", mono: true })}
+          {(f.type === "lvm" || f.type === "lvmthin") && text("vgname", "Volume group", { mono: true, list: scan })}
+          {f.type === "lvmthin" && text("thinpool", "Thin pool", { mono: true, list: scan2 })}
+          {f.type === "zfspool" && text("pool", "ZFS pool / dataset", { mono: true, list: scan })}
+          {(f.type === "nfs" || f.type === "cifs") && (
+            <Field label="Server">
+              <div className="flex gap-2">
+                <GlassInput className="w-full font-mono" value={f.server} onChange={(e) => setF({ ...f, server: e.target.value })} required />
+                <GlassButton disabled={!f.server || busy} onClick={scanServer} title="Scan server" aria-label="Scan server">
+                  <ScanSearch size={13} />
+                </GlassButton>
+              </div>
+            </Field>
+          )}
+          {f.type === "cifs" && text("username", "Username")}
+          {f.type === "cifs" && text("password", "Password", { type: "password" })}
+          {f.type === "cifs" && text("domain", "Domain (optional)")}
+          {f.type === "nfs" && text("export", "Export", { mono: true, list: scan, hint: "Scan the server to list exports" })}
+          {f.type === "cifs" && text("share", "Share", { mono: true, list: scan, hint: "Scan the server to list shares" })}
+        </div>
+        <div>
+          <p className="mb-1 text-[11px] text-slate-400">Content</p>
+          <div className="flex flex-wrap gap-3">
+            {kind.content.map((c) => (
+              <label key={c} className="flex items-center gap-1.5 text-xs text-slate-200">
+                <input type="checkbox" checked={f.content.includes(c)} onChange={() => setF({ ...f, content: f.content.includes(c) ? f.content.filter((x) => x !== c) : [...f.content, c] })} />
+                {c}
+              </label>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-4">
+          <GlassSwitch checked={f.enable} onChange={(v) => setF({ ...f, enable: v })} label="Enabled" />
+          {(f.type === "dir" || f.type === "lvm") && <GlassSwitch checked={f.shared} onChange={(v) => setF({ ...f, shared: v })} label="Shared (same storage on every node)" />}
+        </div>
+        <Notice error={error} />
+        <div className="flex justify-end gap-2">
+          <GlassButton onClick={onClose}>Cancel</GlassButton>
+          <GlassButton type="submit" variant="primary" disabled={busy || !f.content.length}>
+            Add storage
+          </GlassButton>
+        </div>
+      </form>
+    </GlassModal>
+  );
+}
+
 export default function StorageManager() {
   const [tab, setTab] = useState<Tab>("overview");
   const { storage, refreshStorage } = useTelemetry();
@@ -1139,7 +1386,9 @@ export default function StorageManager() {
       </nav>
 
       <div className="min-w-0 flex-1 overflow-auto p-4">
-        {tab === "snapshots" ? (
+        {tab === "backends" ? (
+          <StorageBackends />
+        ) : tab === "snapshots" ? (
           <div className="space-y-8">
             <section>
               <h3 className="mb-3 flex items-center gap-2 text-sm font-semibold text-slate-100">

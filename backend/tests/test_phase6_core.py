@@ -5,6 +5,7 @@ assert console.parse_term_frame("0:5:a:b:c") == ("data", "a:b:c")
 assert console.parse_term_frame("1:120:40:") == ("resize", (120, 40))
 assert console.parse_term_frame("1:99999:0:") == ("resize", (1000, 1))
 assert console.parse_term_frame("2") == ("ping", None)
+assert console.parse_term_frame("1:abc") == ("ping", None)
 
 LSPCI = """0000:00:02.0 VGA compatible controller [0300]: Intel Corporation Raptor Lake-S UHD Graphics [8086:a788] (rev 04)
 \tDeviceName: Onboard - Video
