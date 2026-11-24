@@ -75,4 +75,18 @@ assert p["devices"][0]["gpu"] and p["devices"][0]["vendor"] == "nvidia" and p["i
 inv = h.build_inventory(h.split_sections("@@lscpu@@\n" + '{"lscpu":[{"field":"Socket(s):","data":"-"},'
                                          '{"field":"CPU max MHz:","data":"4,5"}]}'), p, [])
 assert inv["cpu"]["sockets"] is None and inv["cpu"]["max_mhz"] == 4.5
+
+# Real HP ProDesk dmidecode with empty values ("\tAsset Tag:  ") used to crash the whole inventory.
+dmi = (Path(__file__).parent / "fixtures" / "dmi_empty_values.txt").read_text()
+inv = h.build_inventory({"dmi": dmi, "meminfo": "MemTotal: 100 kB\nCached: 8 kB\n", "mhz": "cpu MHz\t\t: 3000.000",
+                         "ipaddr": '[{"ifname":"tap100i0","addr_info":[{}]},{"ifname":"vmbr0","addr_info":'
+                                   '[{"local":"10.0.0.2","prefixlen":24,"scope":"global"}]}]'}, p, [{"devpath": "/dev/sda"}])
+sy = inv["system"]
+assert (sy["manufacturer"], sy["product"], sy["board"], sy["bios_vendor"], sy["bios_version"]) == \
+    ("HP", "HP ProDesk 400 G6 SFF", "859B", "HP", "R08 Ver. 02.23.00"), sy
+assert inv["memory"]["cached"] == 8 * 1024 and inv["cpu"]["mhz"]["avg"] == 3000 and inv["storage"]["drives"]
+assert {n["name"]: n["addresses"] for n in inv["network"]} == {"tap100i0": [], "vmbr0": ["10.0.0.2/24"]}
+# One broken section only empties itself.
+inv = h.build_inventory({"dmi": dmi, "lscpu": "{not json", "pkgs": None}, p, [])  # pkgs None -> AttributeError
+assert inv["system"]["manufacturer"] == "HP" and inv["packages"] == {k: None for k in h.PKGS}
 print("phase13 resilience: ok")

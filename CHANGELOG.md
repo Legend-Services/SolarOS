@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.5.2 - Hotfix: Hardware & System Blank on Boards With Empty DMI Fields — 2026-11-24
+
+### Fixed
+- **Hardware & System** showed only Proxmox API data (no motherboard, BIOS, clock, DIMMs, page cache or drives) on boards whose dmidecode output has empty values, such as `Asset Tag:` on HP ProDesk systems. The DMI parser now reads empty values, and this was the cause of the original `Internal Server Error`.
+- Each inventory section (DMI, CPU, sensors, memory, DIMMs, GPUs, drives, network, packages) is now parsed on its own: unexpected output empties only that section and is logged, instead of blanking the whole page.
+- Network interfaces whose `ip -j addr` entries have no address (VM tap/veth devices) no longer break the network table.
+
 ## v1.5.1 - Phase 13: Fault-Tolerant Hardware/BIOS Telemetry & Zero-Touch Fresh Install SSH/API Setup — 2026-11-24
 
 Fresh installations no longer show `Internal Server Error` in **Control Panel → Hardware & System** or when inspecting hosts without ZFS or a discrete GPU, and the installer sets up the host SSH bridge, API token and hardware tools by itself.
