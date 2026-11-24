@@ -72,7 +72,7 @@ export default function Launchpad() {
               <AppIcon id={id} size={72} />
               {pinned.includes(id) && <Pin size={11} className="absolute -right-1 -bottom-1 rounded-full bg-slate-900/80 p-0.5 text-sky-300" aria-label="In Dock" />}
             </span>
-            <span className="drop-shadow">{APPS[id].title}</span>
+            <span style={{ textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}>{APPS[id].title}</span>
           </button>
         ))}
         {apps.length === 0 && <p className="col-span-full text-center text-sm text-slate-300">No apps match “{query}”.</p>}

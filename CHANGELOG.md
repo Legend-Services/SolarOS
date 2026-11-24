@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.6.3 - Hotfix: Desktop Icons Flickering Through Windows — 2026-11-24
+
+### Fixed
+- **Desktop icons sometimes showed sharp through open windows** in Chrome. Each icon had a CSS `drop-shadow` filter (on the icon and on its button), which puts it on its own GPU layer; Chrome's compositor intermittently painted those layers over the windows' `backdrop-filter` glass. The icon shadow is now an SVG filter inside the icon and the labels use `text-shadow`, so no CSS filters sit behind the windows. Same look, also in the Dock and Launchpad.
+
 ## v1.6.2 - Playground Stop Button & Per-Window Crash Protection — 2026-11-24
 
 ### Added
