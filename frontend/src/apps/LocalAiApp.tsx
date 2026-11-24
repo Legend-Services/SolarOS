@@ -1,13 +1,15 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { BrainCircuit, Copy, Cpu, Download, ExternalLink, Gauge, MessageSquare, Search, Send, Square, Thermometer, Trash2, Zap } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import {
+  ArrowLeft, ArrowUp, BrainCircuit, Check, ChevronDown, Copy, Cpu, Download, ExternalLink, Gauge, HardDrive, MessageSquare, Search,
+  Settings as SettingsIcon, Square, SquarePen, Thermometer, Trash2, Zap,
+} from "lucide-react";
 import { api } from "../lib/api";
 import { bytes, copyText, pct } from "../lib/format";
-import { usePoll } from "../lib/hooks";
+import { useDismiss, usePoll } from "../lib/hooks";
 import { useWindows } from "../lib/stores";
 import type { AiHardware, AiStatus, LocalModel, OnlineModel, PullJob, VramFit } from "../lib/types";
 import { ConfirmModal, GlassBadge, GlassButton, GlassInput, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
 
-type Tab = "online" | "installed" | "hardware" | "chat";
 const CATEGORIES = ["All", "Coding", "General", "Reasoning", "Vision", "Embeddings"] as const;
 const FIT_TONE: Record<VramFit, "success" | "warning" | "danger" | "neutral"> = { optimal_gpu: "success", tight_gpu: "warning", cpu_offload: "danger", cpu_only: "neutral" };
 
@@ -206,7 +208,7 @@ function InstalledModels({ jobs, refreshKey, onChat }: { jobs: PullJob[]; refres
           {models.length} model{models.length === 1 ? "" : "s"} · {bytes(total)} on disk
         </p>
       )}
-      {models?.length === 0 && <p className="text-sm text-slate-400">No models yet. Download one from Online Models.</p>}
+      {models?.length === 0 && <p className="text-sm text-slate-400">No models yet. Download one under Download models.</p>}
       <div className="space-y-1.5">
         {models?.map((m) => (
           <article key={m.name} className="glass-soft flex flex-wrap items-center gap-3 rounded-xl px-3 py-2">
@@ -356,41 +358,184 @@ function HardwarePerf({ status, reload }: { status: AiStatus; reload: () => void
         )}
         <p className="text-[10px] text-slate-500">OpenAI-compatible: use any API key, and an installed model name as the model.</p>
         <p className="text-[11px] text-slate-400">Native Ollama API: {status.ollama_url}</p>
-        {status.model_storage && <p className="text-[11px] text-slate-400">Models stored on {status.model_storage}</p>}
       </section>
     </div>
   );
 }
 
-/* ---------------- Playground Chat ---------------- */
+/* ---------------- Local preferences (per browser) ---------------- */
+
+const readPref = (k: string) => {
+  try {
+    return localStorage.getItem(k) ?? "";
+  } catch {
+    return ""; // private mode / blocked storage
+  }
+};
+const writePref = (k: string, v: string) => {
+  try {
+    localStorage.setItem(k, v);
+  } catch {
+    /* private mode / blocked storage */
+  }
+};
+
+/* ---------------- Message formatting ---------------- */
+
+/** `inline code` and **bold**; everything else stays plain text (React escapes it). */
+function Inline({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(`[^`\n]+`|\*\*[^*\n]+\*\*)/g).map((p, i) =>
+        p.length > 2 && p.startsWith("`") && p.endsWith("`") ? (
+          <code key={i} className="rounded bg-black/40 px-1 py-0.5 font-mono text-[0.92em] text-sky-200">
+            {p.slice(1, -1)}
+          </code>
+        ) : p.length > 4 && p.startsWith("**") && p.endsWith("**") ? (
+          <strong key={i} className="font-semibold text-white">
+            {p.slice(2, -2)}
+          </strong>
+        ) : (
+          p
+        ),
+      )}
+    </>
+  );
+}
+
+function CodeBlock({ lang, code }: { lang: string; code: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="my-2 overflow-hidden rounded-xl bg-black/50 ring-1 ring-white/10">
+      <div className="flex items-center justify-between bg-white/5 px-3 py-1 text-[10px] text-slate-400">
+        <span>{lang || "code"}</span>
+        <button type="button" onClick={() => copyText(code).then(() => (setCopied(true), setTimeout(() => setCopied(false), 1500)))} className="flex items-center gap-1 hover:text-white">
+          <Copy size={11} /> {copied ? "Copied" : "Copy"}
+        </button>
+      </div>
+      <pre className="overflow-x-auto p-3 font-mono text-[12px] leading-relaxed text-slate-100">
+        <code>{code}</code>
+      </pre>
+    </div>
+  );
+}
+
+/** Minimal Markdown without a dependency: fenced code blocks (an unclosed fence while streaming still renders as code). */
+function Markdown({ text }: { text: string }) {
+  const out: ReactNode[] = [];
+  const prose = (s: string) => {
+    const t = s.replace(/^\n+|\n+$/g, "");
+    if (t)
+      out.push(
+        <p key={out.length} className="whitespace-pre-wrap">
+          <Inline text={t} />
+        </p>,
+      );
+  };
+  const re = /```([\w+#.-]*)\n?([\s\S]*?)(?:```|$)/g;
+  let last = 0;
+  for (let m = re.exec(text); m; m = re.exec(text)) {
+    prose(text.slice(last, m.index));
+    out.push(<CodeBlock key={out.length} lang={m[1]} code={m[2].replace(/\n$/, "")} />);
+    last = re.lastIndex;
+  }
+  prose(text.slice(last));
+  return <div className="space-y-2">{out}</div>;
+}
+
+/* ---------------- Chat ---------------- */
 
 type Msg = { role: "user" | "assistant"; content: string; thinking?: string; tps?: number | null; tokens?: number; stopped?: boolean };
 
-function Playground({ initial }: { initial: string }) {
+function ModelPicker({ models, value, onChange, onManage }: { models: LocalModel[]; value: string; onChange: (m: string) => void; onManage: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useDismiss(open, () => setOpen(false));
+  const cur = models.find((m) => m.name === value);
+  return (
+    <div ref={ref} className="relative">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-haspopup="listbox" aria-expanded={open} className="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-slate-200 transition hover:bg-white/10">
+        <span className="font-medium">{value || "Choose a model"}</span>
+        {cur?.parameter_size && <span className="text-slate-500">{cur.parameter_size}</span>}
+        <ChevronDown size={12} className="text-slate-400" />
+      </button>
+      {open && (
+        <div role="listbox" aria-label="Model" className="glass-panel absolute right-0 bottom-full z-20 mb-2 w-72 rounded-xl p-1.5">
+          {models.length === 0 && <p className="px-2 py-1.5 text-xs text-slate-400">No models installed yet.</p>}
+          {models.map((m) => (
+            <button
+              key={m.name}
+              type="button"
+              role="option"
+              aria-selected={m.name === value}
+              onClick={() => (onChange(m.name), setOpen(false))}
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-white/10"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-medium text-white">{m.name}</span>
+                <span className="block text-[10px] text-slate-400">
+                  {[m.parameter_size, m.quantization, bytes(m.size)].filter(Boolean).join(" · ")}
+                  {m.loaded && " · in VRAM"}
+                </span>
+              </span>
+              {m.name === value && <Check size={13} className="text-violet-300" />}
+            </button>
+          ))}
+          <div className="my-1 border-t border-white/10" />
+          <button type="button" onClick={() => (setOpen(false), onManage())} className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-sky-300 hover:bg-white/10">
+            <Download size={12} /> Download more models
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChatView({ status, model, setModel, instructions, visible, chatKey, onManage }: {
+  status: AiStatus; model: string; setModel: (m: string) => void; instructions: string; visible: boolean; chatKey: number; onManage: () => void;
+}) {
   const [models, setModels] = useState<LocalModel[]>([]);
-  const [model, setModel] = useState(initial);
-  const [system, setSystem] = useState("");
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const box = useRef<HTMLDivElement>(null);
+  const ta = useRef<HTMLTextAreaElement>(null);
   const abort = useRef<AbortController | null>(null);
+
+  // Refresh the model list whenever the chat comes back into view (models may have been added in Settings).
   useEffect(() => {
+    if (!visible) return;
     api<LocalModel[]>("/ai/models/local")
-      .then((m) => (setModels(m), setModel((cur) => cur || m[0]?.name || "")))
+      .then((m) => {
+        setModels(m);
+        if (!m.some((x) => x.name === model) && m[0]) setModel(m[0].name);
+      })
       .catch((e) => setError(e.message));
-    return () => abort.current?.abort(); // leaving the tab stops generation instead of letting it run on the GPU
-  }, []);
-  // Scroll only the chat pane: scrollIntoView also scrolls the desktop's overflow-hidden ancestors, and an
-  // expression-bodied effect would hand React the Promise newer Chrome returns from scroll methods as a "cleanup".
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload on visibility only
+  }, [visible]);
+  useEffect(() => () => abort.current?.abort(), []); // closing the app stops a running reply on the GPU
+  // New chat: stop generating and start empty.
+  useEffect(() => {
+    abort.current?.abort();
+    setMsgs([]);
+    setError("");
+    ta.current?.focus();
+  }, [chatKey]);
+  // Block bodies: scroll methods return a Promise in newer Chrome, which React would call as an effect cleanup.
   useEffect(() => {
     if (box.current) box.current.scrollTop = box.current.scrollHeight;
   }, [msgs, busy]);
+  useEffect(() => {
+    const t = ta.current;
+    if (t) {
+      t.style.height = "auto";
+      t.style.height = `${Math.min(t.scrollHeight, 192)}px`;
+    }
+  }, [input]);
 
   const send = async (e: FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || !model) return;
+    if (busy || !input.trim() || !model) return;
     const next: Msg[] = [...msgs, { role: "user", content: input.trim() }];
     setMsgs(next);
     setInput("");
@@ -406,7 +551,7 @@ function Playground({ initial }: { initial: string }) {
         signal: ctl.signal,
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model, system: system || null, stream: true, messages: next.map(({ role, content }) => ({ role, content })) }),
+        body: JSON.stringify({ model, system: instructions.trim() || null, stream: true, messages: next.map(({ role, content }) => ({ role, content })) }),
       });
       if (!res.ok || !res.body) {
         const detail = (await res.json().catch(() => null))?.detail;
@@ -447,77 +592,194 @@ function Playground({ initial }: { initial: string }) {
     }
   };
 
+  const composer = (
+    <form onSubmit={send} className="glass-soft rounded-2xl px-3 pt-2.5 pb-2 ring-1 ring-white/10 transition focus-within:ring-violet-300/40">
+      <textarea
+        ref={ta}
+        rows={1}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            e.currentTarget.form?.requestSubmit();
+          }
+        }}
+        placeholder={model ? `Message ${model}` : "Download a model in Settings to start chatting"}
+        aria-label="Message"
+        className="block max-h-48 w-full resize-none bg-transparent px-1 text-sm text-white placeholder:text-slate-500 focus:outline-none"
+      />
+      <div className="mt-1.5 flex items-center justify-end gap-1">
+        <ModelPicker models={models} value={model} onChange={setModel} onManage={onManage} />
+        {busy ? (
+          <button type="button" onClick={() => abort.current?.abort()} aria-label="Stop" title="Stop" className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-900 transition hover:bg-slate-200">
+            <Square size={11} fill="currentColor" />
+          </button>
+        ) : (
+          <button type="submit" aria-label="Send" title="Send (Enter)" disabled={!model || !input.trim()} className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-500 text-white transition hover:bg-violet-400 disabled:opacity-30">
+            <ArrowUp size={16} />
+          </button>
+        )}
+      </div>
+    </form>
+  );
+
+  if (msgs.length === 0)
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-6 p-6">
+        <div className="text-center">
+          <BrainCircuit size={32} className="mx-auto text-violet-300" />
+          <h2 className="mt-3 text-xl font-semibold text-white">What can I help with?</h2>
+          <p className="mt-1 text-xs text-slate-400">
+            Runs privately on your {status.compute_target === "cpu" ? "CPU" : shortGpu(status.gpu_name)}. Nothing you type leaves your server.
+          </p>
+        </div>
+        <div className="w-full max-w-2xl space-y-2">
+          {composer}
+          <Notice error={error} />
+        </div>
+      </div>
+    );
+
   return (
     <div className="flex h-full flex-col">
-      <div className="flex flex-wrap items-center gap-2 border-b border-white/10 p-3">
-        <GlassSelect className="py-1.5 text-xs" value={model} onChange={(e) => setModel(e.target.value)} aria-label="Model">
-          {models.length === 0 && <option value="">No models installed</option>}
-          {models.map((m) => (
-            <option key={m.name} value={m.name}>
-              {m.name}
-            </option>
-          ))}
-        </GlassSelect>
-        <GlassInput className="min-w-0 flex-1 py-1.5 text-xs" placeholder="System prompt (optional), e.g. You are a concise senior engineer." value={system} onChange={(e) => setSystem(e.target.value)} aria-label="System prompt" />
-        <GlassButton size="xs" variant="ghost" onClick={() => setMsgs([])} disabled={!msgs.length}>
-          Clear
-        </GlassButton>
-      </div>
-      <div ref={box} className="min-h-0 flex-1 space-y-2 overflow-auto p-3">
-        {msgs.length === 0 && <p className="text-sm text-slate-400">Ask anything to test the model. The first reply also loads it into memory.</p>}
-        {msgs.map((m, i) => (
-          <div key={i} className={`max-w-[85%] rounded-xl px-3 py-2 text-xs whitespace-pre-wrap ${m.role === "user" ? "ml-auto bg-violet-500/25 text-white" : "glass-soft text-slate-100"}`}>
-            {m.thinking && (
-              <details open={!m.content} className="mb-1.5 rounded-lg bg-black/25 px-2 py-1 text-[11px] text-slate-400">
-                <summary className="cursor-pointer select-none">{m.content ? "Thought process" : "Thinking…"}</summary>
-                {m.thinking}
-              </details>
-            )}
-            {m.content}
-            {m.role === "assistant" && m.tps != null && (
-              <div className="mt-1.5">
-                <GlassBadge tone="success">
-                  <Zap size={10} /> {m.tps} tokens/sec · {m.tokens} tokens
-                </GlassBadge>
+      <div ref={box} className="min-h-0 flex-1 overflow-auto">
+        <div className="mx-auto max-w-3xl space-y-5 px-4 py-5">
+          {msgs.map((m, i) =>
+            m.role === "user" ? (
+              <div key={i} className="ml-auto w-fit max-w-[80%] rounded-2xl bg-white/10 px-4 py-2.5 text-sm whitespace-pre-wrap text-white">
+                {m.content}
               </div>
-            )}
-            {m.stopped && (
-              <div className="mt-1.5">
-                <GlassBadge tone="warning">Stopped</GlassBadge>
+            ) : (
+              <div key={i} className="flex gap-3">
+                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-500/25 ring-1 ring-violet-300/30">
+                  <BrainCircuit size={14} className="text-violet-200" />
+                </span>
+                <div className="min-w-0 flex-1 text-sm leading-relaxed text-slate-100">
+                  {m.thinking && (
+                    <details open={!m.content} className="mb-2 rounded-lg bg-black/25 px-3 py-1.5 text-[12px] text-slate-400">
+                      <summary className="cursor-pointer select-none">{m.content ? "Thought process" : "Thinking…"}</summary>
+                      <p className="mt-1 whitespace-pre-wrap">{m.thinking}</p>
+                    </details>
+                  )}
+                  <Markdown text={m.content} />
+                  {(m.tps != null || m.stopped) && (
+                    <div className="mt-2 flex items-center gap-2">
+                      {m.tps != null && (
+                        <GlassBadge tone="success">
+                          <Zap size={10} /> {m.tps} tokens/sec · {m.tokens} tokens
+                        </GlassBadge>
+                      )}
+                      {m.stopped && <GlassBadge tone="warning">Stopped</GlassBadge>}
+                      <button type="button" onClick={() => copyText(m.content)} className="rounded p-1 text-slate-500 hover:bg-white/10 hover:text-slate-200" aria-label="Copy reply" title="Copy reply">
+                        <Copy size={12} />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-          </div>
-        ))}
-        {busy && msgs[msgs.length - 1]?.role === "user" && (
-          <p className="text-[11px] text-slate-400">Loading the model and generating… (a large model can take up to a minute the first time)</p>
-        )}
-        <Notice error={error} />
+            ),
+          )}
+          {busy && msgs[msgs.length - 1]?.role === "user" && (
+            <p className="pl-10 text-[12px] text-slate-400">Loading the model and generating… (a large model can take up to a minute the first time)</p>
+          )}
+          <Notice error={error} />
+        </div>
       </div>
-      <form onSubmit={send} className="flex gap-2 border-t border-white/10 p-3">
-        <GlassInput className="flex-1 py-2 text-xs" placeholder="Message" value={input} onChange={(e) => setInput(e.target.value)} aria-label="Message" disabled={busy} />
-        {busy ? (
-          <GlassButton variant="danger" onClick={() => abort.current?.abort()}>
-            <Square size={12} /> Stop
-          </GlassButton>
-        ) : (
-          <GlassButton type="submit" variant="primary" disabled={!model || !input.trim()}>
-            <Send size={12} /> Send
-          </GlassButton>
-        )}
-      </form>
+      <div className="mx-auto w-full max-w-3xl px-4 pb-4">{composer}</div>
     </div>
   );
 }
+
+/* ---------------- Settings ---------------- */
+
+function StorageSettings({ status, reload }: { status: AiStatus; reload: () => void }) {
+  const [path, setPath] = useState(status.model_storage ?? "/mnt/storage/ai-models");
+  const [move, setMove] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState({ error: "", notice: "" });
+  const valid = /^\/(mnt|srv)(\/[A-Za-z0-9_][A-Za-z0-9._-]*)+$/.test(path);
+  const changed = path !== status.model_storage;
+
+  const apply = async () => {
+    setBusy(true);
+    setMsg({ error: "", notice: "" });
+    try {
+      const r = await api<{ models_bytes: number | null }>("/ai/storage", { method: "POST", json: { path, move } });
+      setMsg({ error: "", notice: `Models are now stored in ${path}${r.models_bytes != null ? ` (${bytes(r.models_bytes)})` : ""}.` });
+      reload();
+    } catch (e) {
+      setMsg({ error: (e as Error).message, notice: "" });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="h-full space-y-3 overflow-auto p-3">
+      <section className="glass-soft space-y-3 rounded-xl p-3">
+        <h3 className="flex items-center gap-2 text-xs font-semibold text-white">
+          <HardDrive size={14} /> Model storage location
+        </h3>
+        <p className="text-[11px] text-slate-400">
+          Current: <span className="font-mono text-slate-200">{status.model_storage ?? "inside the AI container's own disk"}</span>
+        </p>
+        <label className="block text-[11px] text-slate-400">
+          Folder on the host (below /mnt or /srv)
+          <GlassInput className="mt-1 w-full py-1.5 font-mono text-xs" value={path} onChange={(e) => setPath(e.target.value.trim())} placeholder="/mnt/storage/ai-models" aria-label="Model storage folder" />
+        </label>
+        {!valid && <p className="text-[11px] text-amber-300">Use a folder below /mnt or /srv, for example /mnt/tank/ai-models.</p>}
+        <GlassSwitch checked={move} onChange={setMove} disabled={!status.model_storage} label="Move my downloaded models to the new folder" />
+        <p className="text-[10px] text-slate-500">
+          The AI container restarts. Moving to another disk copies every model first, which can take several minutes for large models.
+          {!status.model_storage && " Models inside the container's own disk can't be moved; download them again afterwards."}
+        </p>
+        <Notice {...msg} />
+        <GlassButton variant="primary" disabled={!valid || !changed || busy} onClick={apply}>
+          {busy ? (move ? "Moving models and restarting…" : "Restarting…") : "Change location"}
+        </GlassButton>
+      </section>
+    </div>
+  );
+}
+
+function ChatSettings({ instructions, setInstructions }: { instructions: string; setInstructions: (v: string) => void }) {
+  return (
+    <div className="h-full space-y-3 overflow-auto p-3">
+      <section className="glass-soft space-y-2 rounded-xl p-3">
+        <h3 className="text-xs font-semibold text-white">Custom instructions</h3>
+        <p className="text-[11px] text-slate-400">Sent with every chat as the system prompt, for example your language, tone or role.</p>
+        <textarea
+          value={instructions}
+          onChange={(e) => setInstructions(e.target.value)}
+          rows={6}
+          maxLength={20000}
+          placeholder="Always answer in Dutch. Be concise and show PowerShell examples when relevant."
+          aria-label="Custom instructions"
+          className="glass-field w-full resize-y p-2 text-xs"
+        />
+        <p className="text-[10px] text-slate-500">Saved in this browser.</p>
+      </section>
+    </div>
+  );
+}
+
+type SettingsTab = "download" | "installed" | "hardware" | "storage" | "chat";
 
 /* ---------------- Shell ---------------- */
 
 export default function LocalAiApp() {
   const [status, setStatus] = useState<AiStatus | null>(null);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<Tab>("online");
+  const [view, setView] = useState<"chat" | "settings">("chat");
+  const [tab, setTab] = useState<SettingsTab>("download");
   const [jobs, setJobs] = useState<PullJob[]>([]);
-  const [chatModel, setChatModel] = useState("");
+  const [model, setModelState] = useState(() => readPref("solardeck-ai-model"));
+  const [instructions, setInstructionsState] = useState(() => readPref("solardeck-ai-instructions"));
+  const [chatKey, setChatKey] = useState(0);
   const open = useWindows((s) => s.open);
+  const setModel = (m: string) => (setModelState(m), writePref("solardeck-ai-model", m));
+  const setInstructions = (v: string) => (setInstructionsState(v), writePref("solardeck-ai-instructions", v));
 
   const loadStatus = useCallback(() => {
     api<AiStatus>("/ai/status")
@@ -532,10 +794,11 @@ export default function LocalAiApp() {
   usePoll(loadJobs, 2000);
   const finished = useMemo(() => jobs.filter((j) => j.state === "done").length, [jobs]);
 
-  const pull = (model: string) =>
-    api<PullJob>("/ai/models/pull", { method: "POST", json: { model } })
+  const pull = (m: string) =>
+    api<PullJob>("/ai/models/pull", { method: "POST", json: { model: m } })
       .then((j) => setJobs((cur) => [j, ...cur.filter((x) => x.id !== j.id)]))
       .catch((e) => setError(e.message));
+  const settings = (t: SettingsTab) => (setTab(t), setView("settings"));
 
   if (!status) return <div className="p-4 text-sm text-slate-400">{error || "Loading…"}</div>;
   if (!status.installed)
@@ -554,38 +817,68 @@ export default function LocalAiApp() {
       </div>
     );
 
+  const downloading = jobs.filter((j) => j.state === "running").length;
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-white/10 px-3 py-2">
-        <Segmented
-          value={tab}
-          onChange={setTab}
-          options={[
-            { id: "online", label: "Online Models" },
-            { id: "installed", label: "Installed Models" },
-            { id: "hardware", label: "Hardware & Performance" },
-            { id: "chat", label: "Playground Chat" },
-          ]}
-        />
+        {view === "chat" ? (
+          <GlassButton size="xs" variant="ghost" onClick={() => setChatKey((k) => k + 1)} title="Start a new chat">
+            <SquarePen size={13} /> New chat
+          </GlassButton>
+        ) : (
+          <>
+            <GlassButton size="xs" variant="ghost" onClick={() => setView("chat")}>
+              <ArrowLeft size={13} /> Back to chat
+            </GlassButton>
+            <Segmented
+              value={tab}
+              onChange={setTab}
+              options={[
+                { id: "download", label: "Download models" },
+                { id: "installed", label: "Installed models" },
+                { id: "hardware", label: "Hardware" },
+                { id: "storage", label: "Storage" },
+                { id: "chat", label: "Chat" },
+              ]}
+            />
+          </>
+        )}
         <span className="ml-auto flex flex-wrap items-center gap-1.5">
           <GlassBadge tone={status.running && status.ollama_reachable ? "success" : status.running ? "warning" : "danger"}>
             {status.running ? (status.ollama_reachable ? `Ollama ${status.ollama_version ?? ""}` : "Ollama starting…") : "Container stopped"}
           </GlassBadge>
           <GlassBadge tone="info">{status.compute_target === "cpu" ? "CPU" : shortGpu(status.gpu_name) || status.compute_target}</GlassBadge>
+          {downloading > 0 && (
+            <button type="button" onClick={() => settings("installed")} className="text-[11px] text-sky-300 hover:underline">
+              Downloading {downloading}…
+            </button>
+          )}
           {status.webui_url && (
             <a className="inline-flex items-center gap-1 text-[11px] text-sky-300 hover:underline" href={status.webui_url} target="_blank" rel="noreferrer">
               Open WebUI <ExternalLink size={11} />
             </a>
           )}
+          {view === "chat" && (
+            <GlassButton size="xs" variant="ghost" onClick={() => setView("settings")} aria-label="Settings" title="Models, hardware and storage">
+              <SettingsIcon size={14} /> Settings
+            </GlassButton>
+          )}
         </span>
       </div>
       {error && <div className="bg-rose-500/10 px-4 py-2 text-xs text-rose-300">{error}</div>}
-      <div className="min-h-0 flex-1">
-        {tab === "online" && <OnlineModels status={status} jobs={jobs} onPull={pull} />}
-        {tab === "installed" && <InstalledModels jobs={jobs} refreshKey={finished} onChat={(m) => (setChatModel(m), setTab("chat"))} />}
-        {tab === "hardware" && <HardwarePerf status={status} reload={loadStatus} />}
-        {tab === "chat" && <Playground key={chatModel} initial={chatModel} />}
+      {/* The chat stays mounted while Settings is open, so the conversation survives a trip to Settings. */}
+      <div className={`min-h-0 flex-1 ${view === "chat" ? "" : "hidden"}`}>
+        <ChatView status={status} model={model} setModel={setModel} instructions={instructions} visible={view === "chat"} chatKey={chatKey} onManage={() => settings("download")} />
       </div>
+      {view === "settings" && (
+        <div className="min-h-0 flex-1">
+          {tab === "download" && <OnlineModels status={status} jobs={jobs} onPull={pull} />}
+          {tab === "installed" && <InstalledModels jobs={jobs} refreshKey={finished} onChat={(m) => (setModel(m), setView("chat"))} />}
+          {tab === "hardware" && <HardwarePerf status={status} reload={loadStatus} />}
+          {tab === "storage" && <StorageSettings status={status} reload={loadStatus} />}
+          {tab === "chat" && <ChatSettings instructions={instructions} setInstructions={setInstructions} />}
+        </div>
+      )}
     </div>
   );
 }

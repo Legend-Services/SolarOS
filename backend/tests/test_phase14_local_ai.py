@@ -79,4 +79,17 @@ except ValidationError:
 assert apps.BY_ID["local-ai"]["category"] == "AI & Compute" and (apps.DATA / "apps/local-ai.sh").exists()
 assert apps.installed_map([{"vmid": 105, "tags": "proxmox-os-app;pos-ollama", "name": "ollama"}])["local-ai"][0]["vmid"] == 105
 assert ai.LocalAiDeployBody(ip_config={"cidr": "10.0.0.9/24", "gateway": "10.0.0.1"}).ip_config.cidr == "10.0.0.9/24"
+
+# Model storage location: only below /mnt or /srv, no traversal or shell characters.
+for ok in ("/mnt/storage/ai-models", "/srv/models", "/mnt/tank/ai_models.v2"):
+    ai.StorageBody(path=ok)
+for bad in ("/etc", "/", "/mnt", "/mnt/../etc", "/mnt/a/..", "/mnt/x;rm -rf /", "/mnt/a b", "/root/models", "mnt/x", "/mnt/.hidden"):
+    try:
+        ai.StorageBody(path=bad)
+        raise AssertionError(f"storage path accepted: {bad}")
+    except ValidationError:
+        pass
+mv = ai.storage_script("/mnt/storage/ai-models", "/mnt/tank/models", True)
+assert "cp -a --reflink=auto /mnt/storage/ai-models/. /mnt/tank/models/" in mv and "chown 100000:100000 /mnt/tank/models" in mv
+assert "cp -a" not in ai.storage_script("/mnt/a", "/mnt/b", False) and "cp -a" not in ai.storage_script(None, "/mnt/b", True)
 print("phase14 local ai: ok")
