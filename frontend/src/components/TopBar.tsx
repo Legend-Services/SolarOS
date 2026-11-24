@@ -13,6 +13,7 @@ import { APP_IDS } from "../apps/registry";
 import { AppIcon } from "./icons/AppIcons";
 import LanguagePill from "./LanguagePill";
 import { useTranslation } from "../i18n";
+import { useCapabilities } from "../store/capabilitiesStore";
 
 export function Pill({ icon, label, tone = "text-slate-200" }: { icon: ReactNode; label: string; tone?: string }) {
   return (
@@ -24,6 +25,7 @@ export function Pill({ icon, label, tone = "text-slate-200" }: { icon: ReactNode
 }
 
 export default function TopBar() {
+  const caps = useCapabilities((s) => s.capabilities);
   const { t, appTitle } = useTranslation();
   const now = useClock();
   const windows = useWindows((s) => s.windows);
@@ -96,14 +98,16 @@ export default function TopBar() {
       >
         <Search size={14} />
       </button>
-      <button
-        onClick={() => open("terminal")}
-        className="flex items-center gap-1 rounded-md px-2 py-1 text-slate-200 hover:bg-white/10"
-        aria-label={t("top.hostShell")}
-        title={t("top.hostShell")}
-      >
-        <SquareTerminal size={14} />
-      </button>
+      {caps.supports_host_shell && (
+        <button
+          onClick={() => open("terminal")}
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-slate-200 hover:bg-white/10"
+          aria-label={t("top.hostShell", { platform: caps.platform_label })}
+          title={t("top.hostShell", { platform: caps.platform_label })}
+        >
+          <SquareTerminal size={14} />
+        </button>
+      )}
       <div ref={viewRef} className="relative">
         <button
           onClick={() => setLayout({ panel: !viewPanel })}

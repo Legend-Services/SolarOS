@@ -37,6 +37,7 @@ import { Bar } from "../components/charts";
 import Benchmark from "./storage/Benchmark";
 import { DiskSettingsModal, ScanModal } from "./storage/DiskTools";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, healthTone, Notice, Segmented } from "../components/ui/GlassKit";
+import { useCapabilities } from "../store/capabilitiesStore";
 
 type Tab = "overview" | "pools" | "datasets" | "disks" | "benchmark" | "snapshots" | "backends";
 
@@ -339,7 +340,7 @@ function Overview({ storage, onCreatePool, onCreateDataset }: { storage: Storage
           })}
         </div>
       )}
-      <h3 className="text-sm font-semibold text-slate-100">Proxmox storage targets</h3>
+      <h3 className="text-sm font-semibold text-slate-100">{useCapabilities.getState().capabilities.platform_label} storage targets</h3>
       <div className="grid gap-3 sm:grid-cols-2">
         {storage.targets.map((t) => (
           <div key={t.storage} className="glass-soft rounded-2xl p-3">
@@ -1776,6 +1777,7 @@ function AddStorageModal({ open, onClose, onDone }: { open: boolean; onClose: ()
 }
 
 export default function StorageManager() {
+  const caps = useCapabilities((s) => s.capabilities);
   const [tab, setTab] = useState<Tab>("overview");
   const { storage, refreshStorage } = useTelemetry();
   const [disks, setDisks] = useState<PveDisk[] | null>(null);
@@ -1815,7 +1817,7 @@ export default function StorageManager() {
   return (
     <div className="flex h-full">
       <nav className="w-48 shrink-0 space-y-1 border-r border-white/10 bg-black/20 p-2 max-sm:w-14">
-        {TABS.map((t) => (
+        {TABS.filter((t) => caps.supports_zfs || (t.id !== "pools" && t.id !== "datasets")).map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}

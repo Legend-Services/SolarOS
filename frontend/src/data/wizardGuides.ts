@@ -1,7 +1,8 @@
 import type { AppId } from "../apps/registry";
 import type { Intents } from "../lib/stores";
 
-/* Plain-English, jargon-free guides for every app and major workflow, shown by GuidedWizardModal. */
+/* Plain-English, jargon-free guides for every app and major workflow, shown by GuidedWizardModal.
+   "{platform}" is replaced with the active hypervisor's label (capabilitiesStore) when a guide is shown. */
 
 export interface GuideAction {
   label: string;
@@ -91,7 +92,7 @@ export const WELCOME: Guide = {
     },
     {
       title: "Instant Passwordless Host Shell",
-      body: "Need the command line? The terminal button in the top bar opens a root shell on your Proxmox host instantly — no password or SSH setup. Container shells open the same way from Compute Manager.",
+      body: "Need the command line? The terminal button in the top bar opens a root shell on your {platform} host instantly — no password or SSH setup. Container shells open the same way from Compute Manager.",
       tip: "The shell has full root power. Only run commands you understand.",
       action: { label: "Open Host Shell", app: "terminal" },
     },
@@ -219,7 +220,7 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     app: "backup",
     title: "Backup Center Guide",
     blurb: "Protect VMs and containers with backups.",
-    what: "Backup Center makes complete copies of your virtual machines and containers (using Proxmox's vzdump tool). If something breaks, you can restore the machine exactly as it was.",
+    what: "Backup Center makes complete copies of your virtual machines and containers (using the {platform} backup tool). If something breaks, you can restore the machine exactly as it was.",
     when: [
       "Before a risky change such as a big update inside a VM.",
       "Every night, automatically, so you never lose more than a day.",
@@ -278,7 +279,7 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     app: "datacenter",
     title: "Datacenter Guide",
     blurb: "Users, permissions, firewall and logs.",
-    what: "Datacenter is the advanced control room for Proxmox itself: user accounts, groups and roles, who may do what, API tokens, the firewall, and system logs.",
+    what: "Datacenter is the advanced control room for {platform} itself: user accounts, groups and roles, who may do what, API tokens, the firewall, and system logs.",
     when: [
       "Giving a friend access to just one VM.",
       "Blocking traffic to a machine with a firewall rule.",
@@ -298,7 +299,7 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     app: "terminal",
     title: "Host Shell Guide",
     blurb: "A root command line on your server.",
-    what: "Host Shell opens a command line on the Proxmox host as the root (administrator) user, with no password prompt. It's the same as plugging a keyboard into the server.",
+    what: "Host Shell opens a command line on the {platform} host as the root (administrator) user, with no password prompt. It's the same as plugging a keyboard into the server.",
     when: [
       "Following a tutorial that asks you to run a command.",
       "Checking things quickly, like disk space (df -h) or running processes (htop).",
@@ -343,7 +344,7 @@ export const APP_GUIDES: Record<AppId, Guide> = {
       "Updating SolarDeck to the newest version.",
     ],
     how: [
-      "User & Security: change the admin password, set up 2FA, check the root bridge. Add more Proxmox users and roles in Datacenter.",
+      "User & Security: change the admin password, set up 2FA, check the root bridge. Add more {platform} users and roles in Datacenter.",
       "Hardware & System → GPU & Drivers: pick your card's vendor and press Install.",
       "Appearance & Themes: themes, Light / Dark Mode, wallpapers, Grid/List view, icon size, spacing and Dock.",
       "System & Power → SolarDeck Update: check for and install updates. To go back to an older version, redeploy that release with deploy.sh.",
@@ -356,7 +357,7 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     app: "system",
     title: "System Guide",
     blurb: "Package sources and host updates.",
-    what: "System manages where the host gets its software (package repositories) and installs Proxmox and Debian updates.",
+    what: "System manages where the host gets its software (package repositories) and installs {platform} and operating system updates.",
     when: [
       "Updates fail with an error like 401 Unauthorized (the Enterprise source needs a paid subscription).",
       "Installing security updates for the host.",

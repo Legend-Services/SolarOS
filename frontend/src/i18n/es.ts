@@ -21,7 +21,7 @@ export const es: Dict = {
   "common.moveDown": "Bajar",
 
   // Login screen
-  "login.subtitle": "SolarDeck para Proxmox VE · Inicia sesión para continuar",
+  "login.subtitle": "SolarDeck para {platform} · Inicia sesión para continuar",
   "login.username": "Usuario",
   "login.password": "Contraseña",
   "login.signIn": "Iniciar sesión",
@@ -31,7 +31,13 @@ export const es: Dict = {
   "top.openLauncher": "Abrir lanzador",
   "top.desktop": "Escritorio",
   "top.search": "Buscar (Ctrl+K)",
-  "top.hostShell": "Shell del host (root en el host Proxmox)",
+  "top.hostShell": "Shell del host (root en el host {platform})",
+  "driver.proxmox": "Proxmox VE",
+  "driver.standalone": "Hipervisor independiente",
+  "about.title": "Acerca de SolarDeck",
+  "about.driver": "Controlador del hipervisor",
+  "about.platform": "Plataforma",
+  "about.desc": "SolarDeck funciona sobre un controlador de hipervisor intercambiable; el mismo escritorio gestiona ambas plataformas.",
   "top.viewSettings": "Ajustes de vista",
   "top.userMenu": "Menú de usuario",
   "top.controlPanel": "Panel de control",

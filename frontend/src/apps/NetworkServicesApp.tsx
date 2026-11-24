@@ -10,6 +10,7 @@ import DomainsTab from "./network/DomainsTab";
 import TopologyTab from "./network/TopologyTab";
 import { useTranslation, type TKey } from "../i18n";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, Notice } from "../components/ui/GlassKit";
+import { useCapabilities } from "../store/capabilitiesStore";
 
 /* ---------------- Types (local to this app) ---------------- */
 
@@ -240,7 +241,7 @@ function PackageBar({ pkg, label, installed, onChanged }: { pkg: "dnsmasq" | "wi
         busy={busy}
         title={`Uninstall ${label}`}
         confirmLabel="Uninstall"
-        message="The service stops and the package is removed from the Proxmox host. Your SolarDeck settings are kept."
+        message={`The service stops and the package is removed from the ${useCapabilities.getState().capabilities.platform_label} host. Your SolarDeck settings are kept.`}
       />
     </Card>
   );

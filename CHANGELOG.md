@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.13.0 - Phase 18: Provider / Adapter Architecture — 2026-11-24
+
+### Added
+- **Hypervisor provider layer** (`backend/providers/`): a typed, platform-neutral `HypervisorProvider` contract with domain models (capabilities, node metrics, guests, PCI/USB/GPU devices, ZFS pools and datasets, disks and SMART, benchmarks, storage content, backups and schedules, users, groups, roles, ACLs, pools, firewall rules, tasks, network interfaces and topology, console tickets).
+- **Proxmox VE driver** (`ProxmoxProvider`) bound to the existing, tested Proxmox code. Overview, guest list and power actions now go through the active driver.
+- **Standalone hypervisor scaffold** (`NativeUbuntuProvider`, `HYPERVISOR_DRIVER=native_ubuntu`): live capabilities (*SolarDeck Hypervisor*). Every other method answers HTTP 501 until Phase 19. The command mapping is in `backend/providers/PHASE19_DRIVER_SPEC.md`.
+- `GET /api/system/capabilities` and `/api/v1/system/capabilities`, plus driver-neutral `/api/v1/...` aliases for every `/api/pve/...` route.
+- Frontend `capabilitiesStore`: platform labels (sign-in screen, Host Shell button, Control Panel, Storage, Network Services, guides) and feature gates (VM/container creation, ZFS tabs, GPU targets in Local AI, RBAC realms, cluster log, package repositories, BIOS guide, Host Shell).
+- **About SolarDeck** card and a hypervisor driver badge (*Proxmox VE* / *Standalone Hypervisor*) in Control Panel → System & Updates, in all five languages.
+
+### Changed
+- `HYPERVISOR_DRIVER=proxmox` is written on fresh installs and appended to existing `.env` files. Updates, downgrades and re-installs keep its value.
+- `install.sh` and `deploy.sh` no longer overwrite `alert_channels.json`, `automation_rules.json` and `automation_logs.json`, and `deploy.sh` keeps `update_settings.json`. Local-checkout upgrades replace `backend/providers/` like the other source folders.
+
 ## v1.12.0 - Phase 17: Interactive Desktop Widget Studio, Automation Rules & External Alerts, Network Topology Map & Multi-Language Support — 2026-11-24
 
 ### Added

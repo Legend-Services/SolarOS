@@ -6,6 +6,7 @@ import { pct } from "../lib/format";
 import { useLayout } from "../store/layoutStore";
 import type { AppId } from "../apps/registry";
 import { useTranslation } from "../i18n";
+import { useCapabilities } from "../store/capabilitiesStore";
 import LanguagePill from "./LanguagePill";
 import { AppIcon } from "./icons/AppIcons";
 import { ViewOptionsPanel } from "./ViewOptions";
@@ -90,6 +91,7 @@ function BarButton({ label, onClick, active, children }: { label: string; onClic
 
 export default function Taskbar() {
   const { t, appTitle } = useTranslation();
+  const caps = useCapabilities((s) => s.capabilities);
   const now = useClock();
   const windows = useWindows((s) => s.windows);
   const { open, close, minimize, setDockIconRect } = useWindows();
@@ -202,9 +204,11 @@ export default function Taskbar() {
             tone={health === "ONLINE" ? "text-emerald-300" : health === "N/A" || health === "—" ? "text-slate-400" : "text-rose-300"}
           />
         </span>
-        <button onClick={() => open("terminal")} className="rounded-md px-2 py-1 text-slate-200 hover:bg-white/10 max-sm:hidden" aria-label={t("top.hostShell")} title={t("top.hostShell")}>
-          <SquareTerminal size={14} />
-        </button>
+        {caps.supports_host_shell && (
+          <button onClick={() => open("terminal")} className="rounded-md px-2 py-1 text-slate-200 hover:bg-white/10 max-sm:hidden" aria-label={t("top.hostShell", { platform: caps.platform_label })} title={t("top.hostShell", { platform: caps.platform_label })}>
+            <SquareTerminal size={14} />
+          </button>
+        )}
         <div ref={viewRef} className="relative max-sm:hidden">
           <button
             onClick={() => setLayout({ panel: !viewPanel })}

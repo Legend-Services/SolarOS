@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from . import host
 from .auth import require_user
 from .config import settings
+from providers.registry import get_provider
 
 router = APIRouter(prefix="/api/pve", tags=["pve"], dependencies=[Depends(require_user)])
 _client: httpx.AsyncClient | None = None
@@ -52,62 +53,24 @@ def _node(path: str = "") -> str:
     return f"/nodes/{settings.pve_node}{path}"
 
 
-@router.get("/overview")
-async def overview():
-    status, qemu, lxc, rrd = await asyncio.gather(
-        pve("GET", _node("/status")),
-        _safe(_node("/qemu"), []),
-        _safe(_node("/lxc"), []),
-        # shortcut: network rate + ZFS ARC come from the 1-minute RRD average; upgrade to a host agent for per-second data.
-        _safe(_node("/rrddata?timeframe=hour&cf=AVERAGE"), []),
-    )
-    last = next((p for p in reversed(rrd or []) if p.get("netin") is not None), {})
-    count = lambda items, state: sum(1 for g in items if g.get("status") == state)  # noqa: E731
-    mem, swap, cpuinfo = status.get("memory", {}), status.get("swap", {}), status.get("cpuinfo", {})
-    return {
-        "node": settings.pve_node,
-        "cpu": round(status.get("cpu", 0) * 100, 2),
-        "loadavg": [float(x) for x in status.get("loadavg", [])],
-        "memory": {"used": mem.get("used", 0), "total": mem.get("total", 0), "free": mem.get("free", 0),
-                   "arc": int(last.get("arcsize") or 0)},
-        "swap": {"used": swap.get("used", 0), "total": swap.get("total", 0)},
-        "uptime": status.get("uptime", 0),
-        "kernel": status.get("kversion", ""),
-        "pveversion": status.get("pveversion", ""),
-        "cpuinfo": {"model": cpuinfo.get("model", ""), "cpus": cpuinfo.get("cpus", 0),
-                    "sockets": cpuinfo.get("sockets", 0), "cores": cpuinfo.get("cores", 0)},
-        "net": {"in": float(last.get("netin") or 0), "out": float(last.get("netout") or 0)},
-        "vms": {"running": count(qemu, "running"), "stopped": count(qemu, "stopped"), "total": len(qemu)},
-        "containers": {"running": count(lxc, "running"), "stopped": count(lxc, "stopped"), "total": len(lxc)},
-    }
-
-
 class ActionBody(BaseModel):
     action: Literal["start", "shutdown", "stop", "reboot"]
 
 
-GUEST_FIELDS = ("cpu", "maxcpu", "mem", "maxmem", "disk", "maxdisk", "uptime", "netin", "netout")
-
-
-def _normalize(g: dict, kind: str) -> dict:
-    out = {"vmid": int(g["vmid"]), "name": g.get("name", f"{kind}-{g['vmid']}"), "type": kind,
-           "status": g.get("status", "unknown"), **{f: g.get(f, 0) for f in GUEST_FIELDS}}
-    # /nodes/{node}/qemu|lxc report the core count as "cpus"; only /cluster/resources uses "maxcpu".
-    out["maxcpu"] = g.get("maxcpu") or g.get("cpus") or 0
-    return out
+# Compute & telemetry go through the active hypervisor driver (providers/); the Proxmox driver holds the logic.
+@router.get("/overview")
+async def overview():
+    return await get_provider().get_node_metrics()
 
 
 @router.get("/guests")
 async def guests():
-    qemu, lxc = await asyncio.gather(pve("GET", _node("/qemu")), pve("GET", _node("/lxc")))
-    items = [_normalize(g, "qemu") for g in qemu or []] + [_normalize(g, "lxc") for g in lxc or []]
-    return sorted(items, key=lambda g: g["vmid"])
+    return await get_provider().list_guests()
 
 
 @router.post("/guests/{guest_type}/{vmid}/action")
 async def guest_action(guest_type: Literal["qemu", "lxc"], vmid: int, body: ActionBody):
-    upid = await pve("POST", _node(f"/{guest_type}/{vmid}/status/{body.action}"))
-    return {"ok": True, "task": upid}
+    return await get_provider().guest_power_action(guest_type, vmid, body.action)
 
 
 async def zfs_helper(cmd: str) -> str | None:

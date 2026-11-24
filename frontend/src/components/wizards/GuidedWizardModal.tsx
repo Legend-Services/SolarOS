@@ -1,14 +1,20 @@
 import { ArrowLeft, ArrowRight, BookOpen, Check, Lightbulb, Sparkles } from "lucide-react";
 import { openLink } from "../../lib/stores";
 import { useWizard } from "../../store/wizardStore";
-import { GUIDES, type GuideAction } from "../../data/wizardGuides";
+import { GUIDES, type Guide, type GuideAction } from "../../data/wizardGuides";
+import { usePlatformLabel } from "../../store/capabilitiesStore";
 import { GlassButton, GlassModal, GlassSwitch } from "../ui/GlassKit";
 import { AppIcon } from "../icons/AppIcons";
+
+/** Every "{platform}" in a guide's text becomes the active hypervisor label. Guides are plain JSON data. */
+export const fillPlatform = (g: Guide, platform: string): Guide =>
+  JSON.parse(JSON.stringify(g).replaceAll("{platform}", JSON.stringify(platform).slice(1, -1)));
 
 /** Global multi-step guide dialog. Rendered once in App; opened with useWizard.show(guideId). */
 export default function GuidedWizardModal() {
   const { guide: id, step, show, setStep, close, welcomeAuto, setWelcomeAuto } = useWizard();
-  const g = id ? GUIDES[id] : undefined;
+  const platform = usePlatformLabel();
+  const g = id && GUIDES[id] ? fillPlatform(GUIDES[id], platform) : undefined;
   if (!g) return null;
   const s = g.steps[Math.min(step, g.steps.length - 1)];
   const last = step >= g.steps.length - 1;

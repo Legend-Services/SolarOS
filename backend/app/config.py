@@ -9,6 +9,8 @@ ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
 
+    # Hypervisor driver behind the provider-neutral API: "proxmox" (default) or "native_ubuntu" (Phase 19).
+    hypervisor_driver: str = "proxmox"
     pve_host: str = "https://127.0.0.1:8006"
     pve_node: str = "pve"
     pve_token_id: str = ""
