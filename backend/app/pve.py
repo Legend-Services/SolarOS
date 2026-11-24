@@ -90,8 +90,11 @@ GUEST_FIELDS = ("cpu", "maxcpu", "mem", "maxmem", "disk", "maxdisk", "uptime", "
 
 
 def _normalize(g: dict, kind: str) -> dict:
-    return {"vmid": int(g["vmid"]), "name": g.get("name", f"{kind}-{g['vmid']}"), "type": kind,
-            "status": g.get("status", "unknown"), **{f: g.get(f, 0) for f in GUEST_FIELDS}}
+    out = {"vmid": int(g["vmid"]), "name": g.get("name", f"{kind}-{g['vmid']}"), "type": kind,
+           "status": g.get("status", "unknown"), **{f: g.get(f, 0) for f in GUEST_FIELDS}}
+    # /nodes/{node}/qemu|lxc report the core count as "cpus"; only /cluster/resources uses "maxcpu".
+    out["maxcpu"] = g.get("maxcpu") or g.get("cpus") or 0
+    return out
 
 
 @router.get("/guests")
