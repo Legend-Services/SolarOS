@@ -151,7 +151,7 @@ async def send_one(name: str, cfg: dict, title: str, message: str, severity: str
     """Deliver one alert; returns {channel, ok, detail} and never raises (secrets are scrubbed from errors)."""
     try:
         if name == "telegram":
-            text = f"<b>{html.escape(title)}</b>\n{html.escape(message)}\n<i>SolarDeck · {html.escape(settings.pve_node)}</i>"
+            text = f"<b>{html.escape(title)}</b>\n{html.escape(message)}\n<i>SolarDeck · {html.escape(settings.node_name)}</i>"
             r = await _http("POST", f"https://api.telegram.org/bot{cfg['bot_token']}/sendMessage",
                             json={"chat_id": cfg["chat_id"], "text": text, "parse_mode": "HTML"})
             ok = r.status_code == 200 and r.json().get("ok") is True
@@ -159,12 +159,12 @@ async def send_one(name: str, cfg: dict, title: str, message: str, severity: str
         elif name == "discord":
             embed = {"title": title[:256], "description": message[:4000], "color": SEVERITY_COLOR.get(severity, 0x38BDF8),
                      "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                     "footer": {"text": f"SolarDeck · {settings.pve_node}"}}
+                     "footer": {"text": f"SolarDeck · {settings.node_name}"}}
             r = await _http("POST", cfg["webhook_url"], json={"username": "SolarDeck", "embeds": [embed]})
             ok, detail = r.status_code in (200, 204), f"HTTP {r.status_code}"
         elif name == "webhook":
             headers = {"Authorization": f"Bearer {cfg['bearer_token']}"} if cfg.get("bearer_token") else {}
-            payload = {"source": "SolarDeck", "node": settings.pve_node, "severity": severity, "title": title,
+            payload = {"source": "SolarDeck", "node": settings.node_name, "severity": severity, "title": title,
                        "message": message, "timestamp": int(time.time())}
             r = await _http(cfg.get("method") or "POST", cfg["url"], json=payload, headers=headers)
             ok, detail = r.is_success, f"HTTP {r.status_code}"
@@ -179,7 +179,7 @@ async def send_one(name: str, cfg: dict, title: str, message: str, severity: str
 def _send_email(cfg: dict, title: str, message: str) -> None:
     msg = EmailMessage()
     msg["Subject"], msg["From"], msg["To"] = f"[SolarDeck] {title}", cfg["from_email"], cfg["to_email"]
-    msg.set_content(f"{message}\n\n-- SolarDeck on {settings.pve_node}")
+    msg.set_content(f"{message}\n\n-- SolarDeck on {settings.node_name}")
     ctx = ssl.create_default_context()
     implicit = cfg["use_tls"] and cfg["smtp_port"] == 465  # port 465 = TLS from the start, others upgrade with STARTTLS
     cls = smtplib.SMTP_SSL if implicit else smtplib.SMTP
@@ -502,7 +502,7 @@ MAC_RE = re.compile(r"([0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5})")
 
 
 def parse_guest_nets(kind: str, cfg: dict) -> list[dict]:
-    """net0..netN of a QEMU (`virtio=MAC,bridge=vmbr0,tag=10`) or LXC (`name=eth0,hwaddr=MAC,bridge=vmbr0,ip=…`) config."""
+    """net0..netN of a QEMU (`virtio=MAC,bridge=br0,tag=10`) or LXC (`name=eth0,hwaddr=MAC,bridge=br0,ip=…`) config."""
     out = []
     for k, v in sorted(cfg.items(), key=lambda kv: kv[0]):
         m = NET_KEY_RE.match(k)

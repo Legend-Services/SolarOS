@@ -119,7 +119,7 @@ def create_params(vmid: int, app: dict, body: DeployBody, template: str, rootfs:
     return {
         "vmid": vmid, "hostname": body.hostname, "ostemplate": template, "rootfs": f"{rootfs}:{body.disk_gb}",
         "cores": body.cores, "memory": body.memory, "swap": 512, "unprivileged": 1, "features": "nesting=1",
-        "onboot": 1, "net0": f"name=eth0,bridge={settings.pve_bridge},{ip}", "tags": f"{TAG};pos-{app['id']}",
+        "onboot": 1, "net0": f"name=eth0,bridge={settings.default_bridge},{ip}", "tags": f"{TAG};pos-{app['id']}",
         "description": f"Installed by SolarDeck App Center: {app['name']}",
     }
 

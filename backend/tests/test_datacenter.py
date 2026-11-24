@@ -2,7 +2,7 @@
 import os
 import tempfile
 
-os.environ.update(STORAGE_ROOT=tempfile.mkdtemp(), ADMIN_USERNAME="admin", ADMIN_PASSWORD="pw", JWT_SECRET="x" * 32,
+os.environ.update(NODE_NAME="pve", STORAGE_ROOT=tempfile.mkdtemp(), ADMIN_USERNAME="admin", ADMIN_PASSWORD="pw", JWT_SECRET="x" * 32,
                   PVE_TOKEN_ID="pve-desktop@pve!webui")
 
 import httpx  # noqa: E402

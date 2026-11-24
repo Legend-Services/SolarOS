@@ -1,3 +1,4 @@
+import socket
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -12,7 +13,7 @@ class Settings(BaseSettings):
     # Hypervisor driver behind the provider-neutral API: "proxmox" (default) or "native_ubuntu" (Phase 19).
     hypervisor_driver: str = "proxmox"
     pve_host: str = "https://127.0.0.1:8006"
-    pve_node: str = "pve"
+    node_name: str = socket.gethostname().split(".")[0]
     pve_token_id: str = ""
     pve_token_secret: str = ""
     pve_verify_ssl: bool = False
@@ -21,7 +22,7 @@ class Settings(BaseSettings):
     jwt_secret: str = ""
     jwt_ttl_hours: int = 12
     storage_root: Path = Path("/mnt/storage")
-    pve_bridge: str = "vmbr0"
+    default_bridge: str = "vmbr0"  # bridge preselected for new guests (br0 on SolarOS)
     # Root-only host operations (ZFS, bind mounts, /dev/dri, pct exec) go through proxmox-os-helper.
     # Empty HOST_SSH runs the helper locally (backend on the PVE host itself).
     host_ssh: str = ""

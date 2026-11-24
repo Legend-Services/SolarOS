@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Check, ChevronLeft, ChevronRight, Rocket } from "lucide-react";
 import { api } from "../lib/api";
+import { useCapabilities } from "../store/capabilitiesStore";
 import type { StorageVolume, SystemInfo, TaskState, ZfsDatasetInfo } from "../lib/types";
 import { PassthroughPicker, usePassthroughDevices, type PciSel, type UsbSel } from "./guest/passthrough";
 import { bytes } from "../lib/format";
@@ -42,7 +43,7 @@ const initial = {
   sockets: 1,
   memory: 2048,
   swap: 512,
-  bridge: "vmbr0",
+  bridge: "",
   dhcp: true,
   cidr: "",
   gateway: "",
@@ -90,10 +91,11 @@ export default function GuestWizard({ kind, open, onClose, onCreated }: { kind: 
     api<SystemInfo>("/system/info").then(
       (i) => {
         const b = i.network.filter((n) => n.type === "bridge").map((n) => n.iface);
-        setBridges(b.length ? b : ["vmbr0"]);
-        if (b.length && !b.includes("vmbr0")) set({ bridge: b[0] });
+        const dflt = useCapabilities.getState().capabilities.default_bridge;
+        setBridges(b.length ? b : [dflt].filter(Boolean));
+        set({ bridge: b.includes(dflt) || !b.length ? dflt : b[0] });
       },
-      () => setBridges(["vmbr0"]),
+      () => setBridges([useCapabilities.getState().capabilities.default_bridge].filter(Boolean)),
     );
     if (k === "lxc")
       api<ZfsDatasetInfo[]>("/v1/zfs/datasets").then(

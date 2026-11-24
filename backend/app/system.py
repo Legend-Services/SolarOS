@@ -125,7 +125,7 @@ async def info():
     )
     status, cpu = status or {}, (status or {}).get("cpuinfo", {})
     return {
-        "node": settings.pve_node,
+        "node": settings.node_name,
         "version": version or {},
         "pveversion": status.get("pveversion", ""),
         "kernel": status.get("kversion", ""),

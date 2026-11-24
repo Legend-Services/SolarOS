@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 
 tmp = Path(tempfile.mkdtemp())
-os.environ.update(STORAGE_ROOT=str(tmp), ADMIN_USERNAME="admin", ADMIN_PASSWORD="pw", JWT_SECRET="x" * 32,
+os.environ.update(NODE_NAME="pve", STORAGE_ROOT=str(tmp), ADMIN_USERNAME="admin", ADMIN_PASSWORD="pw", JWT_SECRET="x" * 32,
                   HOST_ROOT_KEY=str(tmp / ".ssh" / "id_ed25519"))
 
 import httpx  # noqa: E402

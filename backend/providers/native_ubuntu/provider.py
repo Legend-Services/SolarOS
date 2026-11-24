@@ -71,8 +71,8 @@ def _store_dir(content: str) -> Path:
 
 
 def _bridge(b: str) -> str:
-    # The creation wizards default to the Proxmox bridge name; the standalone host's bridge is PVE_BRIDGE (br0).
-    return settings.pve_bridge if b == "vmbr0" else b
+    # No bridge given: the host's default bridge (DEFAULT_BRIDGE, br0 on SolarOS).
+    return b or settings.default_bridge
 
 
 def _cpu_pct(key: tuple[str, str], ns: int, cpus: int) -> float:
@@ -115,7 +115,8 @@ class NativeUbuntuProvider(HypervisorProvider):
         return ProviderCapabilities(
             driver="native_ubuntu", platform_label="SolarOS", supports_clustering=False,
             supports_lxc=True, supports_qemu=True, supports_zfs=True, supports_gpu_passthrough=True,
-            supports_bios_manager=True, supports_rbac_realms=False, supports_apt_repos=True, supports_host_shell=True)
+            supports_bios_manager=True, supports_rbac_realms=False, supports_apt_repos=True, supports_host_shell=True,
+            default_bridge=settings.default_bridge)
 
     async def get_node_metrics(self) -> NodeMetrics:
         proc = PROC
@@ -579,7 +580,7 @@ class NativeUbuntuProvider(HypervisorProvider):
                 await self._incus_create(
                     vmid, name, self._image(f"{IMAGES_STORE}:vztmpl/debian/12", static=body.ip_config != "dhcp"),
                     storage="", cores=body.cores, memory_mb=body.memory, disk_gb=body.disk_gb,
-                    bridge=settings.pve_bridge, ip_config=body.ip_config, nesting=True,
+                    bridge=settings.default_bridge, ip_config=body.ip_config, nesting=True,
                     tags=f"{apps.TAG};pos-{app['id']}", log=log, autostart=True,
                     description=f"Installed by SolarDeck App Center: {app['name']}")
                 job["phase"] = "configuring"

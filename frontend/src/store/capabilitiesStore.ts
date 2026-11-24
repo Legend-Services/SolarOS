@@ -15,6 +15,7 @@ export interface Capabilities {
   supports_rbac_realms: boolean;
   supports_apt_repos: boolean;
   supports_host_shell: boolean;
+  default_bridge: string;
 }
 export type CapabilityFlag = { [K in keyof Capabilities]: Capabilities[K] extends boolean ? K : never }[keyof Capabilities];
 
@@ -31,6 +32,7 @@ export const PROXMOX_DEFAULTS: Capabilities = {
   supports_rbac_realms: true,
   supports_apt_repos: true,
   supports_host_shell: true,
+  default_bridge: "",
 };
 
 interface CapabilitiesState {

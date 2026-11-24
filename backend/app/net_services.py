@@ -413,7 +413,7 @@ async def put_dhcp(body: DhcpBody):
 
 # ---------------------------------------------------------------- WireGuard server
 
-WG_DEFAULT = {"enabled": False, "port": 51820, "subnet": "10.8.0.0/24", "wan": "vmbr0", "endpoint": "",
+WG_DEFAULT = {"enabled": False, "port": 51820, "subnet": "10.8.0.0/24", "wan": settings.default_bridge, "endpoint": "",
               "dns": ["1.1.1.1"], "private_key": "", "public_key": "", "peers": []}
 
 

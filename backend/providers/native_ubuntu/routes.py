@@ -379,7 +379,7 @@ async def info():
     dns = dict(re.findall(r"^(nameserver|search)\s+(\S+)", FsPath("/etc/resolv.conf").read_text(), re.M)) \
         if FsPath("/etc/resolv.conf").exists() else {}
     return {
-        "node": settings.pve_node, "version": {"release": os_release.get("VERSION_ID", ""), "version": "SolarOS"},
+        "node": settings.node_name, "version": {"release": os_release.get("VERSION_ID", ""), "version": "SolarOS"},
         "pveversion": f"SolarOS ({os_release.get('PRETTY_NAME', 'Linux')})", "kernel": m.kernel,
         "uptime": m.uptime, "cpu_model": m.cpuinfo.get("model", ""), "cpus": m.cpuinfo.get("cpus", 0),
         "boot_mode": "efi" if FsPath("/sys/firmware/efi").exists() else "bios",

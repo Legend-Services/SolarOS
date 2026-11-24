@@ -72,4 +72,4 @@ async def not_implemented(_: Request, exc: NotImplementedError):
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "app": "SolarDeck", "node": settings.pve_node, "driver": settings.hypervisor_driver}
+    return {"status": "ok", "app": "SolarDeck", "node": settings.node_name, "driver": settings.hypervisor_driver}

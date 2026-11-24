@@ -268,7 +268,7 @@ export const TUTORIALS: Tutorial[] = [
     intro: "The DNS AdBlocker filters ads and trackers for every device that uses your server as its DNS server.",
     steps: [
       { text: "Open Network & Services → DNS & AdBlock and press Install.", link: { app: "netservices" } },
-      { text: "Choose the network bridge to listen on (your LAN, e.g. vmbr0), enable DNS and turn on the StevenBlack and OISD lists. Press 'Update now'." },
+      { text: "Choose the network bridge to listen on (your LAN bridge), enable DNS and turn on the StevenBlack and OISD lists. Press 'Update now'." },
       { text: "In your router's settings, set the DNS server to the Proxmox host's IP address. Devices pick it up after reconnecting." },
     ],
   },

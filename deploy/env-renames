@@ -1,0 +1,3 @@
+# Keys renamed in backend/.env by merge-env.sh (old new). Shipped with SolarDeck for Proxmox VE installs only.
+PVE_NODE NODE_NAME
+PVE_BRIDGE DEFAULT_BRIDGE

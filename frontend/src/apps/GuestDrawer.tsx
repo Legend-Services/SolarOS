@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Camera, Pencil, Plus, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
 import { api } from "../lib/api";
+import { useCapabilities } from "../store/capabilitiesStore";
 import type { Guest, GuestConfig, StorageVolume, SystemInfo } from "../lib/types";
 import { bytes } from "../lib/format";
 import { useRunner } from "../lib/hooks";
@@ -353,9 +354,10 @@ const MODELS = ["virtio", "e1000", "e1000e", "rtl8139", "vmxnet3"];
 
 function NetworkTab({ guest, hw, reload }: { guest: Guest; hw: Hardware; reload: () => void }) {
   const lxc = guest.type === "lxc";
-  const [bridges, setBridges] = useState<string[]>(["vmbr0"]);
+  const dflt = useCapabilities((s) => s.capabilities.default_bridge);
+  const [bridges, setBridges] = useState<string[]>([dflt].filter(Boolean));
   const [edit, setEdit] = useState<{ index: number; isNew: boolean } | null>(null);
-  const [f, setF] = useState({ model: "virtio", bridge: "vmbr0", tag: "", firewall: true, macaddr: "", rate: "", name: "", static: false, cidr: "", gw: "", ip6: "" });
+  const [f, setF] = useState({ model: "virtio", bridge: dflt, tag: "", firewall: true, macaddr: "", rate: "", name: "", static: false, cidr: "", gw: "", ip6: "" });
   const { busy, error, notice, run } = useRunner(reload);
   const nics = hw.devices.net;
 

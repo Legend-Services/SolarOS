@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from . import host, host_ssh, pci
 from .apps import StaticIP
 from .auth import require_user
+from .config import settings
 from .pve import DATASET_RE, _node, pve
 from .storage_admin import STORAGE_RE
 from .tasks import wait_task
@@ -171,7 +172,7 @@ class QemuBody(BaseModel):
     iso_volume: str | None = Field(None, pattern=ISO_RE, max_length=500)
     storage: str = Field(pattern=STORAGE_RE)
     disk_gb: int = Field(32, ge=1, le=65536)
-    bridge: str = Field("vmbr0", pattern=BRIDGE_RE)
+    bridge: str = Field(default_factory=lambda: settings.default_bridge, pattern=BRIDGE_RE)
     ostype: Literal["l26", "win11", "win10", "win8", "win7", "w2k8", "solaris", "other"] = "l26"
     start_on_boot: bool = False
     hostpci: list[PciPassthrough] = Field([], max_length=8)
@@ -214,7 +215,7 @@ class LxcBody(BaseModel):
     ostemplate: str = Field(pattern=TMPL_RE, max_length=500)
     storage: str = Field(pattern=STORAGE_RE)
     disk_gb: int = Field(8, ge=1, le=65536)
-    bridge: str = Field("vmbr0", pattern=BRIDGE_RE)
+    bridge: str = Field(default_factory=lambda: settings.default_bridge, pattern=BRIDGE_RE)
     ip_config: Literal["dhcp"] | StaticIP = "dhcp"
     password: str = Field(min_length=5, max_length=128)
     nesting: bool = True

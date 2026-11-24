@@ -29,7 +29,7 @@ Log = Callable[[str], None]
 
 
 def node() -> str:
-    return settings.pve_node
+    return settings.node_name
 
 
 # ---------------------------------------------------------------- Commands

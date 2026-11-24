@@ -9,7 +9,7 @@
 #   --bundle <dir>       install from a SolarDeck ISO bundle: source tree + prebuilt frontend/dist + wheels/ (offline
 #                        Python packages and no desktop build; APT packages still come from the Ubuntu mirrors)
 #   --bridge-nic <nic>   NIC to enslave to br0 (default: the NIC of the default route)
-#   --no-bridge          do not create br0 (guests then need an existing bridge named in PVE_BRIDGE)
+#   --no-bridge          do not create br0 (guests then need an existing bridge named in DEFAULT_BRIDGE)
 # Re-running is safe: backend/.env, backend/data/ and backend/.ssh/ are kept; code, dependencies and the build refresh.
 # The Proxmox VE edition keeps using ../install.sh; both editions update from the same branch.
 set -Eeuo pipefail
@@ -77,7 +77,7 @@ if [[ -z "$NO_BRIDGE" && ! -d "/sys/class/net/${BRIDGE}" ]]; then
   # No default route yet: the first physical Ethernet port.
   [[ -n "$NIC" ]] || NIC="$(for n in /sys/class/net/en* /sys/class/net/eth*; do [[ -e "$n/device" ]] && basename "$n"; done | head -n1)"
   [[ -n "$NIC" && -e "/sys/class/net/${NIC}" ]] || die "Could not find the uplink NIC; pass --bridge-nic <nic>"
-  [[ -d "/sys/class/net/${NIC}/bridge" ]] && die "${NIC} is already a bridge; rerun with --no-bridge and set PVE_BRIDGE"
+  [[ -d "/sys/class/net/${NIC}/bridge" ]] && die "${NIC} is already a bridge; rerun with --no-bridge and set DEFAULT_BRIDGE"
   msg "Creating bridge ${BRIDGE} on ${NIC} (the IP address moves to the bridge)"
   # Keep a static address static; otherwise the bridge asks DHCP (same MAC, so usually the same lease).
   ADDR="$(ip -j -4 addr show dev "$NIC" | jq -r '[.[0].addr_info[] | select(.dynamic != true)][0] | "\(.local)/\(.prefixlen)" // empty' 2>/dev/null || true)"
@@ -145,8 +145,8 @@ if [[ -z "$UPGRADE" ]]; then
   umask 077
   cat >"$ENV_FILE" <<EOF
 HYPERVISOR_DRIVER=native_ubuntu
-PVE_NODE=$(hostname -s)
-PVE_BRIDGE=${BRIDGE}
+NODE_NAME=$(hostname -s)
+DEFAULT_BRIDGE=${BRIDGE}
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=${ADMIN_PASSWORD}
 JWT_SECRET=$(openssl rand -hex 32)

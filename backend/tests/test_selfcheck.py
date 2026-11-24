@@ -3,7 +3,7 @@ import os
 import tempfile
 
 tmp = tempfile.mkdtemp()
-os.environ.update(STORAGE_ROOT=tmp, ADMIN_USERNAME="admin", ADMIN_PASSWORD="pw", JWT_SECRET="x" * 32)
+os.environ.update(NODE_NAME="pve", STORAGE_ROOT=tmp, ADMIN_USERNAME="admin", ADMIN_PASSWORD="pw", JWT_SECRET="x" * 32)
 os.makedirs(os.path.join(tmp, ".hidden"))
 outside = tempfile.mkdtemp()
 os.symlink(outside, os.path.join(tmp, "escape"))
@@ -420,7 +420,7 @@ si = c.get("/api/system/info").json()
 assert si["api"]["connected"] and si["version"]["version"] == "8.4.1" and si["network"][0]["iface"] == "vmbr0", si
 assert si["dns"]["dns1"] == "1.1.1.1", si
 config.ENV_FILE = __import__("pathlib").Path(tmp).parent / f"env-{os.getpid()}"
-config.ENV_FILE.write_text("PVE_NODE=pve\nADMIN_PASSWORD=pw\nJWT_SECRET=x\n")
+config.ENV_FILE.write_text("NODE_NAME=pve\nADMIN_PASSWORD=pw\nJWT_SECRET=x\n")
 assert c.post("/api/system/password", json={"current_password": "nope", "new_password": "longenough1"}).status_code == 403
 assert c.post("/api/system/password", json={"current_password": "pw", "new_password": "short"}).status_code == 422
 assert c.post("/api/system/password", json={"current_password": "pw", "new_password": "it's bad'"}).status_code == 422
@@ -428,7 +428,7 @@ new_pw = "N3w pass#word$"
 assert c.post("/api/system/password", json={"current_password": "pw", "new_password": new_pw}).status_code == 200
 from dotenv import dotenv_values  # noqa: E402
 
-assert dotenv_values(config.ENV_FILE) == {"PVE_NODE": "pve", "ADMIN_PASSWORD": new_pw, "JWT_SECRET": "x"}
+assert dotenv_values(config.ENV_FILE) == {"NODE_NAME": "pve", "ADMIN_PASSWORD": new_pw, "JWT_SECRET": "x"}
 assert (config.ENV_FILE.stat().st_mode & 0o777) == 0o600
 assert c.post("/api/auth/login", json={"username": "admin", "password": new_pw}).status_code == 200
 assert c.post("/api/auth/login", json={"username": "admin", "password": "pw"}).status_code == 401

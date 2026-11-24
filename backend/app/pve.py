@@ -54,7 +54,7 @@ async def _safe(path: str, default=None, **kw):
 
 
 def _node(path: str = "") -> str:
-    return f"/nodes/{settings.pve_node}{path}"
+    return f"/nodes/{settings.node_name}{path}"
 
 
 class ActionBody(BaseModel):

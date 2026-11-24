@@ -30,6 +30,7 @@ class ProviderCapabilities(Model):
     supports_rbac_realms: bool = False
     supports_apt_repos: bool = True
     supports_host_shell: bool = True
+    default_bridge: str = ""  # bridge preselected for new guests and NICs
 
 
 class NodeMetrics(Model):

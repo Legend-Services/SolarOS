@@ -9,7 +9,7 @@ from pathlib import Path
 
 TMP = Path(tempfile.mkdtemp())
 os.environ.update(HYPERVISOR_DRIVER="native_ubuntu", STORAGE_ROOT=str(TMP / "storage"), ADMIN_USERNAME="admin",
-                  ADMIN_PASSWORD="pw", JWT_SECRET="x" * 32, PVE_BRIDGE="br0", PVE_NODE="hv1")
+                  ADMIN_PASSWORD="pw", JWT_SECRET="x" * 32, DEFAULT_BRIDGE="br0", NODE_NAME="hv1")
 
 from fastapi import HTTPException  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

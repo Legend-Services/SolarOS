@@ -46,7 +46,8 @@ class ProxmoxProvider(HypervisorProvider):
         return ProviderCapabilities(
             driver="proxmox", platform_label="Proxmox VE", supports_clustering=True, supports_lxc=True,
             supports_qemu=True, supports_zfs=True, supports_gpu_passthrough=True, supports_bios_manager=True,
-            supports_rbac_realms=True, supports_apt_repos=True, supports_host_shell=True)
+            supports_rbac_realms=True, supports_apt_repos=True, supports_host_shell=True,
+            default_bridge=settings.default_bridge)
 
     async def get_node_metrics(self) -> NodeMetrics:
         pve, safe, node = api.pve, api._safe, api._node
@@ -59,7 +60,7 @@ class ProxmoxProvider(HypervisorProvider):
         count = lambda items, state: sum(1 for g in items if g.get("status") == state)  # noqa: E731
         mem, swap, cpuinfo = status.get("memory", {}), status.get("swap", {}), status.get("cpuinfo", {})
         return NodeMetrics(
-            node=settings.pve_node,
+            node=settings.node_name,
             cpu=round(status.get("cpu", 0) * 100, 2),
             loadavg=[float(x) for x in status.get("loadavg", [])],
             memory={"used": mem.get("used", 0), "total": mem.get("total", 0), "free": mem.get("free", 0),

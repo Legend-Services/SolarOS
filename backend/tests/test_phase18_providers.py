@@ -3,7 +3,7 @@ Run: python -m tests.test_phase18_providers (from backend/)."""
 import os
 import tempfile
 
-os.environ.update(STORAGE_ROOT=tempfile.mkdtemp(), ADMIN_USERNAME="admin", ADMIN_PASSWORD="pw", JWT_SECRET="x" * 32)
+os.environ.update(NODE_NAME="pve", STORAGE_ROOT=tempfile.mkdtemp(), ADMIN_USERNAME="admin", ADMIN_PASSWORD="pw", JWT_SECRET="x" * 32)
 
 import httpx  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

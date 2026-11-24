@@ -5,6 +5,17 @@ set -euo pipefail
 LIVE="${1:?live env}"; EXAMPLE="${2:?example env}"
 [[ -f "$EXAMPLE" ]] || exit 0
 touch "$LIVE"
+# Renamed keys (env-renames next to the example: "OLD NEW" per line) keep their value under the new name.
+RENAMES="$(dirname "$EXAMPLE")/env-renames"
+if [[ -f "$RENAMES" ]]; then
+  while read -r old new; do
+    [[ "$old" =~ ^[A-Z][A-Z0-9_]*$ && "$new" =~ ^[A-Z][A-Z0-9_]*$ ]] || continue
+    if grep -q "^${old}=" "$LIVE" && ! grep -q "^${new}=" "$LIVE"; then
+      sed -i.bak "s/^${old}=/${new}=/" "$LIVE" && rm -f "$LIVE.bak"
+      echo "    renamed ${old} to ${new} in $(basename "$LIVE")"
+    fi
+  done <"$RENAMES"
+fi
 while IFS= read -r line; do
   [[ "$line" =~ ^([A-Z][A-Z0-9_]*)= ]] || continue
   key="${BASH_REMATCH[1]}"
