@@ -29,12 +29,12 @@ def item(id_: str, title: str, status: str, summary: str, details: str = "", fix
 
 def check_bridge(error: str | None) -> dict:
     if not error:
-        return item("bridge", "Host connection (SSH key bridge)", "ok", "ProxmoxOS can run admin tasks on your Proxmox host.")
+        return item("bridge", "Host connection (SSH key bridge)", "ok", "SolarDeck can run admin tasks on your Proxmox host.")
     return item("bridge", "Host connection (SSH key bridge)", "error",
-                "ProxmoxOS cannot log in to your Proxmox host, so Host Shell, drivers, network services and fixes won't work.",
+                "SolarDeck cannot log in to your Proxmox host, so Host Shell, drivers, network services and fixes won't work.",
                 error, None,
-                ["On your computer, open a terminal in the ProxmoxOS folder and run ./deploy.sh (or run install.sh on the "
-                 "Proxmox host as root). It re-creates and authorizes the ProxmoxOS key.",
+                ["On your computer, open a terminal in the SolarDeck folder and run ./deploy.sh (or run install.sh on the "
+                 "Proxmox host as root). It re-creates and authorizes the SolarDeck key.",
                  "Make sure the host allows root logins with keys: in /etc/ssh/sshd_config, PermitRootLogin must not be 'no'.",
                  "Come back here and press 'Check again'."],
                 {"app": "controlpanel", "intent": "security"})
@@ -112,7 +112,7 @@ def check_twofa(enabled: bool) -> dict:
     if enabled:
         return item("twofa", "Sign-in protection (2FA)", "ok", "Two-factor authentication protects your sign-in.")
     return item("twofa", "Sign-in protection (2FA)", "warning",
-                "Anyone who learns your password gets full control of the server (ProxmoxOS includes a root shell). "
+                "Anyone who learns your password gets full control of the server (SolarDeck includes a root shell). "
                 "Turn on 2FA so a code from your phone is also needed.",
                 manual=["Install an authenticator app on your phone (Google Authenticator, Microsoft Authenticator, 1Password…).",
                         "Open Control Panel → User & Security → Two-Factor Authentication → 'Set up 2FA'.",
@@ -322,5 +322,5 @@ async def fix(fix_id: FixId):
     if not target:
         raise HTTPException(409, "No storage accepts backups. Add one in Storage & ZFS → Storage backends first.")
     await pve("POST", "/cluster/backup", data=schedule_params(ScheduleBody(
-        schedule="sun 02:00", storage=target, keep_last=4, comment="Created by the ProxmoxOS Help Center")))
+        schedule="sun 02:00", storage=target, keep_last=4, comment="Created by the SolarDeck Help Center")))
     return {"message": f"Every VM and container is now backed up each Sunday at 02:00 to '{target}' (last 4 kept)."}

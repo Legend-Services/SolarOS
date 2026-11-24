@@ -53,7 +53,7 @@ export default function TopBar() {
           aria-expanded={launcher}
           aria-label="Open launcher"
         >
-          <LayoutGrid size={15} /> <span className="hidden sm:inline">ProxmoxOS</span>
+          <LayoutGrid size={15} /> <span className="hidden sm:inline">SolarDeck</span>
         </button>
         {launcher && (
           <div className="glass absolute top-8 left-0 grid w-80 grid-cols-3 gap-1 rounded-2xl p-3">

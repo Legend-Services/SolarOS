@@ -158,12 +158,12 @@ function Ask({ ctx }: { ctx: Ctx }) {
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       <div className="text-center">
-        <h2 className="text-lg font-semibold text-white">How can ProxmoxOS help you?</h2>
+        <h2 className="text-lg font-semibold text-white">How can SolarDeck help you?</h2>
         <p className="text-xs text-slate-400">Describe what you want to do or what isn't working, in your own words.</p>
       </div>
       <label className="relative block">
         <Search size={16} className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400" />
-        <GlassInput autoFocus className="w-full rounded-xl py-3 pl-10 text-sm" placeholder="e.g. I want to use my graphics card in a Windows VM" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Ask ProxmoxOS" />
+        <GlassInput autoFocus className="w-full rounded-xl py-3 pl-10 text-sm" placeholder="e.g. I want to use my graphics card in a Windows VM" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Ask SolarDeck" />
       </label>
       {!q && (
         <div className="flex flex-wrap justify-center gap-2">
@@ -178,7 +178,7 @@ function Ask({ ctx }: { ctx: Ctx }) {
         <Section title="Health check" action={<GlassButton size="xs" onClick={() => ctx.setTab("fix")}>Open <ArrowRight size={12} /></GlassButton>}>
           {ctx.problems.length ? (
             <p className="text-xs text-amber-200">
-              ProxmoxOS found {ctx.problems.length} thing(s) to fix. Most can be fixed with one click — open <b>Fix problems</b>.
+              SolarDeck found {ctx.problems.length} thing(s) to fix. Most can be fixed with one click — open <b>Fix problems</b>.
             </p>
           ) : (
             <p className="text-xs text-emerald-200">Everything looks good. No problems found.</p>
@@ -186,7 +186,7 @@ function Ask({ ctx }: { ctx: Ctx }) {
         </Section>
       )}
       {fixes.length > 0 && (
-        <Section title="ProxmoxOS can fix this for you">
+        <Section title="SolarDeck can fix this for you">
           <div className="space-y-2">
             {fixes.map((d) => (
               <DiagRow key={d.id} d={d} ctx={ctx} />
@@ -284,7 +284,7 @@ function FixList({ ctx, reload }: { ctx: Ctx; reload: () => void }) {
       <div className="flex items-center gap-2">
         <div className="flex-1">
           <h2 className="text-sm font-semibold text-white">Health check</h2>
-          <p className="text-[11px] text-slate-400">ProxmoxOS checks your server and explains every problem in plain words. “Fix it for me” shows exactly what will change before anything happens.</p>
+          <p className="text-[11px] text-slate-400">SolarDeck checks your server and explains every problem in plain words. “Fix it for me” shows exactly what will change before anything happens.</p>
         </div>
         <GlassButton onClick={() => (ctx.diags && reload())}>
           <RefreshCw size={13} /> Check again
@@ -397,12 +397,12 @@ function FixWizard({ item, onClose, onFixed, follow, showBios }: { item: Diag | 
         <div className="space-y-3 text-xs text-slate-200">
           <p className="text-sm">{item.summary}</p>
           {item.details && <p className="rounded-lg bg-black/30 px-3 py-2 font-mono text-[11px] text-slate-400">{item.details}</p>}
-          <p className="text-slate-400">Press Next to see exactly what ProxmoxOS will change. Nothing happens until you confirm.</p>
+          <p className="text-slate-400">Press Next to see exactly what SolarDeck will change. Nothing happens until you confirm.</p>
         </div>
       )}
       {step === 1 && item.fix && (
         <div className="space-y-3 text-xs text-slate-200">
-          <p>ProxmoxOS will:</p>
+          <p>SolarDeck will:</p>
           <ul className="space-y-1.5">
             {item.fix.changes.map((c) => (
               <li key={c} className="flex gap-2">
@@ -605,7 +605,7 @@ function TutorialModal({ tutorial: t, onClose, follow, ctx }: { tutorial: Tutori
       <p className="mb-3 text-xs text-slate-300">{t.intro}</p>
       {fix && fix.status !== "ok" && fix.fix && (
         <div className="mb-3 flex items-center gap-2 rounded-xl bg-amber-400/10 px-3 py-2 text-xs text-amber-100">
-          <span className="flex-1">ProxmoxOS can do part of this for you: {fix.summary}</span>
+          <span className="flex-1">SolarDeck can do part of this for you: {fix.summary}</span>
           <GlassButton variant="primary" size="xs" onClick={() => (onClose(), ctx.setWizard(fix))}>
             <Wrench size={12} /> Fix it for me
           </GlassButton>

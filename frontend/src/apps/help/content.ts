@@ -37,7 +37,7 @@ export const TUTORIALS: Tutorial[] = [
     category: "Getting started",
     minutes: 2,
     keywords: "start begin tour dock launchpad spotlight search window desktop how use new beginner",
-    intro: "ProxmoxOS gives your server a familiar Liquid Glass Desktop. Every tool is an app in a window.",
+    intro: "SolarDeck gives your server a familiar Liquid Glass Desktop. Every tool is an app in a window.",
     steps: [
       { text: "The bar at the bottom is the Dock. Click an icon to open that app; click it again to hide the window." },
       { text: "The grid button on the far left of the Dock opens Launchpad: every app, with a search box." },
@@ -83,7 +83,7 @@ export const TUTORIALS: Tutorial[] = [
     category: "Virtual machines & containers",
     minutes: 1,
     keywords: "console screen shell terminal command line ssh root prompt novnc keyboard host",
-    intro: "There are three kinds of command lines and screens in ProxmoxOS.",
+    intro: "There are three kinds of command lines and screens in SolarDeck.",
     steps: [
       { text: "VM screen: in Compute Manager, click 'Console' on a running VM. Use the Ctrl+Alt+Del button for Windows logins.", link: { app: "compute" } },
       { text: "Container shell: click 'Shell' on a running container. You are root inside it immediately.", link: { app: "compute" } },
@@ -140,7 +140,7 @@ export const TUTORIALS: Tutorial[] = [
     steps: [
       { text: "Open Network Shares and press 'New share'. Let it create its own dataset.", link: { app: "shares" } },
       { text: "Add a share user with a password (the 'Users' section)." },
-      { text: "On Windows open \\\\<ProxmoxOS-IP>\\<share>, on other systems connect to smb://<ProxmoxOS-IP>/<share> from the file manager." },
+      { text: "On Windows open \\\\<SolarDeck-IP>\\<share>, on other systems connect to smb://<SolarDeck-IP>/<share> from the file manager." },
     ],
   },
   {
@@ -196,7 +196,7 @@ export const TUTORIALS: Tutorial[] = [
       { text: "Open Disks & SMART and press Scan Drive on the disk.", link: { app: "storage", intent: "disks" } },
       { text: "SMART Short Test (about 2 minutes): the drive checks its own electronics, heads and a small sample of the surface. Run it first whenever a disk seems slow or shows warnings." },
       { text: "SMART Extended Test (minutes on SSDs, several hours on large HDDs): the drive reads its entire surface internally. Use it before trusting a used disk or when the short test passes but problems continue." },
-      { text: "Read-Only Surface Scan (hours): ProxmoxOS reads every sector from the server with badblocks and counts read errors. It also catches cable, controller and USB-bridge problems that the drive's own tests miss." },
+      { text: "Read-Only Surface Scan (hours): SolarDeck reads every sector from the server with badblocks and counts read errors. It also catches cable, controller and USB-bridge problems that the drive's own tests miss." },
       { text: "You can close the window while a test runs. Abort stops it at any time. Results appear in the SMART self-test history table." },
       { text: "Any 'read failure' result, a growing bad-block count or a rising Reallocated Sector count in Inspect SMART means: back up now and plan to replace the disk." },
     ],
@@ -309,7 +309,7 @@ export const TUTORIALS: Tutorial[] = [
     steps: [
       { text: "Open Network & Services → Certificates.", link: { app: "netservices" } },
       { text: "Let's Encrypt: register an account, add your domain (and a DNS plugin if the host isn't reachable from the internet) and press Order." },
-      { text: "Own certificate: paste the certificate and private key and apply them to Proxmox and/or ProxmoxOS." },
+      { text: "Own certificate: paste the certificate and private key and apply them to Proxmox and/or SolarDeck." },
     ],
   },
   {
@@ -346,22 +346,22 @@ export const TUTORIALS: Tutorial[] = [
     intro: "The Proxmox firewall filters traffic to the host and to each VM.",
     steps: [
       { text: "Open Datacenter → Firewall.", link: { app: "datacenter" } },
-      { text: "First add rules that ALLOW TCP 8006 (Proxmox), 22 (SSH) and 80/443 (ProxmoxOS) from your network." },
-      { text: "Only then enable the firewall. ProxmoxOS warns you if you are about to lock yourself out." },
+      { text: "First add rules that ALLOW TCP 8006 (Proxmox), 22 (SSH) and 80/443 (SolarDeck) from your network." },
+      { text: "Only then enable the firewall. SolarDeck warns you if you are about to lock yourself out." },
     ],
   },
   {
     id: "updates",
-    title: "Update the server and ProxmoxOS",
+    title: "Update the server and SolarDeck",
     category: "System & updates",
     minutes: 3,
-    keywords: "update upgrade apt packages security patch new version proxmoxos repository 401 enterprise",
-    intro: "There are two kinds of updates: the Proxmox host itself and the ProxmoxOS desktop.",
+    keywords: "update upgrade apt packages security patch new version solardeck repository 401 enterprise",
+    intro: "There are two kinds of updates: the Proxmox host itself and the SolarDeck desktop.",
     fix: "repos",
     steps: [
       { text: "Host: open System → Updates, press Refresh, then Upgrade.", link: { app: "system" } },
       { text: "Seeing '401 Unauthorized'? Your server uses the paid Enterprise source — the Help Center fix switches to the free one." },
-      { text: "ProxmoxOS: Control Panel → System & Power → 'Check & Install Updates'.", link: { app: "controlpanel", intent: "power" } },
+      { text: "SolarDeck: Control Panel → System & Power → 'Check & Install Updates'.", link: { app: "controlpanel", intent: "power" } },
     ],
   },
   {
@@ -397,20 +397,20 @@ export const TUTORIALS: Tutorial[] = [
 ];
 
 export const FAQS: Faq[] = [
-  { q: "I forgot the ProxmoxOS password. What now?", a: "On the Proxmox host, run: pct exec <container-id> -- grep ADMIN_PASSWORD /opt/proxmox-os/backend/.env — or set a new one in that file and restart the backend (systemctl restart proxmox-os-backend inside the container).", keywords: "forgot password reset login locked out" },
+  { q: "I forgot the SolarDeck password. What now?", a: "On the Proxmox host, run: pct exec <container-id> -- grep ADMIN_PASSWORD /opt/proxmox-os/backend/.env — or set a new one in that file and restart the backend (systemctl restart proxmox-os-backend inside the container).", keywords: "forgot password reset login locked out" },
   { q: "I lost my 2FA phone and can't sign in.", a: "On the Proxmox host run: pct exec <container-id> -- rm /opt/proxmox-os/backend/data/security.json — this turns 2FA off. Set it up again afterwards.", keywords: "2fa lost phone code locked out authenticator" },
   { q: "Updates fail with '401 Unauthorized'.", a: "The paid Enterprise update source is enabled without a subscription. Use Fix problems → 'Update sources' to switch to the free No-Subscription source in one click.", keywords: "update 401 unauthorized enterprise repository apt error" },
   { q: "My VM doesn't start after adding a graphics card.", a: "Usually IOMMU is off or the card is still used by the host. Check Fix problems for an IOMMU warning, and switch the card to VM Passthrough Mode in Control Panel → Hardware & System, then reboot.", keywords: "gpu passthrough vm not start error iommu vfio", link: { app: "controlpanel", intent: "hardware" } },
   { q: "The VM console is black.", a: "The VM may be off or still booting. Start it in Compute Manager. With a passed-through 'Primary GPU' the picture goes to the card's own monitor output instead of the console.", keywords: "console black screen vnc nothing", link: { app: "compute" } },
-  { q: "The container Shell button asks for nothing — is that safe?", a: "Yes, it opens a root shell over ProxmoxOS's own key. Only people signed in to ProxmoxOS can do this, so keep your password strong and 2FA on.", keywords: "shell container root login password safe security" },
+  { q: "The container Shell button asks for nothing — is that safe?", a: "Yes, it opens a root shell over SolarDeck's own key. Only people signed in to SolarDeck can do this, so keep your password strong and 2FA on.", keywords: "shell container root login password safe security" },
   { q: "What is the difference between a VM and a container?", a: "A VM is a full computer (any OS, including Windows). A container shares the host's Linux kernel: much lighter and faster, Linux only.", keywords: "vm container difference lxc which choose" },
   { q: "How much RAM and CPU should I give a VM?", a: "Start with 2 cores and 4 GB for Linux, 4 cores and 8 GB for Windows. Watch Resource Monitor and adjust later in the guest's Resources tab.", keywords: "ram memory cpu cores how much size vm" },
   { q: "Where are my files stored?", a: "ZFS datasets on your data pools appear under /mnt/storage in File Station and can be shared with Network Shares.", keywords: "files where stored location storage path", link: { app: "files", intent: "/" } },
   { q: "My disk is almost full.", a: "Delete old snapshots (Storage & ZFS → Snapshots), old backups (Backup Center) and unused ISOs (Compute Manager → ISO & Templates), or add disks.", keywords: "disk full space capacity storage almost", link: { app: "storage" } },
   { q: "Ads still show after enabling the AdBlocker.", a: "Devices must use the Proxmox host as DNS server: set it in your router's DHCP settings and reconnect the devices. Browsers with 'secure DNS' (DoH) bypass it; turn that off.", keywords: "adblock ads still showing dns not working", link: { app: "netservices" } },
   { q: "My VPN connects but I can't reach anything.", a: "Forward UDP 51820 in your home router to the Proxmox host, and make sure the WAN interface in WireGuard Server settings is your LAN bridge (e.g. vmbr0).", keywords: "vpn wireguard connected no internet cannot reach", link: { app: "netservices" } },
-  { q: "Will ProxmoxOS break my Proxmox server?", a: "ProxmoxOS uses the official Proxmox API and standard tools. Risky actions always ask for confirmation, and every Help Center fix shows exactly what it changes and how to undo it.", keywords: "safe break damage risk" },
-  { q: "How do I update ProxmoxOS itself?", a: "Control Panel → System & Power → Check & Install Updates. Your settings are kept.", keywords: "update proxmoxos new version upgrade desktop", link: { app: "controlpanel", intent: "power" } },
+  { q: "Will SolarDeck break my Proxmox server?", a: "SolarDeck uses the official Proxmox API and standard tools. Risky actions always ask for confirmation, and every Help Center fix shows exactly what it changes and how to undo it.", keywords: "safe break damage risk" },
+  { q: "How do I update SolarDeck itself?", a: "Control Panel → System & Power → Check & Install Updates. Your settings are kept.", keywords: "update solardeck new version upgrade desktop", link: { app: "controlpanel", intent: "power" } },
   { q: "Can I still use the normal Proxmox web interface?", a: "Yes. Open https://<host-ip>:8006. Both work side by side.", keywords: "proxmox web ui 8006 normal interface both" },
   { q: "How do I get more help?", a: "Run Fix problems first. For anything else, the Proxmox forum (forum.proxmox.com) and documentation (pve.proxmox.com/wiki) are excellent.", keywords: "help support forum contact more" },
 ];

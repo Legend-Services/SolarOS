@@ -185,7 +185,7 @@ export default function Benchmark({ disks }: { disks: PveDisk[] | null }) {
       {mode === "readwrite" && (
         <p className={`text-[11px] ${rawInUse ? "text-amber-300" : "text-slate-400"}`}>
           {targetType === "mountpoint"
-            ? "Writes a temporary .proxmoxos-bench.tmp file in this folder and deletes it when the run ends. Your files are not touched."
+            ? "Writes a temporary .solardeck-bench.tmp file in this folder and deletes it when the run ends. Your files are not touched."
             : rawInUse
               ? `${targetPath} is in use (${chosen?.disk?.pool_name ? `ZFS pool ${chosen.disk.pool_name}` : chosen?.disk?.used}). Raw write tests would destroy it, so only Safe Read-Only is allowed. To test writes, pick the pool's mountpoint instead.`
               : `Write tests on a raw disk overwrite its first ${size} MiB. Only use this on an empty disk.`}

@@ -20,7 +20,8 @@ log = logging.getLogger("proxmox-os.schedules")
 
 POOL_RE = r"^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
 PERIOD = {"hourly": 3600, "daily": 86400, "weekly": 7 * 86400, "monthly": 30 * 86400}
-AUTO_PREFIX = "proxmoxos-auto-"
+AUTO_PREFIX = "solardeck-auto-"
+LEGACY_AUTO_PREFIX = "proxmoxos-auto-"  # pre-rename snapshots still count toward retention and get pruned
 TICK_S = 60
 _lock = asyncio.Lock()
 
@@ -106,9 +107,10 @@ async def execute(item: dict, now: int) -> None:
         await host.run(["zpool-scrub", item["target"]])
         return
     prefix = f"{AUTO_PREFIX}{item['interval']}-"
+    legacy = f"{LEGACY_AUTO_PREFIX}{item['interval']}-"
     await host.run(["zfs-snapshot", f"{item['target']}@{prefix}{time.strftime('%Y%m%d-%H%M%S', time.localtime(now))}"])
     snaps = [s for s in parse_zfs_list(await host.run(["zfs-list"]))["snapshots"]
-             if s["dataset"] == item["target"] and s["snapshot"].startswith(prefix)]  # newest first
+             if s["dataset"] == item["target"] and s["snapshot"].startswith((prefix, legacy))]  # newest first
     for s in snaps[item["retention"]:]:
         await host.run(["zfs-destroy", s["name"]])
 

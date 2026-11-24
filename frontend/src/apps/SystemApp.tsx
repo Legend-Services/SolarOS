@@ -225,7 +225,7 @@ function Host() {
 
   const power = (command: "reboot" | "shutdown") => {
     const verb = command === "reboot" ? "Reboot" : "Shut down";
-    if (!window.confirm(`${verb} the Proxmox host "${node}"? All running VMs and containers are stopped, and ProxmoxOS itself goes offline${command === "shutdown" ? " until the server is powered on again" : " for a few minutes"}.`)) return;
+    if (!window.confirm(`${verb} the Proxmox host "${node}"? All running VMs and containers are stopped, and SolarDeck itself goes offline${command === "shutdown" ? " until the server is powered on again" : " for a few minutes"}.`)) return;
     run(() => api("/system/power", { method: "POST", json: { command } }).then(() => setSent(`${verb} command sent.`)));
   };
 

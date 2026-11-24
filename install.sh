@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# ProxmoxOS zero-touch installer.
+# SolarDeck zero-touch installer.
 # Run on a Proxmox VE host as root:
 #   bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/main/install.sh)"
 # Re-running is safe (Upgrade Mode): an existing "proxmox-os" container keeps its backend/.env, data/, .ssh/ and
-# Samba shares; only the code, dependencies and frontend build are refreshed. Running it inside the ProxmoxOS
+# Samba shares; only the code, dependencies and frontend build are refreshed. Running it inside the SolarDeck
 # container upgrades that container in place.
 set -Eeuo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/Legend-Services/SolarOS.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
-CT_HOSTNAME="proxmox-os"
+CT_HOSTNAME="solardeck"
+APP_LINK="/opt/solardeck"  # new-name alias; APP_DIR keeps the legacy path so in-place updates never move files
 APP_DIR="/opt/proxmox-os"
 STORAGE_ROOT="/mnt/storage"
 PVE_USER="pve-desktop@pve"
@@ -29,9 +30,9 @@ ct() { pct exec "$CTID" -- env DEBIAN_FRONTEND=noninteractive bash -euo pipefail
 # ---------------------------------------------------------------- 1. Discovery
 [[ $EUID -eq 0 ]] || die "Run as root."
 
-# Inside an existing ProxmoxOS container: upgrade in place with the same script the in-app updater uses.
+# Inside an existing SolarDeck container: upgrade in place with the same script the in-app updater uses.
 if ! command -v pveversion >/dev/null && [[ -f "${APP_DIR}/backend/.env" ]]; then
-  msg "ProxmoxOS container detected: Upgrade Mode"
+  msg "SolarDeck container detected: Upgrade Mode"
   BACKUP="/var/backups/proxmox-os-preupgrade-$(date +%Y%m%d-%H%M%S)"
   mkdir -p "$BACKUP" && cp -a "${APP_DIR}/backend/.env" "${APP_DIR}/backend/data" "$BACKUP/"
   ok "Settings backed up to ${BACKUP}"
@@ -39,7 +40,7 @@ if ! command -v pveversion >/dev/null && [[ -f "${APP_DIR}/backend/.env" ]]; the
   cp "${APP_DIR}/deploy/self-update.sh" /tmp/proxmox-os-self-update.sh
   bash /tmp/proxmox-os-self-update.sh "$APP_DIR" "$REPO_URL" "$REPO_BRANCH"
   trap - ERR
-  echo; ok "ProxmoxOS upgraded. Web UI: http://$(hostname -I | awk '{print $1}')  (login unchanged)"
+  echo; ok "SolarDeck upgraded. Web UI: http://$(hostname -I | awk '{print $1}')  (login unchanged)"
   exit 0
 fi
 
@@ -66,8 +67,8 @@ for d in "${CANDIDATES[@]}"; do
 done
 if [[ -n "$SRC_DIR" ]]; then ok "Installing from local source ${SRC_DIR}"; else ok "Installing from ${REPO_URL} (${REPO_BRANCH})"; fi
 
-# "proxmos-os" is a common typo'd hostname from early manual installs.
-EXISTING_CTID="$(pct list | awk 'NR>1 && ($NF=="proxmox-os" || $NF=="proxmos-os") {print $1; exit}')"
+# New installs are "solardeck"; "proxmox-os" (pre-rename) and the typo "proxmos-os" are upgraded in place.
+EXISTING_CTID="$(pct list | awk 'NR>1 && ($NF=="solardeck" || $NF=="proxmox-os" || $NF=="proxmos-os") {print $1; exit}')"
 UPGRADE=""
 
 if [[ -n "$EXISTING_CTID" ]]; then
@@ -75,7 +76,7 @@ if [[ -n "$EXISTING_CTID" ]]; then
   [[ "$(pct status "$CTID")" == *running* ]] || { pct start "$CTID"; sleep 3; }
   if pct exec "$CTID" -- grep -q '^PVE_TOKEN_SECRET=.' "${APP_DIR}/backend/.env" 2>/dev/null; then
     UPGRADE=1
-    ok "Existing ProxmoxOS container ${CTID} found: Upgrade Mode (settings, data and shares are kept)"
+    ok "Existing SolarDeck container ${CTID} found: Upgrade Mode (settings, data and shares are kept)"
   else
     ok "Reusing container ${CTID} without a configured backend/.env: configuring it from scratch"
   fi
@@ -170,7 +171,7 @@ grant_storage_access() {
 # ---------------------------------------------------------------- 2. API user + token
 if [[ -z "$UPGRADE" ]]; then
 msg "Configuring Proxmox API user ${PVE_USER}"
-pveum user add "$PVE_USER" --comment "ProxmoxOS Web Desktop" >/dev/null 2>&1 || true
+pveum user add "$PVE_USER" --comment "SolarDeck Web Desktop" >/dev/null 2>&1 || true
 # Administrator (not PVEAdmin): the System app needs Sys.Modify (repositories, updates) and Sys.PowerMgmt.
 pveum acl modify / --users "$PVE_USER" --roles Administrator
 pveum user token remove "$PVE_USER" "$TOKEN_NAME" >/dev/null 2>&1 || true
@@ -186,7 +187,7 @@ fi
 if [[ -z "$EXISTING_CTID" ]]; then
   msg "Creating unprivileged container ${CTID}"
   pct create "$CTID" "${TMPL_STORAGE}:vztmpl/${TEMPLATE}" \
-    --hostname "$CT_HOSTNAME" --description "ProxmoxOS web desktop" \
+    --hostname "$CT_HOSTNAME" --description "SolarDeck web desktop" \
     --ostype debian --unprivileged 1 --features nesting=1 --onboot 1 \
     --cores 2 --memory 2048 --swap 512 \
     --rootfs "${ROOT_STORAGE}:16" --net0 "$NET0" >/dev/null
@@ -291,8 +292,8 @@ fi
 
 # ---------------------------------------------------------------- Root SSH bridge (passwordless Host Shell)
 # Host Shell, instant `pct enter` container shells, GPU drivers and network services run as root on this host over
-# SSH with the backend's own key. Unlike the helper key above it is unrestricted: anyone signed in to ProxmoxOS is root.
-msg "Authorizing the ProxmoxOS root SSH bridge"
+# SSH with the backend's own key. Unlike the helper key above it is unrestricted: anyone signed in to SolarDeck is root.
+msg "Authorizing the SolarDeck root SSH bridge"
 BRIDGE_DIR="${APP_DIR}/backend/.ssh"
 ct "mkdir -p ${BRIDGE_DIR} && chmod 700 ${BRIDGE_DIR}
 [ -f ${BRIDGE_DIR}/id_ed25519 ] || ssh-keygen -q -t ed25519 -N '' -C proxmox-os-root -f ${BRIDGE_DIR}/id_ed25519"
@@ -319,7 +320,7 @@ fi
 msg "Configuring Samba"
 ct "touch /etc/samba/proxmox-os-shares.conf
 # Appended at the end so included share sections never swallow [global] options.
-grep -q 'proxmox-os-shares.conf' /etc/samba/smb.conf || printf '\n# ProxmoxOS Network Shares\ninclude = /etc/samba/proxmox-os-shares.conf\n' >>/etc/samba/smb.conf
+grep -q 'proxmox-os-shares.conf' /etc/samba/smb.conf || printf '\n# SolarDeck Network Shares\ninclude = /etc/samba/proxmox-os-shares.conf\n' >>/etc/samba/smb.conf
 testparm -s >/dev/null 2>&1
 systemctl enable -q smbd
 systemctl restart smbd"
@@ -356,7 +357,8 @@ ok "Wrote backend/.env"
 fi
 
 msg "Installing backend"
-ct "cd ${APP_DIR}/backend
+ct "[ -e ${APP_LINK} ] || ln -s ${APP_DIR} ${APP_LINK}
+cd ${APP_DIR}/backend
 python3 -m venv .venv
 .venv/bin/pip install -q --upgrade pip
 .venv/bin/pip install -q -r requirements.txt
@@ -395,7 +397,7 @@ edge() { echo "${C_GREEN}$1${BAR}$2${C_RESET}"; }
 echo
 edge ╔ ╗
 if [[ -n "$UPGRADE" ]]; then
-  row "" "ProxmoxOS upgraded to v${VERSION}"
+  row "" "SolarDeck for Proxmox VE - upgraded to v${VERSION}"
   edge ╠ ╣
   row "Web UI URL:" "http://${CT_IP}"
   row "Status:" "Healthy (backend and nginx restarted)"
@@ -403,7 +405,7 @@ if [[ -n "$UPGRADE" ]]; then
   row "Container ID:" "${CTID}"
   row "Backup (in CT):" "${BACKUP}"
 else
-  row "" "ProxmoxOS v${VERSION} is ready"
+  row "" "SolarDeck for Proxmox VE v${VERSION} is ready"
   edge ╠ ╣
   row "Web UI URL:" "http://${CT_IP}"
   row "Username:" "admin"
@@ -413,7 +415,7 @@ else
   row "Proxmox Host:" "${PVE_NODE} (${HOST_IP})"
   row "Storage Mount:" "${STORAGE_ROOT} (${#MOUNTS[@]} ZFS dataset(s))"
   edge ╠ ╣
-  row "Tip:" "Save these credentials now. You can update ProxmoxOS"
+  row "Tip:" "Save these credentials now. You can update SolarDeck"
   row "" "anytime from Control Panel -> System & Updates."
 fi
 edge ╚ ╝

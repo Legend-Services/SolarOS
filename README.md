@@ -1,23 +1,25 @@
-# ProxmoxOS
+# SolarDeck
 
-[![Version](https://img.shields.io/badge/version-1.3.0-38bdf8)](CHANGELOG.md)
+*SolarDeck for Proxmox VE* — a web desktop for your Proxmox VE server.
+
+[![Version](https://img.shields.io/badge/version-1.5.0-38bdf8)](CHANGELOG.md)
 [![Proxmox VE](https://img.shields.io/badge/Proxmox%20VE-8%20%7C%209-e57000)](https://www.proxmox.com/en/proxmox-virtual-environment)
 [![License](https://img.shields.io/badge/license-AGPLv3%20%2B%20Commercial-8b5cf6)](#license)
 [![Stack](https://img.shields.io/badge/stack-FastAPI%20%2B%20React-10b981)](#architecture)
 
-**Your Proxmox server, as a friendly desktop in the browser.** ProxmoxOS puts a Liquid Glass Desktop on top of Proxmox VE: windows, a Parabolic Dock, live widgets and point-and-click apps for virtual machines, containers, ZFS storage, network shares, backups, VPN and GPUs. Installing takes one command, and you don't need to touch a config file.
+**Your Proxmox server, as a friendly desktop in the browser.** SolarDeck puts a Liquid Glass Desktop on top of Proxmox VE: windows, a Parabolic Dock, live widgets and point-and-click apps for virtual machines, containers, ZFS storage, network shares, backups, VPN and GPUs. Installing takes one command, and you don't need to touch a config file.
 
-![ProxmoxOS desktop](docs/screenshots/02-desktop-overview.png)
+![SolarDeck desktop](docs/screenshots/02-desktop-overview.png)
 
 ## Features
 
 | | |
 |---|---|
 | 🖥️ **Liquid Glass Desktop** | Multi-window desktop with snapping, Grid or List icons aligned left or centered (View Options or right-click → Align Icons), live CPU/RAM/ZFS widgets, Spotlight search (Ctrl+K) and the Parabolic Dock. |
-| 💽 **ProxmoxOS Storage Manager** | Create ZFS pools (Mirror, RAID10, RAIDZ1–3), datasets and ZVOLs, snapshots and schedules, SMART health, disk tuning, surface scans, disk replacement and benchmarks. |
+| 💽 **SolarDeck Storage Manager** | Create ZFS pools (Mirror, RAID10, RAIDZ1–3), datasets and ZVOLs, snapshots and schedules, SMART health, disk tuning, surface scans, disk replacement and benchmarks. |
 | 📦 **Compute Manager** | Create VMs and containers with wizards, GPU/PCI/USB passthrough, cloud-init, built-in screen console and shell. |
 | 🌐 **Network & Services** | DNS server with ad blocking, DHCP, WireGuard VPN with QR codes, router/NAT and port forwarding, Let's Encrypt certificates. |
-| 🗂️ **Files, Shares & Backups** | File Station, SMB shares (each with its own ZFS dataset), Network Backup Target, and the ProxmoxOS Backup Center for VM/container backups and restores. |
+| 🗂️ **Files, Shares & Backups** | File Station, SMB shares (each with its own ZFS dataset), Network Backup Target, and the SolarDeck Backup Center for VM/container backups and restores. |
 | 🛒 **App Center** | One-click Jellyfin, Docker + Portainer, AdGuard Home, Nginx Proxy Manager, Immich, Ollama and more, each in its own container. |
 | 🎛️ **Control Panel** | 2FA, hardware inventory, one-click NVIDIA/Intel/AMD drivers, appearance, and **System & Updates** with one-click updates and downgrades. |
 | 🛟 **Help built in** | Guided wizards in every app, a Welcome Tour, health checks with "Fix it for me", tutorials, BIOS guides, and an in-app bug reporter. |
@@ -48,7 +50,7 @@ You need a Proxmox VE 8 or 9 server with internet access. That's all.
 
    ```
    ╔════════════════════════════════════════════════════════════════════════════╗
-   ║                   ProxmoxOS v1.4.0 is ready                                ║
+   ║                   SolarDeck for Proxmox VE v1.5.0 is ready                 ║
    ╠════════════════════════════════════════════════════════════════════════════╣
    ║  Web UI URL:      http://192.168.1.230                                     ║
    ║  Username:        admin                                                    ║
@@ -58,7 +60,7 @@ You need a Proxmox VE 8 or 9 server with internet access. That's all.
    ║  Proxmox Host:    pve (192.168.1.10)                                       ║
    ║  Storage Mount:   /mnt/storage (2 ZFS dataset(s))                          ║
    ╠════════════════════════════════════════════════════════════════════════════╣
-   ║  Tip:             Save these credentials now. You can update ProxmoxOS     ║
+   ║  Tip:             Save these credentials now. You can update SolarDeck     ║
    ║                   anytime from Control Panel -> System & Updates.          ║
    ╚════════════════════════════════════════════════════════════════════════════╝
    ```
@@ -87,7 +89,7 @@ It finds everything by itself: the node name, the next free container ID, the be
 
 Updates and downgrades only replace program files. **Your settings, users, passwords, 2FA, schedules, ZFS pools and datasets, and network shares are never touched.** Before each switch, `backend/.env`, `backend/data/`, `backend/.ssh/` and the Samba share config are copied to `/tmp/proxmox-os-state-backup` and restored afterwards. New settings that a release introduces are added with safe defaults, and existing values are never changed.
 
-**From the Proxmox Shell:** run the same install command again. The installer detects the existing container and switches to **Upgrade Mode**. It backs up `.env` and `data/` to `/var/backups/proxmox-os-preupgrade-<timestamp>/` inside the container, keeps every setting and your password, refreshes the code and dependencies, and restarts the services. Running `install.sh` inside the ProxmoxOS container also upgrades it in place. Re-run it on the host after updates that change the host helper (`deploy/proxmox-os-helper.sh`).
+**From the Proxmox Shell:** run the same install command again. The installer detects the existing container and switches to **Upgrade Mode**. It backs up `.env` and `data/` to `/var/backups/proxmox-os-preupgrade-<timestamp>/` inside the container, keeps every setting and your password, refreshes the code and dependencies, and restarts the services. Running `install.sh` inside the SolarDeck container also upgrades it in place. Re-run it on the host after updates that change the host helper (`deploy/proxmox-os-helper.sh`).
 
 > **Private fork?** Add `GITHUB_TOKEN=<token with read access>` to `/opt/proxmox-os/backend/.env` and restart the backend (`systemctl restart proxmox-os-backend`) so the updater can reach GitHub.
 
@@ -96,7 +98,7 @@ Updates and downgrades only replace program files. **Your settings, users, passw
 Found a problem? Click **Report a Bug**. It's in the **?** Help menu and the user menu in the top bar, in Control Panel → System & Updates, and in the desktop right-click menu.
 
 1. Pick a category, give it a short title, and describe what happened and how to reproduce it.
-2. Leave **Attach anonymized system diagnostics** on. It adds the ProxmoxOS and Proxmox VE versions, kernel, CPU/RAM and the last 30 backend log lines. IP and MAC addresses, e-mail addresses, passwords, tokens, JWTs and SSH keys are removed first. Click **Preview** to see exactly what is sent.
+2. Leave **Attach anonymized system diagnostics** on. It adds the SolarDeck and Proxmox VE versions, kernel, CPU/RAM and the last 30 backend log lines. IP and MAC addresses, e-mail addresses, passwords, tokens, JWTs and SSH keys are removed first. Click **Preview** to see exactly what is sent.
 3. Click **Submit to GitHub**. A pre-filled GitHub issue opens in a new tab; review it and click *Submit new issue*. With a GitHub token (entered in the dialog, or `GITHUB_TOKEN` in `.env`) the issue is created directly. **Copy Report Markdown** copies the report so you can paste it anywhere.
 
 ## Architecture
@@ -128,9 +130,9 @@ docs/screenshots/          README screenshots
 
 ### Host helper and permissions
 
-Some operations are limited to root on the host and can't be done with the API token: ZFS dataset snapshots, bind mounts and `/dev/dri` passthrough for App Center containers, and running installers inside new containers. The installer puts `deploy/proxmox-os-helper.sh` on the host at `/usr/local/sbin/proxmox-os-helper`. The container's SSH key for it is locked to that script (`command="…",restrict`). The helper accepts only a fixed list of commands, validates every argument, and refuses guests that ProxmoxOS didn't tag.
+Some operations are limited to root on the host and can't be done with the API token: ZFS dataset snapshots, bind mounts and `/dev/dri` passthrough for App Center containers, and running installers inside new containers. The installer puts `deploy/proxmox-os-helper.sh` on the host at `/usr/local/sbin/proxmox-os-helper`. The container's SSH key for it is locked to that script (`command="…",restrict`). The helper accepts only a fixed list of commands, validates every argument, and refuses guests that SolarDeck didn't tag.
 
-The Host Shell, container shells, GPU drivers and network services use a second, unrestricted root key. **Anyone signed in to ProxmoxOS is root on the host, so turn on 2FA** (Control Panel → User & Security).
+The Host Shell, container shells, GPU drivers and network services use a second, unrestricted root key. **Anyone signed in to SolarDeck is root on the host, so turn on 2FA** (Control Panel → User & Security).
 
 Container root in an unprivileged container is uid `100000` on the host. The installer grants it access to your datasets with additive POSIX ACLs (`setfacl -R`), never `chown`, so existing ownership on the host is unchanged.
 
@@ -165,9 +167,14 @@ See [CHANGELOG.md](CHANGELOG.md) for the full feature history.
 
 ## License
 
-ProxmoxOS is dual-licensed:
+SolarDeck is dual-licensed:
 
-- **GNU Affero General Public License v3.0 (AGPLv3)** for personal, home-lab and open-source use. If you modify ProxmoxOS and offer it to others over a network, you must publish your changes under the same license.
-- **Commercial License** for companies that want to embed, resell or offer ProxmoxOS as a service without the AGPLv3 obligations. Contact the maintainers through GitHub to discuss terms.
+- **GNU Affero General Public License v3.0 (AGPLv3)** for personal, home-lab and open-source use. If you modify SolarDeck and offer it to others over a network, you must publish your changes under the same license.
+- **Commercial License** for companies that want to embed, resell or offer SolarDeck as a service without the AGPLv3 obligations. See [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md) and contact the maintainers through GitHub to discuss terms.
 
-ProxmoxOS is an independent project and is not affiliated with or endorsed by Proxmox Server Solutions GmbH. Proxmox® is a registered trademark of Proxmox Server Solutions GmbH.
+## Trademark Notice
+
+*SolarDeck* is an independent open-source project by Ty Gultekin / Legend IT. It is not affiliated with, endorsed by, or sponsored by Proxmox Server Solutions GmbH. Proxmox® is a registered trademark of Proxmox Server Solutions GmbH; it is used here only to describe compatibility with Proxmox VE.
+
+SolarDeck was previously named ProxmoxOS. Existing installations keep working unchanged: the app still lives in `/opt/proxmox-os` (with an `/opt/solardeck` alias), the systemd units keep their names, and re-running `install.sh` upgrades a `proxmox-os` container in place.
+

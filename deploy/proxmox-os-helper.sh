@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# ProxmoxOS host helper. Installed by install.sh at /usr/local/sbin/proxmox-os-helper and reachable from the
-# ProxmoxOS container only through a forced-command SSH key. It runs a fixed allowlist of root-only operations
+# SolarDeck host helper. Installed by install.sh at /usr/local/sbin/proxmox-os-helper and reachable from the
+# SolarDeck container only through a forced-command SSH key. It runs a fixed allowlist of root-only operations
 # that the Proxmox API token cannot do. Every argument is re-validated here.
 set -euo pipefail
 
@@ -30,8 +30,8 @@ prop_ok() {
 
 pos_ct() {
   local ct
-  ct="$(pct list | awk '$NF=="proxmox-os" {print $1; exit}')"
-  [[ -n "$ct" ]] || die "proxmox-os container not found"
+  ct="$(pct list | awk '$NF=="solardeck" || $NF=="proxmox-os" || $NF=="proxmos-os" {print $1; exit}')"
+  [[ -n "$ct" ]] || die "SolarDeck container not found"
   echo "$ct"
 }
 
@@ -50,16 +50,16 @@ app_vmid() {
   local vmid="${ARGS[1]:-}"
   [[ "$vmid" =~ ^[0-9]+$ ]] || die "invalid vmid"
   # Only containers created by the App Center can be touched.
-  pct config "$vmid" | grep -Eq '^tags:.*proxmox-os-app' || die "container $vmid is not a ProxmoxOS app"
+  pct config "$vmid" | grep -Eq '^tags:.*proxmox-os-app' || die "container $vmid is not a SolarDeck app"
   echo "$vmid"
 }
 
-# Guests created by the ProxmoxOS VM/LXC wizards carry this tag; only they get root-only options.
+# Guests created by the SolarDeck VM/LXC wizards carry this tag; only they get root-only options.
 guest_vmid() {
   local vmid="${ARGS[1]:-}" kind="$1"
   [[ "$vmid" =~ ^[0-9]+$ ]] || die "invalid vmid"
   if [[ "$kind" == lxc ]]; then pct config "$vmid"; else qm config "$vmid"; fi | grep -Eq '^tags:.*proxmox-os-guest' \
-    || die "guest $vmid was not created by ProxmoxOS"
+    || die "guest $vmid was not created by SolarDeck"
   echo "$vmid"
 }
 
@@ -101,7 +101,7 @@ case "$CMD" in
     if [[ "${ARGS[2]:-}" == recursive ]]; then zfs destroy -r "$ds"; else zfs destroy "$ds"; fi
     ;;
   storage-map)
-    # Bind-mount a dataset into the ProxmoxOS container at /mnt/storage/<dataset> (same layout as install.sh).
+    # Bind-mount a dataset into the SolarDeck container at /mnt/storage/<dataset> (same layout as install.sh).
     ds="${ARGS[1]:-}"; [[ "$ds" =~ $DS_RE ]] || die "invalid dataset name"
     [[ "$(zfs get -H -o value type "$ds")" == filesystem ]] || die "not a filesystem dataset"
     [[ "$(zfs get -H -o value mounted "$ds")" == yes ]] || zfs mount "$ds"
@@ -151,9 +151,9 @@ case "$CMD" in
     for opt in "${ARGS[@]:2}"; do
       case "$opt" in
         storage)
-          # Reuse the bind mounts of the ProxmoxOS container, so apps see the same /mnt/storage layout.
-          src="$(pct list | awk '$NF=="proxmox-os" {print $1; exit}')"
-          [[ -n "$src" ]] || die "proxmox-os container not found"
+          # Reuse the bind mounts of the SolarDeck container, so apps see the same /mnt/storage layout.
+          src="$(pct list | awk '$NF=="solardeck" || $NF=="proxmox-os" || $NF=="proxmos-os" {print $1; exit}')"
+          [[ -n "$src" ]] || die "SolarDeck container not found"
           i=0
           while read -r mp; do
             [[ "$mp" == /* ]] || continue

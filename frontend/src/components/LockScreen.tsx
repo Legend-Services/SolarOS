@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { ArrowRight, Loader2, Server, ShieldCheck, User } from "lucide-react";
 import { useAuth } from "../lib/stores";
 import { useClock } from "../lib/hooks";
+import { TRADEMARK_NOTICE } from "../lib/brand";
 
 export default function LockScreen({ visible, checking }: { visible: boolean; checking: boolean }) {
   const now = useClock();
@@ -78,8 +79,8 @@ export default function LockScreen({ visible, checking }: { visible: boolean; ch
                 <User size={20} className="text-white" />
               </div>
               <div>
-                <div className="font-medium text-white">ProxmoxOS</div>
-                <div className="text-xs text-slate-400">Sign in to continue</div>
+                <div className="font-medium text-white">SolarDeck</div>
+                <div className="text-xs text-slate-400">SolarDeck for Proxmox VE · Sign in to continue</div>
               </div>
             </div>
             <label className="mb-1 block text-xs text-slate-400" htmlFor="u">
@@ -134,6 +135,9 @@ export default function LockScreen({ visible, checking }: { visible: boolean; ch
           </>
         )}
       </form>
+      <p className="absolute inset-x-0 bottom-3 mx-auto max-w-2xl px-4 text-center text-[10px] leading-snug text-slate-400/70 select-none">
+        {TRADEMARK_NOTICE}
+      </p>
     </div>
   );
 }

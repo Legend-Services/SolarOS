@@ -1,5 +1,5 @@
 [Unit]
-Description=ProxmoxOS backend (FastAPI)
+Description=SolarDeck backend (FastAPI)
 After=network-online.target
 Wants=network-online.target
 

@@ -1,7 +1,7 @@
 """Step-by-step BIOS/UEFI instructions for fixes the OS can't make itself (VT-x, VT-d/IOMMU, Above 4G, primary display,
 Secure Boot), tailored to the detected motherboard vendor, with QR codes that carry the text itself.
 
-The server is rebooting (and ProxmoxOS offline) while the user is in the BIOS, so the QR codes encode the instructions
+The server is rebooting (and SolarDeck offline) while the user is in the BIOS, so the QR codes encode the instructions
 as plain text, not a link: any phone camera shows them with no network. Long guides are split into numbered parts.
 """
 import re
@@ -128,12 +128,12 @@ def guide_steps(topic: str, vendor: str, cpu: str) -> list[str]:
             f"As soon as the start-up logo appears, press {key} repeatedly until the BIOS/UEFI setup opens.",
             *menu,
             "Press F10 (or go to Save & Exit → Save Changes and Reset) and confirm with Yes.",
-            "Wait 2–3 minutes for Proxmox to start, then sign in to ProxmoxOS again."]
+            "Wait 2–3 minutes for Proxmox to start, then sign in to SolarDeck again."]
 
 
 def guide_text(title: str, vendor: str, steps: list[str], verify: str, board: str = "") -> str:
     menus = VENDORS.get(vendor, VENDORS[GENERIC])[0]
-    lines = [f"ProxmoxOS - {title}", f"Board: {board} ({menus} menus)" if board else f"Board: {menus}", ""]
+    lines = [f"SolarDeck - {title}", f"Board: {board} ({menus} menus)" if board else f"Board: {menus}", ""]
     lines += [f"{i}. {s}" for i, s in enumerate(steps, 1)]
     return "\n".join([*lines, "", f"Check: {verify}"])
 

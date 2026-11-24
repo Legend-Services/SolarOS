@@ -94,7 +94,7 @@ export const useLayout = create<LayoutState>()(
       },
     }),
     {
-      name: "proxmoxos-layout",
+      name: "solardeck-layout",
       partialize: (s) => persisted(s),
       merge: (saved, cur) => ({ ...cur, ...sanitize(saved as Partial<LayoutState>, cur) }),
     },

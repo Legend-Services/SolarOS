@@ -24,6 +24,6 @@ export const useWizard = create<WizardState>()(
       close: () => set({ guide: null, step: 0 }),
       setWelcomeAuto: (welcomeAuto) => set({ welcomeAuto }),
     }),
-    { name: "proxmoxos-wizard", partialize: ({ welcomeAuto }) => ({ welcomeAuto }) },
+    { name: "solardeck-wizard", partialize: ({ welcomeAuto }) => ({ welcomeAuto }) },
   ),
 );

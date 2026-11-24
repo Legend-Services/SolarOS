@@ -1,7 +1,7 @@
 """Storage benchmark: four classic fio profiles (SEQ1M Q8T1, SEQ128K Q32T1, RND4K Q32T1, RND4K Q1T1), read and write.
 
 Runs on the PVE host over the root SSH bridge. Read-only runs skip the write tests; physical disks are opened read-only (`fio --readonly`) unless the disk is
-unused and the caller confirms its device path. Mountpoints use a temporary `.proxmoxos-bench.tmp` file that is
+unused and the caller confirms its device path. Mountpoints use a temporary `.solardeck-bench.tmp` file that is
 removed when the run ends. Finished runs are kept in data/benchmarks.json for side-by-side comparison.
 """
 import asyncio
@@ -31,7 +31,7 @@ PROFILES = {
 }
 Profile = Literal["SEQ1M_Q8T1", "SEQ128K_Q32T1", "RND4K_Q32T1", "RND4K_Q1T1"]
 RUNTIME_S = 5  # per pass, like the classic desktop tools
-TMP_NAME = ".proxmoxos-bench.tmp"
+TMP_NAME = ".solardeck-bench.tmp"
 MOUNT_RE = r"^/[A-Za-z0-9_./ -]{0,200}$"
 HISTORY_MAX = 200
 history_file = settings.schedules_file.parent / "benchmarks.json"
@@ -44,7 +44,7 @@ def fio_command(filename: str, profile: str, rw: Literal["read", "write"], size_
     p = PROFILES[profile]
     mode = ("" if p["seq"] else "rand") + rw
     return " ".join([
-        "fio --name=proxmoxos --ioengine=libaio --direct=1 --numjobs=1 --group_reporting --output-format=json",
+        "fio --name=solardeck --ioengine=libaio --direct=1 --numjobs=1 --group_reporting --output-format=json",
         f"--filename={shlex.quote(filename)} --size={size_mb}M --bs={p['bs']} --iodepth={p['iodepth']} --rw={mode}",
         f"--runtime={RUNTIME_S} --time_based --norandommap --randrepeat=0", "--readonly" if readonly else "",
     ]).strip()
@@ -119,7 +119,7 @@ async def run_job(job: dict, filename: str, cleanup: bool, body: BenchBody) -> N
         if body.target_type == "mountpoint":
             # Lay the test file out once so read passes measure the medium, not file creation.
             job["phase"] = "Preparing test file"
-            await host_ssh.run(f"fio --name=proxmoxos-prep --filename={shlex.quote(filename)} --size={body.test_size_mb}M "
+            await host_ssh.run(f"fio --name=solardeck-prep --filename={shlex.quote(filename)} --size={body.test_size_mb}M "
                                f"--rw=write --bs=1m --direct=1 --ioengine=libaio --output-format=json >/dev/null", timeout=900)
         for step in job["steps"]:
             for rw in ("read", "write"):
@@ -191,5 +191,5 @@ async def cancel(job_id: str):
         _running.cancel()
         # The fio process on the host outlives a cancelled SSH channel only briefly; stop it explicitly.
         with suppress(Exception):
-            await host_ssh.run("pkill -f -- '--name=proxmoxos' || true", timeout=30)
+            await host_ssh.run("pkill -f -- '--name=solardeck' || true", timeout=30)
     return jobs[job_id]

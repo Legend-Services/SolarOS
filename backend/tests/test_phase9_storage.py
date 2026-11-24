@@ -90,7 +90,8 @@ rules = s.render_rules({bid: {"by_id": bid, "apm_level": 127, "spindown_minutes"
                         "/dev/disk/by-id/nvme-X": {"by_id": "/dev/disk/by-id/nvme-X", "power_state": 2}})
 assert 'RUN+="/usr/sbin/hdparm -B 127 -S 240 -W 1 /dev/%k"' in rules and "-f 2 -v 2" in rules, rules
 assert f'ENV{{DEVLINKS}}=="{bid}|{bid} *|* {bid}|* {bid} *"' in rules
-assert s.parse_rules(rules)[bid]["spindown_minutes"] == 20 and len(s.parse_rules(rules + "\n# proxmoxos {bad")) == 2
+assert s.parse_rules(rules)[bid]["spindown_minutes"] == 20 and len(s.parse_rules(rules + "\n# solardeck {bad")) == 2
+assert s.parse_rules(rules.replace("# solardeck ", "# proxmoxos "))[bid]["apm_level"] == 127  # pre-rename rules files still load
 assert "hdparm" not in s.render_rules({bid: {"by_id": bid}})
 
 smart_i = json.dumps({"smart_support": {"available": True, "enabled": True}})
@@ -133,7 +134,7 @@ assert s._scan_job("/dev/nvme0n1") == "scan-nvme0n1" and s._scan_job("/dev/disk/
 # ---- fio command + JSON parsing.
 cmd = b.fio_command("/dev/sda", "RND4K_Q32T1", "read", 1024, True)
 assert "--rw=randread" in cmd and "--bs=4k" in cmd and "--iodepth=32" in cmd and cmd.endswith("--readonly"), cmd
-assert "--rw=write" in b.fio_command("/tank/.proxmoxos-bench.tmp", "SEQ1M_Q8T1", "write", 256, False)
+assert "--rw=write" in b.fio_command("/tank/.solardeck-bench.tmp", "SEQ1M_Q8T1", "write", 256, False)
 fio_out = "fio: warning\n" + json.dumps({"jobs": [{"read": {"bw_bytes": 3_500_000_000, "bw": 3417968, "iops": 3337.9,
                                                             "lat_ns": {"mean": 2_396_000}}, "write": {}}]})
 assert b.parse_fio(fio_out, "read") == {"mbps": 3500.0, "iops": 3337.9, "lat_us": 2396.0}

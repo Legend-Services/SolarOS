@@ -1475,7 +1475,7 @@ function Schedules() {
         </GlassButton>
       </form>
       <p className="text-[11px] text-slate-500">
-        Automatic snapshots are named <span className="font-mono">proxmoxos-auto-&lt;interval&gt;-&lt;timestamp&gt;</span>. Older ones beyond the retention limit are deleted; manual
+        Automatic snapshots are named <span className="font-mono">solardeck-auto-&lt;interval&gt;-&lt;timestamp&gt;</span>. Older ones beyond the retention limit are deleted; manual
         snapshots are never touched. The first run happens one interval after the schedule is created.
       </p>
       <Notice error={error} />

@@ -235,7 +235,7 @@ function PackageBar({ pkg, label, installed, onChanged }: { pkg: "dnsmasq" | "wi
         busy={busy}
         title={`Uninstall ${label}`}
         confirmLabel="Uninstall"
-        message="The service stops and the package is removed from the Proxmox host. Your ProxmoxOS settings are kept."
+        message="The service stops and the package is removed from the Proxmox host. Your SolarDeck settings are kept."
       />
     </Card>
   );
@@ -1017,7 +1017,7 @@ function CertsTab() {
           {upid && <TaskLog upid={upid} />}
         </div>
       </Card>
-      <Card title="Custom certificate (third-party)" action={c.nginx_https && <GlassBadge tone="success">PROXMOXOS HTTPS ON</GlassBadge>}>
+      <Card title="Custom certificate (third-party)" action={c.nginx_https && <GlassBadge tone="success">SOLARDECK HTTPS ON</GlassBadge>}>
         <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Certificate PEM (with chain)">
@@ -1029,7 +1029,7 @@ function CertsTab() {
           </div>
           <div className="flex flex-wrap gap-4">
             <GlassSwitch checked={custom.node} onChange={(v) => setCustom({ ...custom, node: v })} label="Apply to the Proxmox node (port 8006)" />
-            <GlassSwitch checked={custom.nginx} onChange={(v) => setCustom({ ...custom, nginx: v })} label="Apply to ProxmoxOS HTTPS (port 443)" />
+            <GlassSwitch checked={custom.nginx} onChange={(v) => setCustom({ ...custom, nginx: v })} label="Apply to SolarDeck HTTPS (port 443)" />
           </div>
           <div className="flex flex-wrap gap-2">
             <GlassButton
@@ -1044,7 +1044,7 @@ function CertsTab() {
             </GlassButton>
             {c.nginx_https && (
               <GlassButton variant="danger" disabled={busy} onClick={() => del("/net/certs/custom/nginx")}>
-                Disable ProxmoxOS HTTPS
+                Disable SolarDeck HTTPS
               </GlassButton>
             )}
           </div>
