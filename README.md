@@ -20,7 +20,8 @@
 | 📦 **Compute Manager** | Create VMs and containers with wizards, GPU/PCI/USB passthrough, cloud-init, built-in screen console and shell. |
 | 🌐 **Network & Services** | DNS server with ad blocking, DHCP, WireGuard VPN with QR codes, router/NAT and port forwarding, Let's Encrypt certificates. |
 | 🗂️ **Files, Shares & Backups** | File Station, SMB shares (each with its own ZFS dataset), Network Backup Target, and the SolarDeck Backup Center for VM/container backups and restores. |
-| 🛒 **App Center** | One-click Jellyfin, Docker + Portainer, AdGuard Home, Nginx Proxy Manager, Immich, Ollama and more, each in its own container. |
+| 🛒 **App Center** | One-click Jellyfin, Docker + Portainer, AdGuard Home, Nginx Proxy Manager, Immich, Local AI Studio and more, each in its own container. |
+| 🧠 **Local AI Studio** | Ollama + Open WebUI with a hardware picker (NVIDIA CUDA such as an RTX 3090, Intel/AMD Vulkan, or CPU), the live ollama.com model library with VRAM fit ratings, one-click downloads, GPU telemetry and a test chat with tokens/sec. |
 | 🎛️ **Control Panel** | 2FA, hardware inventory, one-click NVIDIA/Intel/AMD drivers, appearance, and **System & Updates** with one-click updates and downgrades. |
 | 🛟 **Help built in** | Guided wizards in every app, a Welcome Tour, health checks with "Fix it for me", tutorials, BIOS guides, and an in-app bug reporter. |
 
@@ -50,7 +51,7 @@ You need a Proxmox VE 8 or 9 server with internet access. That's all.
 
    ```
    ╔════════════════════════════════════════════════════════════════════════════╗
-   ║                   SolarDeck for Proxmox VE v1.5.2 is ready                 ║
+   ║                   SolarDeck for Proxmox VE v1.6.0 is ready                 ║
    ╠════════════════════════════════════════════════════════════════════════════╣
    ║  Web UI URL:      http://192.168.1.230                                     ║
    ║  Username:        admin                                                    ║
@@ -123,12 +124,23 @@ install.sh                 zero-touch installer and upgrader (runs on the PVE ho
 deploy.sh                  push a local checkout to a PVE host over SSH and run install.sh there
 deploy/                    systemd unit, nginx site, self-update.sh, merge-env.sh + env-defaults, proxmox-os-helper.sh
 backend/app/               one FastAPI router per area: pve, files, console, apps, shares, storage_admin, provisioning,
-                           backups, net_services, hardware_admin, guest_hardware, pve_access, updater, bug_report, ...
+                           backups, net_services, hardware_admin, guest_hardware, pve_access, updater, bug_report,
+                           local_ai, ...
 backend/tests/             self-check scripts (python -m tests.<name>)
 frontend/src/apps/         one component per desktop app
 frontend/src/components/   desktop, top bar, dock, windows, wizards, BugReportModal, Liquid Glass UI kit
 docs/screenshots/          README screenshots
 ```
+
+### Local AI Studio
+
+App Center → AI & Compute → **Local AI Studio** creates an unprivileged Debian 12 container with Ollama (and optionally Open WebUI on port 3000). The installer's **Compute Hardware Selector** lists every GPU from `GET /api/ai/hardware`:
+
+- **NVIDIA** (`nvidia:<PCI address>`): the backend loads `nvidia`/`nvidia_uvm` on the host (and makes them load at boot), adds `lxc.cgroup2.devices.allow` rules for the NVIDIA device majors and `lxc.mount.entry` binds for `/dev/nvidia0`, `/dev/nvidiactl`, `/dev/nvidia-uvm`, `/dev/nvidia-uvm-tools` and `/dev/nvidia-modeset`, then installs the matching user-space driver inside the container with `--no-kernel-module`, so `nvidia-smi` and CUDA work immediately. A card without a host driver, or bound to `vfio-pci`, gets a one-click **Prepare** button.
+- **Intel / AMD** (`intel:/dev/dri/renderD128`): the render node is passed through and Ollama uses Vulkan (AMD also gets ROCm).
+- **CPU**: no devices are mapped.
+
+Models are stored on `/mnt/storage/ai-models` (bind-mounted at `/usr/share/ollama/.ollama/models`) when that option is on. The **Local AI** desktop app browses the ollama.com library (cached for 15 minutes, with a built-in catalog as a fallback), rates every size for your GPU's VRAM, downloads models with live progress, shows which models are loaded in VRAM, switches between GPU and CPU, toggles Flash Attention and KV cache quantization, and has a test chat. Other tools can use the OpenAI-compatible endpoint `http://<container IP>:11434/v1`.
 
 ### Host helper and permissions
 
@@ -164,6 +176,9 @@ cd frontend && npm ci && npm run dev
 - 2FA has no recovery codes. If you lose your authenticator, delete `backend/data/security.json` in the container.
 - PCIe passthrough needs IOMMU enabled on the host; Help & Support can check it and walk you through the BIOS.
 - App Center installer logs are kept in memory and are lost when the backend restarts (the containers remain).
+- Local AI model download progress is also kept in memory; after a backend restart, start the download again and Ollama resumes from the partial files.
+- Local AI Studio manages one AI container (`backend/data/local_ai.json`). An Ollama container from before v1.6.0 shows as installed in App Center but is not managed by the Local AI app; install Local AI Studio to use the new features.
+- NVIDIA GPU sharing binds the host's device nodes into the container, so the host driver must stay installed (not in VM passthrough mode). After a host driver upgrade, switch Local AI to CPU and back to the GPU in Hardware & Performance to reinstall matching user-space libraries.
 
 See [CHANGELOG.md](CHANGELOG.md) for the full feature history.
 

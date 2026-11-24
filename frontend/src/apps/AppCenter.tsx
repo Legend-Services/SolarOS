@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
-  BrainCircuit, Check, Clapperboard, Container, Cpu, ExternalLink, FolderTree, Images, LayoutGrid, Network, Package,
-  Search, Server, ShieldCheck, Waypoints, X, Zap, type LucideIcon,
+  BrainCircuit, Check, Clapperboard, Container, Cpu, ExternalLink, FolderTree, HardDrive, Images, LayoutGrid, Network, Package,
+  Search, Server, ShieldCheck, Sparkles, Waypoints, X, Zap, type LucideIcon,
 } from "lucide-react";
 import { api } from "../lib/api";
-import type { CatalogApp, Deployment } from "../lib/types";
+import type { AiHardware, CatalogApp, Deployment } from "../lib/types";
 import { TaskLog } from "../components/TaskCenterPopover";
 import { ViewToggle } from "../components/ViewOptions";
 import { useAppView } from "../store/layoutStore";
@@ -114,6 +114,90 @@ function Progress({ app, vmid, upid, onClose }: { app: CatalogApp; vmid: number;
   );
 }
 
+const STARTER_MODELS = [
+  { tag: "llama3.1:8b", label: "Llama 3.1 8B", note: "Fast everyday assistant · 4.9 GB" },
+  { tag: "qwen2.5-coder:14b", label: "Qwen 2.5 Coder 14B", note: "Coding · 9 GB" },
+  { tag: "deepseek-r1:14b", label: "DeepSeek R1 14B", note: "Step-by-step reasoning · 9 GB" },
+  { tag: "gemma3:12b", label: "Gemma 3 12B", note: "Vision + chat · 8.1 GB" },
+  { tag: "nomic-embed-text", label: "Nomic Embed Text", note: "Document search (RAG) · 274 MB" },
+];
+
+/** Compute Hardware Selector for Local AI Studio: one card per detected GPU / CPU from GET /api/ai/hardware. */
+function ComputeSelector({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  const [hw, setHw] = useState<AiHardware | null>(null);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  useEffect(() => {
+    api<AiHardware>("/ai/hardware")
+      .then((h) => {
+        setHw(h);
+        if (!value) onChange(h.default);
+      })
+      .catch((e) => setError(e.message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- detect once when the drawer opens
+  }, []);
+
+  const prepare = async (action: string, gpu: string) => {
+    setError("");
+    try {
+      await api(`/hardware/gpu-drivers/${action}`, { method: "POST", json: { gpu } });
+      setNotice("Host driver job started. Follow it in Control Panel → Hardware & System → GPU & Drivers; reboot the host if it asks, then reopen this installer.");
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  return (
+    <fieldset className="space-y-2">
+      <legend className="mb-1 text-[11px] text-slate-400">Compute hardware</legend>
+      {!hw && !error && <p className="text-[11px] text-slate-400">Detecting GPUs and CPU…</p>}
+      {hw && !hw.ssh_bridge_connected && <p className="text-[11px] text-amber-300">Host SSH bridge offline: only CPU mode is available ({hw.message}).</p>}
+      {hw?.targets.map((t) => {
+        const selected = value === t.id;
+        return (
+          <div
+            key={t.id}
+            role="radio"
+            aria-checked={selected}
+            aria-disabled={!t.driver_ready}
+            tabIndex={t.driver_ready ? 0 : -1}
+            onClick={() => t.driver_ready && onChange(t.id)}
+            onKeyDown={(e) => (e.key === " " || e.key === "Enter") && t.driver_ready && (e.preventDefault(), onChange(t.id))}
+            className={`rounded-xl p-2.5 ring-1 transition ${t.driver_ready ? "cursor-pointer" : "opacity-80"} ${
+              selected ? "bg-violet-500/20 ring-violet-300/60" : "bg-white/5 ring-white/10 hover:bg-white/10"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              {t.kind === "cpu" ? <Cpu size={15} className="text-slate-300" /> : <Zap size={15} className={t.kind === "nvidia" ? "text-emerald-300" : "text-sky-300"} />}
+              <span className="min-w-0 flex-1 truncate text-xs font-medium text-white">
+                {t.name}
+                {t.vram_total_mb ? ` — ${(t.vram_total_mb / 1024).toFixed(0)} GB VRAM` : t.kind === "cpu" && t.ram_total_mb ? ` — ${t.threads ?? "?"} threads, ${Math.round(t.ram_total_mb / 1024)} GB RAM` : ""}
+              </span>
+              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${t.driver_ready ? "bg-emerald-400/15 text-emerald-300" : "bg-amber-400/15 text-amber-300"}`}>
+                {t.kind === "cpu" ? "Ready" : t.driver_ready ? `Driver ${t.driver_version ?? "ready"}` : t.driver === "vfio-pci" ? "Bound to VM passthrough" : "Driver missing"}
+              </span>
+            </div>
+            <p className="mt-1 text-[10px] text-slate-400">
+              {t.backend} · {t.recommendation}
+            </p>
+            {t.prepare && (
+              <button
+                type="button"
+                className="btn mt-1.5 border-amber-400/40 bg-amber-500/20 py-1 text-[11px] text-amber-100"
+                onClick={(e) => (e.stopPropagation(), prepare(t.prepare!.action, t.prepare!.gpu))}
+              >
+                {t.prepare.action === "mode-host" ? "Switch GPU back to host mode" : "Prepare host NVIDIA driver"}
+              </button>
+            )}
+          </div>
+        );
+      })}
+      {notice && <p className="text-[11px] text-emerald-300">{notice}</p>}
+      {error && <p className="text-[11px] text-rose-300">{error}</p>}
+    </fieldset>
+  );
+}
+
 function InstallDrawer({ app, onClose }: { app: CatalogApp; onClose: (deployed: boolean) => void }) {
   const [form, setForm] = useState({
     hostname: app.id,
@@ -123,8 +207,11 @@ function InstallDrawer({ app, onClose }: { app: CatalogApp; onClose: (deployed: 
     net: "dhcp" as "dhcp" | "static",
     cidr: "",
     gateway: "",
-    mount_storage: app.supports_storage_mount,
+    mount_storage: app.supports_storage_mount || !!app.compute_selector,
     enable_igpu: app.supports_igpu,
+    compute_target: "",
+    install_open_webui: true,
+    starter_models: [] as string[],
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -148,6 +235,11 @@ function InstallDrawer({ app, onClose }: { app: CatalogApp; onClose: (deployed: 
             ip_config: form.net === "dhcp" ? "dhcp" : { cidr: form.cidr, gateway: form.gateway },
             mount_storage: form.mount_storage,
             enable_igpu: form.enable_igpu,
+            ...(app.compute_selector && {
+              compute_target: form.compute_target || "cpu",
+              install_open_webui: form.install_open_webui,
+              starter_models: form.starter_models,
+            }),
           },
         }),
       );
@@ -221,6 +313,41 @@ function InstallDrawer({ app, onClose }: { app: CatalogApp; onClose: (deployed: 
                 </div>
               )}
             </fieldset>
+            {app.compute_selector && (
+              <>
+                <ComputeSelector value={form.compute_target} onChange={(id) => set("compute_target", id)} />
+                <label className="flex items-start gap-2 rounded-lg bg-white/5 p-2.5 text-xs text-slate-200">
+                  <input type="checkbox" className="mt-0.5" checked={form.mount_storage} onChange={(e) => set("mount_storage", e.target.checked)} />
+                  <span>
+                    <span className="flex items-center gap-1">
+                      <HardDrive size={12} /> Store models on ZFS (/mnt/storage/ai-models)
+                    </span>
+                    <span className="block text-[11px] text-slate-400">Models survive reinstalls and do not fill the container disk.</span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 rounded-lg bg-white/5 p-2.5 text-xs text-slate-200">
+                  <input type="checkbox" className="mt-0.5" checked={form.install_open_webui} onChange={(e) => set("install_open_webui", e.target.checked)} />
+                  <span>
+                    Install Open WebUI (port 3000)
+                    <span className="block text-[11px] text-slate-400">A ChatGPT-style web chat for your whole household. Adds several minutes to setup.</span>
+                  </span>
+                </label>
+                <fieldset className="space-y-1">
+                  <legend className="mb-1 text-[11px] text-slate-400">Starter models (downloaded after setup)</legend>
+                  {STARTER_MODELS.map((m) => (
+                    <label key={m.tag} className="flex items-center gap-2 text-xs text-slate-200">
+                      <input
+                        type="checkbox"
+                        checked={form.starter_models.includes(m.tag)}
+                        onChange={(e) => set("starter_models", e.target.checked ? [...form.starter_models, m.tag] : form.starter_models.filter((x) => x !== m.tag))}
+                      />
+                      {m.label}
+                      <span className="text-[10px] text-slate-500">{m.note}</span>
+                    </label>
+                  ))}
+                </fieldset>
+              </>
+            )}
             {app.supports_storage_mount && (
               <label className="flex items-start gap-2 rounded-lg bg-white/5 p-2.5 text-xs text-slate-200">
                 <input type="checkbox" className="mt-0.5" checked={form.mount_storage} onChange={(e) => set("mount_storage", e.target.checked)} />
@@ -272,9 +399,9 @@ export default function AppCenter() {
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return (apps ?? []).filter(
-      (a) => (category === "all" || a.category === category) && (!q || `${a.name} ${a.description}`.toLowerCase().includes(q)),
-    );
+    return (apps ?? [])
+      .filter((a) => (category === "all" || a.category === category) && (!q || `${a.name} ${a.description}`.toLowerCase().includes(q)))
+      .sort((a, b) => Number(!!b.featured) - Number(!!a.featured));
   }, [apps, category, query]);
 
   return (
@@ -335,13 +462,18 @@ export default function AppCenter() {
           ) : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {shown.map((a) => (
-              <article key={a.id} className="glass-soft flex flex-col rounded-xl p-4">
+              <article key={a.id} className={`glass-soft flex flex-col rounded-xl p-4 ${a.featured ? "ring-1 ring-violet-400/50 sm:col-span-2 xl:col-span-1" : ""}`}>
                 <div className="flex items-start gap-3">
                   <AppIcon app={a} />
                   <div className="min-w-0 flex-1">
                     <h3 className="truncate text-sm font-semibold text-white">{a.name}</h3>
                     <p className="text-[11px] text-slate-400">{a.category}</p>
                   </div>
+                  {a.featured && (
+                    <span className="flex items-center gap-1 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-medium text-violet-200">
+                      <Sparkles size={10} /> Featured
+                    </span>
+                  )}
                   {a.installed.length > 0 && (
                     <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-medium text-emerald-300" title={a.installed.map((i) => `${i.name} (${i.vmid}, ${i.status})`).join("\n")}>
                       Installed{a.installed.length > 1 ? ` ×${a.installed.length}` : ""}
@@ -354,6 +486,7 @@ export default function AppCenter() {
                   <span className="rounded bg-white/5 px-1.5 py-0.5">{a.memory_mb / 1024} GB RAM</span>
                   <span className="rounded bg-white/5 px-1.5 py-0.5">{a.disk_gb} GB disk</span>
                   {a.supports_igpu && <span className="rounded bg-amber-400/15 px-1.5 py-0.5 text-amber-300">iGPU</span>}
+                  {a.compute_selector && <span className="rounded bg-emerald-400/15 px-1.5 py-0.5 text-emerald-300">NVIDIA / Intel / AMD / CPU</span>}
                 </div>
                 <button className="btn mt-3 justify-center border-sky-400/30 bg-sky-500/20 text-white hover:bg-sky-500/30" onClick={() => setInstalling(a)}>
                   {a.installed.length ? "Install another" : "Install"}

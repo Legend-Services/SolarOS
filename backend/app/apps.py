@@ -4,10 +4,10 @@ import ipaddress
 import json
 import re
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, StringConstraints, field_validator
 
 from . import host
 from .auth import require_user
@@ -21,6 +21,10 @@ DATA = Path(__file__).resolve().parent.parent / "data"
 CATALOG: list[dict] = json.loads((DATA / "app_catalog.json").read_text())
 BY_ID = {a["id"]: a for a in CATALOG}
 TAG = "proxmox-os-app"
+ALIASES = {"ollama": "local-ai"}  # pre-v1.6 Ollama installs show up under Local AI Studio
+# Local AI compute targets: "cpu", "nvidia:<index or PCI address>", "intel|amd:/dev/dri/renderD<N>".
+TARGET_RE = r"^(cpu|nvidia:([0-9]{1,2}|([0-9a-f]{4}:)?[0-9a-f]{2}:[0-9a-f]{2}\.[0-7])|(intel|amd):/dev/dri/renderD[0-9]{3})$"
+MODEL_RE = r"^[a-z0-9][a-z0-9._/-]{0,100}(:[A-Za-z0-9._-]{1,60})?$"
 # shortcut: deployment jobs live in memory and are lost on backend restart; the PVE tasks + container remain.
 _jobs: dict[int, dict] = {}
 _bg: set[asyncio.Task] = set()
@@ -37,8 +41,9 @@ def installed_map(lxc: list[dict]) -> dict[str, list[dict]]:
         if TAG not in tags:
             continue
         for t in tags:
-            if t.startswith("pos-") and t[4:] in BY_ID:
-                out.setdefault(t[4:], []).append(
+            app_id = ALIASES.get(t[4:], t[4:])
+            if t.startswith("pos-") and app_id in BY_ID:
+                out.setdefault(app_id, []).append(
                     {"vmid": int(c["vmid"]), "name": c.get("name", ""), "status": c.get("status", "")})
     return out
 
@@ -75,6 +80,10 @@ class DeployBody(BaseModel):
     ip_config: Literal["dhcp"] | StaticIP = "dhcp"
     mount_storage: bool = False
     enable_igpu: bool = False
+    # Local AI Studio only (app_id "local-ai").
+    compute_target: str = Field("cpu", pattern=TARGET_RE)
+    install_open_webui: bool = False
+    starter_models: list[Annotated[str, StringConstraints(pattern=MODEL_RE)]] = Field([], max_length=5)
 
 
 async def _template() -> str:
@@ -122,11 +131,19 @@ def configure_opts(app: dict, body: DeployBody) -> list[str]:
              *(["keyctl"] if app["keyctl"] else [])])
 
 
-async def _finish(vmid: int, upid: str, app: dict, opts: list[str]) -> None:
+async def _finish(vmid: int, upid: str, app: dict, body: DeployBody) -> None:
     job = _jobs[vmid]
     log = job["log"].append
+    opts = configure_opts(app, body)
+    local_ai = None
+    if app["id"] == "local-ai":
+        from . import local_ai  # lazy: local_ai imports this module
     try:
         await wait_task(upid)
+        pre = b""
+        if local_ai:
+            job["phase"] = "configuring"
+            pre = await local_ai.before_start(vmid, body, log)
         if opts:
             job["phase"] = "configuring"
             log(f"==> Applying host options: {', '.join(opts)}")
@@ -135,11 +152,13 @@ async def _finish(vmid: int, upid: str, app: dict, opts: list[str]) -> None:
         log("==> Starting container")
         await wait_task(await pve("POST", _node(f"/lxc/{vmid}/status/start")), 120)
         job["phase"] = "installing"
-        script = (DATA / "apps/_common.sh").read_bytes() + b"\n" + (DATA / f"apps/{app['id']}.sh").read_bytes()
+        script = (DATA / "apps/_common.sh").read_bytes() + b"\n" + pre + (DATA / f"apps/{app['id']}.sh").read_bytes()
         await host.run(["app-provision", str(vmid)], stdin=script, on_line=log, timeout=3600)
         ifaces = await _safe(_node(f"/lxc/{vmid}/interfaces"), []) or []
         inet = next((i.get("inet", "") for i in ifaces if i.get("name") == "eth0"), "")
         job["ip"] = inet.split("/")[0] or None
+        if local_ai:
+            await local_ai.after_install(vmid, body, job["ip"], log)
         job["phase"] = "done"
         log("==> Installation complete")
     except Exception as e:  # noqa: BLE001 - surfaced to the UI
@@ -158,8 +177,9 @@ async def deploy(body: DeployBody):
     vmid = int(await pve("GET", "/cluster/nextid"))
     upid = await pve("POST", _node("/lxc"), data=create_params(vmid, app, body, template, rootfs))
     _jobs[vmid] = {"vmid": vmid, "app_id": app["id"], "upid": upid, "phase": "creating", "error": None, "ip": None,
-                   "web_port": app["web_port"], "web_scheme": app["web_scheme"], "log": []}
-    t = asyncio.create_task(_finish(vmid, upid, app, configure_opts(app, body)))
+                   "web_port": 11434 if app["id"] == "local-ai" and not body.install_open_webui else app["web_port"],
+                   "web_scheme": app["web_scheme"], "log": []}
+    t = asyncio.create_task(_finish(vmid, upid, app, body))
     _bg.add(t)
     t.add_done_callback(_bg.discard)
     return {"vmid": vmid, "upid": upid}

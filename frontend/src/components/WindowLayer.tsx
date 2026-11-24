@@ -14,6 +14,7 @@ import BackupCenterApp from "../apps/BackupCenterApp";
 import NetworkServicesApp from "../apps/NetworkServicesApp";
 import DatacenterApp from "../apps/DatacenterApp";
 import HelpCenterApp from "../apps/HelpCenterApp";
+import LocalAiApp from "../apps/LocalAiApp";
 import WindowFrame from "./WindowFrame";
 import type { ConsoleTarget } from "../lib/types";
 // noVNC + xterm.js are only downloaded when a console is opened.
@@ -26,6 +27,7 @@ const COMPONENTS: Record<AppId, ComponentType<{ params?: ConsoleTarget }>> = {
   storage: StorageManager,
   files: FileStation,
   appcenter: AppCenter,
+  "local-ai": LocalAiApp,
   backup: BackupCenterApp,
   shares: SharesManager,
   controlpanel: ControlPanelApp,

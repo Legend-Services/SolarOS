@@ -60,13 +60,14 @@
     "supports_igpu": false, "supports_storage_mount": true, "keyctl": true
   },
   {
-    "id": "ollama",
-    "name": "Ollama AI Engine",
+    "id": "local-ai",
+    "name": "Local AI Studio (Ollama + Open WebUI)",
     "category": "AI & Compute",
-    "description": "Run large language models locally. Exposes the Ollama API on port 11434 for chat UIs and tools.",
+    "description": "Private ChatGPT-style AI on your own hardware: Ollama with NVIDIA CUDA (RTX GPUs), Intel/AMD Vulkan or CPU, an optional Open WebUI chat on port 3000, and a model library with VRAM fit ratings in the Local AI app.",
     "icon": "BrainCircuit",
-    "cores": 4, "memory_mb": 8192, "disk_gb": 48,
-    "web_port": 11434, "web_scheme": "http",
-    "supports_igpu": false, "supports_storage_mount": true, "keyctl": false
+    "cores": 8, "memory_mb": 16384, "disk_gb": 64,
+    "web_port": 3000, "web_scheme": "http",
+    "supports_igpu": false, "supports_storage_mount": false, "keyctl": false,
+    "featured": true, "compute_selector": true
   }
 ]

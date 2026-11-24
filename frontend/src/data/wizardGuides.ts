@@ -368,6 +368,31 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     ],
     action: { label: "Open System", app: "system" },
   }),
+  "local-ai": guide({
+    id: "local-ai",
+    app: "local-ai",
+    title: "Local AI Guide",
+    blurb: "Run ChatGPT-style AI models privately on your own GPU.",
+    what: "Local AI manages your Local AI Studio container: it downloads open AI models, shows whether each one fits in your graphics card's memory (VRAM), switches between GPU and CPU, and has a built-in chat to test them. Nothing you type leaves your server.",
+    cards: [
+      { title: "VRAM fit", body: "Green means the whole model fits in GPU memory and runs at full speed. Amber is a tight fit. Hybrid means part of it runs on the CPU, which is much slower." },
+      { title: "Model sizes", body: "The number with a B is billions of parameters. Bigger is smarter but needs more memory: a 24 GB card like the RTX 3090 runs models up to about 32B at full speed." },
+      { title: "API for other apps", body: "Copy the OpenAI-compatible address from Hardware & Performance into any tool that supports a custom OpenAI endpoint." },
+    ],
+    when: [
+      "You want a private assistant for writing, coding or questions about your documents.",
+      "Trying new open models the day they are released.",
+      "Pointing coding tools or home automation at an AI that runs on your own hardware.",
+    ],
+    how: [
+      "Install Local AI Studio from App Center → AI & Compute and pick your GPU in the hardware picker.",
+      "Open Local AI → Online Models, search or filter by category, and click Download Model.",
+      "Test it in Playground Chat and watch the tokens-per-second badge.",
+      "Use Installed Models to unload a model from VRAM or delete it to free disk space.",
+    ],
+    tip: "Turn on KV Cache Quantization in Hardware & Performance to fit longer conversations into the same VRAM.",
+    action: { label: "Open Local AI", app: "local-ai" },
+  }),
   console: guide({
     id: "console",
     app: "console",
