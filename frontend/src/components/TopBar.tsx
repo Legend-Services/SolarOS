@@ -172,7 +172,7 @@ export function HelpMenu({ up = false }: { up?: boolean }) {
         <CircleHelp size={14} />
       </button>
       {help && (
-        <div className={`glass absolute ${up ? "bottom-full mb-3" : "top-8"} right-0 w-56 rounded-xl p-1 text-xs`}>
+        <div className={`glass absolute ${up ? "bottom-full mb-5 bg-slate-950/90" : "top-8"} right-0 w-56 rounded-xl p-1 text-xs`}>
           {active && (
             <button onClick={() => (showGuide(active.id), setHelp(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
               <BookOpen size={14} /> Guide: {APPS[active.id].title}

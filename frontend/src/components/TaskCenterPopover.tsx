@@ -105,7 +105,7 @@ export default function TaskCenterPopover({ up = false }: { up?: boolean }) {
         {running > 0 && <span className="absolute -top-0.5 -right-0.5 rounded-full bg-sky-500 px-1 text-[9px] leading-tight text-white">{running}</span>}
       </button>
       {open && (
-        <div className={`glass absolute ${up ? "bottom-full mb-3" : "top-8"} right-0 w-[min(26rem,calc(100vw-1rem))] rounded-xl p-2 shadow-2xl`}>
+        <div className={`glass absolute ${up ? "bottom-full mb-5 bg-slate-950/90" : "top-8"} right-0 w-[min(26rem,calc(100vw-1rem))] rounded-xl p-2 shadow-2xl`}>
           <div className="flex items-center justify-between px-2 pb-2 text-[11px] font-semibold tracking-wide text-slate-400 uppercase">
             <span>Task Center</span>
             <span>{running ? `${running} running` : "Idle"}</span>

@@ -89,7 +89,7 @@ export function LayoutControls() {
 export function ViewOptionsPanel({ up = false }: { up?: boolean }) {
   const set = useLayout((s) => s.set);
   return (
-    <div className={`glass-panel absolute ${up ? "bottom-full mb-3" : "top-8"} right-0 max-h-[calc(100vh-5rem)] w-80 overflow-auto rounded-2xl p-4 text-xs`} role="dialog" aria-label="View options">
+    <div className={`glass-panel absolute ${up ? "bottom-full mb-5 bg-slate-950/90" : "top-8"} right-0 max-h-[calc(100vh-5rem)] w-80 overflow-auto rounded-2xl p-4 text-xs`} role="dialog" aria-label="View options">
       <div className="mb-3 flex items-center">
         <h3 className="flex-1 text-sm font-semibold text-white">View Options</h3>
         <GlassButton variant="ghost" size="xs" onClick={() => set({ panel: false })} aria-label="Close view options">
