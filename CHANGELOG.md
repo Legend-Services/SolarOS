@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.6.2 - Playground Stop Button & Per-Window Crash Protection — 2026-11-24
+
+### Added
+- **Stop button** in Local AI → Playground Chat: while a reply is generating, Send turns into Stop. Stopping keeps the text received so far (marked *Stopped*) and closes the stream, so Ollama stops generating on the GPU. Leaving the Playground tab stops a running reply too.
+- **Per-window crash protection**: every app window has its own error boundary. An app that crashes shows "ran into a problem" with the error and a **Reload window** button inside its own window; the desktop, Dock and other windows keep running.
+
 ## v1.6.1 - Hotfix: Local AI Playground Blank Screen, Streaming Chat & Full-GPU 32B Models — 2026-11-24
 
 ### Fixed

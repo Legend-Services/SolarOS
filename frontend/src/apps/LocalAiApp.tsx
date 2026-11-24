@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { BrainCircuit, Copy, Cpu, Download, ExternalLink, Gauge, MessageSquare, Search, Send, Thermometer, Trash2, Zap } from "lucide-react";
+import { BrainCircuit, Copy, Cpu, Download, ExternalLink, Gauge, MessageSquare, Search, Send, Square, Thermometer, Trash2, Zap } from "lucide-react";
 import { api } from "../lib/api";
 import { bytes, copyText, pct } from "../lib/format";
 import { usePoll } from "../lib/hooks";
@@ -364,7 +364,7 @@ function HardwarePerf({ status, reload }: { status: AiStatus; reload: () => void
 
 /* ---------------- Playground Chat ---------------- */
 
-type Msg = { role: "user" | "assistant"; content: string; thinking?: string; tps?: number | null; tokens?: number };
+type Msg = { role: "user" | "assistant"; content: string; thinking?: string; tps?: number | null; tokens?: number; stopped?: boolean };
 
 function Playground({ initial }: { initial: string }) {
   const [models, setModels] = useState<LocalModel[]>([]);
@@ -375,10 +375,12 @@ function Playground({ initial }: { initial: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const box = useRef<HTMLDivElement>(null);
+  const abort = useRef<AbortController | null>(null);
   useEffect(() => {
     api<LocalModel[]>("/ai/models/local")
       .then((m) => (setModels(m), setModel((cur) => cur || m[0]?.name || "")))
       .catch((e) => setError(e.message));
+    return () => abort.current?.abort(); // leaving the tab stops generation instead of letting it run on the GPU
   }, []);
   // Scroll only the chat pane: scrollIntoView also scrolls the desktop's overflow-hidden ancestors, and an
   // expression-bodied effect would hand React the Promise newer Chrome returns from scroll methods as a "cleanup".
@@ -396,9 +398,12 @@ function Playground({ initial }: { initial: string }) {
     setError("");
     let content = "";
     let thinking = "";
+    const ctl = new AbortController();
+    abort.current = ctl;
     try {
       const res = await fetch("/api/ai/chat", {
         method: "POST",
+        signal: ctl.signal,
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model, system: system || null, stream: true, messages: next.map(({ role, content }) => ({ role, content })) }),
@@ -430,8 +435,14 @@ function Playground({ initial }: { initial: string }) {
         }
       }
     } catch (err) {
-      setError((err as Error).message);
+      if (ctl.signal.aborted) {
+        // Keep what arrived; an empty reply leaves just the question.
+        setMsgs(content || thinking ? [...next, { role: "assistant", content, thinking, stopped: true }] : next);
+      } else {
+        setError((err as Error).message);
+      }
     } finally {
+      if (abort.current === ctl) abort.current = null;
       setBusy(false);
     }
   };
@@ -470,6 +481,11 @@ function Playground({ initial }: { initial: string }) {
                 </GlassBadge>
               </div>
             )}
+            {m.stopped && (
+              <div className="mt-1.5">
+                <GlassBadge tone="warning">Stopped</GlassBadge>
+              </div>
+            )}
           </div>
         ))}
         {busy && msgs[msgs.length - 1]?.role === "user" && (
@@ -479,9 +495,15 @@ function Playground({ initial }: { initial: string }) {
       </div>
       <form onSubmit={send} className="flex gap-2 border-t border-white/10 p-3">
         <GlassInput className="flex-1 py-2 text-xs" placeholder="Message" value={input} onChange={(e) => setInput(e.target.value)} aria-label="Message" disabled={busy} />
-        <GlassButton type="submit" variant="primary" disabled={busy || !model || !input.trim()}>
-          <Send size={12} /> Send
-        </GlassButton>
+        {busy ? (
+          <GlassButton variant="danger" onClick={() => abort.current?.abort()}>
+            <Square size={12} /> Stop
+          </GlassButton>
+        ) : (
+          <GlassButton type="submit" variant="primary" disabled={!model || !input.trim()}>
+            <Send size={12} /> Send
+          </GlassButton>
+        )}
       </form>
     </div>
   );
