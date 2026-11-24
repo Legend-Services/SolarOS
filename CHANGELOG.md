@@ -1,5 +1,32 @@
 # Changelog
 
+## v2.2.0 - Phase 20: Offline-Capable Bootable ISO Builder, First-Boot Appliance Setup & Proxmox Nested-VM Test Harness — 2026-11-24
+
+### Added
+- **Self-contained ISO bundle**: `hypervisor/build-iso.sh` now builds the desktop (`npm ci && npm run build`) and downloads the backend's Python wheels for Ubuntu's CPython (`pip download --only-binary`) into the embedded SolarDeck bundle, so first boot needs no Node.js build and no PyPI. Missing build tools fall back to fetching that part on first boot. The default output is `./dist/SolarDeck-Hypervisor-v<version>-amd64.iso`, and the SHA-256 is printed.
+- `build-iso.sh --auto-disk <device>` adds a **SolarDeck Hypervisor — Automated VM Test Install** boot entry that installs to that disk unattended. `--deploy-to-pve` copies the ISO to `/var/lib/vz/template/iso/` on a Proxmox VE host.
+- **`hypervisor/firstboot-setup.sh`** (run once by `solardeck-firstboot.service`):
+  - bridges the primary Ethernet port into `br0` with DHCP (`/etc/netplan/60-solardeck-bridge.yaml`). The installer's Netplan files are parked, and put back if the bridge gets no address.
+  - runs `install-hypervisor.sh --bundle`.
+  - puts the Incus `default` profile on `br0` and enables libvirtd, ZFS, smbd, nginx, `solardeck-backend` and `solardeck-console`.
+  - disables itself.
+- `install-hypervisor.sh --bundle <dir>`: installs from the bundled wheels and the prebuilt `frontend/dist`. Node.js 22 is still installed when reachable, for later updates. Without a default route, the bridge uses the first physical `en*`/`eth*` port.
+- **tty1 console**:
+  - the initial `admin` password is shown on the status screen until cleared with **[2] Reset / Clear Initial Password Display**.
+  - new **[6] Show Nested Virtualization & Hardware Readiness**: VT-x/AMD-V, `/dev/kvm`, nested KVM, libvirtd, Incus, OpenZFS, `br0`, bare metal or VM.
+- **`hypervisor/test-in-proxmox-vm.sh`**: one command on a Proxmox VE host creates and starts a nested test VM:
+  - q35, OVMF + EFI disk, host CPU, 4 cores, 8 GiB.
+  - a 32 GB OS disk and two 32 GB data disks for ZFS mirror/RAIDZ1, SMART and benchmark tests.
+  - virtio NIC on `vmbr0`, the ISO on `ide2`, boot order `ide2;scsi0`.
+  - it checks nested virtualization (`--enable-nested` turns it on when no VM runs), picks the next free VMID from 900 and `local-zfs`/`local-lvm`, never touches an existing VMID, and supports `--dry-run`.
+- **Control Panel → System & Updates → Standalone Hypervisor ISO**: the build and test commands with copy buttons, and every built `SolarDeck-Hypervisor-*.iso` in `/mnt/storage/isos/` or `/var/lib/vz/template/iso/` with its size and SHA-256 (`GET /api/system/updates/iso`; each ISO is hashed once).
+- README: **Testing SolarDeck Hypervisor ISO inside a Proxmox VE VM**.
+- CI: release tags syntax-check `build-iso.sh`, `install-hypervisor.sh`, `firstboot-setup.sh` and `test-in-proxmox-vm.sh` before uploading `build-iso.sh` and `install-hypervisor.sh`.
+
+### Changed
+- The ISO's default boot entry is now **Install SolarDeck Hypervisor (Interactive Disk Selection)**. The old automatic entry, which erased the largest disk, is gone, so booting a server with data disks never wipes one unasked.
+- The initial Web UI credentials are now stored in `/etc/solardeck/initial-credentials.txt` (0600). The console still reads the old `/root/solardeck-credentials.txt`.
+
 ## v1.14.0 - Phase 19: Native Linux Hypervisor Driver, Unified Updater, Console Dashboard & Bootable ISO — 2026-11-24
 
 ### Added

@@ -4,6 +4,7 @@ The actual code swap runs in deploy/self-update.sh as a detached systemd unit, b
 """
 import asyncio
 import base64
+import hashlib
 import json
 import logging
 import shutil
@@ -284,6 +285,49 @@ async def apply(body: ApplyBody | None = None):
     target = await resolve((body and body.target_ref) or f"origin/{src['branch']}")
     await start(target, src["branch"], system_packages)
     return {"ok": True, "target": target, "include_system_packages": system_packages}
+
+
+# ---------------------------------------------------------------- Standalone Hypervisor ISO
+
+ISO_BUILD_COMMAND = "sudo bash /opt/proxmox-os/hypervisor/build-iso.sh"
+_iso_sums: dict[tuple[str, int, int], str] = {}  # (path, size, mtime) -> sha256: an ISO is hashed once
+
+
+def _sha256(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        while chunk := f.read(1 << 20):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def find_isos(dirs: list[Path]) -> list[Path]:
+    """SolarDeck Hypervisor ISOs in the given folders (unreadable or missing folders are skipped), newest first."""
+    found = {}
+    for d in dirs:
+        with suppress(OSError):
+            for f in d.glob("SolarDeck-Hypervisor-*.iso"):
+                if f.is_file():
+                    found.setdefault(f.resolve(), f)
+    return sorted(found.values(), key=lambda f: f.stat().st_mtime, reverse=True)
+
+
+@router.get("/iso")
+async def hypervisor_iso():
+    dirs = [settings.storage_root / "isos", Path("/var/lib/vz/template/iso")]
+    out = []
+    for f in find_isos(dirs):
+        st = f.stat()
+        key = (str(f), st.st_size, st.st_mtime_ns)
+        if key not in _iso_sums:
+            try:
+                _iso_sums[key] = await asyncio.to_thread(_sha256, f)
+            except OSError as e:
+                log.warning("cannot hash %s: %s", f, e)
+        out.append({"name": f.name, "path": str(f), "size": st.st_size, "modified": int(st.st_mtime),
+                    "sha256": _iso_sums.get(key)})
+    return {"build_command": ISO_BUILD_COMMAND, "test_command": "bash /opt/proxmox-os/hypervisor/test-in-proxmox-vm.sh",
+            "search_paths": [str(d) for d in dirs], "isos": out}
 
 
 @router.post("/rollback")

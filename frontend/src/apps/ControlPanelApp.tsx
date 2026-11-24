@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { Bug, ChevronLeft, Cpu, BellRing, PencilRuler, CloudDownload, KeyRound, Network, Palette, Power, RefreshCw, RotateCcw, ShieldCheck, Smartphone, SquareTerminal } from "lucide-react";
+import { Bug, ChevronLeft, Copy, Cpu, Disc3, BellRing, PencilRuler, CloudDownload, KeyRound, Network, Palette, Power, RefreshCw, RotateCcw, ShieldCheck, Smartphone, SquareTerminal } from "lucide-react";
 import { api } from "../lib/api";
-import type { SystemInfo, UpdateSettings, UpdateStatus, VersionEntry } from "../lib/types";
-import { copyText, uptime } from "../lib/format";
+import type { HypervisorIsoStatus, SystemInfo, UpdateSettings, UpdateStatus, VersionEntry } from "../lib/types";
+import { bytes, copyText, uptime } from "../lib/format";
 import { usePoll, useRunner } from "../lib/hooks";
 import { TRADEMARK_NOTICE } from "../lib/brand";
 import { MAGNIFICATION, useBugReport, useDock, useIntent, usePrefs, useWindows, type Magnification } from "../lib/stores";
@@ -259,7 +259,67 @@ function UpdatesSection() {
       <UpdateCard st={st} running={running} load={load} start={start} />
       {st && <UpdatePreferences initial={st.settings} onSaved={() => load()} />}
       <VersionHistory st={st} running={running} start={start} />
+      <HypervisorIsoCard />
     </>
+  );
+}
+
+/** Control Panel → System & Updates: how to build the bootable SolarDeck Hypervisor ISO, and the ISOs already built. */
+function HypervisorIsoCard() {
+  const [st, setSt] = useState<HypervisorIsoStatus | null>(null);
+  const [copied, setCopied] = useState("");
+  const { busy, error, run } = useRunner();
+  // The first load hashes new ISOs (several GB), so it can take a while; later loads are cached.
+  const load = useCallback(() => run(() => api<HypervisorIsoStatus>("/system/updates/iso").then(setSt)), [run]);
+  useEffect(() => {
+    load();
+  }, [load]);
+  const copy = (text: string) => copyText(text).then(() => setCopied(text));
+  const command = (text: string) => (
+    <div className="flex items-center gap-2">
+      <code className="min-w-0 flex-1 truncate rounded-lg bg-black/30 px-2 py-1.5 font-mono text-[11px] text-slate-200">{text}</code>
+      <GlassButton size="xs" onClick={() => copy(text)} aria-label={`Copy ${text}`}>
+        <Copy size={12} /> {copied === text ? "Copied" : "Copy"}
+      </GlassButton>
+    </div>
+  );
+
+  return (
+    <Card title="Standalone Hypervisor ISO" action={<GlassButton size="xs" variant="ghost" disabled={busy} onClick={load} aria-label="Refresh ISO list"><RefreshCw size={12} className={busy ? "animate-spin" : ""} /></GlassButton>}>
+      <p className="mb-2 text-[11px] text-slate-400">
+        Build a bootable SolarDeck Hypervisor installer (USB stick, bare metal or a nested test VM). Run on a Linux host with xorriso; add <span className="font-mono">--auto-disk /dev/sda</span> for an unattended VM test entry and <span className="font-mono">--deploy-to-pve</span> on a Proxmox VE host.
+      </p>
+      {command(st?.build_command ?? "sudo bash /opt/proxmox-os/hypervisor/build-iso.sh")}
+      {st && <div className="mt-2">{command(st.test_command)}</div>}
+      <div className="mt-3">
+        {st && st.isos.length === 0 && <p className="text-xs text-slate-400">No built ISO found in {st.search_paths.join(" or ")}.</p>}
+        {busy && !st && <p className="text-xs text-slate-400">Looking for built ISOs…</p>}
+        {st && st.isos.length > 0 && (
+          <ul className="space-y-2">
+            {st.isos.map((i) => (
+              <li key={i.path} className="rounded-lg bg-black/20 p-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <Disc3 size={14} className="shrink-0 text-sky-300" />
+                  <span className="min-w-0 flex-1 truncate font-medium text-slate-100" title={i.path}>{i.name}</span>
+                  <span className="text-slate-400">{bytes(i.size)}</span>
+                </div>
+                <div className="mt-1 flex items-center gap-2 pl-6">
+                  <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-slate-400 select-all">SHA-256 {i.sha256 ?? "unavailable"}</span>
+                  {i.sha256 && (
+                    <GlassButton size="xs" variant="ghost" onClick={() => copy(i.sha256!)} aria-label={`Copy SHA-256 of ${i.name}`}>
+                      <Copy size={11} /> {copied === i.sha256 ? "Copied" : ""}
+                    </GlassButton>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div className="mt-2">
+        <Notice error={error} />
+      </div>
+    </Card>
   );
 }
 

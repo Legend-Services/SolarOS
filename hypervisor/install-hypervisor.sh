@@ -5,7 +5,9 @@
 #   bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/main/hypervisor/install-hypervisor.sh)" -- --with-console-tui
 # Options:
 #   --with-console-tui   show the SolarDeck console dashboard on tty1 (the server's own monitor)
-#   --src <dir>          install from a local source tree instead of cloning REPO_URL (used by the ISO)
+#   --src <dir>          install from a local source tree instead of cloning REPO_URL
+#   --bundle <dir>       install from a SolarDeck ISO bundle: source tree + prebuilt frontend/dist + wheels/ (offline
+#                        Python packages and no desktop build; APT packages still come from the Ubuntu mirrors)
 #   --bridge-nic <nic>   NIC to enslave to br0 (default: the NIC of the default route)
 #   --no-bridge          do not create br0 (guests then need an existing bridge named in PVE_BRIDGE)
 # Re-running is safe: backend/.env, backend/data/ and backend/.ssh/ are kept; code, dependencies and the build refresh.
@@ -19,8 +21,8 @@ APP_DIR="/opt/solardeck"
 LEGACY_LINK="/opt/proxmox-os"  # paths shared with the Proxmox edition (nginx root, updater, helper) keep working
 STORAGE_ROOT="/mnt/storage"
 BRIDGE="br0"
-CREDS_FILE="/root/solardeck-credentials.txt"
-WITH_TUI="" SRC="" BRIDGE_NIC="" NO_BRIDGE=""
+CREDS_FILE="/etc/solardeck/initial-credentials.txt"  # shown on the tty1 console until dismissed
+WITH_TUI="" SRC="" BRIDGE_NIC="" NO_BRIDGE="" BUNDLE=""
 
 C_RESET=$'\e[0m'; C_BLUE=$'\e[1;34m'; C_GREEN=$'\e[1;32m'; C_YELLOW=$'\e[1;33m'; C_RED=$'\e[1;31m'
 msg()  { echo "${C_BLUE}==>${C_RESET} $*"; }
@@ -33,9 +35,10 @@ while (($#)); do
   case "$1" in
     --with-console-tui) WITH_TUI=1; shift ;;
     --src) SRC="${2:?--src needs a directory}"; shift 2 ;;
+    --bundle) SRC="${2:?--bundle needs a directory}"; BUNDLE=1; shift 2 ;;
     --bridge-nic) BRIDGE_NIC="${2:?--bridge-nic needs a NIC}"; shift 2 ;;
     --no-bridge) NO_BRIDGE=1; shift ;;
-    -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "Unknown option: $1" ;;
   esac
 done
@@ -57,18 +60,22 @@ PKGS=(qemu-kvm qemu-utils libvirt-daemon-system libvirt-clients ovmf swtpm swtpm
   dmidecode openssh-server jq build-essential)
 apt-get update -qq
 apt-get install -y -qq "${PKGS[@]}" >/dev/null
-# The desktop build needs Node.js 22 (Ubuntu's own package is older).
+# The desktop build (and later updates) need Node.js 22 (Ubuntu's own package is older).
+# A bundle ships the built desktop, so there a failed download only postpones Node.js to the first update.
+PREBUILT=""; [[ -n "$BUNDLE" && -f "${SRC%/}/frontend/dist/index.html" ]] && PREBUILT=1
 if ! node -v 2>/dev/null | grep -Eq '^v2[2-9]\.'; then
-  curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null
-  apt-get install -y -qq nodejs >/dev/null
+  { curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null && apt-get install -y -qq nodejs >/dev/null; } \
+    || { [[ -n "$PREBUILT" ]] || die "Could not install Node.js 22"; warn "Node.js 22 not installed; updates will install it"; }
 fi
-ok "Packages installed (node $(node -v), $(virsh --version 2>/dev/null | sed 's/^/libvirt /'), incus $(incus --version 2>/dev/null))"
+ok "Packages installed (node $(node -v 2>/dev/null || echo none), $(virsh --version 2>/dev/null | sed 's/^/libvirt /'), incus $(incus --version 2>/dev/null))"
 systemctl enable -q --now libvirtd ssh 2>/dev/null || systemctl enable -q --now libvirtd
 modprobe zfs 2>/dev/null || warn "ZFS kernel module not loaded (reboot after a kernel update)"
 
 # ---------------------------------------------------------------- 3. Network bridge
 if [[ -z "$NO_BRIDGE" && ! -d "/sys/class/net/${BRIDGE}" ]]; then
   NIC="${BRIDGE_NIC:-$(ip -j route show default | jq -r '.[0].dev // empty')}"
+  # No default route yet: the first physical Ethernet port.
+  [[ -n "$NIC" ]] || NIC="$(for n in /sys/class/net/en* /sys/class/net/eth*; do [[ -e "$n/device" ]] && basename "$n"; done | head -n1)"
   [[ -n "$NIC" && -e "/sys/class/net/${NIC}" ]] || die "Could not find the uplink NIC; pass --bridge-nic <nic>"
   [[ -d "/sys/class/net/${NIC}/bridge" ]] && die "${NIC} is already a bridge; rerun with --no-bridge and set PVE_BRIDGE"
   msg "Creating bridge ${BRIDGE} on ${NIC} (the IP address moves to the bridge)"
@@ -113,6 +120,7 @@ if [[ -n "$SRC" && "$(realpath "$SRC")" != "$(realpath -m "$APP_DIR")" ]]; then
     --exclude backend/.env --exclude backend/.ssh --exclude 'backend/data/*.json' --exclude backend/data/themes \
     "${SRC%/}/" "${APP_DIR}/"
   cp "${SRC%/}/backend/data/app_catalog.json" "${APP_DIR}/backend/data/app_catalog.json"
+  [[ -n "$PREBUILT" ]] && rsync -a --delete "${SRC%/}/frontend/dist/" "${APP_DIR}/frontend/dist/"
   [[ -f "${SRC%/}/.build-commit" ]] && cp "${SRC%/}/.build-commit" "${APP_DIR}/.build-commit"
   git -C "$SRC" rev-parse HEAD >"${APP_DIR}/.build-commit" 2>/dev/null || true
 elif [[ -d "${APP_DIR}/.git" ]]; then
@@ -147,6 +155,7 @@ REPO_URL=${REPO_URL}
 REPO_BRANCH=${REPO_BRANCH}
 EOF
   umask 022
+  mkdir -p "$(dirname "$CREDS_FILE")" && chmod 700 "$(dirname "$CREDS_FILE")"
   printf 'SolarDeck Hypervisor Web UI\nUsername: admin\nPassword: %s\n' "$ADMIN_PASSWORD" >"$CREDS_FILE"
   chmod 600 "$CREDS_FILE"
   ok "Wrote backend/.env"
@@ -175,13 +184,21 @@ ssh -i "$KEY" -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile
 msg "Installing backend dependencies"
 cd "${APP_DIR}/backend"
 [[ -x .venv/bin/pip ]] || python3 -m venv .venv
-.venv/bin/pip install -q --upgrade pip
-.venv/bin/pip install -q -r requirements.txt
-msg "Building the desktop"
-cd "${APP_DIR}/frontend"
-npm ci --no-audit --no-fund --loglevel=error
-npm run build >/dev/null
-ok "Desktop built"
+if [[ -n "$BUNDLE" && -d "${SRC%/}/wheels" ]] && .venv/bin/pip install -q --no-index --find-links "${SRC%/}/wheels" -r requirements.txt; then
+  ok "Python packages installed from the bundled wheels"
+else
+  .venv/bin/pip install -q --upgrade pip
+  .venv/bin/pip install -q -r requirements.txt
+fi
+if [[ -n "$PREBUILT" ]]; then
+  ok "Desktop prebuilt in the bundle"
+else
+  msg "Building the desktop"
+  cd "${APP_DIR}/frontend"
+  npm ci --no-audit --no-fund --loglevel=error
+  npm run build >/dev/null
+  ok "Desktop built"
+fi
 
 # ---------------------------------------------------------------- 9. Samba, nginx, services
 touch /etc/samba/proxmox-os-shares.conf

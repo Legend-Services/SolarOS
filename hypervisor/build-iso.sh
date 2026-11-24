@@ -1,16 +1,21 @@
 #!/usr/bin/env bash
 # Build a bootable SolarDeck Hypervisor installer ISO from an Ubuntu Server LTS live ISO (run on Linux).
-#   hypervisor/build-iso.sh [--source-iso ubuntu-24.04.x-live-server-amd64.iso] [--output SolarDeck-Hypervisor-vX-amd64.iso]
-#                           [--ubuntu-release 24.04] [--hostname solardeck] [--password <console user password>]
+#   hypervisor/build-iso.sh [--source-iso ubuntu-24.04.x-live-server-amd64.iso] [--output dist/SolarDeck-Hypervisor-vX-amd64.iso]
+#                           [--auto-disk /dev/sda] [--deploy-to-pve] [--ubuntu-release 24.04] [--hostname solardeck]
+#                           [--password <console user password>]
 # Without --source-iso the latest official live-server ISO of --ubuntu-release is downloaded and SHA256-verified.
-# The result boots into an unattended Ubuntu install (autoinstall, nocloud) that copies the embedded SolarDeck
-# source to the disk; on first boot it installs KVM/libvirt, Incus, OpenZFS, the console dashboard and SolarDeck
-# (HYPERVISOR_DRIVER=native_ubuntu). Needs: xorriso, curl, openssl (or mkpasswd), git, gzip.
+# The default boot entry is an Ubuntu autoinstall that asks for the target disk (safe on bare metal); --auto-disk adds
+# a second, fully automatic entry that erases that disk (nested VM tests). The ISO embeds the SolarDeck source, the
+# built desktop (frontend/dist) and the backend's Python wheels; on first boot hypervisor/firstboot-setup.sh creates
+# br0, installs KVM/libvirt, Incus, OpenZFS, the tty1 console and SolarDeck (HYPERVISOR_DRIVER=native_ubuntu).
+# --deploy-to-pve copies the ISO to /var/lib/vz/template/iso/ (on a Proxmox VE host).
+# Needs: xorriso, curl, openssl (or mkpasswd), gzip; npm (Node 22) and python3-pip to bundle the desktop and wheels.
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="$(sed -n 's/^  "version": "\(.*\)",$/\1/p' "${ROOT}/frontend/package.json" | head -n1)"
-SOURCE_ISO="" OUTPUT="" RELEASE="24.04" HOSTNAME_="solardeck" PASSWORD=""
+SOURCE_ISO="" OUTPUT="" RELEASE="24.04" HOSTNAME_="solardeck" PASSWORD="" AUTO_DISK="" DEPLOY_PVE=""
+PVE_ISO_DIR="/var/lib/vz/template/iso"
 CACHE="${ROOT}/hypervisor/.cache"
 
 die() { echo "build-iso: $*" >&2; exit 1; }
@@ -21,14 +26,19 @@ while (($#)); do
     --ubuntu-release) RELEASE="${2:?}"; shift 2 ;;
     --hostname) HOSTNAME_="${2:?}"; shift 2 ;;
     --password) PASSWORD="${2:?}"; shift 2 ;;
-    -h|--help) sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --auto-disk) AUTO_DISK="${2:?}"; shift 2 ;;
+    --deploy-to-pve) DEPLOY_PVE=1; shift ;;
+    -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "unknown option $1" ;;
   esac
 done
 [[ "$HOSTNAME_" =~ ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$ ]] || die "invalid --hostname"
 [[ "$RELEASE" =~ ^[0-9]{2}\.04$ ]] || die "invalid --ubuntu-release (e.g. 24.04)"
-OUTPUT="${OUTPUT:-${ROOT}/SolarDeck-Hypervisor-v${VERSION}-amd64.iso}"
-for bin in xorriso curl git gzip; do command -v "$bin" >/dev/null || die "missing $bin (apt install xorriso curl git)"; done
+[[ -z "$AUTO_DISK" || "$AUTO_DISK" =~ ^/dev/[a-z][a-z0-9/_-]*$ ]] || die "invalid --auto-disk (e.g. /dev/sda or /dev/vda)"
+[[ -z "$DEPLOY_PVE" || -d "$PVE_ISO_DIR" ]] || die "--deploy-to-pve: ${PVE_ISO_DIR} not found (run on a Proxmox VE host)"
+OUTPUT="${OUTPUT:-${PWD}/dist/SolarDeck-Hypervisor-v${VERSION}-amd64.iso}"
+mkdir -p "$(dirname "$OUTPUT")"
+for bin in xorriso curl gzip; do command -v "$bin" >/dev/null || die "missing $bin (apt install xorriso curl git)"; done
 
 # ---------------------------------------------------------------- Source ISO
 if [[ -z "$SOURCE_ISO" ]]; then
@@ -64,22 +74,53 @@ chmod -R u+w "$WORK/iso"
 [[ -f "$WORK/iso/boot/grub/grub.cfg" ]] || die "not an Ubuntu live-server ISO (no boot/grub/grub.cfg)"
 
 # ---------------------------------------------------------------- autoinstall seeds
-for mode in auto manual; do
+for mode in manual ${AUTO_DISK:+auto}; do
   mkdir -p "$WORK/iso/nocloud/$mode"
-  inter=""; [[ "$mode" == manual ]] && inter="interactive-sections: [storage]"
-  sed -e "s|@@INTERACTIVE@@|${inter}|" -e "s|@@HOSTNAME@@|${HOSTNAME_}|" -e "s|@@PASSWORD_HASH@@|${HASH}|" \
+  inter="interactive-sections: [storage]" match=""
+  [[ "$mode" == auto ]] && inter="" match="match: {path: ${AUTO_DISK}}"
+  sed -e "s|@@INTERACTIVE@@|${inter}|" -e "s|@@DISK_MATCH@@|${match}|" -e "s|@@HOSTNAME@@|${HOSTNAME_}|" -e "s|@@PASSWORD_HASH@@|${HASH}|" \
     "${ROOT}/hypervisor/autoinstall/user-data.template" >"$WORK/iso/nocloud/$mode/user-data"
   cp "${ROOT}/hypervisor/autoinstall/meta-data" "$WORK/iso/nocloud/$mode/meta-data"
   grep -q '@@' "$WORK/iso/nocloud/$mode/user-data" && die "unfilled placeholder in user-data"
 done
 
-# ---------------------------------------------------------------- Embedded SolarDeck source (committed HEAD)
-echo "==> Embedding SolarDeck $(git -C "$ROOT" describe --tags --always 2>/dev/null)"
+# ---------------------------------------------------------------- Embedded SolarDeck bundle (source + desktop + wheels)
 mkdir -p "$WORK/src" "$WORK/iso/solardeck"
-git -C "$ROOT" archive --format=tar HEAD | tar -x -C "$WORK/src"
-git -C "$ROOT" rev-parse HEAD >"$WORK/src/.build-commit"
+if git -C "$ROOT" rev-parse -q HEAD >/dev/null 2>&1; then
+  echo "==> Embedding SolarDeck $(git -C "$ROOT" describe --tags --always 2>/dev/null) (committed HEAD)"
+  git -C "$ROOT" archive --format=tar HEAD | tar -x -C "$WORK/src"
+  git -C "$ROOT" rev-parse HEAD >"$WORK/src/.build-commit"
+  [[ -z "$(git -C "$ROOT" status --porcelain)" ]] || echo "    note: uncommitted changes are not included"
+else
+  # An installed copy without .git (ISO or deploy.sh install): embed the tree itself, minus state and build output.
+  echo "==> Embedding SolarDeck from ${ROOT}"
+  tar -C "$ROOT" --exclude=.git --exclude=node_modules --exclude=.venv --exclude=dist --exclude=__pycache__ \
+    --exclude=hypervisor/.cache --exclude=backend/.env --exclude=backend/.ssh --exclude='backend/data/*.json' \
+    --exclude=backend/data/themes --exclude='*.iso' -cf - . | tar -x -C "$WORK/src"
+  cp "${ROOT}/backend/data/app_catalog.json" "$WORK/src/backend/data/"
+  cp "${ROOT}/.build-commit" "$WORK/src/.build-commit" 2>/dev/null || true
+fi
+# Each piece is optional: what is missing here is fetched on first boot instead (needs internet there).
+if command -v npm >/dev/null && node -v 2>/dev/null | grep -Eq '^v(2[2-9]|[3-9][0-9])\.'; then
+  echo "==> Building the desktop (frontend/dist)"
+  (cd "$WORK/src/frontend" && npm ci --no-audit --no-fund --loglevel=error && npm run build >/dev/null) || die "desktop build failed"
+  rm -rf "$WORK/src/frontend/node_modules"
+else
+  echo "    note: Node.js 22+ not found; the desktop is built on first boot (needs internet)"
+fi
+# The installed system runs Ubuntu's python3, so fetch wheels for that interpreter, not this machine's.
+case "$RELEASE" in 24.04) PYV=3.12 ;; 26.04) PYV=3.14 ;; *) PYV="" ;; esac
+if [[ -n "$PYV" ]] && python3 -m pip --version >/dev/null 2>&1; then
+  echo "==> Downloading Python wheels for CPython ${PYV}"
+  python3 -m pip download -q -r "$WORK/src/backend/requirements.txt" -d "$WORK/src/wheels" --only-binary=:all: \
+    --implementation cp --python-version "$PYV" --platform manylinux2014_x86_64 --platform manylinux_2_28_x86_64 \
+    --platform manylinux_2_34_x86_64 --platform linux_x86_64 \
+    || { echo "    note: wheel download failed; Python packages are installed from PyPI on first boot"; rm -rf "$WORK/src/wheels"; }
+else
+  echo "    note: pip not found; Python packages are installed from PyPI on first boot"
+fi
 tar -czf "$WORK/iso/solardeck/solardeck-src.tar.gz" -C "$WORK/src" .
-[[ -n "$(git -C "$ROOT" status --porcelain)" ]] && echo "    note: uncommitted changes are not included"
+echo "    bundle: $(du -h "$WORK/iso/solardeck/solardeck-src.tar.gz" | cut -f1)$([[ -d "$WORK/src/frontend/dist" ]] && echo ", desktop prebuilt")$([[ -d "$WORK/src/wheels" ]] && echo ", $(ls "$WORK/src/wheels" | wc -l) wheels")"
 
 # ---------------------------------------------------------------- Boot menu
 CFG="$WORK/iso/boot/grub/grub.cfg"
@@ -88,14 +129,16 @@ INITRD="$(grep -m1 -oE 'initrd\s+\S+' "$CFG" | awk '{print $2}')"
 [[ -n "$KERNEL" && -n "$INITRD" ]] || die "cannot find the kernel/initrd in grub.cfg"
 ENTRIES="$WORK/entries.cfg"
 cat >"$ENTRIES" <<EOF
-menuentry "Install SolarDeck Hypervisor (automatic, erases the largest disk)" {
-	set gfxpayload=keep
-	linux	${KERNEL} autoinstall ds=nocloud\\;s=/cdrom/nocloud/auto/ ---
-	initrd	${INITRD}
-}
-menuentry "Install SolarDeck Hypervisor (choose the target disk)" {
+menuentry "Install SolarDeck Hypervisor (Interactive Disk Selection)" {
 	set gfxpayload=keep
 	linux	${KERNEL} autoinstall ds=nocloud\\;s=/cdrom/nocloud/manual/ ---
+	initrd	${INITRD}
+}
+EOF
+[[ -n "$AUTO_DISK" ]] && cat >>"$ENTRIES" <<EOF
+menuentry "SolarDeck Hypervisor — Automated VM Test Install (erases ${AUTO_DISK})" {
+	set gfxpayload=keep
+	linux	${KERNEL} autoinstall ds=nocloud\\;s=/cdrom/nocloud/auto/ ---
 	initrd	${INITRD}
 }
 EOF
@@ -114,3 +157,9 @@ echo
 echo "SolarDeck Hypervisor ISO: ${OUTPUT} ($(du -h "$OUTPUT" | cut -f1))"
 echo "  Console user: solardeck / ${PASSWORD}$([[ -n "${GENERATED:-}" ]] && echo "  (generated; keep it)")"
 echo "  Web UI admin password: generated on first boot, shown on the server's console (tty1)."
+echo "  SHA-256: $(sha256sum "$OUTPUT" | cut -d' ' -f1)"
+if [[ -n "$DEPLOY_PVE" ]]; then
+  cp "$OUTPUT" "${PVE_ISO_DIR}/$(basename "$OUTPUT")"
+  echo "  Copied to ${PVE_ISO_DIR}/$(basename "$OUTPUT")"
+  echo "  Test it in a nested VM: bash ${ROOT}/hypervisor/test-in-proxmox-vm.sh --iso ${PVE_ISO_DIR}/$(basename "$OUTPUT")"
+fi
