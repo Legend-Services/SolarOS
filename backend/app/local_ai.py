@@ -586,6 +586,8 @@ def snippet(text: str, needle: str, width: int = 70) -> str:
     """About `width` characters of `text` around the first case-insensitive match of `needle`, on one line."""
     i = text.lower().find(needle)
     start = max(0, i - width // 3)
+    if start and (sp := text.find(" ", start, i)) != -1:
+        start = sp + 1  # begin at a word boundary, never past the match
     s = " ".join(text[start:start + width].split())
     return ("…" if start else "") + s + ("…" if start + width < len(text) else "")
 

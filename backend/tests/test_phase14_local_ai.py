@@ -140,4 +140,6 @@ hits = {c["title"]: c["snippet"] for c in asyncio.run(ai.list_chats(q="get-child
 assert list(hits) == ["files"] and "Get-ChildItem lists files" in hits["files"] and hits["files"].startswith("…"), hits
 assert [c["title"] for c in asyncio.run(ai.list_chats(q="powershell"))] == ["PowerShell tips"]  # title match: no snippet
 assert asyncio.run(ai.list_chats(q="powershell"))[0]["snippet"] is None and asyncio.run(ai.list_chats(q="no-such-text")) == []
+s = ai.snippet("Once upon a time an old lighthouse keeper watched the stormy sea every night.", "stormy sea")
+assert s.startswith("…") and s[1:].split()[0] in "Once upon a time an old lighthouse keeper".split() and "stormy sea" in s, s
 print("phase14 local ai: ok")
