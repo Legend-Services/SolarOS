@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.8.1 - Start Key Opens the Start Menu — 2026-11-24
+
+### Added
+- **Start key shortcut** (taskbar layout): tapping the keyboard's Start / logo key on its own opens or closes SolarDeck's Start menu. Combinations with other keys (Start+E, Start+D, …), holding the key, or clicking while it is held leave it alone.
+- **Full screen** button in the taskbar tray. In full screen SolarDeck asks the browser to keep the Start key (Keyboard Lock), so only SolarDeck's Start menu opens. Keyboard Lock works in Chrome and Edge over **https**. Outside full screen, or over plain http, the computer may also open its own Start menu, which a web page cannot prevent.
+
 ## v1.8.0 - Taskbar Desktop Layout — 2026-11-24
 
 ### Added
