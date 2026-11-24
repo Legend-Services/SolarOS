@@ -1,7 +1,7 @@
 import { ChevronRight, LayoutGrid, List, RotateCcw, X } from "lucide-react";
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { useDock } from "../lib/stores";
-import { LIMITS, useAppView, useLayout, type Align, type IconClick, type VAlign, type ViewApp, type ViewMode } from "../store/layoutStore";
+import { LIMITS, useAppView, useLayout, type Align, type IconClick, type VAlign, type WindowControls, type ViewApp, type ViewMode } from "../store/layoutStore";
 import { APPS, type AppId } from "../apps/registry";
 import { GlassButton, GlassSlider, Segmented } from "./ui/GlassKit";
 import { AppIcon } from "./icons/AppIcons";
@@ -23,11 +23,16 @@ const CLICKS = [
   { id: "single" as IconClick, label: "Single click" },
   { id: "double" as IconClick, label: "Double click" },
 ];
+const CONTROLS = [
+  { id: "auto" as WindowControls, label: "Automatic" },
+  { id: "left" as WindowControls, label: "Circles left" },
+  { id: "right" as WindowControls, label: "Buttons right" },
+];
 const COLUMNS = ["auto", "4", "5", "6", "8"].map((id) => ({ id, label: id === "auto" ? "Auto" : id }));
 
 /** Desktop + Dock layout form: view mode, icon size and spacing sliders, reset. Used by the popover and Control Panel. */
 export function LayoutControls() {
-  const { desktopView, iconSize, colGap, rowGap, dockGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, iconClick, set, reset } = useLayout();
+  const { desktopView, iconSize, colGap, rowGap, dockGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, iconClick, windowControls, set, reset } = useLayout();
   const row = (label: string, control: ReactNode) => (
     <div className="flex items-center justify-between gap-3">
       <span className="text-[11px] text-slate-300">{label}</span>
@@ -42,6 +47,7 @@ export function LayoutControls() {
         <span className="text-[11px] text-slate-300">Desktop &amp; Launchpad view</span>
         <Segmented value={desktopView} onChange={(v) => set({ desktopView: v })} options={MODES} />
       </div>
+      {row("Window buttons", <Segmented value={windowControls} onChange={(v) => set({ windowControls: v })} options={CONTROLS} />)}
       {row("Open desktop apps with", <Segmented value={iconClick} onChange={(v) => set({ iconClick: v })} options={CLICKS} />)}
       {row("Desktop icon alignment", <Segmented value={desktopAlignment} onChange={(v) => set({ desktopAlignment: v })} options={ALIGNS} />)}
       {desktopAlignment === "center" && (

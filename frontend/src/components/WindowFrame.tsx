@@ -1,13 +1,24 @@
-import { Suspense, useEffect, useRef, useState, type ComponentType, type CSSProperties, type PointerEvent as RPointerEvent } from "react";
+import { Suspense, useEffect, useRef, useState, type ComponentType, type CSSProperties, type PointerEvent as RPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { CircleHelp, Maximize2, Minimize2, Minus, X } from "lucide-react";
+import { CircleHelp, Copy, Maximize2, Minimize2, Minus, Square, X } from "lucide-react";
 import { useWindows, type Rect, type Win } from "../lib/stores";
+import { deviceControls, useLayout } from "../store/layoutStore";
 import { useWizard } from "../store/wizardStore";
 import { APPS } from "../apps/registry";
 import WindowErrorBoundary from "./WindowErrorBoundary";
 import type { ConsoleTarget } from "../lib/types";
 
 export const TOP = 36; // top bar height
+const CAPTION = "flex h-full w-11 items-center justify-center text-slate-300 transition-colors hover:bg-white/10 hover:text-white";
+
+/** One traffic-light circle; its glyph shows while the pointer or keyboard focus is on the circle group. */
+function Light({ color, label, onClick, children }: { color: string; label: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <button onClick={onClick} aria-label={label} title={label} className={`flex h-3 w-3 items-center justify-center rounded-full text-black/60 ring-1 ring-black/25 ring-inset active:brightness-90 ${color}`}>
+      <span className="opacity-0 transition-opacity group-hover/tl:opacity-100 group-focus-within/tl:opacity-100">{children}</span>
+    </button>
+  );
+}
 const MIN_W = 360;
 const MIN_H = 240;
 const EASE = "cubic-bezier(0.22, 1, 0.36, 1)";
@@ -71,6 +82,8 @@ export default function WindowFrame({ win, mobile, Body }: { win: Win; mobile: b
   const [snap, setSnap] = useState<Snap>(null);
   const [phase, setPhase] = useState<Phase>("enter");
   const full = mobile || win.maximized;
+  const controls = useLayout((s) => s.windowControls);
+  const left = (controls === "auto" ? deviceControls() : controls) === "left";
   const { icon: Icon } = APPS[win.id];
   const p = win.params;
   const title = p ? `${p.mode === "vnc" ? "Console" : "Shell"} — ${p.name} (${p.type === "node" ? "host" : p.vmid})` : APPS[win.id].title;
@@ -153,10 +166,26 @@ export default function WindowFrame({ win, mobile, Body }: { win: Win; mobile: b
           onPointerUp={end}
           onPointerCancel={end}
           onDoubleClick={() => !mobile && toggleMaximize(win.key)}
-          className="flex h-10 shrink-0 cursor-default items-center gap-2 border-b border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.02] px-3 select-none"
+          className={`flex h-10 shrink-0 cursor-default items-center gap-2 border-b border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.02] select-none ${left ? "px-3" : "pr-0 pl-3"}`}
         >
+          {left && (
+            // Traffic-light circles; the glyphs appear while the pointer (or keyboard focus) is on the group.
+            <div className="group/tl mr-1 flex items-center gap-2">
+              <Light color="bg-[#ff5f57]" label="Close" onClick={doClose}>
+                <X size={8} strokeWidth={3} />
+              </Light>
+              <Light color="bg-[#febc2e]" label="Minimize" onClick={() => minimize(win.key)}>
+                <Minus size={8} strokeWidth={3} />
+              </Light>
+              {!mobile && (
+                <Light color="bg-[#28c840]" label={win.maximized ? "Restore" : "Maximize"} onClick={() => toggleMaximize(win.key)}>
+                  {win.maximized ? <Minimize2 size={7} strokeWidth={3} /> : <Maximize2 size={7} strokeWidth={3} />}
+                </Light>
+              )}
+            </div>
+          )}
           <Icon size={15} className="text-slate-300" />
-          <span className="flex-1 truncate text-sm font-medium text-slate-100">{title}</span>
+          <span className={`flex-1 truncate text-sm font-medium text-slate-100 ${left ? "text-center" : ""}`}>{title}</span>
           <button
             onClick={() => showGuide(win.id)}
             className="flex items-center gap-1 rounded-full bg-white/[0.07] px-2 py-0.5 text-[11px] font-medium text-slate-200 ring-1 ring-white/10 transition ring-inset hover:bg-sky-400/25 hover:text-white active:scale-95"
@@ -165,17 +194,22 @@ export default function WindowFrame({ win, mobile, Body }: { win: Win; mobile: b
           >
             <CircleHelp size={12} /> Guide
           </button>
-          <button onClick={() => minimize(win.key)} className="rounded-md p-1.5 text-slate-300 transition hover:bg-white/10 active:scale-90" aria-label="Minimize">
-            <Minus size={14} />
-          </button>
-          {!mobile && (
-            <button onClick={() => toggleMaximize(win.key)} className="rounded-md p-1.5 text-slate-300 transition hover:bg-white/10 active:scale-90" aria-label={win.maximized ? "Restore" : "Maximize"}>
-              {win.maximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-            </button>
+          {!left && (
+            // Flat full-height caption buttons flush with the right edge; close turns red.
+            <div className="ml-1 flex h-full">
+              <button onClick={() => minimize(win.key)} className={CAPTION} aria-label="Minimize">
+                <Minus size={15} strokeWidth={1.5} />
+              </button>
+              {!mobile && (
+                <button onClick={() => toggleMaximize(win.key)} className={CAPTION} aria-label={win.maximized ? "Restore" : "Maximize"}>
+                  {win.maximized ? <Copy size={13} strokeWidth={1.5} className="-scale-x-100" /> : <Square size={12} strokeWidth={1.5} />}
+                </button>
+              )}
+              <button onClick={doClose} className={`${CAPTION} hover:bg-[#e81123] hover:text-white`} aria-label="Close">
+                <X size={16} strokeWidth={1.5} />
+              </button>
+            </div>
           )}
-          <button onClick={doClose} className="rounded-md p-1.5 text-slate-300 transition hover:bg-rose-500/80 hover:text-white active:scale-90" aria-label="Close">
-            <X size={14} />
-          </button>
         </header>
         <div className="min-h-0 flex-1 overflow-hidden">
           <WindowErrorBoundary app={APPS[win.id].title}>
