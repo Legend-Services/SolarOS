@@ -179,12 +179,16 @@ class QemuBody(BaseModel):
 
 
 def qemu_params(b: QemuBody) -> dict:
+    # Windows Setup has no virtio drivers: without an extra driver ISO it would see no disk and no network.
+    windows = b.ostype.startswith("win")
+    disk, opts = ("sata0", "discard=on,ssd=1") if windows else ("scsi0", "iothread=1,discard=on")
     p = {
         "vmid": b.vmid, "name": b.name, "cores": b.cores, "sockets": b.sockets, "memory": b.memory, "bios": b.bios,
         "ostype": b.ostype, "onboot": int(b.start_on_boot), "scsihw": "virtio-scsi-single", "agent": 1,
-        "scsi0": f"{b.storage}:{b.disk_gb},iothread=1,discard=on",
+        disk: f"{b.storage}:{b.disk_gb},{opts}",
         "ide2": f"{b.iso_volume},media=cdrom" if b.iso_volume else "none,media=cdrom",
-        "net0": f"virtio,bridge={b.bridge},firewall=1", "boot": "order=scsi0;ide2;net0", "tags": GUEST_TAG,
+        "net0": f"{'e1000e' if windows else 'virtio'},bridge={b.bridge},firewall=1", "boot": f"order={disk};ide2;net0",
+        "tags": GUEST_TAG,
     }
     if b.bios == "ovmf" or b.hostpci:
         p["machine"] = "q35"  # UEFI and PCIe passthrough (pcie=1) both want the q35 chipset

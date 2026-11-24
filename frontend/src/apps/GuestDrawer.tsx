@@ -125,11 +125,11 @@ function ResourcesTab({ guest, onSaved }: { guest: Guest; onSaved: () => void })
           <GlassInput type="number" min={1} max={512} className="w-full" value={f.cores} onChange={(e) => setF({ ...f, cores: Number(e.target.value) })} required />
         </Field>
         <Field label="Memory (MB)" hint={bytes(f.memory * 1024 * 1024)}>
-          <GlassInput type="number" min={16} step={256} className="w-full" value={f.memory} onChange={(e) => setF({ ...f, memory: Number(e.target.value) })} required />
+          <GlassInput type="number" min={64} step={64} className="w-full" value={f.memory} onChange={(e) => setF({ ...f, memory: Number(e.target.value) })} required />
         </Field>
         {guest.type === "lxc" && (
           <Field label="Swap (MB)">
-            <GlassInput type="number" min={0} step={256} className="w-full" value={f.swap} onChange={(e) => setF({ ...f, swap: Number(e.target.value) })} />
+            <GlassInput type="number" min={0} step={64} className="w-full" value={f.swap} onChange={(e) => setF({ ...f, swap: Number(e.target.value) })} />
           </Field>
         )}
         <Field label="Tags" hint="Separated by ; or ,">

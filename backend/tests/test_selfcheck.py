@@ -559,6 +559,10 @@ qp = provisioning.qemu_params(provisioning.QemuBody(**vm))
 assert qp["efidisk0"].startswith("local-zfs:1,") and qp["tpmstate0"] and qp["machine"] == "q35", qp
 assert qp["ide2"] == "local:iso/w.iso,media=cdrom" and qp["tags"] == "proxmox-os-guest", qp
 assert "efidisk0" not in provisioning.qemu_params(provisioning.QemuBody(**{**vm, "bios": "seabios", "ostype": "l26"}))
+wq = provisioning.qemu_params(provisioning.QemuBody(**{**vm, "ostype": "win11"}))
+assert "sata0" in wq and "scsi0" not in wq and wq["net0"].startswith("e1000e,") and wq["boot"] == "order=sata0;ide2;net0", wq
+lq = provisioning.qemu_params(provisioning.QemuBody(**{**vm, "ostype": "l26"}))
+assert "scsi0" in lq and lq["net0"].startswith("virtio,"), lq
 assert c.post("/api/pve/guests/qemu", json={**vm, "iso_volume": "local:iso/a.iso,file=/etc"}).status_code == 422
 assert c.post("/api/pve/guests/qemu", json={**vm, "hostpci": [{"id": "01:00.0;rm"}]}).status_code == 422
 r = c.post("/api/pve/guests/qemu", json={**vm, "hostpci": [{"id": "0000:01:00.0", "x_vga": True}], "usb": [{"host": "1532:025d"}]})
