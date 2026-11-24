@@ -110,6 +110,16 @@ async def guest_action(guest_type: Literal["qemu", "lxc"], vmid: int, body: Acti
     return {"ok": True, "task": upid}
 
 
+async def zfs_helper(cmd: str) -> str | None:
+    """Helper output, or None on a host with no ZFS pools (LVM/LVM-Thin/Directory storage) instead of an error."""
+    try:
+        return await host.run([cmd])
+    except HTTPException:
+        if await _safe(_node("/disks/zfs"), []):
+            raise  # ZFS exists, so this is a real helper failure
+        return None
+
+
 @router.get("/storage")
 async def storage():
     pools, targets, disks = await asyncio.gather(
@@ -120,6 +130,7 @@ async def storage():
         "pools": [{**p, "detail": d} for p, d in zip(pools or [], details)],
         "targets": targets or [],
         "disks": disks or [],
+        "zfs_available": bool(pools),
     }
 
 
@@ -150,7 +161,8 @@ def parse_zfs_list(out: str) -> dict:
 
 @router.get("/zfs/snapshots")
 async def zfs_snapshots():
-    return parse_zfs_list(await host.run(["zfs-list"]))
+    out = await zfs_helper("zfs-list")
+    return {**parse_zfs_list(out or ""), "zfs_available": out is not None}
 
 
 class SnapshotBody(BaseModel):

@@ -50,7 +50,7 @@ You need a Proxmox VE 8 or 9 server with internet access. That's all.
 
    ```
    ╔════════════════════════════════════════════════════════════════════════════╗
-   ║                   SolarDeck for Proxmox VE v1.5.0 is ready                 ║
+   ║                   SolarDeck for Proxmox VE v1.5.1 is ready                 ║
    ╠════════════════════════════════════════════════════════════════════════════╣
    ║  Web UI URL:      http://192.168.1.230                                     ║
    ║  Username:        admin                                                    ║
@@ -73,11 +73,13 @@ You need a Proxmox VE 8 or 9 server with internet access. That's all.
 
 It finds everything by itself: the node name, the next free container ID, the best storage (ZFS > `local-lvm` > `local`), the latest Debian 12 template, and a free static IP in `.230`–`.249` (DHCP if none is free). Then it:
 
-- creates the `pve-desktop@pve` API user with a token (`Administrator` role, needed for host updates and power control),
+- installs `dmidecode`, `pciutils`, `lm-sensors` and `smartmontools` on the host (hardware inventory, BIOS facts, SMART),
+- creates the `solardeck@pve` API user with the token `solardeck@pve!solardeck` (`Administrator` role on `/`, no privilege separation, needed for host updates and power control); installs from before v1.5.1 keep their `pve-desktop@pve!webui` token,
 - creates the unprivileged container `proxmox-os` (2 cores, 2 GB RAM, 16 GB disk) and bind-mounts every ZFS dataset outside `rpool` at `/mnt/storage/<dataset>`,
 - generates a random 14-character admin password and JWT secret,
 - sets up passwordless SSH from the container to the host (for the Host Shell, ZFS snapshots, drivers and network services),
-- installs Python, Node 22, nginx and Samba, builds the app and runs a health check.
+- installs Python, Node 22, nginx and Samba, builds the app and runs a health check,
+- runs a self-test that signs in and calls `/api/pve/bios/status` and `/api/hardware/inventory`, and prints the result in the final box.
 
 ## Updating & Downgrading Without Losing Settings
 

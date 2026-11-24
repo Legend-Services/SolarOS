@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Cpu, Download, MonitorCog, RefreshCw, Repeat } from "lucide-react";
+import { Copy, Cpu, Download, MonitorCog, RefreshCw, Repeat } from "lucide-react";
 import { api } from "../lib/api";
-import { bytes, pct, tempColor } from "../lib/format";
+import { bytes, copyText, pct, tempColor } from "../lib/format";
 import { usePoll, useRunner } from "../lib/hooks";
 import { Bar } from "../components/charts";
 import { JobLog } from "../components/JobLog";
@@ -65,6 +65,32 @@ interface Inventory {
   };
   network: { name: string; mac: string; state: string; mtu: number; master: string | null; addresses: string[]; speed_mbps: number | null; driver: string | null; physical: boolean }[];
   packages: Record<string, string | null>;
+  ssh_bridge_connected: boolean;
+  ssh_bridge_message: string;
+  ssh_setup_command: string | null;
+}
+
+/** Bridge status; when the key isn't authorized yet, a 1-click copy of the command to paste into the Proxmox host shell. */
+function BridgeStatus({ inv }: { inv: Inventory }) {
+  const [copied, setCopied] = useState(false);
+  if (inv.ssh_bridge_connected) return <GlassBadge tone="success">SSH BRIDGE CONNECTED</GlassBadge>;
+  return (
+    <div className="space-y-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-200 ring-1 ring-amber-400/20 ring-inset">
+      <div className="flex items-center gap-2">
+        <GlassBadge tone="warning">SSH BRIDGE NOT CONNECTED</GlassBadge>
+        <span className="flex-1">Showing what the Proxmox API reports. Sensors, DIMMs, BIOS details and GPU drivers need the SSH bridge.</span>
+      </div>
+      <p className="font-mono text-[10px] break-all text-amber-300/80">{inv.ssh_bridge_message}</p>
+      {inv.ssh_setup_command && (
+        <div className="flex items-center gap-2">
+          <span className="flex-1">Run this once in the Proxmox host shell (as root), then click Refresh:</span>
+          <GlassButton size="xs" onClick={() => copyText(inv.ssh_setup_command!).then(() => setCopied(true))}>
+            <Copy size={12} /> {copied ? "Copied" : "Copy SSH Setup Command"}
+          </GlassButton>
+        </div>
+      )}
+    </div>
+  );
 }
 
 type Action = "nvidia-install" | "intel-install" | "amd-install" | "mode-passthrough" | "mode-host";
@@ -383,10 +409,12 @@ export default function HardwarePanel() {
       <div className="flex items-center gap-2">
         <Cpu size={15} className="text-slate-400" />
         <span className="flex-1 text-xs text-slate-400">Read live from the Proxmox host over the SSH bridge.</span>
+        {inv.ssh_bridge_connected && <BridgeStatus inv={inv} />}
         <GlassButton size="xs" onClick={load} disabled={busy}>
           <RefreshCw size={12} /> Refresh
         </GlassButton>
       </div>
+      {!inv.ssh_bridge_connected && <BridgeStatus inv={inv} />}
       <Notice error={error} />
       <Card title="System & Motherboard">
         <Rows

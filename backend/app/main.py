@@ -11,6 +11,7 @@ from .config import settings
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    host_ssh.public_key_or_none()  # create the bridge key on first start so install.sh / the UI can authorize it
     loops = [asyncio.create_task(schedules.scheduler_loop()), asyncio.create_task(updater.scheduler_loop())]
     yield
     for t in loops:

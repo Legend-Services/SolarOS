@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from
 import { Bug, ChevronLeft, Cpu, CloudDownload, KeyRound, Network, Palette, Power, RefreshCw, RotateCcw, ShieldCheck, Smartphone, SquareTerminal } from "lucide-react";
 import { api } from "../lib/api";
 import type { SystemInfo, UpdateSettings, UpdateStatus, VersionEntry } from "../lib/types";
-import { uptime } from "../lib/format";
+import { copyText, uptime } from "../lib/format";
 import { usePoll, useRunner } from "../lib/hooks";
 import { TRADEMARK_NOTICE } from "../lib/brand";
 import { MAGNIFICATION, useBugReport, useDock, useIntent, usePrefs, useWindows, WALLPAPERS, type Magnification } from "../lib/stores";
@@ -101,14 +101,15 @@ interface Bridge {
   connected: boolean;
   error: string | null;
   hostname?: string;
-  host_key_pinned: boolean;
+  setup_command: string | null;
 }
 
 function BridgeCard() {
   const [b, setB] = useState<Bridge | null>(null);
+  const [copied, setCopied] = useState(false);
   const open = useWindows((s) => s.open);
   useEffect(() => {
-    api<Bridge>("/host/bridge").then(setB, (e) => setB({ target: "", public_key: "", connected: false, error: e.message, host_key_pinned: false }));
+    api<Bridge>("/host/bridge").then(setB, (e) => setB({ target: "", public_key: "", connected: false, error: e.message, setup_command: null }));
   }, []);
   return (
     <Card
@@ -123,7 +124,6 @@ function BridgeCard() {
         <Rows
           rows={[
             ["Host", b.hostname ?? "—"],
-            ["Host key", b.host_key_pinned ? "Pinned (known_hosts)" : "Not pinned; re-run install.sh"],
             ["Public key", <span className="font-mono text-[10px] break-all whitespace-normal select-all">{b.public_key}</span>],
           ]}
         />
@@ -133,10 +133,15 @@ function BridgeCard() {
           <Notice error={b.error} />
         </div>
       )}
-      <div className="mt-3">
+      <div className="mt-3 flex flex-wrap gap-2">
         <GlassButton variant="primary" onClick={() => open("terminal")} disabled={!b?.connected}>
           <SquareTerminal size={13} /> Open Host Shell
         </GlassButton>
+        {b && !b.connected && b.setup_command && (
+          <GlassButton onClick={() => copyText(b.setup_command!).then(() => setCopied(true))}>
+            <KeyRound size={13} /> {copied ? "Copied: paste it into the Proxmox host shell" : "Copy SSH Setup Command"}
+          </GlassButton>
+        )}
       </div>
     </Card>
   );

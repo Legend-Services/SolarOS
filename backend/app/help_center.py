@@ -7,6 +7,7 @@ Every check returns the same shape so the frontend wizard can walk any user thro
 Evaluators are pure functions (tested in tests/test_help_center.py); collection and fixes reuse existing modules.
 """
 import asyncio
+import re
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -188,15 +189,23 @@ async def _bridge_error() -> str | None:
         return str(e.detail)
 
 
-BIOS_PROBE = ("for k in system-manufacturer baseboard-manufacturer baseboard-product-name bios-vendor bios-version; do "
-              "echo \"$k=$(dmidecode -s $k 2>/dev/null | head -1)\"; done; "
+# dmidecode first, then the kernel's copy in /sys/devices/virtual/dmi/id (works without the dmidecode package).
+BIOS_PROBE = ("for p in system-manufacturer:sys_vendor baseboard-manufacturer:board_vendor baseboard-product-name:board_name "
+              "bios-vendor:bios_vendor bios-version:bios_version; do k=${p%%:*}; "
+              "v=$(dmidecode -s $k 2>/dev/null | head -1); [ -n \"$v\" ] || v=$(cat /sys/devices/virtual/dmi/id/${p#*:} 2>/dev/null); "
+              "echo \"$k=$v\"; done; "
               "echo \"virt=$(grep -cE 'vmx|svm' /proc/cpuinfo)\"; echo \"cpu=$(grep -m1 vendor_id /proc/cpuinfo)\"; "
               "echo \"sb=$(mokutil --sb-state 2>/dev/null || od -An -t u1 /sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c 2>/dev/null | awk '{print $NF}')\"")
 
 
+OEM_PLACEHOLDER = re.compile(r"^(to be filled by o\.?e\.?m\.?|default string|not specified|not applicable|n/a|none|"
+                             r"system manufacturer|system product name|base board manufacturer|0123456789|x\.x+|)$", re.I)
+
+
 def parse_bios_facts(out: str) -> dict:
-    kv = dict(line.split("=", 1) for line in out.splitlines() if "=" in line)
-    sb = kv.get("sb", "").strip()
+    kv = {k: "" if OEM_PLACEHOLDER.match(v.strip()) else v.strip()
+          for k, _, v in (line.partition("=") for line in out.splitlines() if "=" in line)}
+    sb = kv.get("sb", "")
     return {"manufacturer": kv.get("system-manufacturer", ""), "board_vendor": kv.get("baseboard-manufacturer", ""),
             "board": kv.get("baseboard-product-name", ""), "bios_vendor": kv.get("bios-vendor", ""),
             "bios_version": kv.get("bios-version", ""), "virtualization": kv.get("virt", "0").strip() not in ("", "0"),
