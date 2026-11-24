@@ -1,5 +1,10 @@
 # Changelog
 
+## v1.6.5 - Single-Click Desktop Icons — 2026-11-24
+
+### Changed
+- **Desktop icons open with a single click** by default, like links on a website. A new **Open desktop apps with: Single click | Double click** setting in Control Panel → Appearance & Layout (and the desktop's View Options) brings back double-click. It is saved in the browser and on the server with the other layout preferences, and **Reset to Defaults** returns to single click. Keyboard (Enter/Space) and touch taps open apps in both modes; the icon tooltip says which one is active.
+
 ## v1.6.4 - Resize Windows From Every Edge and Corner — 2026-11-24
 
 ### Fixed

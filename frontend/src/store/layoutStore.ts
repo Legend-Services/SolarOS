@@ -7,6 +7,8 @@ import { useWizard } from "./wizardStore";
 export type ViewMode = "grid" | "list";
 export type Align = "left" | "center";
 export type VAlign = "top" | "middle";
+/** How desktop icons open their app: one click (like a website, default) or a double click. */
+export type IconClick = "single" | "double";
 /** "auto" fits as many columns as the safe width allows; a number caps it (3–8). */
 export type MaxColumns = "auto" | number;
 /** Apps with a Grid | List switcher. */
@@ -23,10 +25,11 @@ export const LIMITS = {
 } as const;
 
 export const DEFAULTS = { desktopView: "grid" as ViewMode, iconSize: 56, colGap: 20, rowGap: 16, dockGap: 8, dockSize: 46,
-  desktopAlignment: "left" as Align, desktopVerticalAlign: "top" as VAlign, desktopMaxColumns: "auto" as MaxColumns };
+  desktopAlignment: "left" as Align, desktopVerticalAlign: "top" as VAlign, desktopMaxColumns: "auto" as MaxColumns,
+  iconClick: "single" as IconClick };
 
 type Numeric = "iconSize" | "colGap" | "rowGap" | "dockGap";
-type Placement = "desktopAlignment" | "desktopVerticalAlign" | "desktopMaxColumns";
+type Placement = "desktopAlignment" | "desktopVerticalAlign" | "desktopMaxColumns" | "iconClick";
 
 interface LayoutState {
   desktopView: ViewMode;
@@ -37,6 +40,7 @@ interface LayoutState {
   desktopAlignment: Align;
   desktopVerticalAlign: VAlign;
   desktopMaxColumns: MaxColumns;
+  iconClick: IconClick;
   appViews: Partial<Record<ViewApp, ViewMode>>;
   /** View Options popover (not persisted). */
   panel: boolean;
@@ -64,13 +68,14 @@ function sanitize(saved: Partial<LayoutState> | undefined, cur: LayoutState): Pa
     desktopAlignment: p.desktopAlignment === "left" || p.desktopAlignment === "center" ? p.desktopAlignment : cur.desktopAlignment,
     desktopVerticalAlign: p.desktopVerticalAlign === "top" || p.desktopVerticalAlign === "middle" ? p.desktopVerticalAlign : cur.desktopVerticalAlign,
     desktopMaxColumns: p.desktopMaxColumns === "auto" ? "auto" : typeof p.desktopMaxColumns === "number" ? clamp(p.desktopMaxColumns, LIMITS.maxColumns, 3) : cur.desktopMaxColumns,
+    iconClick: p.iconClick === "single" || p.iconClick === "double" ? p.iconClick : cur.iconClick,
     appViews: Object.fromEntries(Object.entries(views).map(([k, v]) => [k, mode(v, "grid")])),
   };
 }
 
 /** The fields saved to localStorage and /api/system/preferences. */
-const persisted = ({ desktopView, iconSize, colGap, rowGap, dockGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, appViews }: LayoutState) =>
-  ({ desktopView, iconSize, colGap, rowGap, dockGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, appViews });
+const persisted = ({ desktopView, iconSize, colGap, rowGap, dockGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, iconClick, appViews }: LayoutState) =>
+  ({ desktopView, iconSize, colGap, rowGap, dockGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, iconClick, appViews });
 
 export const useLayout = create<LayoutState>()(
   persist(
@@ -83,13 +88,14 @@ export const useLayout = create<LayoutState>()(
       desktopAlignment: DEFAULTS.desktopAlignment,
       desktopVerticalAlign: DEFAULTS.desktopVerticalAlign,
       desktopMaxColumns: DEFAULTS.desktopMaxColumns,
+      iconClick: DEFAULTS.iconClick,
       appViews: {},
       panel: false,
       set: (patch) => set(patch),
       setAppView: (app, m) => set((s) => ({ appViews: { ...s.appViews, [app]: m } })),
       reset: () => {
         set({ desktopView: DEFAULTS.desktopView, iconSize: DEFAULTS.iconSize, colGap: DEFAULTS.colGap, rowGap: DEFAULTS.rowGap, dockGap: DEFAULTS.dockGap,
-          desktopAlignment: DEFAULTS.desktopAlignment, desktopVerticalAlign: DEFAULTS.desktopVerticalAlign, desktopMaxColumns: DEFAULTS.desktopMaxColumns });
+          desktopAlignment: DEFAULTS.desktopAlignment, desktopVerticalAlign: DEFAULTS.desktopVerticalAlign, desktopMaxColumns: DEFAULTS.desktopMaxColumns, iconClick: DEFAULTS.iconClick });
         useDock.getState().set({ baseSize: DEFAULTS.dockSize });
       },
     }),
