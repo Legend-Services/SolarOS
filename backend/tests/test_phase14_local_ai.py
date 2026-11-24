@@ -92,4 +92,32 @@ for bad in ("/etc", "/", "/mnt", "/mnt/../etc", "/mnt/a/..", "/mnt/x;rm -rf /", 
 mv = ai.storage_script("/mnt/storage/ai-models", "/mnt/tank/models", True)
 assert "cp -a --reflink=auto /mnt/storage/ai-models/. /mnt/tank/models/" in mv and "chown 100000:100000 /mnt/tank/models" in mv
 assert "cp -a" not in ai.storage_script("/mnt/a", "/mnt/b", False) and "cp -a" not in ai.storage_script(None, "/mnt/b", True)
+
+# Chat history: stored server-side (temp file here), newest first, capped, validated.
+import asyncio  # noqa: E402
+
+ai.CHATS_FILE = Path(tempfile.mkdtemp()) / "ai_chats.json"
+msg = [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello", "tps": 50.0, "tokens": 3}]
+doc = lambda t: ai.ChatDoc(title=t, model="qwen2.5:0.5b", messages=msg)  # noqa: E731
+assert asyncio.run(ai.list_chats()) == []
+asyncio.run(ai.put_chat(doc("first"), "a" * 12))
+asyncio.run(ai.put_chat(doc("second"), "b" * 12))
+ai.save_chats({**ai.load_chats(), "a" * 12: {**ai.load_chats()["a" * 12], "updated": 1}})  # make "first" the oldest
+assert [c["title"] for c in asyncio.run(ai.list_chats())] == ["second", "first"]
+got = asyncio.run(ai.get_chat("b" * 12))
+assert got["messages"][1] == {"role": "assistant", "content": "hello", "tps": 50.0, "tokens": 3} and got["created"] <= got["updated"]
+asyncio.run(ai.delete_chat("b" * 12))
+assert [c["title"] for c in asyncio.run(ai.list_chats())] == ["first"]
+ai.MAX_CHATS = 2
+for i, cid in enumerate(("c" * 12, "d" * 12)):
+    asyncio.run(ai.put_chat(doc(f"new{i}"), cid))
+assert sorted(c["title"] for c in asyncio.run(ai.list_chats())) == ["new0", "new1"], "oldest chat not dropped at the cap"
+for bad in ({"title": "", "model": "m", "messages": msg}, {"title": "t", "model": "$(id)", "messages": msg},
+            {"title": "t", "model": "m", "messages": []}, {"title": "t", "model": "m", "messages": [{"role": "system", "content": "x"}]}):
+    try:
+        ai.ChatDoc(**bad)
+        raise AssertionError(f"chat accepted: {bad}")
+    except ValidationError:
+        pass
+assert re.fullmatch(ai.CHAT_ID_RE, "0123456789ab") and not re.fullmatch(ai.CHAT_ID_RE, "../../etc/pw")
 print("phase14 local ai: ok")

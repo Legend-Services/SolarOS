@@ -544,6 +544,81 @@ async def set_storage(body: StorageBody):
     return save_state(model_storage=body.path) | {"models_bytes": int(size) if size.isdigit() else None}
 
 
+# ---------------------------------------------------------------- Routes: chat history
+
+CHATS_FILE = DATA / "ai_chats.json"
+MAX_CHATS = 200  # the oldest conversations beyond this are dropped
+CHAT_ID_RE = r"^[0-9a-f]{12}$"
+_chats_lock = asyncio.Lock()
+
+
+def load_chats() -> dict[str, dict]:
+    try:
+        data = json.loads(CHATS_FILE.read_text())
+    except (OSError, ValueError):  # missing or hand-damaged file: start empty
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def save_chats(chats: dict[str, dict]) -> None:
+    newest = sorted(chats.items(), key=lambda kv: kv[1].get("updated", 0), reverse=True)[:MAX_CHATS]
+    tmp = CHATS_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(dict(newest)))
+    tmp.replace(CHATS_FILE)  # atomic: a crash never leaves a half-written history
+
+
+class StoredMessage(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(max_length=200_000)
+    thinking: str | None = Field(None, max_length=200_000)
+    tps: float | None = None
+    tokens: int | None = None
+    stopped: bool | None = None
+
+
+class ChatDoc(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    model: str = Field(pattern=MODEL_RE)
+    messages: list[StoredMessage] = Field(min_length=1, max_length=500)
+
+
+@router.get("/chats")
+async def list_chats():
+    """Conversation summaries, newest first."""
+    return sorted(({"id": k, "title": v.get("title", ""), "model": v.get("model", ""), "updated": v.get("updated", 0),
+                    "messages": len(v.get("messages", []))} for k, v in load_chats().items()),
+                  key=lambda c: c["updated"], reverse=True)
+
+
+@router.get("/chats/{chat_id}")
+async def get_chat(chat_id: str = PathParam(pattern=CHAT_ID_RE)):
+    chat = load_chats().get(chat_id)
+    if not chat:
+        raise HTTPException(404, "Conversation not found")
+    return {"id": chat_id, **chat}
+
+
+@router.put("/chats/{chat_id}")
+async def put_chat(body: ChatDoc, chat_id: str = PathParam(pattern=CHAT_ID_RE)):
+    async with _chats_lock:
+        chats = load_chats()
+        now = int(time.time())
+        chats[chat_id] = {**body.model_dump(exclude_none=True), "created": chats.get(chat_id, {}).get("created", now),
+                          "updated": now}
+        save_chats(chats)
+    return {"id": chat_id, "updated": now}
+
+
+@router.delete("/chats/{chat_id}")
+async def delete_chat(chat_id: str = PathParam(pattern=CHAT_ID_RE)):
+    async with _chats_lock:
+        chats = load_chats()
+        if chats.pop(chat_id, None) is None:
+            raise HTTPException(404, "Conversation not found")
+        save_chats(chats)
+    return {"ok": True}
+
+
 # ---------------------------------------------------------------- Routes: status & models
 
 

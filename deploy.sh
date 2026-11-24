@@ -31,7 +31,7 @@ echo "==> Checking ${TARGET}"
 echo "==> Uploading $(basename "$ROOT") to ${HOST}:${REMOTE_DIR}"
 # COPYFILE_DISABLE stops BSD tar from adding ._* resource-fork files.
 COPYFILE_DISABLE=1 tar -C "$ROOT" --exclude=.git --exclude=node_modules --exclude=.venv --exclude=.env \
-  --exclude=dist --exclude=__pycache__ --exclude=.claude --exclude=backend/data/schedules.json --exclude=backend/data/security.json --exclude=backend/data/user_preferences.json --exclude=backend/data/benchmarks.json --exclude=backend/data/local_ai.json --exclude=backend/.ssh -czf - . \
+  --exclude=dist --exclude=__pycache__ --exclude=.claude --exclude=backend/data/schedules.json --exclude=backend/data/security.json --exclude=backend/data/user_preferences.json --exclude=backend/data/benchmarks.json --exclude=backend/data/local_ai.json --exclude=backend/data/ai_chats.json --exclude=backend/.ssh -czf - . \
   | "${SSH[@]}" "rm -rf ${REMOTE_DIR} && mkdir -p ${REMOTE_DIR} && tar -xzf - -C ${REMOTE_DIR}"
 
 # No .git is uploaded; record the commit so the System Update card can show it and compare against GitHub.
