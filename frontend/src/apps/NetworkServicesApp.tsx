@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { Award, Download, Globe, Network, Plus, QrCode, RefreshCw, Route, ShieldCheck, Trash2, Waypoints } from "lucide-react";
+import { AtSign, Award, Download, Globe, Network, Plus, QrCode, RefreshCw, Route, ShieldCheck, Trash2, Waypoints } from "lucide-react";
 import { api } from "../lib/api";
 import { bytes } from "../lib/format";
 import { usePoll, useRunner } from "../lib/hooks";
 import { JobLog } from "../components/JobLog";
 import { GuideBanner } from "../components/wizards/GuidedWizardModal";
 import { useIntentFor } from "../lib/stores";
+import DomainsTab from "./network/DomainsTab";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, Notice } from "../components/ui/GlassKit";
 
 /* ---------------- Types (local to this app) ---------------- */
@@ -139,13 +140,14 @@ interface CertState {
   nginx_https: boolean;
 }
 
-type Tab = "dns" | "dhcp" | "wg" | "wgc" | "router" | "certs";
+type Tab = "dns" | "dhcp" | "wg" | "wgc" | "router" | "domains" | "certs";
 const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
   { id: "dns", label: "DNS & AdBlock", icon: <ShieldCheck size={15} /> },
   { id: "dhcp", label: "DHCP", icon: <Network size={15} /> },
   { id: "wg", label: "WireGuard Server", icon: <Waypoints size={15} /> },
   { id: "wgc", label: "WireGuard Client", icon: <Globe size={15} /> },
   { id: "router", label: "Router & NAT", icon: <Route size={15} /> },
+  { id: "domains", label: "Domains", icon: <AtSign size={15} /> },
   { id: "certs", label: "Certificates", icon: <Award size={15} /> },
 ];
 
@@ -1092,6 +1094,8 @@ export default function NetworkServicesApp() {
         <Notice error={error} />
         {tab === "certs" ? (
           <CertsTab />
+        ) : tab === "domains" ? (
+          <DomainsTab onOpenDns={() => setTab("dns")} />
         ) : !status ? (
           !error && <p className="text-sm text-slate-400">Loading…</p>
         ) : tab === "dns" ? (

@@ -147,7 +147,7 @@ export interface Intents {
   storage?: "pool" | "dataset" | "pools" | "disks" | "benchmark" | "snapshots"; // a dialog or a tab
   controlpanel?: "security" | "network" | "appearance" | "hardware" | "power";
   help?: "ask" | "fix" | "bios" | "tutorials" | "faq";
-  netservices?: "dns" | "dhcp" | "wg" | "wgc" | "router" | "certs";
+  netservices?: "dns" | "dhcp" | "wg" | "wgc" | "router" | "domains" | "certs";
   backup?: "backups" | "schedules" | "now"; // a tab, or the Back Up Now dialog
   shares?: "create" | "users";
 }
