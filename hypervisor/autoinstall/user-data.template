@@ -1,5 +1,5 @@
 #cloud-config
-# SolarDeck Hypervisor unattended installation (Ubuntu autoinstall v1). build-iso.sh fills the @@...@@ fields.
+# SolarOS unattended installation (Ubuntu autoinstall v1). build-iso.sh fills the @@...@@ fields.
 # Subiquity installs the OS; on first boot solardeck-firstboot.service runs hypervisor/firstboot-setup.sh from the
 # SolarDeck bundle copied off the ISO (source, prebuilt desktop and Python wheels; APT packages need the network).
 autoinstall:
@@ -27,7 +27,7 @@ autoinstall:
   identity:
     hostname: @@HOSTNAME@@
     username: solardeck
-    realname: SolarDeck Administrator
+    realname: SolarOS Administrator
     password: "@@PASSWORD_HASH@@"
   ssh:
     install-server: true

@@ -239,3 +239,8 @@ body {
     animation-duration: 1ms !important;
   }
 }
+
+/* Product logo variants (ProductLogo.tsx): white wordmark on dark glass, navy wordmark in light mode. */
+.brand-on-light { display: none; }
+:root[data-color-mode="light"] .brand-on-light { display: inline-block; }
+:root[data-color-mode="light"] .brand-on-dark { display: none; }

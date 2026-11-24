@@ -66,15 +66,15 @@ assert q["title"] == ["[UI & Desktop] Broken"] and q["labels"] == ["bug,user-rep
 report = bug_report.BugReport(title="Dock jumps", category="UI & Desktop", description="It jumps", steps_to_reproduce="1. Hover")
 body = bug_report.format_body(report, None)
 assert "### Steps to reproduce" in body and "System diagnostics" not in body
-# ---- Standalone Hypervisor ISO card
+# ---- SolarOS installer ISO card
 import asyncio, hashlib  # noqa: E401,E402
 with tempfile.TemporaryDirectory() as d:
     settings.storage_root = Path(d)
     (Path(d) / "isos").mkdir()
-    (Path(d) / "isos" / "SolarDeck-Hypervisor-v2.2.0-amd64.iso").write_bytes(b"iso")
+    (Path(d) / "isos" / "SolarOS-v2.2.1-amd64.iso").write_bytes(b"iso")
     (Path(d) / "isos" / "windows.iso").write_bytes(b"x")
     r = asyncio.run(updater.hypervisor_iso())
-    assert [i["name"] for i in r["isos"]] == ["SolarDeck-Hypervisor-v2.2.0-amd64.iso"], r
+    assert [i["name"] for i in r["isos"]] == ["SolarOS-v2.2.1-amd64.iso"], r
     assert r["isos"][0]["sha256"] == hashlib.sha256(b"iso").hexdigest() and r["isos"][0]["size"] == 3
     assert updater.find_isos([Path(d) / "missing"]) == [] and "build-iso.sh" in r["build_command"]
 print("phase 7 updater + bug report OK")

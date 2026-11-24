@@ -1,6 +1,12 @@
 # SolarDeck
 
-*SolarDeck for Proxmox VE* — a web desktop for your Proxmox VE server.
+<p>
+  <img src="frontend/public/brand/solardeck-proxmox-logo.svg" alt="SolarDeck for Proxmox VE" height="96">
+  &nbsp;&nbsp;
+  <img src="frontend/public/brand/solaros-logo.svg" alt="SolarOS" height="96">
+</p>
+
+*SolarDeck for Proxmox VE* — a web desktop for your Proxmox VE server, installed as its own LXC container. *SolarOS* is the same desktop as a standalone hypervisor operating system (bootable ISO, no Proxmox VE).
 
 [![Version](https://img.shields.io/badge/version-1.5.0-38bdf8)](CHANGELOG.md)
 [![Proxmox VE](https://img.shields.io/badge/Proxmox%20VE-8%20%7C%209-e57000)](https://www.proxmox.com/en/proxmox-virtual-environment)
@@ -56,7 +62,7 @@ You need a Proxmox VE 8 or 9 server with internet access. That's all.
 
    ```
    ╔════════════════════════════════════════════════════════════════════════════╗
-   ║                   SolarDeck for Proxmox VE v2.2.0 is ready                 ║
+   ║                   SolarDeck for Proxmox VE v2.2.1 is ready                 ║
    ╠════════════════════════════════════════════════════════════════════════════╣
    ║  Web UI URL:      http://192.168.1.230                                     ║
    ║  Username:        admin                                                    ║
@@ -88,7 +94,7 @@ It finds everything by itself: the node name, the next free container ID, the be
 - enables HTTPS on port 443 with a self-signed certificate for the container's IP and hostname (`deploy/selfsigned-cert.sh`, renewed automatically). Your browser warns about it once; get a Let's Encrypt certificate for your own domain in Network & Services → Domains (DNS-01, renewed automatically) or upload one in Certificates, and updates will keep that one. Plain http keeps working,
 - runs a self-test that signs in and calls `/api/pve/bios/status` and `/api/hardware/inventory`, and prints the result in the final box.
 
-## Standalone SolarDeck Hypervisor (no Proxmox VE)
+## SolarOS: standalone hypervisor OS (no Proxmox VE)
 
 On a clean **Ubuntu Server 24.04 / 26.04 LTS** machine, as root:
 
@@ -100,7 +106,7 @@ It installs KVM/libvirt, Incus, OpenZFS and the disk/sensor tools, creates the `
 `/opt/solardeck` with `HYPERVISOR_DRIVER=native_ubuntu`, and (with `--with-console-tui`) shows a console dashboard on
 the server's monitor. Or build a bootable installer ISO with `hypervisor/build-iso.sh`. Details: [hypervisor/README.md](hypervisor/README.md).
 
-### Testing SolarDeck Hypervisor ISO inside a Proxmox VE VM
+### Testing the SolarOS ISO inside a Proxmox VE VM
 
 You can test the whole standalone edition (installer, first-boot setup, tty1 console, VMs, containers and ZFS) in a
 nested VM on any Proxmox VE host. Run as root on the Proxmox host:
@@ -121,8 +127,8 @@ next free VMID from 900, `local-zfs` or `local-lvm` and `vmbr0` unless you pass 
 
 Then open **Datacenter → your node → the VM → Console** (noVNC):
 
-1. Choose **SolarDeck Hypervisor - Automated VM Test Install** in the boot menu. The default entry,
-   **Install SolarDeck Hypervisor (Interactive Disk Selection)**, asks for the disk and is the one to use on real servers.
+1. Choose **SolarOS - Automated VM Test Install** in the boot menu. The default entry,
+   **Install SolarOS (Interactive Disk Selection)**, asks for the disk and is the one to use on real servers.
 2. After the reboot, the first-boot setup bridges the NIC into `br0`, installs KVM/libvirt, Incus, OpenZFS and
    SolarDeck, and starts the tty1 console. It shows the web URL and the initial `admin` password.
 3. Sign in at `http://<VM IP>`, then build a ZFS mirror or RAIDZ1 from the two blank data disks in Storage & ZFS and
@@ -192,7 +198,7 @@ The backend talks to the hypervisor through one contract, `HypervisorProvider` i
 same repository and desktop can manage different platforms. `HYPERVISOR_DRIVER` in `backend/.env` picks the driver:
 
 - `proxmox` (default, also when the key is missing): the Proxmox VE REST API plus host tools over the helper/bridge.
-- `native_ubuntu`: the standalone **SolarDeck Hypervisor** on Ubuntu Server LTS, where SolarDeck itself is the
+- `native_ubuntu`: **SolarOS**, the standalone edition on Ubuntu Server LTS, where SolarDeck itself is the
   management layer: QEMU/KVM guests through libvirt, containers through Incus, OpenZFS, smartctl/hdparm/nvme-cli/fio,
   Netplan and a local root helper. Its routes (`backend/providers/native_ubuntu/routes.py`) shadow the Proxmox ones
   at the same paths, so the desktop is identical. Proxmox-only extras (cluster log, PVE storage backends, API tokens,
@@ -285,7 +291,7 @@ cd frontend && npm ci && npm run dev
 - There is a single admin account from `.env` and no login rate limiting. Keep the UI on a trusted network.
 - The installer doesn't add bind mounts for pools created after the container. Delete the container and re-run the installer to pick them up.
 - Network throughput and ZFS ARC come from Proxmox's 1-minute averages, so those charts update in steps.
-- SolarDeck Hypervisor (standalone): task logs live in memory and are lost when the backend restarts; VM snapshots
+- SolarOS: task logs live in memory and are lost when the backend restarts; VM snapshots
   need QCOW2 disks (VMs on ZFS volumes are protected with dataset snapshots and backups instead); static container
   addresses use the cloud-init image variants.
 - Schedules, automation rules and update checks run inside the backend. A run that is due while it is down is skipped, not replayed.

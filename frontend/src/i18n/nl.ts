@@ -21,7 +21,7 @@ export const nl: Dict = {
   "common.moveDown": "Omlaag",
 
   // Login screen
-  "login.subtitle": "SolarDeck voor {platform} · Log in om door te gaan",
+  "login.subtitle": "Log in om door te gaan",
   "login.username": "Gebruikersnaam",
   "login.password": "Wachtwoord",
   "login.signIn": "Inloggen",
@@ -33,8 +33,8 @@ export const nl: Dict = {
   "top.search": "Zoeken (Ctrl+K)",
   "top.hostShell": "Host-shell (root op de {platform}-host)",
   "driver.proxmox": "Proxmox VE",
-  "driver.standalone": "Zelfstandige hypervisor",
-  "about.title": "Over SolarDeck",
+  "driver.standalone": "SolarOS",
+  "about.title": "Over {product}",
   "about.driver": "Hypervisor-driver",
   "about.platform": "Platform",
   "about.desc": "SolarDeck draait op een uitwisselbare hypervisor-driver; hetzelfde bureaublad beheert beide platforms.",

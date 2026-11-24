@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.2.1 - SolarOS Name, Product Logos & ISO Live-Test Fixes — 2026-11-24
+
+### Changed
+- The standalone edition is now called **SolarOS** everywhere you can see it: sign-in and lock screen, top bar, About card, driver badge, Control Panel, browser tab, tty1 console, GRUB menu, installer messages and the ISO name (`SolarOS-v<version>-amd64.iso`, default host name `solaros`). The Proxmox VE edition is **SolarDeck for Proxmox VE**, installed as its own LXC container. The sign-in screen no longer reads "SolarDeck for SolarDeck Hypervisor". Internal names (`/opt/solardeck`, the `solardeck-*` units, `HYPERVISOR_DRIVER=native_ubuntu`) are unchanged, so existing installs update normally.
+- The ISO card lists both `SolarOS-*.iso` and older `SolarDeck-Hypervisor-*.iso` builds.
+
+### Added
+- **Product logos** for SolarOS and SolarDeck for Proxmox VE (`frontend/public/brand/`): an orange sun with orbit arrows, a power symbol (SolarOS) or an app grid (SolarDeck), and a stroke-drawn wordmark. Each has a dark-background version, a light-mode version and an icon-only mark. They are used on the sign-in screen (following the color mode), as the browser tab icon and in the READMEs. Regenerate them with `python3 frontend/scripts/generate-logos.py frontend/public/brand`.
+
+### Fixed (found by booting the v2.2.0 ISO in a nested Proxmox VE VM)
+- `build-iso.sh` stopped every build with "unfilled placeholder": its check matched the template's own comment.
+- The GRUB entry for the automated install showed blank space where the em dash was; it now uses a plain hyphen.
+- `test-in-proxmox-vm.sh` boots `scsi0;ide2`, so the installed disk starts after the install instead of the installer running again.
+- `install-hypervisor.sh --bundle` left `.build-commit` empty, so the updater showed no version.
+- Console: libvirtd counts as ready when its socket is active (Ubuntu starts it on demand), and the screen repaints fully, so boot messages no longer stay on top of it.
+
 ## v2.2.0 - Phase 20: Offline-Capable Bootable ISO Builder, First-Boot Appliance Setup & Proxmox Nested-VM Test Harness — 2026-11-24
 
 ### Added

@@ -58,14 +58,14 @@ assert c.post("/api/v1/guests/lxc/100/action", json={"action": "explode"}).statu
 # Standalone driver: the full contract is implemented (Phase 19; see tests/test_phase19_native.py).
 native = NativeUbuntuProvider()
 caps = native.get_capabilities()
-assert caps.driver == "native_ubuntu" and caps.platform_label == "SolarDeck Hypervisor"
+assert caps.driver == "native_ubuntu" and caps.platform_label == "SolarOS"
 assert not caps.supports_clustering and not caps.supports_rbac_realms and caps.supports_host_shell
 assert not NativeUbuntuProvider.__abstractmethods__
 assert all(m in NativeUbuntuProvider.__dict__ for m in HypervisorProvider.__abstractmethods__)  # no inherited stubs
 
 # Unified updater: the edition follows the driver; host package upgrades are standalone-only.
 from app import updater  # noqa: E402
-assert updater.edition()["edition"] == "Proxmox VE Deck"
+assert updater.edition()["edition"] == "SolarDeck for Proxmox VE"
 r = c.post("/api/system/updates/apply", json={"include_system_packages": True})
 assert r.status_code == 400, r.text
 

@@ -1,15 +1,14 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { ArrowRight, Loader2, Server, ShieldCheck, User } from "lucide-react";
+import { ArrowRight, Loader2, Server, ShieldCheck } from "lucide-react";
 import { useAuth } from "../lib/stores";
 import { useClock } from "../lib/hooks";
 import { TRADEMARK_NOTICE } from "../lib/brand";
 import { useTranslation } from "../i18n";
-import { usePlatformLabel } from "../store/capabilitiesStore";
 import LanguagePill from "./LanguagePill";
+import ProductLogo from "./ProductLogo";
 
 export default function LockScreen({ visible, checking }: { visible: boolean; checking: boolean }) {
   const { t, language } = useTranslation();
-  const platform = usePlatformLabel();
   const now = useClock();
   const login = useAuth((s) => s.login);
   const lockedUser = useAuth((s) => s.username);
@@ -80,14 +79,9 @@ export default function LockScreen({ visible, checking }: { visible: boolean; ch
           </div>
         ) : (
           <>
-            <div className="mb-5 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-gradient-to-br from-sky-400 to-violet-500">
-                <User size={20} className="text-white" />
-              </div>
-              <div>
-                <div className="font-medium text-white">SolarDeck</div>
-                <div className="text-xs text-slate-400">{t("login.subtitle", { platform })}</div>
-              </div>
+            <div className="mb-5 flex flex-col items-center gap-2 text-center">
+              <ProductLogo className="h-14 max-w-full" />
+              <div className="text-xs text-slate-400">{t("login.subtitle")}</div>
             </div>
             <label className="mb-1 block text-xs text-slate-400" htmlFor="u">
               {t("login.username")}

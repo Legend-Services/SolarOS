@@ -327,7 +327,7 @@ async def delete_pool(poolid: str = Path(pattern=pve_access.ID_RE)):
 
 @router.get("/api/pve/access/tokens")
 async def tokens():
-    return []  # SolarDeck Hypervisor has no hypervisor API tokens: the backend is the API
+    return []  # SolarOS has no hypervisor API tokens: the backend is the API
 
 
 @router.get("/api/pve/access/domains")
@@ -371,8 +371,8 @@ async def info():
     dns = dict(re.findall(r"^(nameserver|search)\s+(\S+)", FsPath("/etc/resolv.conf").read_text(), re.M)) \
         if FsPath("/etc/resolv.conf").exists() else {}
     return {
-        "node": settings.pve_node, "version": {"release": os_release.get("VERSION_ID", ""), "version": "SolarDeck Hypervisor"},
-        "pveversion": f"SolarDeck Hypervisor ({os_release.get('PRETTY_NAME', 'Linux')})", "kernel": m.kernel,
+        "node": settings.pve_node, "version": {"release": os_release.get("VERSION_ID", ""), "version": "SolarOS"},
+        "pveversion": f"SolarOS ({os_release.get('PRETTY_NAME', 'Linux')})", "kernel": m.kernel,
         "uptime": m.uptime, "cpu_model": m.cpuinfo.get("model", ""), "cpus": m.cpuinfo.get("cpus", 0),
         "boot_mode": "efi" if FsPath("/sys/firmware/efi").exists() else "bios",
         "network": [n.model_dump() for n in net], "dns": {"dns1": dns.get("nameserver"), "search": dns.get("search")},

@@ -101,7 +101,7 @@ def wait(c, upid):
 
 c = TestClient(app)
 assert c.post("/api/auth/login", json={"username": "admin", "password": "pw"}).status_code == 200
-assert c.get("/api/v1/system/capabilities").json()["platform_label"] == "SolarDeck Hypervisor"
+assert c.get("/api/v1/system/capabilities").json()["platform_label"] == "SolarOS"
 
 # Guests: libvirt domain + Incus container get stable VMIDs, persisted in the registry.
 g = c.get("/api/v1/guests").json()
@@ -204,7 +204,7 @@ tree = nat.zpool_tree([{"name": "tank", "state": "ONLINE", "depth": 0, "read": 0
                       "tank")
 assert tree[0]["children"][0]["children"][0]["name"] == "/dev/sda"
 from app import updater  # noqa: E402
-assert updater.edition() == {"driver": "native_ubuntu", "edition": "SolarDeck Standalone Hypervisor",
+assert updater.edition() == {"driver": "native_ubuntu", "edition": "SolarOS",
                              "service": "solardeck-backend", "supports_system_packages": True}
 asyncio.run(asyncio.sleep(0))
 print("phase 19 native driver self-check OK")

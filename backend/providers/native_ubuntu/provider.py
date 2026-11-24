@@ -111,7 +111,7 @@ class NativeUbuntuProvider(HypervisorProvider):
     # ============================================================ Capabilities & host telemetry
     def get_capabilities(self) -> ProviderCapabilities:
         return ProviderCapabilities(
-            driver="native_ubuntu", platform_label="SolarDeck Hypervisor", supports_clustering=False,
+            driver="native_ubuntu", platform_label="SolarOS", supports_clustering=False,
             supports_lxc=True, supports_qemu=True, supports_zfs=True, supports_gpu_passthrough=True,
             supports_bios_manager=True, supports_rbac_realms=False, supports_apt_repos=True, supports_host_shell=True)
 
@@ -154,7 +154,7 @@ class NativeUbuntuProvider(HypervisorProvider):
                     "arc": arc},
             swap={"used": mem.get("SwapTotal", 0) - mem.get("SwapFree", 0), "total": mem.get("SwapTotal", 0)},
             uptime=int(float((proc / "uptime").read_text().split()[0])), kernel=os.uname().release,
-            pveversion="SolarDeck Hypervisor",
+            pveversion="SolarOS",
             cpuinfo={"model": model, "cpus": os.cpu_count() or 0, "sockets": sockets, "cores": cores},
             net=net,
             vms={"running": count("qemu", "running"), "stopped": count("qemu", "stopped"),

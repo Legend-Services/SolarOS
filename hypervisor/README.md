@@ -1,7 +1,9 @@
-# SolarDeck Hypervisor (standalone edition)
+<img src="../frontend/public/brand/solaros-logo.svg" alt="SolarOS" height="96">
 
-SolarDeck normally runs on top of Proxmox VE (`install.sh`, the *Proxmox VE Deck*). This folder turns a plain
-**Ubuntu Server 24.04 / 26.04 LTS** machine into a standalone **SolarDeck Hypervisor**, where SolarDeck itself manages
+# SolarOS (standalone edition)
+
+SolarDeck normally runs on top of Proxmox VE (`install.sh`, *SolarDeck for Proxmox VE*, an LXC container). This folder turns a plain
+**Ubuntu Server 24.04 / 26.04 LTS** machine into **SolarOS**, where SolarDeck itself manages
 QEMU/KVM virtual machines (libvirt), Linux containers (Incus), OpenZFS storage, disks, backups and the network.
 Both editions are built from the same `main` branch; `HYPERVISOR_DRIVER` in `backend/.env` selects the driver.
 
@@ -64,13 +66,13 @@ On a Linux machine with `xorriso`, `curl` and `openssl` (plus Node.js 22 and `py
 and the Python wheels):
 
 ```bash
-sudo bash hypervisor/build-iso.sh                 # -> ./dist/SolarDeck-Hypervisor-v2.2.0-amd64.iso
+sudo bash hypervisor/build-iso.sh                 # -> ./dist/SolarOS-v2.2.1-amd64.iso
 # options: --source-iso ubuntu-24.04.3-live-server-amd64.iso  --output <path>  --auto-disk /dev/sda  --deploy-to-pve
 #          --ubuntu-release 26.04  --hostname hv1  --password <console user password>
 ```
 
 Without `--source-iso` the latest official live-server ISO of the release is downloaded and checked against
-`SHA256SUMS`. The default boot entry, **Install SolarDeck Hypervisor (Interactive Disk Selection)**, asks for the
+`SHA256SUMS`. The default boot entry, **Install SolarOS (Interactive Disk Selection)**, asks for the
 target disk, so it is safe on servers with data disks. `--auto-disk <device>` adds **SolarDeck Hypervisor - Automated
 VM Test Install**, which erases that disk without asking. `--deploy-to-pve` copies the ISO to
 `/var/lib/vz/template/iso/` on a Proxmox VE host.
@@ -89,7 +91,7 @@ boot `solardeck-firstboot.service` runs `firstboot-setup.sh`. It:
 
 The tty1 console then shows the web URL and the initial `admin` password (`/etc/solardeck/initial-credentials.txt`).
 
-## Testing SolarDeck Hypervisor ISO inside a Proxmox VE VM
+## Testing the SolarOS ISO inside a Proxmox VE VM
 
 You can test the whole standalone edition (installer, first-boot setup, tty1 console, VMs, containers and ZFS) in a
 nested VM on any Proxmox VE host. Run as root on the Proxmox host:
@@ -110,8 +112,8 @@ next free VMID from 900, `local-zfs` or `local-lvm` and `vmbr0` unless you pass 
 
 Then open **Datacenter → your node → the VM → Console** (noVNC):
 
-1. Choose **SolarDeck Hypervisor - Automated VM Test Install** in the boot menu. The default entry,
-   **Install SolarDeck Hypervisor (Interactive Disk Selection)**, asks for the disk and is the one to use on real servers.
+1. Choose **SolarOS - Automated VM Test Install** in the boot menu. The default entry,
+   **Install SolarOS (Interactive Disk Selection)**, asks for the disk and is the one to use on real servers.
 2. After the reboot, the first-boot setup bridges the NIC into `br0`, installs KVM/libvirt, Incus, OpenZFS and
    SolarDeck, and starts the tty1 console. It shows the web URL and the initial `admin` password.
 3. Sign in at `http://<VM IP>`, then build a ZFS mirror or RAIDZ1 from the two blank data disks in Storage & ZFS and
@@ -123,7 +125,7 @@ Eject the ISO afterwards with `qm set <vmid> --ide2 none,media=cdrom`; remove th
 
 ## Updates
 
-Control Panel → System & Updates shows *SolarDeck Standalone Hypervisor* and tracks `origin/main`, the same branch as
+Control Panel → System & Updates shows *SolarOS* and tracks `origin/main`, the same branch as
 the Proxmox VE edition. **Install Update Now** can also upgrade the host's Ubuntu packages
 (`include_system_packages`). Settings, users, data, keys and shares are kept; the root helper and the console
 dashboard are refreshed with the code.

@@ -41,7 +41,7 @@ unmap_storage() {
   mnt="$(zfs get -H -o value mountpoint "$ds")"
   [[ "$mnt" == /* ]] || return 0
   if ! command -v pct >/dev/null; then
-    # Standalone SolarDeck Hypervisor: drop the /mnt/storage bind mounts of the dataset (and its children).
+    # SolarOS: drop the /mnt/storage bind mounts of the dataset (and its children).
     awk -v m="$mnt" '$1 == m || index($1, m "/") == 1 {print $2}' /etc/fstab | sort -r | while read -r tgt; do
       umount "$tgt" 2>/dev/null || true; echo "unmapped $tgt"; done
     awk -v m="$mnt" '!($1 == m || index($1, m "/") == 1) || $3 != "none"' /etc/fstab >/etc/fstab.solardeck && mv /etc/fstab.solardeck /etc/fstab
@@ -116,7 +116,7 @@ case "$CMD" in
     mnt="$(zfs get -H -o value mountpoint "$ds")"
     [[ "$mnt" == /* ]] || die "dataset has no mountpoint"
     if ! command -v pct >/dev/null; then
-      # Standalone SolarDeck Hypervisor: the backend runs on this host, so a bind mount (kept in fstab) is enough.
+      # SolarOS: the backend runs on this host, so a bind mount (kept in fstab) is enough.
       tgt="/mnt/storage/${ds}"
       mkdir -p "$tgt"
       mountpoint -q "$tgt" || mount --bind "$mnt" "$tgt"

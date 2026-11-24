@@ -13,7 +13,7 @@ import { APP_IDS } from "../apps/registry";
 import { AppIcon } from "./icons/AppIcons";
 import LanguagePill from "./LanguagePill";
 import { useTranslation } from "../i18n";
-import { useCapabilities } from "../store/capabilitiesStore";
+import { productOf, useCapabilities } from "../store/capabilitiesStore";
 
 export function Pill({ icon, label, tone = "text-slate-200" }: { icon: ReactNode; label: string; tone?: string }) {
   return (
@@ -26,6 +26,7 @@ export function Pill({ icon, label, tone = "text-slate-200" }: { icon: ReactNode
 
 export default function TopBar() {
   const caps = useCapabilities((s) => s.capabilities);
+  const product = productOf(caps.driver);
   const { t, appTitle } = useTranslation();
   const now = useClock();
   const windows = useWindows((s) => s.windows);
@@ -57,7 +58,7 @@ export default function TopBar() {
           aria-expanded={launcher}
           aria-label={t("top.openLauncher")}
         >
-          <LayoutGrid size={15} /> <span className="hidden sm:inline">SolarDeck</span>
+          <LayoutGrid size={15} /> <span className="hidden sm:inline">{product.short}</span>
         </button>
         {launcher && (
           <div className="glass absolute top-8 left-0 grid w-80 grid-cols-3 gap-1 rounded-2xl p-3">

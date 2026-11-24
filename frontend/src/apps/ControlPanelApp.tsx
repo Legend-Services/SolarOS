@@ -15,7 +15,7 @@ import AutomationPanel from "./AutomationPanel";
 import LanguagePill from "../components/LanguagePill";
 import { LANGS, isLang, useTranslation, type TKey } from "../i18n";
 import { useWidgets } from "../store/widgetStore";
-import { driverBadgeKey, useCapabilities } from "../store/capabilitiesStore";
+import { driverBadgeKey, productOf, useCapabilities } from "../store/capabilitiesStore";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
 
 type Section = "security" | "network" | "appearance" | "automation" | "hardware" | "power";
@@ -264,7 +264,7 @@ function UpdatesSection() {
   );
 }
 
-/** Control Panel → System & Updates: how to build the bootable SolarDeck Hypervisor ISO, and the ISOs already built. */
+/** Control Panel → System & Updates: how to build the bootable SolarOS installer ISO, and the ISOs already built. */
 function HypervisorIsoCard() {
   const [st, setSt] = useState<HypervisorIsoStatus | null>(null);
   const [copied, setCopied] = useState("");
@@ -285,9 +285,9 @@ function HypervisorIsoCard() {
   );
 
   return (
-    <Card title="Standalone Hypervisor ISO" action={<GlassButton size="xs" variant="ghost" disabled={busy} onClick={load} aria-label="Refresh ISO list"><RefreshCw size={12} className={busy ? "animate-spin" : ""} /></GlassButton>}>
+    <Card title="SolarOS Installer ISO" action={<GlassButton size="xs" variant="ghost" disabled={busy} onClick={load} aria-label="Refresh ISO list"><RefreshCw size={12} className={busy ? "animate-spin" : ""} /></GlassButton>}>
       <p className="mb-2 text-[11px] text-slate-400">
-        Build a bootable SolarDeck Hypervisor installer (USB stick, bare metal or a nested test VM). Run on a Linux host with xorriso; add <span className="font-mono">--auto-disk /dev/sda</span> for an unattended VM test entry and <span className="font-mono">--deploy-to-pve</span> on a Proxmox VE host.
+        Build a bootable SolarOS installer (USB stick, bare metal or a nested test VM). Run on a Linux host with xorriso; add <span className="font-mono">--auto-disk /dev/sda</span> for an unattended VM test entry and <span className="font-mono">--deploy-to-pve</span> on a Proxmox VE host.
       </p>
       {command(st?.build_command ?? "sudo bash /opt/proxmox-os/hypervisor/build-iso.sh")}
       {st && <div className="mt-2">{command(st.test_command)}</div>}
@@ -386,7 +386,7 @@ function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; run
       )}
       {done && st.exit_code !== 0 && <Notice error={`Update failed (exit code ${st.exit_code}); see the log above. Your previous settings are saved in /tmp/proxmox-os-state-backup.`} />}
       <p className="mt-2 text-[11px] text-slate-500">
-        Both editions (Proxmox VE Deck and SolarDeck Standalone Hypervisor) update from the same branch. Updates pull the new code, sync dependencies, rebuild the desktop and restart the services. Settings, users, 2FA, schedules, shares and ZFS pools are kept.
+        Both editions (SolarDeck for Proxmox VE and SolarOS) update from the same branch. Updates pull the new code, sync dependencies, rebuild the desktop and restart the services. Settings, users, 2FA, schedules, shares and ZFS pools are kept.
         {st?.driver === "proxmox" ? " Host helper changes still need install.sh on the Proxmox host." : " The host helper and the console dashboard are updated as well."}
       </p>
       <div className="mt-2">
@@ -637,7 +637,7 @@ function DockCard() {
   );
 }
 
-/** Hypervisor driver badge: "Proxmox VE" or "Standalone Hypervisor". */
+/** Hypervisor driver badge: "Proxmox VE" or "SolarOS". */
 function DriverBadge() {
   const { t } = useTranslation();
   const driver = useCapabilities((s) => s.capabilities.driver);
@@ -648,7 +648,7 @@ function AboutCard() {
   const { t } = useTranslation();
   const caps = useCapabilities((s) => s.capabilities);
   return (
-    <Card title={t("about.title")} action={<DriverBadge />}>
+    <Card title={t("about.title", { product: productOf(caps.driver).name })} action={<DriverBadge />}>
       <p className="mb-3 text-xs text-slate-400">{t("about.desc")}</p>
       <Rows
         rows={[
