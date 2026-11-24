@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.2.3 - SolarOS: ISO Upload, CD/DVD Drive and Windows-Ready VMs — 2026-11-25
+
+### Added
+- **Upload an ISO from your computer** (SolarOS): ISO & Templates has an "Upload ISO from this computer" button with a progress bar. Use it for installers you cannot download by URL, such as Windows. The file is streamed straight into `/mnt/storage/isos`, with a free-space check, and an interrupted upload leaves no partial file (`POST /api/pve/storage/{storage}/upload`).
+- **CD/DVD drive for existing VMs** (both editions): the Hardware tab has a CD/DVD drive card to load or eject an ISO (`PUT /api/pve/guests/qemu/{vmid}/cdrom`). On SolarOS a running VM swaps the disc at once; a VM without a drive gets one at its next start, and the screen says so.
+
+### Fixed
+- SolarOS VMs never booted from their ISO when a cloud-init drive was present: `<boot dev="cdrom"/>` only tries the first CD-ROM. VMs now use a per-device boot order: the disk first (an empty disk falls through), then the install CD.
+- Windows VMs on SolarOS get SATA disks and an e1000e network card, so Windows Setup sees the disk and the network without an extra driver ISO.
+
 ## v2.2.2 - SolarOS: VM Creation Fix and VM / Container Editing — 2026-11-25
 
 ### Fixed
