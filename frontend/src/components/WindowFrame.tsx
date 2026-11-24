@@ -1,7 +1,8 @@
 import { Suspense, useEffect, useRef, useState, type ComponentType, type CSSProperties, type PointerEvent as RPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { Maximize2, Minimize2, Minus, X } from "lucide-react";
+import { CircleHelp, Maximize2, Minimize2, Minus, X } from "lucide-react";
 import { useWindows, type Rect, type Win } from "../lib/stores";
+import { useWizard } from "../store/wizardStore";
 import { APPS } from "../apps/registry";
 import type { ConsoleTarget } from "../lib/types";
 
@@ -33,6 +34,7 @@ function towards(r: Rect, target: Rect | undefined) {
 export default function WindowFrame({ win, mobile, Body }: { win: Win; mobile: boolean; Body: ComponentType<{ params?: ConsoleTarget }> }) {
   const { focus, close, minimize, toggleMaximize, update } = useWindows();
   const dockRect = useWindows((s) => s.dockIconRects[win.id]);
+  const showGuide = useWizard((s) => s.show); // guide ids match app ids (APP_GUIDES)
   const drag = useRef<{ mode: "move" | "resize"; sx: number; sy: number; ox: number; oy: number; ow: number; oh: number } | null>(null);
   const [dragging, setDragging] = useState(false);
   const [snap, setSnap] = useState<Snap>(null);
@@ -124,6 +126,14 @@ export default function WindowFrame({ win, mobile, Body }: { win: Win; mobile: b
         >
           <Icon size={15} className="text-slate-300" />
           <span className="flex-1 truncate text-sm font-medium text-slate-100">{title}</span>
+          <button
+            onClick={() => showGuide(win.id)}
+            className="flex items-center gap-1 rounded-full bg-white/[0.07] px-2 py-0.5 text-[11px] font-medium text-slate-200 ring-1 ring-white/10 transition ring-inset hover:bg-sky-400/25 hover:text-white active:scale-95"
+            aria-label={`Step-by-step guide for ${APPS[win.id].title}`}
+            title="Step-by-step guide for this app"
+          >
+            <CircleHelp size={12} /> Guide
+          </button>
           <button onClick={() => minimize(win.key)} className="rounded-md p-1.5 text-slate-300 transition hover:bg-white/10 active:scale-90" aria-label="Minimize">
             <Minus size={14} />
           </button>

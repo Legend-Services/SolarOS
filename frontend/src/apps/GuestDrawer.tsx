@@ -5,6 +5,7 @@ import type { Guest, GuestConfig, SystemInfo } from "../lib/types";
 import { bytes } from "../lib/format";
 import { useRunner } from "../lib/hooks";
 import { useTelemetry } from "../lib/stores";
+import { GuideBanner } from "../components/wizards/GuidedWizardModal";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
 import { TaskLog } from "../components/TaskCenterPopover";
 import { PassthroughPicker, usePassthroughDevices, type PciSel, type UsbSel } from "./guest/passthrough";
@@ -207,6 +208,7 @@ function HardwareTab({ guest, hw, reload }: { guest: Guest; hw: Hardware; reload
 
   return (
     <div className="space-y-3">
+      {guest.type === "qemu" && <GuideBanner guide="compute-passthrough" text="Learn how GPU, USB and audio passthrough work and what to check before you add a device." />}
       <Section
         title="PCI / GPU passthrough"
         action={

@@ -1,5 +1,8 @@
 import { useState, type ReactNode } from "react";
-import { CircleHelp, Cpu, Database, LayoutGrid, Lock, LogOut, MemoryStick, Search, SlidersHorizontal, SquareTerminal, User } from "lucide-react";
+import { BookOpen, CircleHelp, Cpu, Database, LayoutDashboard, LayoutGrid, LifeBuoy, Lock, LogOut, MemoryStick, Search, SlidersHorizontal, Sparkles, SquareTerminal, User } from "lucide-react";
+import { useLayout } from "../store/layoutStore";
+import { useWizard } from "../store/wizardStore";
+import { ViewOptionsPanel } from "./ViewOptions";
 import { activeWindow, useAuth, useSpotlight, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
 import { useClock, useDismiss } from "../lib/hooks";
 import TaskCenterPopover from "./TaskCenterPopover";
@@ -29,6 +32,12 @@ export default function TopBar() {
   const [menu, setMenu] = useState(false);
   const launcherRef = useDismiss(launcher, () => setLauncher(false));
   const menuRef = useDismiss(menu, () => setMenu(false));
+  const [help, setHelp] = useState(false);
+  const helpRef = useDismiss(help, () => setHelp(false));
+  const showGuide = useWizard((s) => s.show);
+  const viewPanel = useLayout((s) => s.panel);
+  const setLayout = useLayout((s) => s.set);
+  const viewRef = useDismiss(viewPanel, () => setLayout({ panel: false }));
 
   const active = activeWindow(windows);
   const health = zfsHealth(storage);
@@ -92,14 +101,44 @@ export default function TopBar() {
       >
         <SquareTerminal size={14} />
       </button>
-      <button
-        onClick={() => open("help")}
-        className="flex items-center gap-1 rounded-md px-2 py-1 text-slate-200 hover:bg-white/10"
-        aria-label="Help & Support"
-        title="Help & Support: tutorials, FAQ and automatic fixes"
-      >
-        <CircleHelp size={14} />
-      </button>
+      <div ref={viewRef} className="relative">
+        <button
+          onClick={() => setLayout({ panel: !viewPanel })}
+          className={`flex items-center gap-1 rounded-md px-2 py-1 text-slate-200 hover:bg-white/10 ${viewPanel ? "bg-white/10" : ""}`}
+          aria-expanded={viewPanel}
+          aria-label="View Settings"
+          title="View Settings: Grid or List, icon size and spacing"
+        >
+          <LayoutDashboard size={14} />
+        </button>
+        {viewPanel && <ViewOptionsPanel />}
+      </div>
+      <div ref={helpRef} className="relative">
+        <button
+          onClick={() => setHelp((v) => !v)}
+          className="flex items-center gap-1 rounded-md px-2 py-1 text-slate-200 hover:bg-white/10"
+          aria-expanded={help}
+          aria-label="Help menu"
+          title="Help: guides, Welcome Tour, tutorials and automatic fixes"
+        >
+          <CircleHelp size={14} />
+        </button>
+        {help && (
+          <div className="glass absolute top-8 right-0 w-56 rounded-xl p-1">
+            {active && (
+              <button onClick={() => (showGuide(active.id), setHelp(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
+                <BookOpen size={14} /> Guide: {APPS[active.id].title}
+              </button>
+            )}
+            <button onClick={() => (showGuide("welcome"), setHelp(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
+              <Sparkles size={14} /> Welcome Tour
+            </button>
+            <button onClick={() => (open("help"), setHelp(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
+              <LifeBuoy size={14} /> Help &amp; Support
+            </button>
+          </div>
+        )}
+      </div>
       <TaskCenterPopover />
       <NotificationPopover />
       <span className="tabular-nums text-slate-200">

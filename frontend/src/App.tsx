@@ -6,6 +6,12 @@ import Desktop from "./components/Desktop";
 import Dock from "./components/Dock";
 import WindowLayer from "./components/WindowLayer";
 import SpotlightSearch from "./components/SpotlightSearch";
+import GuidedWizardModal from "./components/wizards/GuidedWizardModal";
+import { startPreferencesSync } from "./store/layoutStore";
+import { useWizard } from "./store/wizardStore";
+
+// The automatic Welcome Tour shows at most once per page load (not again after a lock / unlock).
+let tourShown = false;
 
 export default function App() {
   const status = useAuth((s) => s.status);
@@ -18,6 +24,17 @@ export default function App() {
   }, [init]);
 
   useEffect(() => (status === "unlocked" ? start() : undefined), [status, start]);
+  // Server preferences first, so a "don't show again" saved on another browser is respected.
+  useEffect(
+    () =>
+      status === "unlocked"
+        ? startPreferencesSync(() => {
+            const w = useWizard.getState();
+            if (w.welcomeAuto && !w.guide && !tourShown) (tourShown = true, w.show("welcome"));
+          })
+        : undefined,
+    [status],
+  );
 
   return (
     <div className={`wallpaper wp-${wallpaper} relative h-full w-full overflow-hidden`}>
@@ -34,6 +51,7 @@ export default function App() {
             <TopBar />
             <Dock />
             <SpotlightSearch />
+            <GuidedWizardModal />
           </>
         )}
       </div>

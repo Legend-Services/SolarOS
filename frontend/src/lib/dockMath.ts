@@ -1,5 +1,5 @@
 /**
- * macOS-style Dock magnification. Each icon's *layout* size (not a CSS transform) follows a cosine bell around the
+ * Parabolic Dock magnification. Each icon's *layout* size (not a CSS transform) follows a cosine bell around the
  * cursor, so neighbours are pushed outward and icons never overlap. Distances are measured on the unmagnified layout
  * (centred on the dock's midpoint) so the curve doesn't feed back on itself as the dock widens.
  *

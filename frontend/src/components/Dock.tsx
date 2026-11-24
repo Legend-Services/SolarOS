@@ -6,8 +6,9 @@ import { AppIcon } from "./icons/AppIcons";
 import { useDismiss } from "../lib/hooks";
 import { dockSizes } from "../lib/dockMath";
 import Launchpad from "./Launchpad";
+import { useLayout } from "../store/layoutStore";
 
-const GAP = 8;
+
 const LAUNCHPAD = "launchpad";
 type Slot = AppId | typeof LAUNCHPAD;
 
@@ -15,6 +16,7 @@ export default function Dock() {
   const windows = useWindows((s) => s.windows);
   const { open, focus, minimize, close, setDockIconRect } = useWindows();
   const { pinned, autoHide, baseSize, magnification, launchpad, pin, unpin, move, set } = useDock();
+  const gap = useLayout((s) => s.dockGap);
   const [mouseX, setMouseX] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [menu, setMenu] = useState<AppId | null>(null);
@@ -26,11 +28,11 @@ export default function Dock() {
   // Launchpad first, then pinned apps, then running apps that are not pinned (after a divider).
   const running = [...new Set(windows.map((w) => w.id))].filter((id) => id !== "console" && !pinned.includes(id));
   const slots: Slot[] = [LAUNCHPAD, ...pinned, ...running];
-  const sizes = dockSizes(slots.length, baseSize, GAP, MAGNIFICATION[magnification], mouseX);
+  const sizes = dockSizes(slots.length, baseSize, gap, MAGNIFICATION[magnification], mouseX);
   const shown = !autoHide || revealed || launchpad || !!menu;
 
   // Register unmagnified icon rects as minimize targets; re-measure when the layout changes.
-  const layoutKey = slots.join(",") + baseSize + shown;
+  const layoutKey = slots.join(",") + baseSize + gap + shown;
   useLayoutEffect(() => {
     const measure = () =>
       Object.entries(icons.current).forEach(([id, el]) => {
@@ -52,7 +54,7 @@ export default function Dock() {
     const w = windows.find((x) => x.id === id);
     if (!w) return open(id);
     const top = Math.max(...windows.filter((x) => !x.minimized).map((x) => x.z), 0);
-    // Clicking the focused app minimizes it, like macOS / DSM docks.
+    // Clicking the focused app minimizes it.
     if (!w.minimized && w.z === top) minimize(w.key);
     else focus(w.key);
   };
@@ -81,7 +83,7 @@ export default function Dock() {
       >
         <div
           className="glass pointer-events-auto flex items-end rounded-[22px] px-3 pb-1.5"
-          style={{ gap: GAP, height: baseSize + 22 }}
+          style={{ gap, height: baseSize + 22 }}
           onMouseMove={onMove}
           onMouseEnter={reveal}
           onMouseLeave={leave}
@@ -103,7 +105,7 @@ export default function Dock() {
             const isPinned = i <= pinned.length;
             const isRunning = windows.some((w) => w.id === id);
             return (
-              <div key={id} className="relative flex items-end" style={{ gap: GAP }}>
+              <div key={id} className="relative flex items-end" style={{ gap }}>
                 {i === pinned.length + 1 && <span className="mb-2 h-8 w-px self-end bg-white/20" aria-hidden />}
                 <button
                   draggable={isPinned}
