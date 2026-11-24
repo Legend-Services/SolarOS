@@ -4,7 +4,7 @@ import {
   PanelLeft, Pencil, Settings as SettingsIcon, Square, SquarePen, Thermometer, Trash2, Zap,
 } from "lucide-react";
 import { api } from "../lib/api";
-import { bytes, copyText, pct } from "../lib/format";
+import { bytes, copyText, percent } from "../lib/format";
 import { useDismiss, usePoll } from "../lib/hooks";
 import { useWindows } from "../lib/stores";
 import type { AiHardware, AiStatus, LocalModel, OnlineModel, PullJob, VramFit } from "../lib/types";
@@ -295,7 +295,7 @@ function HardwarePerf({ status, reload }: { status: AiStatus; reload: () => void
                 {((g.vram_used_mib ?? 0) / 1024).toFixed(1)} / {((g.vram_total_mib ?? 0) / 1024).toFixed(0)} GB
               </span>
             </div>
-            <Bar value={pct(g.vram_used_mib ?? 0, g.vram_total_mib ?? 0)} tone="bg-violet-400" />
+            <Bar value={percent(g.vram_used_mib ?? 0, g.vram_total_mib ?? 0)} tone="bg-violet-400" />
           </div>
           <div className="grid grid-cols-3 gap-2 text-center">
             {[

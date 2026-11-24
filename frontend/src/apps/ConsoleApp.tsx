@@ -74,7 +74,7 @@ export default function ConsoleApp({ params }: { params?: ConsoleTarget }) {
           ws.binaryType = "arraybuffer";
           const enc = new TextEncoder();
           const send = (m: string) => ws.readyState === WebSocket.OPEN && ws.send(m);
-          // Proxmox termproxy framing: "0:<bytes>:<data>" input, "1:<cols>:<rows>:" resize, "2" keepalive.
+          // Terminal proxy framing: "0:<bytes>:<data>" input, "1:<cols>:<rows>:" resize, "2" keepalive.
           const resize = () => {
             fit.fit();
             send(`1:${term.cols}:${term.rows}:`);
@@ -141,8 +141,8 @@ export default function ConsoleApp({ params }: { params?: ConsoleTarget }) {
   );
 }
 
-/** "Host Shell" app: an instant root@pve prompt over the SSH key bridge. */
+/** "Host Shell" app: an instant root prompt on the host over the SSH key bridge. */
 export function HostShell() {
-  const node = useTelemetry((s) => s.overview?.node) ?? "pve";
+  const node = useTelemetry((s) => s.overview?.node) ?? "host";
   return <ConsoleApp params={{ type: "node", vmid: 0, name: node, mode: "shell" }} />;
 }

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
+import { edition } from "@edition";
 import { Activity, BookOpen, OctagonX, ScanLine, Timer } from "lucide-react";
 import { api } from "../../lib/api";
-import type { DiskSettings, PveDisk, ScanStatus } from "../../lib/types";
+import type { DiskSettings, PhysicalDisk, ScanStatus } from "../../lib/types";
 import { usePoll, useRunner } from "../../lib/hooks";
 import { useWizard } from "../../store/wizardStore";
 import { Bar } from "../../components/charts";
 import { Field, GlassBadge, GlassButton, GlassModal, GlassSelect, GlassSlider, GlassSwitch, Notice } from "../../components/ui/GlassKit";
 
-export const diskUrl = (d: PveDisk) => `/v1/disks/${encodeURIComponent(d.devpath)}`;
+export const diskUrl = (d: PhysicalDisk) => `/v1/disks/${encodeURIComponent(d.devpath)}`;
 
 export const eta = (s: number | null | undefined) => {
   if (s == null) return null;
@@ -25,7 +26,7 @@ function Unsupported({ reason }: { reason: string | null }) {
   return reason ? <p className="mt-1 text-[10px] text-slate-500">{reason}</p> : null;
 }
 
-export function DiskSettingsModal({ disk, onClose }: { disk: PveDisk | null; onClose: () => void }) {
+export function DiskSettingsModal({ disk, onClose }: { disk: PhysicalDisk | null; onClose: () => void }) {
   const [cfg, setCfg] = useState<DiskSettings | null>(null);
   const [form, setForm] = useState<DiskSettings["values"] | null>(null);
   const [persist, setPersist] = useState(true);
@@ -152,7 +153,7 @@ export function DiskSettingsModal({ disk, onClose }: { disk: PveDisk | null; onC
             <p className="mt-1 text-[10px] text-slate-500">
               {cfg.persist_supported ? (
                 <>
-                  Saved in <span className="font-mono">/etc/udev/rules.d/69-proxmoxos-disk-tuning.rules</span>, keyed by <span className="font-mono">{cfg.by_id}</span>.
+                  Saved in <span className="font-mono">{edition.diskTuningRulesFile}</span>, keyed by <span className="font-mono">{cfg.by_id}</span>.
                 </>
               ) : (
                 "This drive has no stable /dev/disk/by-id name, so settings apply until the next reboot only."
@@ -168,7 +169,7 @@ export function DiskSettingsModal({ disk, onClose }: { disk: PveDisk | null; onC
 
 /* ---------------- SMART self-tests & read-only surface scan ---------------- */
 
-export function ScanModal({ disk, onClose }: { disk: PveDisk | null; onClose: () => void }) {
+export function ScanModal({ disk, onClose }: { disk: PhysicalDisk | null; onClose: () => void }) {
   const [st, setSt] = useState<ScanStatus | null>(null);
   const [loadError, setLoadError] = useState("");
   const load = useCallback(() => {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BookOpen, Gauge, Play, ShieldCheck, Square } from "lucide-react";
 import { api } from "../../lib/api";
-import type { BenchJob, BenchMetric, BenchProfile, PveDisk, ZfsDatasetInfo } from "../../lib/types";
+import type { BenchJob, BenchMetric, BenchProfile, PhysicalDisk, ZfsDatasetInfo } from "../../lib/types";
 import { usePoll, useRunner } from "../../lib/hooks";
 import { useWizard } from "../../store/wizardStore";
 import { Bar } from "../../components/charts";
@@ -37,7 +37,7 @@ function Cell({ m, unit, max, active }: { m: BenchMetric | null | undefined; uni
   );
 }
 
-export default function Benchmark({ disks }: { disks: PveDisk[] | null }) {
+export default function Benchmark({ disks }: { disks: PhysicalDisk[] | null }) {
   const [mounts, setMounts] = useState<string[]>([]);
   const [target, setTarget] = useState("");
   const [size, setSize] = useState(1024);

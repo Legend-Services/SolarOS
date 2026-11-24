@@ -23,7 +23,7 @@ export default function IsoLibrary() {
   const [del, setDel] = useState<StorageVolume | null>(null);
   const { busy, error, notice, run } = useRunner();
   const [progress, setProgress] = useState<number | null>(null);
-  // SolarOS streams uploads into its own storage; on Proxmox VE the Proxmox web UI handles uploads.
+  // Only the native driver streams uploads into its own storage; other platforms upload through their own tools.
   const canUpload = useDriver() === "native_ubuntu" && content === "iso";
   const stores = targets.filter((t) => t.active && t.content.split(",").includes(content)).map((t) => t.storage);
   const storeKey = stores.join(",");

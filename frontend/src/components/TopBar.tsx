@@ -8,7 +8,7 @@ import { useClock, useDismiss } from "../lib/hooks";
 import TaskCenterPopover from "./TaskCenterPopover";
 import NotificationPopover from "./NotificationPopover";
 import { ModeToggle, ThemeSwitcher } from "./ThemeQuickSwitcher";
-import { pct } from "../lib/format";
+import { percent } from "../lib/format";
 import { APP_IDS } from "../apps/registry";
 import { AppIcon } from "./icons/AppIcons";
 import LanguagePill from "./LanguagePill";
@@ -46,7 +46,7 @@ export default function TopBar() {
 
   const active = activeWindow(windows);
   const health = zfsHealth(storage);
-  const ram = overview ? pct(overview.memory.used, overview.memory.total) : 0;
+  const ram = overview ? percent(overview.memory.used, overview.memory.total) : 0;
 
   // z above the Dock (9000): the top bar popovers (View Options, Help, notifications) must open over the Dock.
   return (

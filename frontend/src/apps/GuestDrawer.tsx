@@ -174,7 +174,7 @@ function ResourcesTab({ guest, onSaved }: { guest: Guest; onSaved: () => void })
 
 /* ---------------- CD/DVD drive (QEMU) ---------------- */
 
-/** Load an ISO into the VM's install drive or eject it (applies at once on SolarOS, at the next start on Proxmox VE if running). */
+/** Load an ISO into the VM's install drive or eject it (applies at once on the native driver, otherwise at the next start if running). */
 function CdromCard({ guest, hw, reload }: { guest: Guest; hw: Hardware; reload: () => void }) {
   const targets = useTelemetry((s) => s.storage?.targets ?? []);
   const stores = targets.filter((t) => t.active && t.content.split(",").includes("iso")).map((t) => t.storage).join(",");

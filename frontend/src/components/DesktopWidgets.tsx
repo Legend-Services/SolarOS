@@ -4,7 +4,7 @@ import {
   NotebookPen, Activity, SquareTerminal, Zap,
 } from "lucide-react";
 import { useAuth, useIntent, useTelemetry, useWindows } from "../lib/stores";
-import { bytes, healthColor, pct, tempColor, uptime } from "../lib/format";
+import { bytes, healthColor, percent, tempColor, uptime } from "../lib/format";
 import { api } from "../lib/api";
 import { usePoll } from "../lib/hooks";
 import { useTranslation, type TKey } from "../i18n";
@@ -27,7 +27,7 @@ type T = ReturnType<typeof useTranslation>["t"];
 
 function HealthWidget({ compact, t }: { compact: boolean; t: T }) {
   const o = useTelemetry((s) => s.overview);
-  const mem = o ? pct(o.memory.used, o.memory.total) : 0;
+  const mem = o ? percent(o.memory.used, o.memory.total) : 0;
   return compact ? (
     <div className="space-y-2 text-[11px] text-slate-300">
       <div className="flex justify-between"><span>{t("widget.cpu")}</span><span className="tabular-nums">{o?.cpu.toFixed(0) ?? "–"}%</span></div>
@@ -61,9 +61,9 @@ function StorageWidget({ compact, t }: { compact: boolean; t: T }) {
           <button onClick={() => open("storage")} className="w-full text-left">
             <div className="mb-1 flex justify-between text-xs">
               <span className="font-medium text-slate-100">{p.name}</span>
-              <span className={healthColor(p.health)}>{compact ? `${pct(p.alloc, p.size).toFixed(0)}% · ${p.health}` : p.health}</span>
+              <span className={healthColor(p.health)}>{compact ? `${percent(p.alloc, p.size).toFixed(0)}% · ${p.health}` : p.health}</span>
             </div>
-            <Bar value={pct(p.alloc, p.size)} className="bg-amber-400" />
+            <Bar value={percent(p.alloc, p.size)} className="bg-amber-400" />
             {!compact && <div className="mt-1 text-[11px] text-slate-400">{t("widget.usedOf", { used: bytes(p.alloc), total: bytes(p.size) })}</div>}
           </button>
         </li>
@@ -113,7 +113,7 @@ function GpuWidget({ compact, t }: { compact: boolean; t: T }) {
             <span>{t("widget.core", { n: gpu.utilization_pct ?? 0 })}</span>
             <span className="tabular-nums">{t("widget.vram", { used: ((gpu.vram_used_mb ?? 0) / 1024).toFixed(1), total: ((gpu.vram_total_mb ?? 0) / 1024).toFixed(1) })}</span>
           </div>
-          <Bar value={pct(gpu.vram_used_mb ?? 0, gpu.vram_total_mb ?? 0)} className="bg-emerald-400" />
+          <Bar value={percent(gpu.vram_used_mb ?? 0, gpu.vram_total_mb ?? 0)} className="bg-emerald-400" />
         </>
       ) : (
         <p className="text-xs text-slate-400">{t("widget.noGpu")}</p>
@@ -210,7 +210,7 @@ function AiWidget({ compact, t }: { compact: boolean; t: T }) {
                 <span>VRAM</span>
                 <span>{bytes(active.size_vram)} / {(hw.vram_total_mb / 1024).toFixed(1)} GB</span>
               </div>
-              <Bar value={pct(active.size_vram, hw.vram_total_mb * 1024 * 1024)} className="bg-fuchsia-400" />
+              <Bar value={percent(active.size_vram, hw.vram_total_mb * 1024 * 1024)} className="bg-fuchsia-400" />
             </>
           ) : null}
         </>

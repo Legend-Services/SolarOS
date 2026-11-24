@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { edition } from "@edition";
 import { Bug, ChevronDown, Copy, ExternalLink, Send } from "lucide-react";
 import { api } from "../lib/api";
 import { useRunner } from "../lib/hooks";
@@ -129,7 +130,7 @@ export default function BugReportModal() {
               {diag
                 ? [
                     `SolarDeck ${diag.solardeck_version ?? "?"} (${diag.solardeck_tag ?? "untagged"}, ${diag.commit ?? "?"})`,
-                    `Proxmox VE ${diag.pve_version ?? "?"} · kernel ${diag.kernel}`,
+                    `${edition.platformLabel} ${diag.pve_version ?? "?"} · kernel ${diag.kernel}`,
                     `${diag.cpu} · ${diag.memory_gb ?? "?"} GB RAM`,
                     `Browser: ${navigator.userAgent}`,
                     "",

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { edition } from "@edition";
 import { Boxes, FileText, Globe, KeyRound, Pencil, Plus, RefreshCw, Shield, ShieldCheck, Trash2, User, Users, UserCog, Flame } from "lucide-react";
 import { api } from "../lib/api";
 import { usePoll, useRunner } from "../lib/hooks";
@@ -8,7 +9,7 @@ import { useCapabilities } from "../store/capabilitiesStore";
 
 /* ---------------- Types (local to this app) ---------------- */
 
-interface PveUser {
+interface AccessUser {
   userid: string;
   enable?: number;
   expire?: number;
@@ -150,9 +151,9 @@ function DeleteButton({ what, onDelete, disabled }: { what: string; onDelete: ()
 const emptyUser = { userid: "", password: "", email: "", firstname: "", lastname: "", comment: "", expire: "", enable: true, groups: [] as string[] };
 
 function UsersTab({ service }: { service: string }) {
-  const users = useLoad<PveUser[]>("/v1/access/users");
+  const users = useLoad<AccessUser[]>("/v1/access/users");
   const groups = useLoad<Group[]>("/v1/access/groups");
-  const [edit, setEdit] = useState<PveUser | "new" | null>(null);
+  const [edit, setEdit] = useState<AccessUser | "new" | null>(null);
   const [pw, setPw] = useState<string | null>(null);
   const [f, setF] = useState(emptyUser);
   const [newPw, setNewPw] = useState("");
@@ -221,11 +222,11 @@ function UsersTab({ service }: { service: string }) {
         <form onSubmit={submit} className="space-y-3">
           {edit === "new" && (
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="User ID" hint="name@realm, e.g. alice@pve">
+              <Field label="User ID" hint={`name@realm, e.g. alice@${edition.localRealm}`}>
                 <GlassInput className="w-full font-mono" value={f.userid} pattern="[A-Za-z0-9._\-]+@[A-Za-z0-9._\-]+" onChange={(e) => setF({ ...f, userid: e.target.value })} required />
               </Field>
-              <Field label="Password" hint="Only for the @pve realm (min. 8)">
-                <GlassInput type="password" className="w-full" minLength={8} value={f.password} disabled={!f.userid.endsWith("@pve")} onChange={(e) => setF({ ...f, password: e.target.value })} autoComplete="new-password" />
+              <Field label="Password" hint={`Only for the @${edition.localRealm} realm (min. 8)`}>
+                <GlassInput type="password" className="w-full" minLength={8} value={f.password} disabled={!f.userid.endsWith(`@${edition.localRealm}`)} onChange={(e) => setF({ ...f, password: e.target.value })} autoComplete="new-password" />
               </Field>
             </div>
           )}
@@ -442,7 +443,7 @@ function RolesTab() {
 
 function AclTab({ service }: { service: string }) {
   const acl = useLoad<Acl[]>("/v1/access/acl");
-  const users = useLoad<PveUser[]>("/v1/access/users");
+  const users = useLoad<AccessUser[]>("/v1/access/users");
   const groups = useLoad<Group[]>("/v1/access/groups");
   const roles = useLoad<Role[]>("/v1/access/roles");
   const tokens = useLoad<Token[]>("/v1/access/tokens");
@@ -450,7 +451,7 @@ function AclTab({ service }: { service: string }) {
   const storages = useLoad<StorageCfg[]>("/v1/storage-config");
   const pools = useLoad<Pool[]>("/v1/pools");
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({ path: "/", type: "user" as Acl["type"], ugid: "", roleid: "PVEVMUser", propagate: true });
+  const [f, setF] = useState({ path: "/", type: "user" as Acl["type"], ugid: "", roleid: edition.vmUserRole, propagate: true });
   const { busy, error, run } = useRunner(acl.load);
   const paths = ["/", "/vms", "/storage", "/pool", "/nodes", "/access", "/sdn"]
     .concat(guests.data?.map((g) => `/vms/${g.vmid}`) ?? [], storages.data?.map((s) => `/storage/${s.storage}`) ?? [], pools.data?.map((p) => `/pool/${p.poolid}`) ?? []);
@@ -655,7 +656,7 @@ function PoolsTab() {
 
 function TokensTab() {
   const tokens = useLoad<Token[]>("/v1/access/tokens");
-  const users = useLoad<PveUser[]>("/v1/access/users");
+  const users = useLoad<AccessUser[]>("/v1/access/users");
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({ userid: "", tokenid: "", comment: "", expire: "", privsep: true });
   const [secret, setSecret] = useState<{ full_tokenid: string; value: string } | null>(null);
@@ -686,7 +687,7 @@ function TokensTab() {
       <GlassModal open={open} onClose={() => setOpen(false)} title="Add API token">
         {secret ? (
           <div className="space-y-3 text-xs text-slate-300">
-            <p>Copy the secret now; Proxmox will not show it again.</p>
+            <p>Copy the secret now; {edition.platform} will not show it again.</p>
             <Field label="Token ID">
               <code className="block rounded-lg bg-black/30 px-3 py-2 font-mono text-sky-200 select-all">{secret.full_tokenid}</code>
             </Field>
@@ -764,7 +765,7 @@ function RealmsTab() {
           </tr>
         ))}
       </Table>
-      <p className="mt-3 text-[11px] text-slate-500">Realms (LDAP, AD, OpenID) are configured in the Proxmox web UI.</p>
+      {edition.realmsNote && <p className="mt-3 text-[11px] text-slate-500">{edition.realmsNote}</p>}
     </div>
   );
 }
@@ -773,7 +774,8 @@ function RealmsTab() {
 
 type FwScope = "cluster" | "node" | "guest";
 const emptyRule = { type: "in" as Rule["type"], action: "ACCEPT", enable: true, macro: "", proto: "", source: "", dest: "", sport: "", dport: "", iface: "", log: "", comment: "" };
-const allowsMgmt = (rules: Rule[]) => rules.some((r) => r.enable && r.type === "in" && r.action === "ACCEPT" && (/(^|,)(22|8006)(,|$|:)/.test(r.dport ?? "") || /SSH/i.test(r.macro ?? "")));
+const mgmtPort = new RegExp(`(^|,)(22|${edition.webUiPort})(,|$|:)`);
+const allowsMgmt = (rules: Rule[]) => rules.some((r) => r.enable && r.type === "in" && r.action === "ACCEPT" && (mgmtPort.test(r.dport ?? "") || /SSH/i.test(r.macro ?? "")));
 
 function FirewallTab() {
   const [scope, setScope] = useState<FwScope>("cluster");
@@ -805,7 +807,7 @@ function FirewallTab() {
   const setOpts = (patch: FwOptions) => run(() => api(`${base}/options${q}`, { method: "PUT", json: Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, k === "enable" ? !!v : v])) }).then(opts.load));
   const requestOpts = (patch: FwOptions) => {
     const next = { ...opts.data, ...patch };
-    // Cluster default inbound policy is DROP; enabling without an SSH/8006 allow rule risks locking the host out.
+    // Cluster default inbound policy is DROP; enabling without an SSH or web UI allow rule risks locking the host out.
     const dropping = (next.policy_in ?? (scope === "cluster" ? "DROP" : "ACCEPT")) !== "ACCEPT";
     if (scope !== "guest" && next.enable && dropping && !allowsMgmt(rules.data ?? [])) setWarn(patch);
     else setOpts(patch);
@@ -930,7 +932,7 @@ function FirewallTab() {
             <Field label="Source port">
               <GlassInput className="w-full font-mono" value={f.sport} onChange={(e) => setF({ ...f, sport: e.target.value })} />
             </Field>
-            <Field label="Destination port" hint="22, 80:443, 8006,5900">
+            <Field label="Destination port" hint={edition.destPortHint}>
               <GlassInput className="w-full font-mono" value={f.dport} onChange={(e) => setF({ ...f, dport: e.target.value })} />
             </Field>
             <Field label="Interface">
@@ -966,12 +968,7 @@ function FirewallTab() {
         error={error}
         title="Risk of locking yourself out"
         confirmLabel="Enable anyway"
-        message={
-          <>
-            The inbound policy will drop traffic and no enabled rule accepts SSH (22) or the Proxmox web UI (8006). You may lose access to the host and to SolarDeck.
-            Add an ACCEPT rule for <span className="font-mono">8006</span> and <span className="font-mono">22</span> first.
-          </>
-        }
+        message={edition.firewallLockout}
         onConfirm={async () => {
           await setOpts(warn!);
           setWarn(null);
@@ -1126,7 +1123,7 @@ export default function DatacenterApp() {
   const [tab, setTab] = useState<Tab>("users");
   const caps = useCapabilities((s) => s.capabilities);
   const tokens = useLoad<Token[]>("/v1/access/tokens");
-  const service = tokens.data?.find((t) => t.service)?.userid ?? "pve-desktop@pve";
+  const service = tokens.data?.find((t) => t.service)?.userid ?? edition.serviceUserFallback;
   return (
     <div className="flex h-full">
       <nav className="w-44 shrink-0 space-y-1 border-r border-white/10 bg-black/20 p-2 max-sm:w-14">

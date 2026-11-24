@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type DragEvent, type Reac
 import { Cpu, Database, Expand, LayoutDashboard, LayoutGrid, MemoryStick, Search, Shrink, SquareTerminal } from "lucide-react";
 import { activateApp, activeWindow, useDock, useSpotlight, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
 import { useClock, useDismiss, useFlip } from "../lib/hooks";
-import { pct } from "../lib/format";
+import { percent } from "../lib/format";
 import { useLayout } from "../store/layoutStore";
 import type { AppId } from "../apps/registry";
 import { useTranslation } from "../i18n";
@@ -115,7 +115,7 @@ export default function Taskbar() {
   const tasks: AppId[] = [...pinned, ...running];
   const active = activeWindow(windows);
   const health = zfsHealth(storage);
-  const ram = overview ? pct(overview.memory.used, overview.memory.total) : 0;
+  const ram = overview ? percent(overview.memory.used, overview.memory.total) : 0;
 
   // Taskbar buttons are the minimize targets (the same rects the Dock registers in the other layout).
   const layoutKey = tasks.join(",");

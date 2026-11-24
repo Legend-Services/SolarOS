@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { edition } from "@edition";
 import { AtSign, Award, Download, Globe, Network, Share2, Plus, QrCode, RefreshCw, Route, ShieldCheck, Trash2, Waypoints } from "lucide-react";
 import { api } from "../lib/api";
 import { bytes } from "../lib/format";
@@ -461,8 +462,8 @@ function DhcpTab({ status, reload }: { status: NetStatus; reload: () => void }) 
       <Card title="DHCP server">
         <div className="space-y-3">
           <Warn>
-            Never run this DHCP server on a network that already has one (for example <span className="font-mono">vmbr0</span> behind your home router): two DHCP servers hand out conflicting addresses and
-            can knock devices, and this host, off the network. Use it on an internal bridge such as <span className="font-mono">vmbr1</span>.
+            Never run this DHCP server on a network that already has one (for example <span className="font-mono">{edition.bridgePrefix}0</span> behind your home router): two DHCP servers hand out conflicting addresses and
+            can knock devices, and this host, off the network. Use it on an internal bridge such as <span className="font-mono">{edition.bridgePrefix}1</span>.
           </Warn>
           <GlassSwitch checked={d.enabled} onChange={(v) => setD({ ...d, enabled: v })} label="Enable DHCP" disabled={!installed} />
           <div className="grid gap-3 sm:grid-cols-3">
@@ -712,7 +713,7 @@ function WgClientTab({ status, reload }: { status: NetStatus; reload: () => void
           <GlassSwitch checked={f.table_off} onChange={(v) => setF({ ...f, table_off: v })} label="Route only the tunnel subnets (Table = off)" />
           {fullTunnel && (
             <Warn>
-              This profile has AllowedIPs = 0.0.0.0/0 (or ::/0): bringing it up routes ALL traffic of the Proxmox host through the tunnel, which can cut off your access to the host and its web UI. Keep
+              This profile has AllowedIPs = 0.0.0.0/0 (or ::/0): bringing it up routes ALL traffic of {edition.host} through the tunnel, which can cut off your access to the host and its web UI. Keep
               &quot;Table = off&quot; enabled unless you have console access.
             </Warn>
           )}
@@ -883,7 +884,7 @@ function CertsTab() {
   const [account, setAccount] = useState("");
   const [domains, setDomains] = useState<{ domain: string; plugin: string }[]>([{ domain: "", plugin: "" }]);
   const [upid, setUpid] = useState<string | null>(null);
-  const [custom, setCustom] = useState({ certificates: "", key: "", node: true, nginx: false });
+  const [custom, setCustom] = useState({ certificates: "", key: "", node: edition.certNodeLabel !== null, nginx: false });
   const { busy, error, notice, run } = useRunner();
   const load = useCallback(
     () =>
@@ -989,7 +990,7 @@ function CertsTab() {
           </Field>
           {domains.map((d, i) => (
             <div key={i} className="flex flex-wrap items-center gap-2">
-              <GlassInput className="w-64 font-mono" placeholder="pve.example.com" value={d.domain} onChange={(e) => setDomains(domains.map((x, j) => (j === i ? { ...x, domain: e.target.value.toLowerCase() } : x)))} aria-label="Domain" />
+              <GlassInput className="w-64 font-mono" placeholder={edition.hostExample} value={d.domain} onChange={(e) => setDomains(domains.map((x, j) => (j === i ? { ...x, domain: e.target.value.toLowerCase() } : x)))} aria-label="Domain" />
               <GlassSelect value={d.plugin} onChange={(e) => setDomains(domains.map((x, j) => (j === i ? { ...x, plugin: e.target.value } : x)))} aria-label="Challenge">
                 <option value="">HTTP-01 (port 80 on the host)</option>
                 {c.plugins.filter((p) => p.type === "dns").map((p) => (
@@ -1034,7 +1035,7 @@ function CertsTab() {
             </Field>
           </div>
           <div className="flex flex-wrap gap-4">
-            <GlassSwitch checked={custom.node} onChange={(v) => setCustom({ ...custom, node: v })} label="Apply to the Proxmox node (port 8006)" />
+            {edition.certNodeLabel && <GlassSwitch checked={custom.node} onChange={(v) => setCustom({ ...custom, node: v })} label={edition.certNodeLabel} />}
             <GlassSwitch checked={custom.nginx} onChange={(v) => setCustom({ ...custom, nginx: v })} label="Apply to SolarDeck HTTPS (port 443)" />
           </div>
           <div className="flex flex-wrap gap-2">
@@ -1045,16 +1046,18 @@ function CertsTab() {
             >
               Upload & apply
             </GlassButton>
-            <GlassButton variant="danger" disabled={busy} onClick={() => del("/net/certs/custom/node")}>
-              Remove node custom cert
-            </GlassButton>
+            {edition.certNodeLabel && (
+              <GlassButton variant="danger" disabled={busy} onClick={() => del("/net/certs/custom/node")}>
+                Remove node custom cert
+              </GlassButton>
+            )}
             {c.nginx_https && (
               <GlassButton variant="danger" disabled={busy} onClick={() => del("/net/certs/custom/nginx")}>
                 Disable SolarDeck HTTPS
               </GlassButton>
             )}
           </div>
-          <p className="text-[11px] text-slate-500">The key is checked against the certificate before anything is changed. Applying to the node restarts pveproxy (the Proxmox web UI reconnects).</p>
+          <p className="text-[11px] text-slate-500">{edition.certApplyNote}</p>
         </div>
       </Card>
       <Notice error={error} notice={notice} />

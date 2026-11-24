@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { edition } from "@edition";
 import { Archive, CalendarClock, Container, Monitor, Plus, RefreshCw, RotateCcw, Trash2, UploadCloud } from "lucide-react";
 import { api } from "../lib/api";
 import type { BackupArchive, BackupsInfo, Guest, TaskState } from "../lib/types";
@@ -374,7 +375,7 @@ function Schedules({ data, guests, reload }: { data: BackupsInfo; guests: Guest[
             </GlassSelect>
           </Field>
           {preset === "custom" && (
-            <Field label="Calendar event" hint='Proxmox syntax, e.g. "sat 04:30"'>
+            <Field label="Calendar event" hint={edition.calendarHint}>
               <GlassInput className="w-full font-mono" value={custom} onChange={(e) => setCustom(e.target.value)} required />
             </Field>
           )}

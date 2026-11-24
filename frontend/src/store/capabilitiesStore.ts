@@ -1,10 +1,11 @@
 import { create } from "zustand";
+import { edition } from "@edition";
 import { api } from "../lib/api";
-import type { TKey } from "../i18n";
+import type { Product } from "../editions/types";
 
 /** Mirrors backend ProviderCapabilities (GET /api/system/capabilities). */
 export interface Capabilities {
-  driver: "proxmox" | "native_ubuntu" | (string & {});
+  driver: string;
   platform_label: string;
   supports_clustering: boolean;
   supports_lxc: boolean;
@@ -19,10 +20,10 @@ export interface Capabilities {
 }
 export type CapabilityFlag = { [K in keyof Capabilities]: Capabilities[K] extends boolean ? K : never }[keyof Capabilities];
 
-/** Used until (or if) the endpoint answers, so a Proxmox install behaves exactly as before. */
-export const PROXMOX_DEFAULTS: Capabilities = {
-  driver: "proxmox",
-  platform_label: "Proxmox VE",
+/** Used until (or if) the endpoint answers, so the edition's own platform behaves exactly as before. */
+export const DEFAULT_CAPABILITIES: Capabilities = {
+  driver: edition.defaultDriver,
+  platform_label: edition.platformLabel,
   supports_clustering: true,
   supports_lxc: true,
   supports_qemu: true,
@@ -42,13 +43,13 @@ interface CapabilitiesState {
 }
 
 export const useCapabilities = create<CapabilitiesState>((set) => ({
-  capabilities: PROXMOX_DEFAULTS,
+  capabilities: DEFAULT_CAPABILITIES,
   loaded: false,
   load: async () => {
     const c = await api<Partial<Capabilities>>("/system/capabilities").catch(() => null);
-    const capabilities = { ...PROXMOX_DEFAULTS, ...(c ?? {}) };
+    const capabilities = { ...DEFAULT_CAPABILITIES, ...(c ?? {}) };
     set({ capabilities, loaded: true });
-    // Tab title and icon follow the edition (index.html starts with the Proxmox VE edition's).
+    // Tab title and icon follow the reported driver (index.html starts with the edition's own).
     const product = productOf(capabilities.driver);
     document.title = product.name;
     document.querySelector<HTMLLinkElement>('link[rel="icon"]')?.setAttribute("href", `/brand/${product.slug}-mark.svg`);
@@ -59,16 +60,7 @@ export const usePlatformLabel = () => useCapabilities((s) => s.capabilities.plat
 export const useSupports = (flag: CapabilityFlag) => useCapabilities((s) => s.capabilities[flag]);
 export const useDriver = () => useCapabilities((s) => s.capabilities.driver);
 
-/** Product branding: the standalone edition is SolarOS, the Proxmox VE edition is SolarDeck for Proxmox VE. */
-export interface Product {
-  name: string;
-  short: string;
-  slug: "solaros" | "solardeck-proxmox";
-}
-export const productOf = (driver: string): Product =>
-  driver === "native_ubuntu"
-    ? { name: "SolarOS", short: "SolarOS", slug: "solaros" }
-    : { name: "SolarDeck for Proxmox VE", short: "SolarDeck", slug: "solardeck-proxmox" };
+/** Product branding (name, logo slug) for a driver, as the edition defines it. */
+export type { Product };
+export const productOf = (driver: string): Product => edition.product(driver);
 export const useProduct = () => productOf(useDriver());
-/** i18n key of the driver badge: "Proxmox VE" or "SolarOS". */
-export const driverBadgeKey = (driver: string): TKey => (driver === "proxmox" ? "driver.proxmox" : "driver.standalone");

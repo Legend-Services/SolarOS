@@ -4,7 +4,7 @@ import { api } from "../lib/api";
 import type { HypervisorIsoStatus, SystemInfo, UpdateSettings, UpdateStatus, VersionEntry } from "../lib/types";
 import { bytes, copyText, uptime } from "../lib/format";
 import { usePoll, useRunner } from "../lib/hooks";
-import { TRADEMARK_NOTICE } from "../lib/brand";
+import { edition } from "@edition";
 import { MAGNIFICATION, useBugReport, useDock, useIntent, usePrefs, useWindows, type Magnification } from "../lib/stores";
 import ThemeStudio from "./ThemeStudio";
 import { APPS, APP_IDS } from "./registry";
@@ -15,7 +15,7 @@ import AutomationPanel from "./AutomationPanel";
 import LanguagePill from "../components/LanguagePill";
 import { LANGS, isLang, useTranslation, type TKey } from "../i18n";
 import { useWidgets } from "../store/widgetStore";
-import { driverBadgeKey, productOf, useCapabilities } from "../store/capabilitiesStore";
+import { productOf, useCapabilities } from "../store/capabilitiesStore";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
 
 type Section = "security" | "network" | "appearance" | "automation" | "hardware" | "power";
@@ -125,7 +125,7 @@ function BridgeCard() {
       action={b && <GlassBadge tone={b.connected ? "success" : "danger"}>{b.connected ? "CONNECTED" : "UNAVAILABLE"}</GlassBadge>}
     >
       <p className="mb-3 text-xs text-slate-400">
-        SolarDeck reaches <span className="font-mono">{b?.target || "the Proxmox host"}</span> as root with its own ed25519 key, so Host Shell, container shells, GPU drivers and network
+        SolarDeck reaches <span className="font-mono">{b?.target || edition.host}</span> as root with its own ed25519 key, so Host Shell, container shells, GPU drivers and network
         services work without a second login. Anyone signed in to SolarDeck has full root on the host; keep 2FA on.
       </p>
       {b && (
@@ -147,7 +147,7 @@ function BridgeCard() {
         </GlassButton>
         {b && !b.connected && b.setup_command && (
           <GlassButton onClick={() => copyText(b.setup_command!).then(() => setCopied(true))}>
-            <KeyRound size={13} /> {copied ? "Copied: paste it into the Proxmox host shell" : "Copy SSH Setup Command"}
+            <KeyRound size={13} /> {copied ? `Copied: paste it into ${edition.host} shell` : "Copy SSH Setup Command"}
           </GlassButton>
         )}
       </div>
@@ -287,7 +287,7 @@ function HypervisorIsoCard() {
   return (
     <Card title="SolarOS Installer ISO" action={<GlassButton size="xs" variant="ghost" disabled={busy} onClick={load} aria-label="Refresh ISO list"><RefreshCw size={12} className={busy ? "animate-spin" : ""} /></GlassButton>}>
       <p className="mb-2 text-[11px] text-slate-400">
-        Build a bootable SolarOS installer (USB stick, bare metal or a nested test VM). Run on a Linux host with xorriso; add <span className="font-mono">--auto-disk /dev/sda</span> for an unattended VM test entry and <span className="font-mono">--deploy-to-pve</span> on a Proxmox VE host.
+        Build a bootable SolarOS installer (USB stick, bare metal or a nested test VM). Run on a Linux host with xorriso; add <span className="font-mono">--auto-disk /dev/sda</span> for an unattended VM test entry{edition.isoDeployNote}.
       </p>
       {st && command(st.build_command)}
       {st?.test_command && <div className="mt-2">{command(st.test_command)}</div>}
@@ -336,7 +336,7 @@ function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; run
     <Card title="SolarDeck Version" action={st?.update_available && !running && <GlassBadge tone="info">UPDATE AVAILABLE</GlassBadge>}>
       <Rows
         rows={[
-          ["Edition", st ? <GlassBadge tone={st.driver === "proxmox" ? "info" : "success"}>{st.edition}</GlassBadge> : "—"],
+          ["Edition", st ? <GlassBadge tone={st.driver === "native_ubuntu" ? "success" : "info"}>{st.edition}</GlassBadge> : "—"],
           ["Driver", <span className="font-mono">{st?.driver ?? "—"}</span>],
           ["Version", st ? `${st.version ? `v${st.version}` : "—"}${st.tag ? ` (${st.tag})` : ""}` : "—"],
           ["Commit", <span className="font-mono">{short(st?.commit)}</span>],
@@ -386,8 +386,8 @@ function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; run
       )}
       {done && st.exit_code !== 0 && <Notice error={`Update failed (exit code ${st.exit_code}); see the log above. Your previous settings are saved in the state backup folder named in the log.`} />}
       <p className="mt-2 text-[11px] text-slate-500">
-        Both editions (SolarDeck for Proxmox VE and SolarOS) update from the same branch. Updates pull the new code, sync dependencies, rebuild the desktop and restart the services. Settings, users, 2FA, schedules, shares and ZFS pools are kept.
-        {st?.driver === "proxmox" ? " Host helper changes still need install.sh on the Proxmox host." : " The host helper and the console dashboard are updated as well."}
+        {edition.updatesIntro}Updates pull the new code, sync dependencies, rebuild the desktop and restart the services. Settings, users, 2FA, schedules, shares and ZFS pools are kept.
+        {st?.driver === "native_ubuntu" ? " The host helper and the console dashboard are updated as well." : edition.hostHelperNote}
       </p>
       <div className="mt-2">
         <Notice error={error} notice={notice} />
@@ -570,7 +570,7 @@ function NetworkSection({ info }: { info: SystemInfo }) {
             </tbody>
           </table>
         </div>
-        <p className="mt-3 text-[11px] text-slate-500">Read-only view. Network changes are made in the Proxmox web UI so a typo cannot cut off access to the host.</p>
+        <p className="mt-3 text-[11px] text-slate-500">{edition.networkReadOnlyNote}</p>
       </Card>
       <Card title="DNS">
         <Rows
@@ -637,11 +637,10 @@ function DockCard() {
   );
 }
 
-/** Hypervisor driver badge: "Proxmox VE" or "SolarOS". */
+/** Hypervisor driver badge: the platform label the backend reports. */
 function DriverBadge() {
-  const { t } = useTranslation();
-  const driver = useCapabilities((s) => s.capabilities.driver);
-  return <GlassBadge tone={driver === "proxmox" ? "info" : "success"}>{t(driverBadgeKey(driver))}</GlassBadge>;
+  const { driver, platform_label } = useCapabilities((s) => s.capabilities);
+  return <GlassBadge tone={driver === "native_ubuntu" ? "success" : "info"}>{platform_label}</GlassBadge>;
 }
 
 function AboutCard() {
@@ -722,7 +721,7 @@ function PowerSection({ info }: { info: SystemInfo }) {
         }
       />
       <AboutCard />
-      <p className="px-1 text-[11px] leading-snug text-slate-500">{TRADEMARK_NOTICE}</p>
+      {edition.trademarkNotice && <p className="px-1 text-[11px] leading-snug text-slate-500">{edition.trademarkNotice}</p>}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { edition } from "@edition";
 import { useCapabilities } from "../store/capabilitiesStore";
 import { ArrowUpCircle, Download, PackageCheck, Plus, Power, RefreshCw, RotateCcw, Server, SquareTerminal, TriangleAlert } from "lucide-react";
 import { api } from "../lib/api";
@@ -49,13 +50,10 @@ function Repositories() {
 
   return (
     <div className="space-y-4">
-      {needsFix && (
+      {needsFix && edition.subscriptionWarning && (
         <div className="flex gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
           <TriangleAlert size={15} className="shrink-0" />
-          <span>
-            The Enterprise repository only works with a Proxmox subscription. Without one, <b>apt update</b> fails. Disable the Enterprise repositories and add{" "}
-            <b>No-Subscription</b> below.
-          </span>
+          <span>{edition.subscriptionWarning}</span>
         </div>
       )}
       <Err text={error} />
@@ -101,7 +99,7 @@ function Repositories() {
         </tbody>
       </table>
 
-      <h3 className="pt-2 text-sm font-semibold text-slate-100">Add a Proxmox repository</h3>
+      <h3 className="pt-2 text-sm font-semibold text-slate-100">{edition.addRepositoryTitle}</h3>
       <div className="grid gap-2 sm:grid-cols-2">
         {info.available.map((a) => (
           <div key={a.handle} className="glass-soft flex items-start gap-3 rounded-xl p-3">
@@ -154,7 +152,7 @@ function Updates() {
   }, [upgrade?.log.length]);
 
   const startUpgrade = () => {
-    if (!window.confirm(`Install ${list?.length ?? 0} update(s) on the Proxmox host (apt dist-upgrade)? Running guests keep running; a kernel update needs a reboot to take effect.`)) return;
+    if (!window.confirm(`Install ${list?.length ?? 0} update(s) on ${edition.host} (apt dist-upgrade)? Running guests keep running; a kernel update needs a reboot to take effect.`)) return;
     run(() => api("/system/upgrade", { method: "POST" }).then(pollUpgrade));
   };
 
@@ -226,7 +224,7 @@ function Host() {
 
   const power = (command: "reboot" | "shutdown") => {
     const verb = command === "reboot" ? "Reboot" : "Shut down";
-    if (!window.confirm(`${verb} the Proxmox host "${node}"? All running VMs and containers are stopped, and SolarDeck itself goes offline${command === "shutdown" ? " until the server is powered on again" : " for a few minutes"}.`)) return;
+    if (!window.confirm(`${verb} ${edition.host} "${node}"? All running VMs and containers are stopped, and SolarDeck itself goes offline${command === "shutdown" ? " until the server is powered on again" : " for a few minutes"}.`)) return;
     run(() => api("/system/power", { method: "POST", json: { command } }).then(() => setSent(`${verb} command sent.`)));
   };
 
@@ -248,7 +246,7 @@ function Host() {
 
       <section className="glass-soft rounded-xl p-4">
         <h3 className="mb-1 text-sm font-semibold text-slate-100">Host shell</h3>
-        <p className="mb-3 text-[11px] text-slate-400">A full terminal on the Proxmox host. Log in with a host account, for example root and its password.</p>
+        <p className="mb-3 text-[11px] text-slate-400">A full terminal on {edition.host}. Log in with a host account, for example root and its password.</p>
         <button className="btn" onClick={() => open("console", { type: "node", vmid: 0, name: node, mode: "shell" })}>
           <SquareTerminal size={12} /> Open host shell
         </button>

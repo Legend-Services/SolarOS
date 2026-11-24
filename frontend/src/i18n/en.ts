@@ -31,8 +31,6 @@ export const en = {
   "top.desktop": "Desktop",
   "top.search": "Search (Ctrl+K)",
   "top.hostShell": "Host Shell (root on the {platform} host)",
-  "driver.proxmox": "Proxmox VE",
-  "driver.standalone": "SolarOS",
   "about.title": "About {product}",
   "about.driver": "Hypervisor driver",
   "about.platform": "Platform",

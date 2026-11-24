@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from "react";
+import { edition } from "@edition";
 import { Cpu, HardDrive, MonitorPlay, Thermometer, Zap } from "lucide-react";
 import { useTelemetry } from "../lib/stores";
-import { bytes, healthColor, pct, tempColor, uptime } from "../lib/format";
+import { bytes, healthColor, percent, tempColor, uptime } from "../lib/format";
 import { AreaChart, Bar, Gauge, Legend } from "../components/charts";
 
 function Panel({ title, right, children }: { title: string; right?: ReactNode; children: ReactNode }) {
@@ -49,7 +50,7 @@ function HardwareTab() {
                   {fmt(g.vram_used_mb && g.vram_used_mb / 1024, "GB", 1)} / {fmt(g.vram_total_mb && g.vram_total_mb / 1024, "GB", 1)}
                 </span>
               </div>
-              <Bar value={pct(g.vram_used_mb ?? 0, g.vram_total_mb ?? 0)} className="bg-emerald-400" />
+              <Bar value={percent(g.vram_used_mb ?? 0, g.vram_total_mb ?? 0)} className="bg-emerald-400" />
             </div>
           </div>
         )}
@@ -150,7 +151,7 @@ function Performance() {
         <Legend items={[{ label: "Load avg", color: "#38bdf8", value: o?.loadavg.map((l) => l.toFixed(2)).join(" / ") ?? "—" }]} />
       </Panel>
 
-      <Panel title="Memory" right={o ? `${pct(o.memory.used, total).toFixed(1)}% of ${bytes(total)}` : ""}>
+      <Panel title="Memory" right={o ? `${percent(o.memory.used, total).toFixed(1)}% of ${bytes(total)}` : ""}>
         <div className="h-36">
           <AreaChart
             stacked
@@ -197,7 +198,7 @@ function Performance() {
             ["Topology", o && `${o.cpuinfo.sockets} socket(s) · ${o.cpuinfo.cores} cores · ${o.cpuinfo.cpus} threads`],
             ["Memory", o && bytes(o.memory.total)],
             ["Kernel", o?.kernel],
-            ["PVE", o?.pveversion],
+            [edition.versionLabel, o?.pveversion],
             ["Uptime", o && uptime(o.uptime)],
           ].map(([k, v]) => (
             <div key={k} className="contents">
