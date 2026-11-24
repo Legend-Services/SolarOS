@@ -1,9 +1,13 @@
-# Phase 19 driver spec: `native_ubuntu` (SolarDeck Hypervisor)
+# `native_ubuntu` driver (SolarDeck Hypervisor)
 
 Phase 18 split SolarDeck into a platform-neutral contract (`providers/base.py`) and drivers. `HYPERVISOR_DRIVER`
-in `backend/.env` picks the driver (`proxmox` when unset). Phase 19 implements `NativeUbuntuProvider`
-(`providers/native_ubuntu/provider.py`) on a standalone LTS host, where SolarDeck itself is the management layer.
-It uses the exact same contract, so the React desktop needs no changes.
+in `backend/.env` picks the driver (`proxmox` when unset). **Status (Phase 19, v1.14.0): implemented.**
+`NativeUbuntuProvider` (`providers/native_ubuntu/provider.py`) implements every contract method; `routes.py` mounts
+the standalone routes ahead of the Proxmox ones at the same paths; `host.py` holds the command runner, the job
+registry (Task Center), the vmid registry (`data/native_guests.json`) and the libvirt XML; `rbac.py` the local users.
+The table below is the original design map; where the implementation differs, the code is authoritative
+(Incus image templates instead of tarballs, backups under `STORAGE_ROOT/backups`, schedules run by the backend,
+local RBAC in `data/local_rbac.json`, the VNC bridge in-process instead of a separate websockify).
 
 ## Ground rules
 

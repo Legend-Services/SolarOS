@@ -33,6 +33,10 @@ async def close_client() -> None:
 
 
 async def pve(method: str, path: str, **kw):
+    if settings.hypervisor_driver == "native_ubuntu":
+        # Proxmox-only features (cluster log, PVE storage backends, API tokens, ACME, ...) on the standalone driver.
+        # _safe() callers degrade to their default; direct callers get a clear 501.
+        raise HTTPException(501, "This feature needs a Proxmox VE host; it is not available on SolarDeck Hypervisor")
     try:
         r = await client().request(method, path, **kw)
     except httpx.HTTPError as e:
@@ -71,6 +75,11 @@ async def guests():
 @router.post("/guests/{guest_type}/{vmid}/action")
 async def guest_action(guest_type: Literal["qemu", "lxc"], vmid: int, body: ActionBody):
     return await get_provider().guest_power_action(guest_type, vmid, body.action)
+
+
+@router.delete("/guests/{guest_type}/{vmid}")
+async def guest_delete(guest_type: Literal["qemu", "lxc"], vmid: int, purge: bool = True):
+    return await get_provider().delete_guest(guest_type, vmid, purge)
 
 
 async def zfs_helper(cmd: str) -> str | None:

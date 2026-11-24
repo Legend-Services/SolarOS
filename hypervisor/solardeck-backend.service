@@ -1,0 +1,14 @@
+[Unit]
+Description=SolarDeck backend (FastAPI) - SolarDeck Hypervisor
+After=network-online.target libvirtd.service incus.service zfs-mount.service
+Wants=network-online.target
+
+[Service]
+# Runs as root on the hypervisor host itself: SolarDeck is the management layer (HYPERVISOR_DRIVER=native_ubuntu).
+WorkingDirectory=/opt/solardeck/backend
+ExecStart=/opt/solardeck/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --proxy-headers
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

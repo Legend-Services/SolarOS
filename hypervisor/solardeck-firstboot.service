@@ -1,0 +1,18 @@
+[Unit]
+# Installed by the SolarDeck Hypervisor ISO (autoinstall late-commands): finishes the installation on first boot,
+# when the network is up, then never runs again.
+Description=SolarDeck Hypervisor first-boot installation
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=!/var/lib/solardeck/installed
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash /opt/solardeck-src/hypervisor/install-hypervisor.sh --src /opt/solardeck-src --with-console-tui
+ExecStartPost=/bin/sh -c 'mkdir -p /var/lib/solardeck && touch /var/lib/solardeck/installed'
+StandardOutput=journal+console
+StandardError=journal+console
+TimeoutStartSec=infinity
+
+[Install]
+WantedBy=multi-user.target

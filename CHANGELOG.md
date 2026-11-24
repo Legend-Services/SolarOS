@@ -1,5 +1,26 @@
 # Changelog
 
+## v1.14.0 - Phase 19: Native Linux Hypervisor Driver, Unified Updater, Console Dashboard & Bootable ISO — 2026-11-24
+
+### Added
+- **SolarDeck Hypervisor driver** (`HYPERVISOR_DRIVER=native_ubuntu`): the full `HypervisorProvider` contract on a standalone Ubuntu Server LTS host.
+  - Host telemetry from `/proc` and `/sys` (CPU, RAM, ZFS ARC, load, uptime, network rate); hardware inventory, BIOS readiness, PCIe/IOMMU, USB, GPUs and host/VM-passthrough GPU modes through the same tools as on Proxmox VE (`dmidecode`, `lspci`, `sensors`, `smartctl`, `nvidia-smi`, `/etc/modprobe.d` + `update-initramfs`).
+  - **VMs** with libvirt (QEMU/KVM): generated domain XML with CPU topology, memory, OVMF UEFI (`OVMF_CODE_4M.fd` + per-VM NVRAM, Secure Boot and TPM for Windows 11), virtio-scsi disks on sparse ZFS volumes or QCOW2 files, the `br0` bridge, optional Cloud-Init seed ISO, VNC on `127.0.0.1` and PCIe/GPU (+ HDMI audio) and USB `<hostdev>` passthrough. Power actions, resource editing (cores, memory, autostart, notes, disk growth), snapshots and deletion.
+  - **Containers** with Incus: CPU/RAM limits, root disk size on any Incus storage pool, bridged networking, nesting, dataset bind mounts, snapshots, and container templates from the Incus image server.
+  - **App Center and Local AI Studio** on Incus with the same install scripts: GPU targets `nvidia:<pci|index>`, `intel|amd:/dev/dri/renderD128` or `cpu`, `/mnt/storage/ai-models` mounted for Ollama, and the same `/api/ai/*` workflow.
+  - **Storage**: ZFS pool create (single, mirror, RAID10, RAIDZ1-3) and destroy, member offline/online/replace/detach, datasets, disks with SMART, disk power settings, surface scans, `fio` benchmarks, wipe and GPT init.
+  - **ISO library and backups** in `/mnt/storage/{isos,templates,backups}`: URL downloads with checksum verification, VM backups (`virsh dumpxml` + `zfs send` or QCOW2 copies) and container backups (`incus export`), restore with overwrite, and scheduled backup jobs with keep-last pruning.
+  - **Local users, groups, roles, ACLs and pools** in `backend/data/local_rbac.json` (scrypt password hashes).
+  - Networking from `ip -j` and Netplan, the network topology map, firewall rules from the `inet solardeck` nftables table, the system journal, APT updates and repositories, reboot/shutdown.
+  - **Consoles**: noVNC bridged to the VM's local VNC port over WebSockets, container shells (`incus exec`), VM serial consoles (`virsh console`) and the Host Shell.
+  - Task Center jobs for every long operation. `DELETE /api/pve/guests/{type}/{vmid}` (both drivers).
+- **`hypervisor/`**: `install-hypervisor.sh` (single-command bare-metal installer with `--with-console-tui`), the `solardeck-console` tty1 dashboard (host summary, LAN IPs and web URL, ZFS pool health, network setup, admin password reset, update from Git, root shell, reboot/shut down), `build-iso.sh` + autoinstall template for a bootable installer ISO, and `solardeck-backend` / `solardeck-console` / `solardeck-firstboot` systemd units.
+- **CI** (`.github/workflows/release.yml`): frontend build, both drivers and their routes, all backend self-checks and script syntax on every push to `main`; release notes and installer scripts attached on version tags.
+
+### Changed
+- **One updater for both editions**: Control Panel → System & Updates shows the edition (*Proxmox VE Deck* or *SolarDeck Standalone Hypervisor*), the driver and `origin/main`. `POST /api/system/updates/apply` takes `include_system_packages` on the standalone edition (`apt-get update && apt-get upgrade -y` on the host). `self-update.sh` keeps `.env`, `data/`, `.ssh/` and the Samba share config and, on the standalone edition, also refreshes the root helper and the console dashboard.
+- The root helper's `storage-map` uses bind mounts under `/mnt/storage` on a host without `pct`.
+
 ## v1.13.0 - Phase 18: Provider / Adapter Architecture — 2026-11-24
 
 ### Added

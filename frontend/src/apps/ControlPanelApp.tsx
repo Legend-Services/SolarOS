@@ -227,7 +227,7 @@ const FREQUENCIES: { id: UpdateSettings["schedule_frequency"]; label: string }[]
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const short = (c?: string | null) => (c ? c.slice(0, 10) : "unknown");
 const when = (iso?: string | null) => (iso ? new Date(iso).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "Never");
-type Start = (path: "apply" | "rollback", targetRef?: string) => Promise<unknown>;
+type Start = (path: "apply" | "rollback", targetRef?: string, includeSystemPackages?: boolean) => Promise<unknown>;
 
 /** Control Panel → System & Updates: version check, update preferences and version history share one job state. */
 function UpdatesSection() {
@@ -246,8 +246,11 @@ function UpdatesSection() {
   useEffect(() => {
     if (started && st && !st.running && st.exit_code !== null) setStarted(false);
   }, [started, st]);
-  const start: Start = (path, targetRef) =>
-    api(`/system/updates/${path}`, { method: "POST", json: targetRef ? { target_ref: targetRef } : {} }).then(() => setStarted(true));
+  const start: Start = (path, targetRef, includeSystemPackages) =>
+    api(`/system/updates/${path}`, {
+      method: "POST",
+      json: { ...(targetRef ? { target_ref: targetRef } : {}), ...(includeSystemPackages ? { include_system_packages: true } : {}) },
+    }).then(() => setStarted(true));
   const running = !!st?.running || started;
 
   return (
@@ -262,9 +265,10 @@ function UpdatesSection() {
 
 function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; running: boolean; load: (check?: boolean) => Promise<UpdateStatus>; start: Start }) {
   const [ask, setAsk] = useState(false);
+  const [sysPkgs, setSysPkgs] = useState(false);
   const { busy, error, notice, run } = useRunner();
   const check = () => run(() => load(true));
-  const apply = () => run(() => start("apply").then(() => setAsk(false)));
+  const apply = () => run(() => start("apply", undefined, sysPkgs && st?.supports_system_packages).then(() => setAsk(false)));
   const done = st && !st.running && st.exit_code !== null && st.log.length > 0;
   const latest = st?.remote_tag && st.remote_tag !== st.tag ? st.remote_tag : short(st?.remote_commit);
 
@@ -272,9 +276,11 @@ function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; run
     <Card title="SolarDeck Version" action={st?.update_available && !running && <GlassBadge tone="info">UPDATE AVAILABLE</GlassBadge>}>
       <Rows
         rows={[
+          ["Edition", st ? <GlassBadge tone={st.driver === "proxmox" ? "info" : "success"}>{st.edition}</GlassBadge> : "—"],
+          ["Driver", <span className="font-mono">{st?.driver ?? "—"}</span>],
           ["Version", st ? `${st.version ? `v${st.version}` : "—"}${st.tag ? ` (${st.tag})` : ""}` : "—"],
           ["Commit", <span className="font-mono">{short(st?.commit)}</span>],
-          ["Branch", <span className="font-mono">{st?.branch}</span>],
+          ["Branch", <span className="font-mono">{st ? `origin/${st.branch}` : ""}</span>],
           ["Source", <span className="font-mono">{st?.remote}</span>],
           ["Last checked", when(st?.settings.last_checked_at)],
           ...(st?.update_available ? ([["Latest version", <span className="font-mono">{latest}</span>]] as [string, ReactNode][]) : []),
@@ -320,7 +326,8 @@ function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; run
       )}
       {done && st.exit_code !== 0 && <Notice error={`Update failed (exit code ${st.exit_code}); see the log above. Your previous settings are saved in /tmp/proxmox-os-state-backup.`} />}
       <p className="mt-2 text-[11px] text-slate-500">
-        Updates pull the new code, sync dependencies, rebuild the desktop and restart the services. Settings, users, 2FA, schedules, shares and ZFS pools are kept. Host helper changes still need install.sh on the Proxmox host.
+        Both editions (Proxmox VE Deck and SolarDeck Standalone Hypervisor) update from the same branch. Updates pull the new code, sync dependencies, rebuild the desktop and restart the services. Settings, users, 2FA, schedules, shares and ZFS pools are kept.
+        {st?.driver === "proxmox" ? " Host helper changes still need install.sh on the Proxmox host." : " The host helper and the console dashboard are updated as well."}
       </p>
       <div className="mt-2">
         <Notice error={error} notice={notice} />
@@ -334,7 +341,13 @@ function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; run
         title="Install update"
         confirmLabel="Install Update Now"
         message={`Update SolarDeck from ${st?.tag ?? short(st?.commit)} to ${latest}? Your settings and data are kept. The desktop is briefly unavailable while services restart.`}
-      />
+      >
+        {st?.supports_system_packages && (
+          <div className="mt-3">
+            <GlassSwitch checked={sysPkgs} onChange={setSysPkgs} label="Also upgrade host system packages (apt-get upgrade)" />
+          </div>
+        )}
+      </ConfirmModal>
     </Card>
   );
 }

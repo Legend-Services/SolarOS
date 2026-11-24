@@ -16,6 +16,7 @@ from pydantic import BaseModel, Field
 
 from . import host, host_ssh
 from .auth import require_user
+from .config import settings
 from .hardware_admin import split_sections
 from .pve import DATASET_RE, _node, pve, zfs_helper
 from .telemetry import smart_temp
@@ -259,8 +260,8 @@ class PoolBody(BaseModel):
 MIN_DEVICES = {"single": 1, "mirror": 2, "raid10": 4, "raidz": 3, "raidz2": 4, "raidz3": 5}
 
 
-@router.post("/zfs/pools")
-async def pool_create(body: PoolBody):
+def validate_pool(body: PoolBody) -> list[str]:
+    """Device paths of a new pool, checked against the RAID level (shared by both drivers)."""
     devs = [_dev(d) for d in body.devices]
     if len(set(devs)) != len(devs):
         raise HTTPException(400, "Duplicate device")
@@ -269,6 +270,12 @@ async def pool_create(body: PoolBody):
         raise HTTPException(400, f"{body.raidlevel} needs {MIN_DEVICES[body.raidlevel]}"
                                  f"{'' if body.raidlevel == 'single' else '+'} devices"
                                  f"{' (an even number)' if body.raidlevel == 'raid10' else ''}")
+    return devs
+
+
+@router.post("/zfs/pools")
+async def pool_create(body: PoolBody):
+    devs = validate_pool(body)
     data = {"name": body.name, "raidlevel": body.raidlevel, "devices": ",".join(devs), "ashift": body.ashift,
             "compression": body.compression, "add_storage": int(body.add_storage)}
     return {"task": await pve("POST", _node("/disks/zfs"), data=data)}
@@ -642,7 +649,12 @@ def parse_settings(bus: str, rotational: bool, s: dict[str, str], persisted: dic
 
 
 async def disk_info(path: str) -> dict:
-    d = next((x for x in await pve("GET", _node("/disks/list")) or [] if x.get("devpath") == path), None)
+    if settings.hypervisor_driver == "native_ubuntu":
+        from providers.registry import get_provider
+        items = await get_provider()._raw_disks()
+    else:
+        items = await pve("GET", _node("/disks/list")) or []
+    d = next((x for x in items if x.get("devpath") == path), None)
     if not d:
         raise HTTPException(404, f"{path} is not a physical disk on this node")
     return normalize_disk(d, None, None)
