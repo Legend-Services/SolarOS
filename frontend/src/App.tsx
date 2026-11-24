@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useAuth, useTelemetry } from "./lib/stores";
+import { useAuth, usePrefs, useTelemetry } from "./lib/stores";
 import LockScreen from "./components/LockScreen";
 import TopBar from "./components/TopBar";
 import Desktop from "./components/Desktop";
@@ -10,6 +10,7 @@ export default function App() {
   const status = useAuth((s) => s.status);
   const init = useAuth((s) => s.init);
   const start = useTelemetry((s) => s.start);
+  const wallpaper = usePrefs((s) => s.wallpaper);
 
   useEffect(() => {
     init();
@@ -18,7 +19,7 @@ export default function App() {
   useEffect(() => (status === "unlocked" ? start() : undefined), [status, start]);
 
   return (
-    <div className="wallpaper relative h-full w-full overflow-hidden">
+    <div className={`wallpaper wp-${wallpaper} relative h-full w-full overflow-hidden`}>
       <div
         className={`absolute inset-0 transition-all duration-700 ${
           status === "unlocked" ? "scale-100 opacity-100" : "pointer-events-none scale-105 opacity-0 blur-sm"

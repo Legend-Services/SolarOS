@@ -12,6 +12,40 @@ DS_RE='^[A-Za-z0-9][A-Za-z0-9_.:/-]*$'
 SNAP_RE='^[A-Za-z0-9][A-Za-z0-9_.:/-]*@[A-Za-z0-9][A-Za-z0-9_.:-]*$'
 snap_arg() { [[ "${ARGS[1]:-}" =~ $SNAP_RE ]] || die "invalid snapshot name"; echo "${ARGS[1]}"; }
 
+CHILD_DS_RE='^[A-Za-z0-9][A-Za-z0-9_.:-]*/[A-Za-z0-9_.:/-]*[A-Za-z0-9_.:-]$'
+child_ds_arg() { [[ "${ARGS[1]:-}" =~ $CHILD_DS_RE ]] || die "invalid dataset name (pool roots are not allowed)"; echo "${ARGS[1]}"; }
+
+# Allowlisted ZFS properties for zfs-create / zfs-set.
+prop_ok() {
+  local k="${1%%=*}" v="${1#*=}"
+  case "$k" in
+    compression) [[ "$v" =~ ^(on|off|lz4|zstd|gzip|zle)$ ]] ;;
+    recordsize) [[ "$v" =~ ^(4|8|16|32|64|128|256|512)K$|^1M$ ]] ;;
+    quota) [[ "$v" =~ ^(none|[0-9]+[KMGTP]?)$ ]] ;;
+    atime) [[ "$v" =~ ^(on|off)$ ]] ;;
+    mountpoint) [[ "$v" =~ ^(none|legacy|/[A-Za-z0-9_./-]*)$ && "$v" != *..* ]] ;;
+    *) false ;;
+  esac || die "invalid property $1"
+}
+
+pos_ct() {
+  local ct
+  ct="$(pct list | awk '$NF=="proxmox-os" {print $1; exit}')"
+  [[ -n "$ct" ]] || die "proxmox-os container not found"
+  echo "$ct"
+}
+
+# Drop the container mount point of a dataset (and its children) so it can be destroyed.
+unmap_storage() {
+  local ds="$1" ct mnt key src
+  ct="$(pos_ct)"; mnt="$(zfs get -H -o value mountpoint "$ds")"
+  [[ "$mnt" == /* ]] || return 0
+  while IFS=': ' read -r key src; do
+    src="${src%%,*}"
+    if [[ "$src" == "$mnt" || "$src" == "$mnt"/* ]]; then pct set "$ct" -delete "$key"; echo "unmapped $key"; fi
+  done < <(pct config "$ct" | grep -E '^mp[0-9]+:')
+}
+
 app_vmid() {
   local vmid="${ARGS[1]:-}"
   [[ "$vmid" =~ ^[0-9]+$ ]] || die "invalid vmid"
@@ -34,6 +68,44 @@ case "$CMD" in
     ;;
   zfs-destroy)
     s="$(snap_arg)"; zfs destroy "$s"
+    ;;
+  zfs-datasets)
+    zfs list -H -p -t filesystem,volume -o name,type,used,avail,refer,mountpoint,compression,recordsize,quota,atime,volsize
+    ;;
+  zfs-create)
+    ds="$(child_ds_arg)"; opts=(); vol=""
+    for kv in "${ARGS[@]:2}"; do
+      if [[ "$kv" =~ ^volsize=([0-9]+[KMGTP]?)$ ]]; then vol="${BASH_REMATCH[1]}"; else prop_ok "$kv"; opts+=(-o "$kv"); fi
+    done
+    if [[ -n "$vol" ]]; then zfs create -V "$vol" "${opts[@]}" "$ds"; else zfs create "${opts[@]}" "$ds"; fi
+    ;;
+  zfs-set)
+    ds="${ARGS[1]:-}"; [[ "$ds" =~ $DS_RE ]] || die "invalid dataset name"
+    (( ${#ARGS[@]} > 2 )) || die "no properties"
+    for kv in "${ARGS[@]:2}"; do prop_ok "$kv"; done
+    zfs set "${ARGS[@]:2}" "$ds"
+    ;;
+  zfs-destroy-dataset)
+    ds="$(child_ds_arg)"
+    [[ "$ds" =~ /(vm|base|subvol|basevol)-[0-9]+- ]] && die "guest disks are managed by Proxmox, not here"
+    unmap_storage "$ds"
+    if [[ "${ARGS[2]:-}" == recursive ]]; then zfs destroy -r "$ds"; else zfs destroy "$ds"; fi
+    ;;
+  storage-map)
+    # Bind-mount a dataset into the ProxmoxOS container at /mnt/storage/<dataset> (same layout as install.sh).
+    ds="${ARGS[1]:-}"; [[ "$ds" =~ $DS_RE ]] || die "invalid dataset name"
+    [[ "$(zfs get -H -o value type "$ds")" == filesystem ]] || die "not a filesystem dataset"
+    [[ "$(zfs get -H -o value mounted "$ds")" == yes ]] || zfs mount "$ds"
+    mnt="$(zfs get -H -o value mountpoint "$ds")"
+    [[ "$mnt" == /* ]] || die "dataset has no mountpoint"
+    ct="$(pos_ct)"
+    if pct config "$ct" | sed -n 's/^mp[0-9]*: \([^,]*\),.*/\1/p' | grep -Fxq "$mnt"; then echo "already mapped"; exit 0; fi
+    i=0; while pct config "$ct" | grep -q "^mp${i}:"; do i=$((i + 1)); done
+    zfs set acltype=posixacl xattr=sa "$ds"
+    # Unprivileged container root is uid/gid 100000 on the host; additive ACLs leave host ownership untouched.
+    setfacl -R -P -m u:100000:rwX,g:100000:rwX,d:u:100000:rwX,d:g:100000:rwX "$mnt"
+    pct set "$ct" "-mp${i}" "${mnt},mp=/mnt/storage/${ds}"
+    echo "mapped mp${i}"
     ;;
   zpool-scrub)
     pool="${ARGS[1]:-}"

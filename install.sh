@@ -265,6 +265,15 @@ ok "Samba ready (shares managed in Network Shares)"
 
 PVE_BRIDGE="$(pct config "$CTID" | sed -n 's/^net0:.*bridge=\([^,]*\).*/\1/p')"
 
+# Keep a password changed in Control Panel across updates; only fresh installs get a generated one.
+ADMIN_PW_LINE="$(pct exec "$CTID" -- grep -m1 '^ADMIN_PASSWORD=.' "${APP_DIR}/backend/.env" 2>/dev/null || true)"
+if [[ -n "$ADMIN_PW_LINE" ]]; then
+  ADMIN_PASSWORD_SHOWN="(unchanged; change it in Control Panel)"
+else
+  ADMIN_PW_LINE="ADMIN_PASSWORD=${ADMIN_PASSWORD}"
+  ADMIN_PASSWORD_SHOWN="${ADMIN_PASSWORD}"
+fi
+
 ENV_FILE="$(mktemp)"
 chmod 600 "$ENV_FILE"
 cat >"$ENV_FILE" <<EOF
@@ -274,7 +283,7 @@ PVE_TOKEN_ID=${PVE_USER}!${TOKEN_NAME}
 PVE_TOKEN_SECRET=${PVE_TOKEN_SECRET}
 PVE_VERIFY_SSL=false
 ADMIN_USERNAME=admin
-ADMIN_PASSWORD=${ADMIN_PASSWORD}
+${ADMIN_PW_LINE}
 JWT_SECRET=${JWT_SECRET}
 STORAGE_ROOT=${STORAGE_ROOT}
 PVE_BRIDGE=${PVE_BRIDGE:-vmbr0}
@@ -324,11 +333,11 @@ ${C_GREEN}╔══════════════════════�
 ╚══════════════════════════════════════════════════════╝${C_RESET}
   Web UI:    http://${CT_IP}
   Username:  admin
-  Password:  ${ADMIN_PASSWORD}
+  Password:  ${ADMIN_PASSWORD_SHOWN}
 
   Container: ${CTID} (${CT_HOSTNAME})
   Storage:   ${STORAGE_ROOT} (${#MOUNTS[@]} ZFS dataset(s) mounted)
   SMB:       smb://${CT_IP}/<share>  (create shares in Network Shares)
-  Re-run this installer any time to update; it rotates the password and API token.
+  Re-run this installer any time to update; it rotates the API token and keeps the admin password.
 
 EOF
