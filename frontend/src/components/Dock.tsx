@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type DragEvent, type MouseEvent as RMouseEvent } from "react";
 import { LayoutGrid } from "lucide-react";
-import { MAGNIFICATION, useDock, useWindows } from "../lib/stores";
+import { MAGNIFICATION, activateApp, useDock, useWindows } from "../lib/stores";
 import { APPS, type AppId } from "../apps/registry";
 import { AppIcon } from "./icons/AppIcons";
 import { useDismiss } from "../lib/hooks";
@@ -14,7 +14,7 @@ type Slot = AppId | typeof LAUNCHPAD;
 
 export default function Dock() {
   const windows = useWindows((s) => s.windows);
-  const { open, focus, minimize, close, setDockIconRect } = useWindows();
+  const { close, setDockIconRect } = useWindows();
   const { pinned, autoHide, baseSize, magnification, launchpad, pin, unpin, move, set } = useDock();
   const gap = useLayout((s) => s.dockGap);
   const [mouseX, setMouseX] = useState<number | null>(null);
@@ -50,14 +50,7 @@ export default function Dock() {
     };
   }, [setDockIconRect, layoutKey]);
 
-  const click = (id: AppId) => {
-    const w = windows.find((x) => x.id === id);
-    if (!w) return open(id);
-    const top = Math.max(...windows.filter((x) => !x.minimized).map((x) => x.z), 0);
-    // Clicking the focused app minimizes it.
-    if (!w.minimized && w.z === top) minimize(w.key);
-    else focus(w.key);
-  };
+  const click = activateApp;
 
   const reveal = () => {
     clearTimeout(hideTimer.current);

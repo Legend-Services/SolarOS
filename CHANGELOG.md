@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.8.0 - Taskbar Desktop Layout — 2026-11-24
+
+### Added
+- **Taskbar layout**: one bar along the bottom replaces the top bar and the Dock.
+  - **Start** opens a menu with app search (Enter opens the first match), all apps, and your account with Control Panel, Lock and Log out.
+  - Next to it: **Search** (the same as Ctrl+K), then your pinned apps and open apps. A bar under each running app shows it is open; the bar is wider and blue for the window in front. Click to open, bring forward or minimize. Right-click for Show / New window / Pin or unpin / Close window. Windows minimize into their taskbar button.
+  - The tray on the right has the CPU, RAM and ZFS status, Host Shell, View Settings, Help, Tasks, Notifications, a two-line clock, and a thin **Show desktop** strip that minimizes every window. Menus open upwards.
+- **Desktop layout** setting in Control Panel → Appearance & Layout (and View Settings): *Automatic* (default), *Top bar + Dock* or *Taskbar*. *Automatic* picks the taskbar on devices whose browser reports a Windows platform, and top bar + Dock elsewhere. The setting is saved with the other layout preferences.
+
+### Changed
+- Maximize, snapping, dragging and desktop icons keep clear of whichever bars the layout shows: the top bar in the Dock layout, the taskbar in the taskbar layout. Dragging a window to the very top edge maximizes it in the taskbar layout.
+- The Help menu and the Dock's click behaviour are shared by both layouts (`HelpMenu`, `activateApp`).
+
 ## v1.7.2 - Rename and Search Local AI Conversations — 2026-11-24
 
 ### Added

@@ -129,6 +129,15 @@ export const useWindows = create<WindowState>((set, get) => ({
 export const activeWindow = (windows: Win[]) =>
   windows.filter((w) => !w.minimized).sort((a, b) => b.z - a.z)[0] ?? null;
 
+/** Dock / taskbar click: open the app, bring its window forward, or minimize it when it is already in front. */
+export function activateApp(id: AppId) {
+  const { windows, open, focus, minimize } = useWindows.getState();
+  const w = windows.find((x) => x.id === id);
+  if (!w) return open(id);
+  if (!w.minimized && activeWindow(windows)?.key === w.key) minimize(w.key);
+  else focus(w.key);
+}
+
 /* ---------------- Cross-app navigation (Spotlight, desktop menu) ---------------- */
 
 /** One-shot deep links: the target app reads its entry on mount / change and clears it with `take`. */
