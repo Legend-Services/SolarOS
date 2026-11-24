@@ -9,6 +9,7 @@ import StorageManager from "../apps/StorageManager";
 import FileStation from "../apps/FileStation";
 import AppCenter from "../apps/AppCenter";
 import SharesManager from "../apps/SharesManager";
+import SystemApp from "../apps/SystemApp";
 // noVNC + xterm.js are only downloaded when a console is opened.
 const ConsoleApp = lazy(() => import("../apps/ConsoleApp"));
 import type { ConsoleTarget } from "../lib/types";
@@ -20,6 +21,7 @@ const COMPONENTS: Record<AppId, ComponentType<{ params?: ConsoleTarget }>> = {
   files: FileStation,
   appcenter: AppCenter,
   shares: SharesManager,
+  system: SystemApp,
   console: ConsoleApp,
 };
 
@@ -32,7 +34,8 @@ function WindowFrame({ win, mobile }: { win: Win; mobile: boolean }) {
   const drag = useRef<{ mode: "move" | "resize"; sx: number; sy: number; ox: number; oy: number; ow: number; oh: number } | null>(null);
   const full = mobile || win.maximized;
   const { icon: Icon } = APPS[win.id];
-  const title = win.params ? `${win.params.mode === "vnc" ? "Console" : "Shell"} — ${win.params.name} (${win.params.vmid})` : APPS[win.id].title;
+  const p = win.params;
+  const title = p ? `${p.mode === "vnc" ? "Console" : "Shell"} — ${p.name} (${p.type === "node" ? "host" : p.vmid})` : APPS[win.id].title;
   const Body = COMPONENTS[win.id];
 
   const begin = (mode: "move" | "resize") => (e: RPointerEvent) => {

@@ -145,7 +145,8 @@ grant_storage_access() {
 # ---------------------------------------------------------------- 2. API user + token
 msg "Configuring Proxmox API user ${PVE_USER}"
 pveum user add "$PVE_USER" --comment "ProxmoxOS Web Desktop" >/dev/null 2>&1 || true
-pveum acl modify / --users "$PVE_USER" --roles PVEAdmin
+# Administrator (not PVEAdmin): the System app needs Sys.Modify (repositories, updates) and Sys.PowerMgmt.
+pveum acl modify / --users "$PVE_USER" --roles Administrator
 pveum user token remove "$PVE_USER" "$TOKEN_NAME" >/dev/null 2>&1 || true
 PVE_TOKEN_SECRET="$(pveum user token add "$PVE_USER" "$TOKEN_NAME" --privsep 0 --output-format json \
   | python3 -c 'import sys, json; print(json.load(sys.stdin)["value"])')"

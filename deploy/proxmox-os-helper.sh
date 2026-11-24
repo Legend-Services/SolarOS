@@ -40,6 +40,20 @@ case "$CMD" in
     [[ "$pool" =~ ^[A-Za-z0-9][A-Za-z0-9_.:-]*$ ]] || die "invalid pool name"
     zpool scrub "$pool"
     ;;
+  apt-upgrade)
+    # Runs detached in a transient systemd unit: a dropped SSH session or backend restart can't kill dpkg midway.
+    unit=proxmox-os-apt-upgrade
+    if systemctl is-active -q "$unit"; then die "an upgrade is already running"; fi
+    systemctl reset-failed "$unit" 2>/dev/null || true
+    systemd-run --quiet --unit="$unit" --collect -p StandardOutput=truncate:/var/log/proxmox-os-upgrade.log \
+      -p StandardError=inherit -E DEBIAN_FRONTEND=noninteractive -E APT_LISTCHANGES_FRONTEND=none \
+      bash -c '{ apt-get update && apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold dist-upgrade; }; echo "proxmox-os: exit $?"'
+    echo "started"
+    ;;
+  apt-upgrade-status)
+    echo "state:$(systemctl is-active proxmox-os-apt-upgrade 2>/dev/null || true)"
+    tail -n 400 /var/log/proxmox-os-upgrade.log 2>/dev/null || true
+    ;;
   hw-info)
     # GPU probe for the telemetry API: "dri:<render node>:<PCI vendor>" and "nvidia:<csv>" lines.
     for dev in /dev/dri/renderD*; do

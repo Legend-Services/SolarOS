@@ -277,4 +277,49 @@ assert {s["last_status"] for s in c.get("/api/schedules").json()} == {"error"}  
 assert c.delete(f"/api/schedules/{snap['id']}").status_code == 200
 assert c.delete(f"/api/schedules/{snap['id']}").status_code == 404
 settings.schedules_file.unlink()
+
+# ---------------- System app ----------------
+
+from app import system  # noqa: E402
+
+assert system.repo_handle("https://enterprise.proxmox.com/debian/pve", ["pve-enterprise"]) == "enterprise"
+assert system.repo_handle("http://download.proxmox.com/debian/pve", ["pve-no-subscription"]) == "no-subscription"
+assert system.repo_handle("https://enterprise.proxmox.com/debian/ceph-squid", ["enterprise"]) == "ceph-squid-enterprise"
+assert system.repo_handle("http://deb.debian.org/debian/", ["main"]) is None
+fl = system.flatten({"digest": "ab", "files": [{"path": "/etc/apt/sources.list.d/pve-enterprise.sources", "repositories": [
+    {"Enabled": 1, "Types": ["deb"], "URIs": ["https://enterprise.proxmox.com/debian/pve"], "Suites": ["trixie"],
+     "Components": ["pve-enterprise"]}]}],
+    "standard-repos": [{"handle": "enterprise", "name": "Enterprise", "status": 1},
+                       {"handle": "no-subscription", "name": "No-Subscription", "description": "free"}]})
+assert fl["repositories"] == [{"path": "/etc/apt/sources.list.d/pve-enterprise.sources", "index": 0, "enabled": True,
+                               "types": ["deb"], "uris": ["https://enterprise.proxmox.com/debian/pve"],
+                               "suites": ["trixie"], "components": ["pve-enterprise"], "handle": "enterprise"}], fl
+assert fl["available"] == [{"handle": "no-subscription", "name": "No-Subscription", "description": "free"}], fl
+st = system.parse_upgrade_status("state:inactive\nReading package lists...\nproxmox-os: exit 0")
+assert st == {"running": False, "exit_code": 0, "log": ["Reading package lists...", "proxmox-os: exit 0"]}, st
+assert system.parse_upgrade_status("state:active\nUnpacking x")["running"] is True
+
+sys_calls = []
+
+
+def handler4(req: httpx.Request) -> httpx.Response:
+    sys_calls.append((req.method, req.url.path.split("/nodes/pve", 1)[-1], req.content.decode()))
+    term = {"port": "5900", "ticket": "PVEVNC:t", "user": "u@pve"}
+    return httpx.Response(200, json={"data": term if req.url.path.endswith("termproxy") else None})
+
+
+pve._client = httpx.AsyncClient(transport=httpx.MockTransport(handler4), base_url="https://pve/api2/json")
+ok = {"path": "/etc/apt/sources.list.d/pve-enterprise.sources", "index": 0, "enabled": False, "digest": "ab12"}
+assert c.post("/api/system/repositories/toggle", json=ok).status_code == 200
+assert sys_calls[-1] == ("POST", "/apt/repositories", "path=%2Fetc%2Fapt%2Fsources.list.d%2Fpve-enterprise.sources&index=0&enabled=0&digest=ab12"), sys_calls
+assert c.post("/api/system/repositories/toggle", json={**ok, "path": "/etc/passwd"}).status_code == 422
+assert c.post("/api/system/repositories/add", json={"handle": "no-subscription"}).status_code == 200
+assert sys_calls[-1][:2] == ("PUT", "/apt/repositories") and "handle=no-subscription" in sys_calls[-1][2]
+assert c.post("/api/system/repositories/add", json={"handle": "x; rm"}).status_code == 422
+assert c.post("/api/system/power", json={"command": "destroy"}).status_code == 422
+assert c.post("/api/system/power", json={"command": "reboot"}).status_code == 200
+assert sys_calls[-1] == ("POST", "/status", "command=reboot")
+c.post("/api/pve/guests/node/0/terminal")
+assert sys_calls[-1][:2] == ("POST", "/termproxy"), sys_calls  # host shell, not /node/0/termproxy
+assert c.post("/api/pve/guests/node/0/vnc").status_code == 422  # graphical console stays guests-only
 print("selfcheck OK")
