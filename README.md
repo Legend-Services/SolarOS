@@ -13,7 +13,7 @@
 
 | | |
 |---|---|
-| 🖥️ **Liquid Glass Desktop** | Multi-window desktop with snapping, Grid or List icons, live CPU/RAM/ZFS widgets, Spotlight search (Ctrl+K) and the Parabolic Dock. |
+| 🖥️ **Liquid Glass Desktop** | Multi-window desktop with snapping, Grid or List icons aligned left or centered (View Options or right-click → Align Icons), live CPU/RAM/ZFS widgets, Spotlight search (Ctrl+K) and the Parabolic Dock. |
 | 💽 **ProxmoxOS Storage Manager** | Create ZFS pools (Mirror, RAID10, RAIDZ1–3), datasets and ZVOLs, snapshots and schedules, SMART health, disk tuning, surface scans, disk replacement and benchmarks. |
 | 📦 **Compute Manager** | Create VMs and containers with wizards, GPU/PCI/USB passthrough, cloud-init, built-in screen console and shell. |
 | 🌐 **Network & Services** | DNS server with ad blocking, DHCP, WireGuard VPN with QR codes, router/NAT and port forwarding, Let's Encrypt certificates. |
@@ -48,7 +48,7 @@ You need a Proxmox VE 8 or 9 server with internet access. That's all.
 
    ```
    ╔════════════════════════════════════════════════════════════════════════════╗
-   ║                   ProxmoxOS v1.3.0 is ready                                ║
+   ║                   ProxmoxOS v1.4.0 is ready                                ║
    ╠════════════════════════════════════════════════════════════════════════════╣
    ║  Web UI URL:      http://192.168.1.230                                     ║
    ║  Username:        admin                                                    ║

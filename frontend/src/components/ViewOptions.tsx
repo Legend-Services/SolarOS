@@ -1,7 +1,7 @@
 import { ChevronRight, LayoutGrid, List, RotateCcw, X } from "lucide-react";
-import type { ButtonHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { useDock } from "../lib/stores";
-import { LIMITS, useAppView, useLayout, type ViewApp, type ViewMode } from "../store/layoutStore";
+import { LIMITS, useAppView, useLayout, type Align, type VAlign, type ViewApp, type ViewMode } from "../store/layoutStore";
 import { APPS, type AppId } from "../apps/registry";
 import { GlassButton, GlassSlider, Segmented } from "./ui/GlassKit";
 import { AppIcon } from "./icons/AppIcons";
@@ -11,9 +11,25 @@ const MODES = [
   { id: "list" as ViewMode, label: <span className="flex items-center gap-1"><List size={12} /> List</span> },
 ];
 
+const ALIGNS = [
+  { id: "left" as Align, label: "Left" },
+  { id: "center" as Align, label: "Center" },
+];
+const VALIGNS = [
+  { id: "top" as VAlign, label: "Top" },
+  { id: "middle" as VAlign, label: "Middle" },
+];
+const COLUMNS = ["auto", "4", "5", "6", "8"].map((id) => ({ id, label: id === "auto" ? "Auto" : id }));
+
 /** Desktop + Dock layout form: view mode, icon size and spacing sliders, reset. Used by the popover and Control Panel. */
 export function LayoutControls() {
-  const { desktopView, iconSize, colGap, rowGap, dockGap, set, reset } = useLayout();
+  const { desktopView, iconSize, colGap, rowGap, dockGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, set, reset } = useLayout();
+  const row = (label: string, control: ReactNode) => (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-[11px] text-slate-300">{label}</span>
+      {control}
+    </div>
+  );
   const dockSize = useDock((s) => s.baseSize);
   const setDock = useDock((s) => s.set);
   return (
@@ -22,6 +38,20 @@ export function LayoutControls() {
         <span className="text-[11px] text-slate-300">Desktop &amp; Launchpad view</span>
         <Segmented value={desktopView} onChange={(v) => set({ desktopView: v })} options={MODES} />
       </div>
+      {row("Desktop icon alignment", <Segmented value={desktopAlignment} onChange={(v) => set({ desktopAlignment: v })} options={ALIGNS} />)}
+      {desktopAlignment === "center" && (
+        <>
+          {row("Vertical placement", <Segmented value={desktopVerticalAlign} onChange={(v) => set({ desktopVerticalAlign: v })} options={VALIGNS} />)}
+          {row(
+            "Icons per row",
+            <Segmented
+              value={String(desktopMaxColumns)}
+              onChange={(v) => set({ desktopMaxColumns: v === "auto" ? "auto" : Number(v) })}
+              options={COLUMNS}
+            />,
+          )}
+        </>
+      )}
       <GlassSlider label="Desktop icon size" value={iconSize} min={LIMITS.iconSize[0]} max={LIMITS.iconSize[1]} onChange={(v) => set({ iconSize: v })} />
       <GlassSlider label="Horizontal app distance" value={colGap} min={LIMITS.colGap[0]} max={LIMITS.colGap[1]} onChange={(v) => set({ colGap: v })} />
       <GlassSlider label="Vertical app distance" value={rowGap} min={LIMITS.rowGap[0]} max={LIMITS.rowGap[1]} onChange={(v) => set({ rowGap: v })} />
