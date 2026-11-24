@@ -29,6 +29,16 @@ A web desktop for Proxmox VE, in the style of Synology DSM, QNAP QTS and ZimaOS.
 - **Control Panel.** A new app with four sections: change the admin password (saved to `.env`, and kept by later `install.sh`/`deploy.sh` runs), view API token status, view host network interfaces and DNS, pick a wallpaper and toggle widgets, see Proxmox VE/kernel info, and reboot or shut down the host.
 - **Liquid Glass UI.** Translucent buttons, switches, inputs and modals; new multi-layer icons for every app; windows animate when they open and close, minimize into their Dock icon, and snap to the left, right or top edge.
 
+**Phase 5 (v0.5.0): wizards, backups, Spotlight and self-update**
+
+- **Create VM / Create Container wizards** in Compute Manager: General → OS/ISO (or template) → Disk & Storage → CPU & Memory → Network & PCIe passthrough (or ZFS bind mount) → Review & Deploy, with the live Proxmox task log. UEFI VMs get an EFI vars disk; Windows 11 gets a TPM 2.0 state disk. Guests created here are tagged `proxmox-os-guest`.
+- **ISO & Templates** tab: browse ISO images and container templates on every storage, download new ones straight onto Proxmox storage by pasting a URL, and delete them.
+- **Backup Center** app: list vzdump archives with guest name, size and date, **Backup Now** (one guest or all, snapshot/suspend/stop, zstd), a restore dialog (new VMID, or overwrite after an explicit confirmation), and Proxmox cluster backup jobs with on/off switches and "keep last N" retention.
+- **Spotlight** (`⌘K` / `Ctrl+K`, or the search icon in the top bar): one palette for apps, VMs, containers (opens the console when running), ZFS pools, datasets and SMB shares (jumps to the File Station path), App Center apps and Control Panel sections, with full keyboard navigation.
+- **Desktop context menu** on right-click: New Virtual Machine, New Container, Create ZFS Pool, Open Terminal, Change Wallpaper, Refresh Telemetry.
+- **Two-factor authentication** (TOTP) in Control Panel → User & Security, with a QR code for any authenticator app. When it is on, the lock screen asks for the 6-digit code.
+- **System Update** in Control Panel → System & Power: shows the version and commit, compares it with GitHub, and installs updates (git pull, `pip install`, frontend rebuild, service restart) in a detached systemd unit inside the container.
+
 ## Deploy from a checkout (`deploy.sh`)
 
 ```bash
@@ -69,7 +79,9 @@ Some operations are restricted to root on the host, so the Proxmox API token can
 - bind mounts and `/dev/dri` passthrough for App Center containers
 - running the app installer inside a new container (`pct exec`)
 
-For these, the installer puts `deploy/proxmox-os-helper.sh` on the host at `/usr/local/sbin/proxmox-os-helper`. It gives the ProxmoxOS container an SSH key whose `authorized_keys` entry is locked to that script (`command="…",restrict`). The helper accepts only a fixed list of commands (`zfs-list|snapshot|rollback|destroy`, `zpool-scrub`, `hw-info`, `apt-upgrade`, `apt-upgrade-status`, `app-configure`, `app-provision`) and validates every argument again. The `app-*` commands refuse any container that isn't tagged `proxmox-os-app`. The host's sshd must allow root key logins, which is the Proxmox default.
+- PCIe passthrough of raw host devices and ZFS bind mounts for wizard-created guests
+
+For these, the installer puts `deploy/proxmox-os-helper.sh` on the host at `/usr/local/sbin/proxmox-os-helper`. It gives the ProxmoxOS container an SSH key whose `authorized_keys` entry is locked to that script (`command="…",restrict`). The helper accepts only a fixed list of commands (`zfs-list|snapshot|rollback|destroy`, `zpool-scrub`, `hw-info`, `apt-upgrade`, `apt-upgrade-status`, `app-configure`, `app-provision`, `guest-hostpci`, `guest-bindmount`, …) and validates every argument again. The `app-*` commands refuse any container that isn't tagged `proxmox-os-app`, and the `guest-*` commands any guest that isn't tagged `proxmox-os-guest`. The host's sshd must allow root key logins, which is the Proxmox default.
 
 ## Layout
 
@@ -90,6 +102,9 @@ backend/                   FastAPI + httpx + PyJWT
   app/notifications.py     /api/notifications (health alerts)
   app/schedules.py         /api/schedules + the background snapshot/scrub scheduler
   app/system.py            /api/system/repositories|updates|upgrade|power (host administration)
+  app/provisioning.py      /api/pve/storage/{s}/content|download-url, hardware/pci, nextid, guests/qemu|lxc
+  app/backups.py           /api/pve/backups, backups/run|restore|schedules
+  app/system_extra.py      /api/search, /api/system/update/status|apply (runs deploy/self-update.sh)
   data/                    app_catalog.json + per-app install scripts
   tests/test_selfcheck.py  auth, sandbox, mocked-PVE, shares, ZFS, App Center, console auth, telemetry,
                            alert and scheduler checks
@@ -122,6 +137,9 @@ cd frontend && npm ci && npm run dev
 - GPU telemetry reads `nvidia-smi` and `/dev/dri` on the host through the helper, or inside the container as a fallback. Only the first NVIDIA GPU is shown. After upgrading from v0.2, re-run the installer (or `deploy.sh`) so the host helper gains `hw-info` and `zpool-scrub`.
 - Schedules run inside the backend. If it is down when a run is due, that run is skipped, not replayed later. "Monthly" means every 30 days, counted from when the schedule was created.
 - Alerts are recomputed from live state on every request and aren't stored. Read/unread state is kept per browser.
+- 2FA protects the single admin account only; there are no recovery codes. If you lose the authenticator, delete `backend/data/security.json` in the container.
+- The self-updater updates the code inside the container. Changes to `deploy/proxmox-os-helper.sh` still need `install.sh` or `deploy.sh` on the host. A deployment made by `deploy.sh` has no `.git`; the first update turns it into a checkout of `REPO_URL`/`REPO_BRANCH` (default: GitHub `main`).
+- PCIe passthrough needs IOMMU enabled on the host (`intel_iommu=on` / `amd_iommu=on`); the wizard does not check it.
 - App Center deployment logs are kept in memory. If the backend restarts, the container and its Proxmox tasks remain, but the installer output is lost.
 - Shares run file I/O as container root (`force user = root`), because that is the uid granted on `/mnt/storage`. Users and `valid users` control who can connect.
 - The VNC password, which is the short-lived ticket, is passed to the browser for the RFB handshake. The terminal ticket never leaves the backend.

@@ -16,6 +16,7 @@ import {
 import { api, uploadFiles } from "../lib/api";
 import type { FileEntry } from "../lib/types";
 import { bytes } from "../lib/format";
+import { useIntent } from "../lib/stores";
 
 interface Listing {
   path: string;
@@ -85,6 +86,11 @@ export default function FileStation() {
   const [progress, setProgress] = useState<number | null>(null);
   const [rev, setRev] = useState(0);
   const fileInput = useRef<HTMLInputElement>(null);
+  const jump = useIntent((s) => s.files);
+  const takeIntent = useIntent((s) => s.take);
+  useEffect(() => {
+    if (jump) (setCwd(jump), takeIntent("files"));
+  }, [jump, takeIntent]);
 
   const load = useCallback(() => {
     api<Listing>(`/files/list?path=${encodeURIComponent(cwd)}`)

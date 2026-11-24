@@ -26,6 +26,10 @@ class Settings(BaseSettings):
     host_ssh_key: str = "/root/.ssh/proxmox-os-helper"
     samba_conf: Path = Path("/etc/samba/proxmox-os-shares.conf")
     schedules_file: Path = Path(__file__).resolve().parent.parent / "data" / "schedules.json"
+    security_file: Path = Path(__file__).resolve().parent.parent / "data" / "security.json"
+    # Self-updater source; a deployment without .git is converted to a checkout of this repo on first update.
+    repo_url: str = "https://github.com/Legend-Services/SolarOS.git"
+    repo_branch: str = "main"
 
 
 settings = Settings()

@@ -54,6 +54,15 @@ app_vmid() {
   echo "$vmid"
 }
 
+# Guests created by the ProxmoxOS VM/LXC wizards carry this tag; only they get root-only options.
+guest_vmid() {
+  local vmid="${ARGS[1]:-}" kind="$1"
+  [[ "$vmid" =~ ^[0-9]+$ ]] || die "invalid vmid"
+  if [[ "$kind" == lxc ]]; then pct config "$vmid"; else qm config "$vmid"; fi | grep -Eq '^tags:.*proxmox-os-guest' \
+    || die "guest $vmid was not created by ProxmoxOS"
+  echo "$vmid"
+}
+
 case "$CMD" in
   zfs-list)
     zfs list -H -p -t filesystem,volume,snapshot -o name,type,used,refer,creation,mountpoint
@@ -170,6 +179,31 @@ case "$CMD" in
         *) die "unknown option $opt" ;;
       esac
     done
+    ;;
+  guest-hostpci)
+    # PCIe passthrough of raw host devices is root-only in PVE. Needs IOMMU enabled on the host.
+    vmid="$(guest_vmid qemu)"; i=0
+    for id in "${ARGS[@]:2}"; do
+      [[ "$id" =~ ^([0-9a-f]{4}:)?[0-9a-f]{2}:[0-9a-f]{2}(\.[0-7])?$ ]] || die "invalid PCI id $id"
+      qm set "$vmid" "-hostpci${i}" "${id},pcie=1" >/dev/null
+      echo "hostpci${i}: ${id}"
+      i=$((i + 1))
+    done
+    (( i )) || die "no PCI devices given"
+    ;;
+  guest-bindmount)
+    # Bind-mount a ZFS dataset into a wizard-created container at /mnt/storage/<dataset>.
+    vmid="$(guest_vmid lxc)"; ds="${ARGS[2]:-}"
+    [[ "$ds" =~ $DS_RE ]] || die "invalid dataset name"
+    [[ "$(zfs get -H -o value type "$ds")" == filesystem ]] || die "not a filesystem dataset"
+    [[ "$(zfs get -H -o value mounted "$ds")" == yes ]] || zfs mount "$ds"
+    mnt="$(zfs get -H -o value mountpoint "$ds")"
+    [[ "$mnt" == /* ]] || die "dataset has no mountpoint"
+    i=0; while pct config "$vmid" | grep -q "^mp${i}:"; do i=$((i + 1)); done
+    zfs set acltype=posixacl xattr=sa "$ds"
+    setfacl -R -P -m u:100000:rwX,g:100000:rwX,d:u:100000:rwX,d:g:100000:rwX "$mnt"
+    pct set "$vmid" "-mp${i}" "${mnt},mp=/mnt/storage/${ds}"
+    echo "mapped mp${i}"
     ;;
   app-provision)
     vmid="$(app_vmid)"

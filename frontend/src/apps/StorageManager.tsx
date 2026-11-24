@@ -17,7 +17,7 @@ import {
   Trash2,
   Wrench,
 } from "lucide-react";
-import { useTelemetry } from "../lib/stores";
+import { useIntent, useTelemetry } from "../lib/stores";
 import { api } from "../lib/api";
 import type { PveDisk, Schedule, Share, SmartReport, StorageInfo, ZfsDataset, ZfsDatasetInfo, ZfsSnapshot, ZfsVdev } from "../lib/types";
 import { bytes, healthColor, pct, tempColor } from "../lib/format";
@@ -1103,6 +1103,11 @@ export default function StorageManager() {
   }, [refreshAll]);
 
   useEffect(refreshAll, [refreshAll]);
+  const intent = useIntent((s) => s.storage);
+  const takeIntent = useIntent((s) => s.take);
+  useEffect(() => {
+    if (intent === "pool") (setModal("pool"), takeIntent("storage"));
+  }, [intent, takeIntent]);
   useEffect(() => {
     if (modal === "dataset")
       api<ZfsDatasetInfo[]>("/pve/zfs/datasets").then(

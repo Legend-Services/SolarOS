@@ -1,4 +1,4 @@
-import { Activity, Boxes, FolderOpen, HardDrive, Settings, Share2, SlidersHorizontal, Store, SquareTerminal, type LucideIcon } from "lucide-react";
+import { Activity, ArchiveRestore, Boxes, FolderOpen, HardDrive, Settings, Share2, SlidersHorizontal, Store, SquareTerminal, type LucideIcon } from "lucide-react";
 
 // Metadata only (no components) so stores can import it without a circular dependency.
 // `icon` is the small title-bar glyph; launchers and the dock use the bespoke icons in components/icons/AppIcons.
@@ -8,6 +8,7 @@ export const APPS = {
   storage: { title: "Storage & ZFS", icon: HardDrive, size: { w: 1040, h: 680 } },
   files: { title: "File Station", icon: FolderOpen, size: { w: 960, h: 620 } },
   appcenter: { title: "App Center", icon: Store, size: { w: 1040, h: 660 } },
+  backup: { title: "Backup Center", icon: ArchiveRestore, size: { w: 980, h: 640 } },
   shares: { title: "Network Shares", icon: Share2, size: { w: 940, h: 640 } },
   controlpanel: { title: "Control Panel", icon: SlidersHorizontal, size: { w: 940, h: 640 } },
   system: { title: "System", icon: Settings, size: { w: 960, h: 640 } },

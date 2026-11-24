@@ -473,4 +473,134 @@ assert "vfs objects = catia fruit streams_xattr recycle" in conf and "fruit:time
 assert c.post("/api/shares", json={"name": "x", "dataset": "tank", "create_dataset": True}).status_code == 422
 assert c.post("/api/shares", json={"name": "x"}).status_code == 422  # neither path nor dataset
 settings.samba_conf.unlink()
+# ---------------- Phase 5 ----------------
+
+from urllib.parse import parse_qs  # noqa: E402
+
+import pyotp  # noqa: E402
+
+from app import auth, backups, provisioning, system_extra  # noqa: E402
+
+p5, h5 = [], []
+UPID = "UPID:pve:1:2:3:x:1:root@pam:"
+FAKE5 = {
+    "/storage/local/content": [
+        {"volid": "local:iso/debian.iso", "content": "iso", "format": "iso", "size": 7, "ctime": 2},
+        {"volid": "local:vztmpl/deb.tar.zst", "content": "vztmpl", "size": 3, "ctime": 3},
+        {"volid": "local:backup/vzdump-lxc-100-2026_01_01-00_00_00.tar.zst", "content": "backup", "vmid": 100, "ctime": 9},
+        {"volid": "local:100/vm-100-disk-0.raw", "content": "images", "ctime": 1}],
+    "/storage": [{"storage": "local", "active": 1}, {"storage": "nas", "active": 0}],
+    "/qemu": [{"vmid": 101, "name": "web", "status": "running", "tags": "prod"}],
+    "/lxc": [{"vmid": 100, "name": "dns", "status": "stopped"}],
+    "/disks/zfs": [{"name": "tank", "health": "ONLINE"}],
+    "/hardware/pci": [{"id": "0000:01:00.0", "class": "0x030000", "iommugroup": 14, "vendor_name": "NVIDIA", "device_name": "RTX"},
+                      {"id": "0000:00:1f.3", "class": "0x040300", "iommugroup": 9}],
+    "/cluster/nextid": "105",
+    "/cluster/backup": [{"id": "backup-abc", "schedule": "sun 01:00", "storage": "local", "all": 1, "enabled": "1",
+                         "prune-backups": "keep-last=3"}],
+}
+
+
+def handler6(req: httpx.Request) -> httpx.Response:
+    path = req.url.path.split("/api2/json", 1)[1].replace("/nodes/pve", "")
+    p5.append((req.method, path, req.content.decode()))
+    if req.method == "GET" and path.startswith("/tasks/"):
+        return httpx.Response(200, json={"data": {"status": "stopped", "exitstatus": "OK"}})
+    return httpx.Response(200, json={"data": FAKE5.get(path, UPID) if req.method == "GET" else UPID})
+
+
+async def fake_run5(args, stdin=None, on_line=None, timeout=120):
+    h5.append(args)
+    return "tank/media\tfilesystem\t1\t1\t1\t/tank/media\tlz4\t128K\t0\toff\t-"
+
+
+host.run = fake_run5
+pve._client = httpx.AsyncClient(transport=httpx.MockTransport(handler6), base_url="https://pve/api2/json")
+form = lambda: {k: v[0] for k, v in parse_qs(p5[-1][2]).items()}  # noqa: E731
+
+sc = c.get("/api/pve/storage/local/content").json()
+assert [v["content"] for v in sc] == ["backup", "vztmpl", "iso"] and sc[0]["vmid"] == 100, sc  # images dropped, newest first
+assert c.get("/api/pve/storage/Bad;x/content").status_code == 422
+assert c.post("/api/pve/storage/local/download-url", json={"url": "https://x.org/a/debian-12.iso"}).status_code == 200
+assert form() == {"url": "https://x.org/a/debian-12.iso", "content": "iso", "filename": "debian-12.iso", "verify-certificates": "1"}, form()
+assert c.post("/api/pve/storage/local/download-url", json={"url": "file:///etc/passwd.iso"}).status_code == 422
+assert c.post("/api/pve/storage/local/download-url", json={"url": "https://x.org/download"}).status_code == 422
+assert c.post("/api/pve/storage/local/download-url", json={"url": "https://x.org/a.iso", "filename": "../a.iso"}).status_code == 422
+assert c.delete("/api/pve/storage/local/content", params={"volume": "local:iso/debian.iso"}).status_code == 200
+assert p5[-1][0] == "DELETE" and p5[-1][1].startswith("/storage/local/content/local"), p5[-1]
+assert c.delete("/api/pve/storage/local/content", params={"volume": "other:iso/x.iso"}).status_code == 400
+assert c.delete("/api/pve/storage/local/content", params={"volume": "local:100/vm-100-disk-0.raw"}).status_code == 422
+pci = c.get("/api/pve/hardware/pci").json()
+assert [d["gpu"] for d in pci] == [False, True] and pci[1]["iommugroup"] == 14, pci
+assert c.get("/api/pve/nextid").json() == {"vmid": 105}
+
+vm = {"vmid": 105, "name": "win", "storage": "local-zfs", "bios": "ovmf", "ostype": "win11", "iso_volume": "local:iso/w.iso"}
+qp = provisioning.qemu_params(provisioning.QemuBody(**vm))
+assert qp["efidisk0"].startswith("local-zfs:1,") and qp["tpmstate0"] and qp["machine"] == "q35", qp
+assert qp["ide2"] == "local:iso/w.iso,media=cdrom" and qp["tags"] == "proxmox-os-guest", qp
+assert "efidisk0" not in provisioning.qemu_params(provisioning.QemuBody(**{**vm, "bios": "seabios", "ostype": "l26"}))
+assert c.post("/api/pve/guests/qemu", json={**vm, "iso_volume": "local:iso/a.iso,file=/etc"}).status_code == 422
+assert c.post("/api/pve/guests/qemu", json={**vm, "hostpci": ["01:00.0;rm"]}).status_code == 422
+r = c.post("/api/pve/guests/qemu", json={**vm, "hostpci": ["0000:01:00.0"]})
+assert r.status_code == 200 and h5[-1] == ["guest-hostpci", "105", "0000:01:00.0"], (r.text, h5)
+ct = {"vmid": 106, "hostname": "box", "ostemplate": "local:vztmpl/deb.tar.zst", "storage": "local-zfs", "password": "secret1"}
+assert c.post("/api/pve/guests/lxc", json={**ct, "ip_config": {"cidr": "10.0.0.9/24", "gateway": "10.0.0.1"}}).status_code == 200
+assert form()["net0"] == "name=eth0,bridge=vmbr0,ip=10.0.0.9/24,gw=10.0.0.1" and form()["features"] == "nesting=1", form()
+n = len(h5)
+assert c.post("/api/pve/guests/lxc", json={**ct, "bind_dataset": "tank/media"}).status_code == 200
+assert h5[n:] == [["guest-bindmount", "106", "tank/media"]], h5
+assert c.post("/api/pve/guests/lxc", json={**ct, "password": "1"}).status_code == 422
+
+b = c.get("/api/pve/backups").json()
+assert b["storages"] == ["local"] and len(b["archives"]) == 1, b
+assert b["archives"][0]["type"] == "lxc" and b["archives"][0]["name"] == "dns", b
+assert b["schedules"][0]["keep_last"] == 3 and b["schedules"][0]["enabled"] and b["schedules"][0]["all"], b
+assert c.post("/api/pve/backups/run", json={"vmid": "all", "storage": "local"}).status_code == 200
+assert p5[-1][1] == "/vzdump" and form() == {"all": "1", "storage": "local", "mode": "snapshot", "compress": "zstd"}, form()
+assert c.post("/api/pve/backups/run", json={"vmid": "x", "storage": "local"}).status_code == 422
+assert backups.restore_params(backups.RestoreBody(volid="local:backup/vzdump-lxc-100.tar.zst", type="lxc", vmid=120,
+                                                  storage="tank", force=True)) == {
+    "vmid": 120, "storage": "tank", "ostemplate": "local:backup/vzdump-lxc-100.tar.zst", "restore": 1, "force": 1}
+assert c.post("/api/pve/backups/restore", json={"volid": "local:backup/x.vma.zst", "type": "qemu", "vmid": 121, "storage": "tank"}).status_code == 200
+assert p5[-1][1] == "/qemu" and form()["archive"] == "local:backup/x.vma.zst" and "force" not in form(), form()
+assert c.post("/api/pve/backups/schedules", json={"schedule": "daily 02:00", "storage": "local", "vmids": [100, 101], "keep_last": 5}).status_code == 200
+assert p5[-1][1] == "/cluster/backup" and form()["vmid"] == "100,101" and form()["prune-backups"] == "keep-last=5", form()
+assert c.post("/api/pve/backups/schedules", json={"schedule": "daily; rm", "storage": "local"}).status_code == 422
+assert c.post("/api/pve/backups/schedules", json={"schedule": "daily", "storage": "local", "vmids": []}).status_code == 422
+assert c.put("/api/pve/backups/schedules/backup-abc", json={"enabled": False}).status_code == 200 and form() == {"enabled": "0"}
+assert c.delete("/api/pve/backups/schedules/backup-abc").status_code == 200 and p5[-1][:2] == ("DELETE", "/cluster/backup/backup-abc")
+
+# Spotlight search.
+system_extra._ds_cache = (0.0, [])
+res = c.get("/api/search", params={"q": "e"}).json()["results"]
+kinds = {r["kind"] for r in res}
+assert {"qemu", "dataset", "app", "section"} <= kinds, kinds
+assert next(r for r in res if r["kind"] == "qemu")["target"] == {"type": "qemu", "vmid": 101, "name": "web", "status": "running"}
+assert next(r for r in res if r["kind"] == "dataset")["target"] == {"path": "/tank/media"}
+assert [r["title"] for r in c.get("/api/search", params={"q": "2fa"}).json()["results"]] == ["User & Security"]
+assert c.get("/api/search", params={"q": ""}).status_code == 422
+
+# Self-update status works without a git checkout or systemd (dev machine / CI).
+st = c.get("/api/system/update/status").json()
+assert {"commit", "branch", "remote", "running", "update_available"} <= st.keys() and not st["running"], st
+
+# TOTP 2FA: setup -> enable -> login requires a code -> disable.
+settings.security_file = __import__("pathlib").Path(tmp).parent / f"security-{os.getpid()}.json"
+totp = lambda: pyotp.TOTP(setup["secret"]).now()  # noqa: E731
+assert c.get("/api/auth/2fa/status").json() == {"enabled": False}
+setup = c.post("/api/auth/2fa/setup").json()
+assert setup["qr_svg"].lstrip().startswith("<") and setup["otpauth_uri"].startswith("otpauth://totp/"), setup
+assert c.post("/api/auth/2fa/enable", json={"code": "000000"}).status_code == 400
+assert c.post("/api/auth/2fa/enable", json={"code": totp()}).json() == {"enabled": True}
+assert oct(settings.security_file.stat().st_mode & 0o777) == "0o600"
+assert c.post("/api/auth/2fa/setup").status_code == 409
+r = anon.post("/api/auth/login", json={"username": "admin", "password": settings.admin_password})
+assert r.status_code == 401 and r.json()["detail"] == auth.OTP_REQUIRED, r.text
+assert anon.post("/api/auth/login", json={"username": "admin", "password": settings.admin_password, "otp": "123456"}).status_code == 401
+assert anon.post("/api/auth/login", json={"username": "admin", "password": "nope", "otp": totp()}).status_code == 401
+assert anon.post("/api/auth/login", json={"username": "admin", "password": settings.admin_password, "otp": totp()}).status_code == 200
+assert c.post("/api/auth/2fa/disable", json={"code": "000000"}).status_code == 400
+assert c.post("/api/auth/2fa/disable", json={"code": totp()}).json() == {"enabled": False}
+assert anon.post("/api/auth/login", json={"username": "admin", "password": settings.admin_password}).status_code == 200
+settings.security_file.unlink()
 print("selfcheck OK")

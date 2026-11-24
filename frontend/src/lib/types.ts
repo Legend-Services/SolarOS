@@ -332,3 +332,74 @@ export interface SystemInfo {
   storage_root: string;
   helper: string;
 }
+
+/* ---------------- Phase 5: provisioning, backups, search, updates ---------------- */
+
+export interface StorageVolume {
+  volid: string;
+  storage: string;
+  content: "iso" | "vztmpl" | "backup";
+  format: string;
+  size: number;
+  ctime: number;
+  vmid: number | null;
+  notes: string;
+  protected: boolean;
+}
+
+export interface PciDevice {
+  id: string;
+  iommugroup: number;
+  vendor_name: string;
+  device_name: string;
+  class: string;
+  gpu: boolean;
+}
+
+export interface BackupArchive extends StorageVolume {
+  type: "qemu" | "lxc" | null;
+  name: string;
+}
+
+export interface BackupJob {
+  id: string;
+  enabled: boolean;
+  schedule: string;
+  storage: string;
+  all: boolean;
+  vmid: string;
+  mode: string;
+  compress: string;
+  comment: string;
+  keep_last: number | null;
+  next_run?: number;
+}
+
+export interface BackupsInfo {
+  storages: string[];
+  archives: BackupArchive[];
+  schedules: BackupJob[];
+}
+
+export type SearchKind = "qemu" | "lxc" | "pool" | "dataset" | "share" | "app" | "section";
+
+export interface SearchResult {
+  kind: SearchKind;
+  title: string;
+  subtitle: string;
+  target: { type?: "qemu" | "lxc"; vmid?: number; name?: string; status?: string; path?: string; pool?: string; app_id?: string; section?: string };
+}
+
+export interface UpdateStatus {
+  git: boolean;
+  commit: string | null;
+  branch: string;
+  remote: string;
+  version: string | null;
+  remote_commit: string | null;
+  check_error: string | null;
+  update_available: boolean;
+  running: boolean;
+  exit_code: number | null;
+  log: string[];
+}

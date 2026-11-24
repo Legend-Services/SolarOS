@@ -1,10 +1,11 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Boxes, Container, Database, Gauge as GaugeIcon, HeartPulse, Monitor } from "lucide-react";
 import { usePrefs, useTelemetry, useWindows } from "../lib/stores";
 import { bytes, healthColor, pct, tempColor, uptime } from "../lib/format";
 import { APPS, APP_IDS } from "../apps/registry";
 import { Bar, Gauge } from "./charts";
 import { AppIcon } from "./icons/AppIcons";
+import DesktopContextMenu from "./DesktopContextMenu";
 
 function Widget({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
   return (
@@ -23,9 +24,14 @@ export default function Desktop() {
   const { overview: o, storage, hardware, error } = useTelemetry();
   const gpu = hardware?.gpu;
   const widgets = usePrefs((s) => s.widgets);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
 
   return (
-    <div className="absolute inset-0 flex gap-6 overflow-y-auto px-4 pt-14 pb-28">
+    <div
+      className="absolute inset-0 flex gap-6 overflow-y-auto px-4 pt-14 pb-28"
+      onContextMenu={(e) => (e.preventDefault(), setMenu({ x: e.clientX, y: e.clientY }))}
+    >
+      <DesktopContextMenu at={menu} onClose={() => setMenu(null)} />
       {/* Shortcuts */}
       <div className="grid h-max grid-cols-1 gap-2">
         {APP_IDS.map((id) => {

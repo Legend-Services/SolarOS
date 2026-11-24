@@ -10,6 +10,7 @@ import AppCenter from "../apps/AppCenter";
 import SharesManager from "../apps/SharesManager";
 import ControlPanelApp from "../apps/ControlPanelApp";
 import SystemApp from "../apps/SystemApp";
+import BackupCenterApp from "../apps/BackupCenterApp";
 import WindowFrame from "./WindowFrame";
 import type { ConsoleTarget } from "../lib/types";
 // noVNC + xterm.js are only downloaded when a console is opened.
@@ -21,6 +22,7 @@ const COMPONENTS: Record<AppId, ComponentType<{ params?: ConsoleTarget }>> = {
   storage: StorageManager,
   files: FileStation,
   appcenter: AppCenter,
+  backup: BackupCenterApp,
   shares: SharesManager,
   controlpanel: ControlPanelApp,
   system: SystemApp,

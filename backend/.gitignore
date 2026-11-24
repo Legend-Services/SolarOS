@@ -3,3 +3,5 @@ __pycache__/
 .venv/
 data/schedules.json
 data/schedules.tmp
+data/security.json
+data/security.tmp
