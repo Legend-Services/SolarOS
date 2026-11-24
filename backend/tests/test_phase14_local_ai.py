@@ -1,0 +1,79 @@
+"""Local AI Studio self-check. Run: python -m tests.test_phase14_local_ai (from backend/)."""
+import os
+import re
+import tempfile
+from pathlib import Path
+
+os.environ.update(STORAGE_ROOT=tempfile.mkdtemp(), ADMIN_USERNAME="admin", ADMIN_PASSWORD="pw", JWT_SECRET="x" * 32)
+
+from pydantic import ValidationError  # noqa: E402
+
+from app import apps, local_ai as ai  # noqa: E402
+
+FIX = Path(__file__).parent / "fixtures"
+
+# Library scrape (trimmed live ollama.com/library?q=qwen page).
+lib = ai.parse_library((FIX / "ollama_library.html").read_text())
+assert lib and lib[0]["name"] == "qwen2.5", lib[:1]
+assert lib[0]["sizes"] == ["0.5b", "1.5b", "3b", "7b", "14b", "32b", "72b"] and "tools" in lib[0]["capabilities"], lib[0]
+assert lib[0]["description"].startswith("Qwen2.5 models") and "&#39;" not in lib[0]["description"]
+assert lib[0]["pulls"] and re.fullmatch(r"[\d.]+[KMB]?", lib[0]["pulls"]), lib[0]["pulls"]
+
+# Size badges and VRAM fit for a 24 GB RTX 3090.
+assert [ai.params_b(x) for x in ("32b", "0.5b", "137m", "8x7b", "e4b", "tools")] == [32, 0.5, 0.137, 56, 4, None]
+fits = {t["tag"]: t["vram_fit"] for t in ai.annotate({**ai.FALLBACK[1], "category": None}, 24)["tags"]}
+assert fits["deepseek-r1:32b"] == "optimal_gpu" and fits["deepseek-r1:70b"] == "cpu_offload", fits
+assert ai.vram_fit(22.5, 24) == "tight_gpu" and ai.vram_fit(5, 0) == "cpu_only"
+assert "up to ~35B" in ai.recommendation(24, 64), ai.recommendation(24, 64)
+assert ai.category("qwen2.5-coder", []) == "Coding" and ai.category("deepseek-r1", ["thinking"]) == "Reasoning"
+assert ai.category("llava", ["vision"]) == "Vision" and ai.category("nomic-embed-text", ["embedding"]) == "Embeddings"
+names = {f"{m['name']}:{s}" for m in ai.FALLBACK for s in m["sizes"]}
+assert {"qwen2.5-coder:32b", "qwen2.5-coder:14b", "deepseek-r1:32b", "deepseek-r1:14b", "gemma3:27b", "gemma3:12b",
+        "llama3.3:70b", "llama3.1:8b", "mistral-small:24b", "llava:13b", "nomic-embed-text:137m"} <= names
+
+# nvidia-smi parsing and device majors.
+nv = ai.parse_nv_list("0, 00000000:01:00.0, NVIDIA GeForce RTX 3090, 24576, 23800, 595.104.02\n")
+assert nv == [{"index": 0, "pci": "01:00.0", "name": "NVIDIA GeForce RTX 3090", "vram_total_mb": 24576,
+               "vram_free_mb": 23800, "driver_version": "595.104.02"}], nv
+assert ai.parse_majors("/dev/nvidiactl c3\n/dev/nvidia-uvm 1f9\n") == {"/dev/nvidiactl": 195, "/dev/nvidia-uvm": 505}
+
+# LXC config rewrite: idempotent, removes old GPU lines, never touches snapshot sections.
+conf = "arch: amd64\ncores: 8\ndev0: /dev/dri/renderD128,mode=0666\nlxc.cgroup2.devices.allow: c 10:200 rwm\n" \
+       "\n[before-upgrade]\narch: amd64\nlxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file\n"
+lines = ai.nvidia_lxc_lines(0, 195, 505)
+assert lines[:2] == ["lxc.cgroup2.devices.allow: c 195:* rwm", "lxc.cgroup2.devices.allow: c 505:* rwm"]
+assert "lxc.mount.entry: /dev/nvidia-uvm-tools dev/nvidia-uvm-tools none bind,optional,create=file" in lines
+on = ai.set_gpu_lines(conf, lines, {195, 505})
+assert ai.set_gpu_lines(on, lines, {195, 505}) == on
+main, snap = on.split("\n[", 1)
+assert all(x in main for x in lines) and "c 10:200 rwm" in main and snap.endswith("create=file\n"), on
+off = ai.set_gpu_lines(on, [], {195, 505})
+assert "nvidia" not in off.split("\n[")[0] and "c 10:200 rwm" in off and off.count("/dev/nvidia0") == 1, off
+assert ai.dri_devs(conf) == {0: "/dev/dri/renderD128"}
+
+# Ollama environment drop-in per target.
+assert 'CUDA_VISIBLE_DEVICES=-1' in ai.ollama_env("cpu", True, False)
+gpu = ai.ollama_env("nvidia:01:00.0", True, True)
+assert "OLLAMA_FLASH_ATTENTION=1" in gpu and "OLLAMA_KV_CACHE_TYPE=q8_0" in gpu and "CUDA_VISIBLE" not in gpu
+assert "KV_CACHE" not in ai.ollama_env("nvidia:0", False, True)  # q8 KV cache needs flash attention
+assert "OLLAMA_VULKAN=1" in ai.ollama_env("intel:/dev/dri/renderD128", False, False)
+
+# Deploy body validation: compute targets and starter model names are embedded in shell / PVE config.
+base = {"app_id": "local-ai", "hostname": "local-ai", "cores": 8, "memory": 16384, "disk_gb": 64}
+for ok in ("cpu", "nvidia:0", "nvidia:01:00.0", "nvidia:0000:01:00.0", "intel:/dev/dri/renderD128"):
+    apps.DeployBody(**base, compute_target=ok)
+for bad in ("nvidia:0;reboot", "intel:/dev/sda", "gpu", "amd:/dev/dri/renderD128 x"):
+    try:
+        apps.DeployBody(**base, compute_target=bad)
+        raise AssertionError(bad)
+    except ValidationError:
+        pass
+try:
+    apps.DeployBody(**base, starter_models=["llama3.1:8b", "$(id)"])
+    raise AssertionError("starter model not validated")
+except ValidationError:
+    pass
+assert apps.BY_ID["local-ai"]["category"] == "AI & Compute" and (apps.DATA / "apps/local-ai.sh").exists()
+assert apps.installed_map([{"vmid": 105, "tags": "proxmox-os-app;pos-ollama", "name": "ollama"}])["local-ai"][0]["vmid"] == 105
+assert ai.LocalAiDeployBody(ip_config={"cidr": "10.0.0.9/24", "gateway": "10.0.0.1"}).ip_config.cidr == "10.0.0.9/24"
+print("phase14 local ai: ok")

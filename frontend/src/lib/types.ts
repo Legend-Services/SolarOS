@@ -111,7 +111,91 @@ export interface CatalogApp {
   web_scheme: string;
   supports_igpu: boolean;
   supports_storage_mount: boolean;
+  featured?: boolean;
+  compute_selector?: boolean;
   installed: { vmid: number; name: string; status: string }[];
+}
+
+/* ---------------- Local AI Studio ---------------- */
+
+export interface ComputeTarget {
+  id: string; // "nvidia:01:00.0" | "intel:/dev/dri/renderD128" | "amd:..." | "cpu"
+  kind: "nvidia" | "intel" | "amd" | "cpu";
+  name: string;
+  pci?: string;
+  vram_total_mb: number | null;
+  vram_free_mb?: number | null;
+  driver_version?: string | null;
+  driver?: string | null;
+  driver_ready: boolean;
+  device_nodes: string[];
+  backend: string;
+  recommendation: string;
+  prepare: { action: "nvidia-install" | "mode-host"; gpu: string } | null;
+  cores?: number | null;
+  threads?: number | null;
+  ram_total_mb?: number;
+}
+
+export interface AiHardware {
+  targets: ComputeTarget[];
+  default: string;
+  ssh_bridge_connected: boolean;
+  message: string | null;
+}
+
+export type VramFit = "optimal_gpu" | "tight_gpu" | "cpu_offload" | "cpu_only";
+
+export interface OnlineModel {
+  name: string;
+  description: string;
+  category: string;
+  capabilities: string[];
+  pulls: string | null;
+  tags: { tag: string; size: string; params_b: number | null; download_gb: number | null; vram_required_gb: number | null; vram_fit: VramFit }[];
+}
+
+export interface LocalModel {
+  name: string;
+  size: number;
+  modified_at: string | null;
+  family: string | null;
+  parameter_size: string | null;
+  quantization: string | null;
+  loaded: boolean;
+  size_vram: number | null;
+}
+
+export interface PullJob {
+  id: string;
+  model: string;
+  state: "running" | "done" | "error";
+  status: string;
+  digest: string | null;
+  completed: number;
+  total: number;
+  percent: number;
+  error: string | null;
+}
+
+export interface AiStatus {
+  installed: boolean;
+  missing_vmid?: number;
+  vmid?: number;
+  running?: boolean;
+  ip?: string | null;
+  ollama_url?: string | null;
+  openai_url?: string | null;
+  webui_url?: string | null;
+  ollama_reachable?: boolean;
+  ollama_version?: string | null;
+  compute_target?: string;
+  gpu_name?: string | null;
+  vram_mb?: number | null;
+  flash_attention?: boolean;
+  kv_cache_q8?: boolean;
+  model_storage?: string | null;
+  gpu?: { name: string; vram_total_mib: number | null; vram_used_mib: number | null; util_pct: number | null; temp_c: number | null; power_w: number | null } | null;
 }
 
 export interface Deployment {

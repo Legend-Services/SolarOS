@@ -172,6 +172,26 @@ const ICONS: Record<AppId, { stops: [string, string, string]; glyph: ReactNode }
       </>
     ),
   },
+  "local-ai": {
+    stops: ["#a5f3fc", "#8b5cf6", "#3b0764"],
+    glyph: (
+      <>
+        {/* Neural chip: a processor die with synapse traces and a glowing core. */}
+        <rect x="18" y="18" width="28" height="28" rx="6" fill={W} fillOpacity=".95" />
+        <g stroke={W} strokeWidth="2.6" strokeLinecap="round">
+          <path d="M25 18v-6M32 18v-6M39 18v-6M25 46v6M32 46v6M39 46v6M18 25h-6M18 32h-6M18 39h-6M46 25h6M46 32h6M46 39h6" />
+        </g>
+        <g stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" fill="none">
+          <path d="M25 26l7 6 7-6M25 38l7-6 7 6" />
+        </g>
+        <circle cx="32" cy="32" r="3.6" fill="#22d3ee" />
+        <circle cx="25" cy="26" r="2" fill="#7c3aed" />
+        <circle cx="39" cy="26" r="2" fill="#7c3aed" />
+        <circle cx="25" cy="38" r="2" fill="#7c3aed" />
+        <circle cx="39" cy="38" r="2" fill="#7c3aed" />
+      </>
+    ),
+  },
   console: {
     stops: ["#94a3b8", "#334155", "#0f172a"],
     glyph: (

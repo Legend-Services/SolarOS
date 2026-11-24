@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.6.0 - Phase 14: Local AI Studio, Online Model Library & Selectable GPU/RTX 3090 Acceleration — 2026-11-24
+
+### Added
+- **Local AI Studio (Ollama + Open WebUI)** in App Center → AI & Compute replaces the plain Ollama app. Its installer has a **Compute Hardware Selector**: one card per NVIDIA GPU (VRAM, driver badge), Intel/AMD render node, or the host CPU (threads, RAM), each with a recommended maximum model size (for example *24 GB VRAM → up to ~35B Q4 models at 100% GPU speed*). It also has toggles for ZFS model storage (`/mnt/storage/ai-models`) and Open WebUI (port 3000), and starter model checkboxes.
+- **NVIDIA GPU sharing for unprivileged containers**: the backend loads `nvidia` / `nvidia_uvm` on the host (and makes them load at boot), writes the `lxc.cgroup2.devices.allow` and `lxc.mount.entry` lines for `/dev/nvidia0`, `/dev/nvidiactl`, `/dev/nvidia-uvm`, `/dev/nvidia-uvm-tools` and `/dev/nvidia-modeset` to `/etc/pve/lxc/<id>.conf`, and installs the host's exact driver version inside the container with `--no-kernel-module`. Ollama's installer is kept from trying to build a kernel driver inside the container.
+- **Local AI** desktop app with a bespoke icon and guide, and four tabs:
+  - **Online Models**: live search of ollama.com/library with category pills; every size is rated `optimal_gpu`, `tight_gpu`, `cpu_offload` or `cpu_only` for the active GPU's VRAM; one-click downloads with live progress.
+  - **Installed Models**: disk sizes, quantization, which models are loaded in VRAM, unload and delete.
+  - **Hardware & Performance**: live VRAM, GPU %, temperature and power; switch between GPU and CPU; Flash Attention and KV Cache Quantization switches; copyable OpenAI-compatible endpoint.
+  - **Playground Chat**: model picker, system prompt and a tokens/sec badge after each reply.
+- API: `GET /api/ai/hardware`, `POST /api/ai/deploy`, `GET /api/ai/status`, `GET /api/ai/models/online?q=&category=&vram_gb=`, `GET /api/ai/models/local`, `POST /api/ai/models/pull` + `GET /api/ai/models/pull/{job_id}`, `POST /api/ai/models/unload`, `DELETE /api/ai/models/{name}`, `POST /api/ai/hardware/switch`, `POST /api/ai/chat`. `POST /api/apps/deploy` accepts `compute_target`, `install_open_webui` and `starter_models` for `local-ai`.
+- The active AI container is stored in `backend/data/local_ai.json`. The installer, `deploy.sh` and Git leave it alone.
+
+### Changed
+- Earlier Ollama App Center installs (`pos-ollama` tag) are listed under Local AI Studio.
+
 ## v1.5.2 - Hotfix: Hardware & System Blank on Boards With Empty DMI Fields — 2026-11-24
 
 ### Fixed
