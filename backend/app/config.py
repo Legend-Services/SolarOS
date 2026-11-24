@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     host_ssh: str = ""
     host_ssh_key: str = "/root/.ssh/proxmox-os-helper"
     samba_conf: Path = Path("/etc/samba/proxmox-os-shares.conf")
+    schedules_file: Path = Path(__file__).resolve().parent.parent / "data" / "schedules.json"
 
 
 settings = Settings()

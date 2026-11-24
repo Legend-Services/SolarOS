@@ -3,6 +3,7 @@ import { Cpu, Database, LayoutGrid, Lock, LogOut, MemoryStick, User } from "luci
 import { activeWindow, useAuth, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
 import { useClock, useDismiss } from "../lib/hooks";
 import TaskCenterPopover from "./TaskCenterPopover";
+import NotificationPopover from "./NotificationPopover";
 import { pct } from "../lib/format";
 import { APPS, APP_IDS } from "../apps/registry";
 
@@ -76,6 +77,7 @@ export default function TopBar() {
         tone={health === "ONLINE" ? "text-emerald-300" : health === "N/A" || health === "—" ? "text-slate-400" : "text-rose-300"}
       />
       <TaskCenterPopover />
+      <NotificationPopover />
       <span className="tabular-nums text-slate-200">
         {now.toLocaleDateString([], { month: "short", day: "numeric" })}{" "}
         {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}

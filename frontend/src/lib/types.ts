@@ -151,6 +151,57 @@ export interface ZfsSnapshot {
   creation: number;
 }
 
+export interface GpuInfo {
+  available: boolean;
+  name: string | null;
+  temp_c: number | null;
+  utilization_pct: number | null;
+  vram_used_mb: number | null;
+  vram_total_mb: number | null;
+  power_w: number | null;
+}
+
+export interface DiskTelemetry {
+  devpath: string;
+  model?: string;
+  serial?: string;
+  type?: string;
+  size: number;
+  health: string;
+  life_left_pct: number | null;
+  temp_c: number | null;
+}
+
+export interface HardwareInfo {
+  disks: DiskTelemetry[];
+  gpu: GpuInfo;
+  igpu: { available: boolean; quicksync: boolean; render_nodes: { path: string; vendor: string; intel: boolean }[] };
+}
+
+export type Severity = "critical" | "warning" | "info";
+
+export interface Alert {
+  id: string;
+  severity: Severity;
+  category: "zfs" | "disk" | "capacity" | "task";
+  title: string;
+  message: string;
+}
+
+export interface Schedule {
+  id: string;
+  kind: "snapshot" | "scrub";
+  target: string;
+  interval: "hourly" | "daily" | "weekly" | "monthly";
+  retention: number;
+  enabled: boolean;
+  created: number;
+  next_run: number;
+  last_run: number | null;
+  last_status: "ok" | "error" | null;
+  last_error: string | null;
+}
+
 export interface FileEntry {
   name: string;
   path: string;

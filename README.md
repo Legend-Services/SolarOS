@@ -12,6 +12,22 @@ A web desktop for Proxmox VE, in the style of Synology DSM, QNAP QTS and ZimaOS.
 - **ZFS Snapshots.** A new tab in Storage & ZFS. Filter by pool or dataset, take snapshots, and roll back or delete them after a confirmation prompt.
 - **Task Center.** A top-bar indicator that spins while Proxmox tasks run. It opens a list of recent tasks with status badges and an expandable live log.
 
+**Phase 3 (v0.3.0):**
+
+- **Hardware & GPU telemetry.** Resource Monitor has a **Hardware & GPU** tab. It shows NVIDIA GPU utilization, temperature, power and VRAM, Intel Quick Sync availability, and a temperature, SMART and remaining-life card for every NVMe, SATA SSD and HDD. When an NVIDIA GPU is present, a compact GPU widget appears on the desktop. Hosts without one show "not detected" and no errors.
+- **Notification Center.** A bell in the top bar has an unread counter. It lists live health alerts: ZFS pools that aren't `ONLINE`, resilvering or fragmented, disks above 55°C or failing SMART, storage above 85%, and Proxmox tasks that failed in the last 24 hours.
+- **ZFS schedules.** Storage & ZFS has a **Schedules** tab. You can create hourly, daily or weekly automatic snapshots with a retention limit, and monthly pool scrubs. You can pause or delete each schedule. The backend runs them itself, so you don't need cron.
+- **`deploy.sh`.** Deploys your local checkout to any Proxmox VE host over SSH, without pushing to GitHub first.
+
+## Deploy from a checkout (`deploy.sh`)
+
+```bash
+./deploy.sh                                  # root@192.168.68.220
+./deploy.sh --host 10.0.0.5 --user admin     # non-root users need passwordless sudo
+```
+
+It packages the repository without `.git`, `node_modules`, `.venv`, `.env` and build output, and streams it over SSH to `/tmp/proxmox-os-deploy` on the host. It then runs `install.sh` from there. The installer finds the local source and copies it into the `proxmox-os` container instead of cloning from GitHub. If the container doesn't exist yet it is created; otherwise it is updated in place. You need key-based SSH access to the host.
+
 ## Install
 
 Run this on the Proxmox VE host as `root`:
@@ -29,7 +45,7 @@ You don't need to configure anything. The installer:
 5. Installs the host helper (see below), adds `include = /etc/samba/proxmox-os-shares.conf` to the container's `smb.conf`, writes `backend/.env`, starts the services and runs a health check.
 6. Prints the URL, the username (`admin`) and a generated password.
 
-You can re-run it safely. It reuses the existing `proxmox-os` container, redeploys the app, and rotates the password and API token. If you run `./install.sh` from a local checkout, it copies that checkout instead of cloning. To install from a fork, set `REPO_URL` and `REPO_BRANCH`.
+You can re-run it safely. It reuses the existing `proxmox-os` container, redeploys the app, and rotates the password and API token. It never prompts. If it finds a local source tree, it copies that instead of cloning. It looks for `$SRC_DIR`, then the script's own directory (a checkout, an extracted tarball or a `deploy.sh` upload), then `/opt/proxmox-os`. To install from a fork, set `REPO_URL` and `REPO_BRANCH`.
 
 ### Storage permissions
 
@@ -43,12 +59,13 @@ Some operations are restricted to root on the host, so the Proxmox API token can
 - bind mounts and `/dev/dri` passthrough for App Center containers
 - running the app installer inside a new container (`pct exec`)
 
-For these, the installer puts `deploy/proxmox-os-helper.sh` on the host at `/usr/local/sbin/proxmox-os-helper`. It gives the ProxmoxOS container an SSH key whose `authorized_keys` entry is locked to that script (`command="…",restrict`). The helper accepts only a fixed list of commands (`zfs-list|snapshot|rollback|destroy`, `app-configure`, `app-provision`) and validates every argument again. The `app-*` commands refuse any container that isn't tagged `proxmox-os-app`. The host's sshd must allow root key logins, which is the Proxmox default.
+For these, the installer puts `deploy/proxmox-os-helper.sh` on the host at `/usr/local/sbin/proxmox-os-helper`. It gives the ProxmoxOS container an SSH key whose `authorized_keys` entry is locked to that script (`command="…",restrict`). The helper accepts only a fixed list of commands (`zfs-list|snapshot|rollback|destroy`, `zpool-scrub`, `hw-info`, `app-configure`, `app-provision`) and validates every argument again. The `app-*` commands refuse any container that isn't tagged `proxmox-os-app`. The host's sshd must allow root key logins, which is the Proxmox default.
 
 ## Layout
 
 ```
 install.sh                 zero-touch installer (runs on the PVE host)
+deploy.sh                  push this checkout to a PVE host over SSH and run install.sh there
 deploy/                    systemd unit + nginx site (inside the CT), proxmox-os-helper.sh (on the host)
 backend/                   FastAPI + httpx + PyJWT
   app/auth.py              /api/auth/login|me|logout (HTTP-only cookie or Bearer JWT)
@@ -59,8 +76,12 @@ backend/                   FastAPI + httpx + PyJWT
   app/apps.py              /api/apps/catalog|deploy|deployments/{vmid}
   app/shares.py            /api/shares, /api/shares/users (Samba)
   app/host.py              client for the host helper (ZFS snapshots live in app/pve.py)
+  app/telemetry.py         /api/pve/telemetry/hardware (disk SMART/temps, Intel iGPU, NVIDIA GPU)
+  app/notifications.py     /api/notifications (health alerts)
+  app/schedules.py         /api/schedules + the background snapshot/scrub scheduler
   data/                    app_catalog.json + per-app install scripts
-  tests/test_selfcheck.py  auth, sandbox, mocked-PVE, shares, ZFS, App Center and console auth checks
+  tests/test_selfcheck.py  auth, sandbox, mocked-PVE, shares, ZFS, App Center, console auth, telemetry,
+                           alert and scheduler checks
 frontend/                  React 19 + TypeScript + Vite + Tailwind 4 + Zustand + lucide-react
   src/lib/stores.ts        auth, window manager, telemetry (60-sample rolling history)
   src/components/          lock screen, top bar, desktop + widgets, dock, window frame, charts
@@ -87,6 +108,9 @@ cd frontend && npm ci && npm run dev
 - The installer doesn't add bind mounts for pools created after the container. Delete the container and re-run the installer to pick them up.
 - Folder downloads (zip) and multi-select in File Station are not implemented.
 - There is a single admin account from `.env` and no login rate limiting. Keep the UI on a trusted network.
+- GPU telemetry reads `nvidia-smi` and `/dev/dri` on the host through the helper, or inside the container as a fallback. Only the first NVIDIA GPU is shown. After upgrading from v0.2, re-run the installer (or `deploy.sh`) so the host helper gains `hw-info` and `zpool-scrub`.
+- Schedules run inside the backend. If it is down when a run is due, that run is skipped, not replayed later. "Monthly" means every 30 days, counted from when the schedule was created.
+- Alerts are recomputed from live state on every request and aren't stored. Read/unread state is kept per browser.
 - App Center deployment logs are kept in memory. If the backend restarts, the container and its Proxmox tasks remain, but the installer output is lost.
 - Shares run file I/O as container root (`force user = root`), because that is the uid granted on `/mnt/storage`. Users and `valid users` control who can connect.
 - The VNC password, which is the short-lived ticket, is passed to the browser for the RFB handshake. The terminal ticket never leaves the backend.

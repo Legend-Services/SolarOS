@@ -40,9 +40,9 @@ async def pve(method: str, path: str, **kw):
     return r.json().get("data")
 
 
-async def _safe(path: str, default=None):
+async def _safe(path: str, default=None, **kw):
     try:
-        return await pve("GET", path)
+        return await pve("GET", path, **kw)
     except HTTPException:
         return default
 

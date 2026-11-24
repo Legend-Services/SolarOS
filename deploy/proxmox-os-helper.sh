@@ -35,6 +35,22 @@ case "$CMD" in
   zfs-destroy)
     s="$(snap_arg)"; zfs destroy "$s"
     ;;
+  zpool-scrub)
+    pool="${ARGS[1]:-}"
+    [[ "$pool" =~ ^[A-Za-z0-9][A-Za-z0-9_.:-]*$ ]] || die "invalid pool name"
+    zpool scrub "$pool"
+    ;;
+  hw-info)
+    # GPU probe for the telemetry API: "dri:<render node>:<PCI vendor>" and "nvidia:<csv>" lines.
+    for dev in /dev/dri/renderD*; do
+      [[ -e "$dev" ]] || continue
+      echo "dri:${dev}:$(cat "/sys/class/drm/$(basename "$dev")/device/vendor" 2>/dev/null || true)"
+    done
+    if command -v nvidia-smi >/dev/null; then
+      nvidia-smi --query-gpu=name,temperature.gpu,utilization.gpu,memory.used,memory.total,power.draw \
+        --format=csv,noheader,nounits 2>/dev/null | sed 's/^/nvidia:/' || true
+    fi
+    ;;
   app-configure)
     vmid="$(app_vmid)"
     for opt in "${ARGS[@]:2}"; do

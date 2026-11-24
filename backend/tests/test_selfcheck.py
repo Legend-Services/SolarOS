@@ -176,4 +176,105 @@ try:
 except WebSocketDisconnect as e:
     assert e.code == 4403, e.code
 assert v["session"] not in __import__("app.console", fromlist=["x"])._sessions  # single use
+
+# ---------------- Phase 3 ----------------
+
+import asyncio  # noqa: E402
+
+from app import notifications, schedules, telemetry  # noqa: E402
+
+# SMART temperature parsing (NVMe text and ATA attributes).
+assert telemetry.smart_temp({"text": "Critical Warning: 0x00\nTemperature:                        47 Celsius\n"}) == 47
+assert telemetry.smart_temp({"attributes": [{"id": "  9", "raw": "100"}, {"id": "194", "raw": "38 (Min/Max 20/45)"}]}) == 38
+assert telemetry.smart_temp({"health": "PASSED"}) is None
+
+# GPU probe parsing; [N/A] values and junk lines degrade to None / are skipped.
+gp = telemetry.parse_gpu_probe("dri:/dev/dri/renderD128:0x8086\n"
+                               "nvidia:NVIDIA GeForce RTX 3090, 54, 12, 2048, 24576, [N/A]\nnvidia:bad\ngarbage")
+assert gp["igpu"] == {"available": True, "quicksync": True,
+                      "render_nodes": [{"path": "/dev/dri/renderD128", "vendor": "0x8086", "intel": True}]}, gp
+assert gp["gpu"] == {"available": True, "name": "NVIDIA GeForce RTX 3090", "temp_c": 54.0, "utilization_pct": 12.0,
+                     "vram_used_mb": 2048.0, "vram_total_mb": 24576.0, "power_w": None}, gp
+assert telemetry.parse_gpu_probe("")["gpu"] == telemetry.NO_GPU
+
+# /hardware endpoint with mocked PVE + helper (no GPU on host).
+FAKE3 = {
+    "/disks/list": [{"devpath": "/dev/nvme0n1", "model": "Samsung 990", "type": "nvme", "wearout": 97, "size": 1},
+                    {"devpath": "/dev/sda", "model": "WD Red", "type": "hdd", "wearout": "N/A", "size": 2}],
+    "/disks/smart": {"health": "PASSED", "type": "text", "text": "Temperature: 61 Celsius"},
+}
+pve._client = httpx.AsyncClient(transport=httpx.MockTransport(
+    lambda req: httpx.Response(200, json={"data": FAKE3.get(req.url.path.split("/nodes/pve", 1)[-1], [])})),
+    base_url="https://pve/api2/json")
+
+
+async def no_hw(args, stdin=None, on_line=None, timeout=120):
+    raise __import__("fastapi").HTTPException(503, "no helper")
+
+
+host.run = no_hw
+hw = c.get("/api/pve/telemetry/hardware").json()
+assert hw["gpu"]["available"] is False and hw["disks"][0]["temp_c"] == 61, hw
+assert hw["disks"][0]["life_left_pct"] == 97 and hw["disks"][1]["life_left_pct"] is None, hw
+
+# Alert evaluation.
+al = notifications.evaluate(
+    pools=[{"name": "tank", "health": "DEGRADED", "frag": 85, "alloc": 90, "size": 100},
+           {"name": "fast", "health": "ONLINE", "frag": 5, "alloc": 1, "size": 100}],
+    details=[{"scan": "resilver in progress since Sun"}, {"scan": "scrub repaired 0B"}],
+    targets=[{"storage": "local", "active": 1, "used": 96, "total": 100}, {"storage": "nfs", "active": 0, "used": 99, "total": 100}],
+    status={"rootfs": {"used": 10, "total": 100}},
+    disks=[{"devpath": "/dev/sda", "model": "WD", "health": "FAILED", "temp_c": 40},
+           {"devpath": "/dev/nvme0n1", "model": "S", "health": "PASSED", "temp_c": 61}],
+    tasks=[{"upid": "UPID:x", "type": "qmstop", "id": "101", "status": "command failed", "state": "error",
+            "starttime": 0}],
+)
+ids = {a["id"]: a["severity"] for a in al}
+assert ids == {"zfs-health:tank": "warning", "zfs-resilver:tank": "warning", "zfs-frag:tank": "warning",
+               "zfs-cap:tank": "warning", "storage-cap:local": "critical", "smart:/dev/sda": "critical",
+               "disk-temp:/dev/nvme0n1": "warning", "task:UPID:x": "warning"}, ids
+assert [a["severity"] for a in al][:2] == ["critical", "critical"]
+assert notifications.evaluate([{"name": "t", "health": "FAULTED"}], [{}], [], {}, [], [])[0]["severity"] == "critical"
+n = c.get("/api/notifications").json()
+assert n["counts"]["warning"] >= 1 and any(a["id"] == "disk-temp:/dev/nvme0n1" for a in n["alerts"]), n
+
+# Schedules: CRUD, validation, execution + retention pruning.
+settings.schedules_file = __import__("pathlib").Path(tmp).parent / f"schedules-{os.getpid()}.json"
+assert c.get("/api/schedules").json() == []
+assert c.post("/api/schedules", json={"kind": "snapshot", "target": "tank", "interval": "monthly"}).status_code == 422
+assert c.post("/api/schedules", json={"kind": "scrub", "target": "tank/media"}).status_code == 422
+assert c.post("/api/schedules", json={"kind": "snapshot", "target": "-o x"}).status_code == 422
+assert c.post("/api/schedules", json={"kind": "snapshot", "target": "tank", "retention": 0}).status_code == 422
+snap = c.post("/api/schedules", json={"kind": "snapshot", "target": "tank/media", "interval": "hourly", "retention": 2}).json()
+scrub = c.post("/api/schedules", json={"kind": "scrub", "target": "tank", "interval": "daily"}).json()
+assert scrub["interval"] == "monthly" and snap["next_run"] > snap["created"], (snap, scrub)
+assert c.patch(f"/api/schedules/{scrub['id']}", json={"enabled": False}).json()["enabled"] is False
+
+hcalls = []
+listing = "\n".join(f"tank/media@proxmoxos-auto-hourly-{i}\tsnapshot\t1\t1\t{1700000000 + i}\t-" for i in range(4))
+listing += "\ntank/media@proxmoxos-auto-daily-0\tsnapshot\t1\t1\t1600000000\t-\ntank/media@manual\tsnapshot\t1\t1\t1\t-"
+
+
+async def sched_run(args, stdin=None, on_line=None, timeout=120):
+    hcalls.append(args)
+    return listing if args[0] == "zfs-list" else ""
+
+
+host.run = sched_run
+future = snap["next_run"] + 1
+assert asyncio.run(schedules.run_due(future)) == 1  # the scrub is disabled
+assert hcalls[0][0] == "zfs-snapshot" and hcalls[0][1].startswith("tank/media@proxmoxos-auto-hourly-"), hcalls
+assert [a for a in hcalls if a[0] == "zfs-destroy"] == [["zfs-destroy", "tank/media@proxmoxos-auto-hourly-1"],
+                                                       ["zfs-destroy", "tank/media@proxmoxos-auto-hourly-0"]], hcalls
+s0 = next(s for s in c.get("/api/schedules").json() if s["id"] == snap["id"])
+assert s0["last_status"] == "ok" and s0["next_run"] == future + 3600, s0
+assert asyncio.run(schedules.run_due(future)) == 0  # not due again yet
+c.patch(f"/api/schedules/{scrub['id']}", json={"enabled": True})
+hcalls.clear()
+host.run = no_hw
+assert asyncio.run(schedules.run_due(future + 10 ** 8)) == 2
+assert {s["last_status"] for s in c.get("/api/schedules").json()} == {"error"}  # failures are recorded, not raised
+assert c.delete(f"/api/schedules/{snap['id']}").status_code == 200
+assert c.delete(f"/api/schedules/{snap['id']}").status_code == 404
+settings.schedules_file.unlink()
 print("selfcheck OK")
