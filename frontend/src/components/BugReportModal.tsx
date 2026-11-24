@@ -128,7 +128,7 @@ export default function BugReportModal() {
             <pre className="mt-2 max-h-48 overflow-auto rounded-lg bg-black/40 p-2 font-mono text-[10px] whitespace-pre-wrap text-slate-300">
               {diag
                 ? [
-                    `ProxmoxOS ${diag.proxmox_os_version ?? "?"} (${diag.proxmox_os_tag ?? "untagged"}, ${diag.commit ?? "?"})`,
+                    `SolarDeck ${diag.proxmox_os_version ?? "?"} (${diag.proxmox_os_tag ?? "untagged"}, ${diag.commit ?? "?"})`,
                     `Proxmox VE ${diag.pve_version ?? "?"} · kernel ${diag.kernel}`,
                     `${diag.cpu} · ${diag.memory_gb ?? "?"} GB RAM`,
                     `Browser: ${navigator.userAgent}`,

@@ -67,7 +67,7 @@ function guide(g: {
 export const WELCOME: Guide = {
   id: "welcome",
   app: "help",
-  title: "Welcome to ProxmoxOS",
+  title: "Welcome to SolarDeck",
   blurb: "A quick tour of your new server desktop.",
   steps: [
     {
@@ -290,7 +290,7 @@ export const APP_GUIDES: Record<AppId, Guide> = {
       "Firewall: add rules for the whole cluster, the host or a single guest.",
       "Logs: read the system journal and task history.",
     ],
-    tip: "The ProxmoxOS service user and its token are protected so you can't lock yourself out by accident.",
+    tip: "The SolarDeck service user and its token are protected so you can't lock yourself out by accident.",
     action: { label: "Open Datacenter", app: "datacenter" },
   }),
   terminal: guide({
@@ -335,18 +335,18 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     app: "controlpanel",
     title: "Control Panel Guide",
     blurb: "Users, drivers, layout, updates and bug reports.",
-    what: "Control Panel holds the settings for ProxmoxOS and the host: security and two-factor login, network, appearance and desktop layout, hardware and GPU drivers, and system updates.",
+    what: "Control Panel holds the settings for SolarDeck and the host: security and two-factor login, network, appearance and desktop layout, hardware and GPU drivers, and system updates.",
     when: [
       "Changing your password or turning on two-factor login.",
       "Installing NVIDIA, Intel or AMD graphics drivers.",
       "Making desktop icons bigger or switching to List View.",
-      "Updating ProxmoxOS to the newest version.",
+      "Updating SolarDeck to the newest version.",
     ],
     how: [
       "User & Security: change the admin password, set up 2FA, check the root bridge. Add more Proxmox users and roles in Datacenter.",
       "Hardware & System → GPU & Drivers: pick your card's vendor and press Install.",
       "Appearance & Layout: wallpaper, Grid/List view, icon size, spacing and Dock.",
-      "System & Power → ProxmoxOS Update: check for and install updates. To go back to an older version, redeploy that release with deploy.sh.",
+      "System & Power → SolarDeck Update: check for and install updates. To go back to an older version, redeploy that release with deploy.sh.",
       "To report a bug, use Help & Support → Ask, then open an issue on the project's GitHub page with what you saw.",
     ],
     action: { label: "Open Appearance & Layout", app: "controlpanel", intent: "appearance" },

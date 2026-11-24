@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ProxmoxOS self-updater. Started by the backend (POST /api/system/updates/apply|rollback) inside the ProxmoxOS
+# SolarDeck self-updater. Started by the backend (POST /api/system/updates/apply|rollback) inside the SolarDeck
 # container as a transient systemd unit:  self-update.sh <app dir> <repo url> <branch> [<target commit>]
 # Without a target it updates to the tip of <branch>; with one it checks out that commit (update or downgrade).
 # User state is snapshotted first and restored after the checkout: backend/.env, backend/data/, backend/.ssh/ and
@@ -60,6 +60,8 @@ echo "==> Building frontend"
 (cd frontend && npm ci --no-audit --no-fund --loglevel=error && npm run build >/dev/null)
 
 echo "==> Reloading services"
+# New-name alias for the legacy install dir; the real path stays put so existing units and mounts keep working.
+[[ -e /opt/solardeck ]] || ln -s "$APP_DIR" /opt/solardeck
 install -m 644 deploy/nginx.conf /etc/nginx/sites-available/proxmox-os
 nginx -t -q && (systemctl reload nginx || systemctl restart nginx)
 install -m 644 deploy/proxmox-os-backend.service /etc/systemd/system/proxmox-os-backend.service

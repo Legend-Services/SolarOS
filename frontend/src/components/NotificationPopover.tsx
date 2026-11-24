@@ -4,7 +4,7 @@ import { api } from "../lib/api";
 import type { Alert, Severity } from "../lib/types";
 import { useDismiss, usePoll } from "../lib/hooks";
 
-const SEEN_KEY = "proxmoxos.seenAlerts";
+const SEEN_KEY = "solardeck.seenAlerts";
 
 const STYLE: Record<Severity, { icon: typeof Info; tone: string }> = {
   critical: { icon: AlertOctagon, tone: "text-rose-400" },

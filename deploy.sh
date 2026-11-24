@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy this checkout of ProxmoxOS onto a Proxmox VE host over SSH, without pushing to GitHub first.
+# Deploy this checkout of SolarDeck onto a Proxmox VE host over SSH, without pushing to GitHub first.
 #   ./deploy.sh [--host <IP>] [--user <USER>]
 # Streams the repository to /tmp/proxmox-os-deploy on the host and runs install.sh there, which creates
 # (or updates) the "proxmox-os" LXC container. Needs key-based SSH access; a non-root user needs sudo.
@@ -42,10 +42,10 @@ echo "==> Running install.sh on ${HOST}"
 "${SSH[@]}" "${SUDO} bash ${REMOTE_DIR}/install.sh"
 
 # install.sh authorizes the backend's root key (backend/.ssh/id_ed25519); prove the bridge works end to end.
-echo "==> Verifying the root SSH bridge from the ProxmoxOS container"
+echo "==> Verifying the root SSH bridge from the SolarDeck container"
 "${SSH[@]}" "${SUDO} bash -s" <<'EOF'
 set -euo pipefail
-CT="$(pct list | awk '$NF=="proxmox-os" {print $1; exit}')"
+CT="$(pct list | awk '$NF=="solardeck" || $NF=="proxmox-os" || $NF=="proxmos-os" {print $1; exit}')"
 IP="$(hostname -I | awk '{print $1}')"
 K=/opt/proxmox-os/backend/.ssh
 pct exec "$CT" -- ssh -i "$K/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$K/known_hosts" \

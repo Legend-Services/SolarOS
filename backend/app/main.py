@@ -21,7 +21,7 @@ async def lifespan(_: FastAPI):
     await host_ssh.close()
 
 
-app = FastAPI(title="ProxmoxOS API", lifespan=lifespan, docs_url="/api/docs", openapi_url="/api/openapi.json")
+app = FastAPI(title="SolarDeck API", lifespan=lifespan, docs_url="/api/docs", openapi_url="/api/openapi.json")
 app.include_router(auth.router)
 app.include_router(pve.router)
 app.include_router(files.router)
@@ -44,4 +44,4 @@ for module in (host_ssh, pve_access, pve_datacenter, net_services, hardware_admi
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "node": settings.pve_node}
+    return {"status": "ok", "app": "SolarDeck", "node": settings.pve_node}

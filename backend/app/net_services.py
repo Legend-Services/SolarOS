@@ -40,7 +40,7 @@ DNS_LOG = "/var/log/proxmox-os-dnsmasq.log"
 LEASES = "/var/lib/misc/dnsmasq.leases"
 WG_CONF = "/etc/wireguard/wg0.conf"
 ROUTER_SH = f"{STATE_DIR}/router.sh"
-HEADER = "# Managed by ProxmoxOS (Network & Services). Changes here are overwritten.\n"
+HEADER = "# Managed by SolarDeck (Network & Services). Changes here are overwritten.\n"
 
 IFACE_RE = r"^[A-Za-z][A-Za-z0-9_.-]{0,14}$"
 HOST_RE = r"^([a-z0-9_]([a-z0-9_-]{0,61}[a-z0-9])?\.)*[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$"
@@ -729,7 +729,7 @@ def render_router_script(r: dict) -> str:
 
 
 ROUTER_UNIT = """[Unit]
-Description=ProxmoxOS router (NAT, port forwards, static routes)
+Description=SolarDeck router (NAT, port forwards, static routes)
 After=network-online.target
 Wants=network-online.target
 
@@ -900,7 +900,7 @@ async def _sh(*argv: str) -> tuple[int, str]:
 
 
 async def apply_nginx_cert(cert: str | None, key: str | None) -> None:
-    """Install (or with None remove) the ProxmoxOS HTTPS certificate in this container; roll back if nginx -t fails."""
+    """Install (or with None remove) the SolarDeck HTTPS certificate in this container; roll back if nginx -t fails."""
     crt, kf = NGINX_SSL_DIR / "proxmox-os.crt", NGINX_SSL_DIR / "proxmox-os.key"
     backup = {p: p.read_bytes() for p in (crt, kf, NGINX_SNIPPET) if p.exists()}
     try:

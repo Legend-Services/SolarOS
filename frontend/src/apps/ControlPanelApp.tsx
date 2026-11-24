@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import type { SystemInfo, UpdateSettings, UpdateStatus, VersionEntry } from "../lib/types";
 import { uptime } from "../lib/format";
 import { usePoll, useRunner } from "../lib/hooks";
+import { TRADEMARK_NOTICE } from "../lib/brand";
 import { MAGNIFICATION, useBugReport, useDock, useIntent, usePrefs, useWindows, WALLPAPERS, type Magnification } from "../lib/stores";
 import { APPS, APP_IDS } from "./registry";
 import { AppIcon } from "../components/icons/AppIcons";
@@ -115,8 +116,8 @@ function BridgeCard() {
       action={b && <GlassBadge tone={b.connected ? "success" : "danger"}>{b.connected ? "CONNECTED" : "UNAVAILABLE"}</GlassBadge>}
     >
       <p className="mb-3 text-xs text-slate-400">
-        ProxmoxOS reaches <span className="font-mono">{b?.target || "the Proxmox host"}</span> as root with its own ed25519 key, so Host Shell, container shells, GPU drivers and network
-        services work without a second login. Anyone signed in to ProxmoxOS has full root on the host; keep 2FA on.
+        SolarDeck reaches <span className="font-mono">{b?.target || "the Proxmox host"}</span> as root with its own ed25519 key, so Host Shell, container shells, GPU drivers and network
+        services work without a second login. Anyone signed in to SolarDeck has full root on the host; keep 2FA on.
       </p>
       {b && (
         <Rows
@@ -255,7 +256,7 @@ function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; run
   const latest = st?.remote_tag && st.remote_tag !== st.tag ? st.remote_tag : short(st?.remote_commit);
 
   return (
-    <Card title="ProxmoxOS Version" action={st?.update_available && !running && <GlassBadge tone="info">UPDATE AVAILABLE</GlassBadge>}>
+    <Card title="SolarDeck Version" action={st?.update_available && !running && <GlassBadge tone="info">UPDATE AVAILABLE</GlassBadge>}>
       <Rows
         rows={[
           ["Version", st ? `${st.version ? `v${st.version}` : "—"}${st.tag ? ` (${st.tag})` : ""}` : "—"],
@@ -275,10 +276,10 @@ function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; run
             <CloudDownload size={13} /> {running ? "Updating…" : "Install Update Now"}
           </GlassButton>
         )}
-        {st && !st.update_available && st.remote_commit && !st.settings.last_check_error && !running && <span className="text-xs text-emerald-300">ProxmoxOS is up to date.</span>}
+        {st && !st.update_available && st.remote_commit && !st.settings.last_check_error && !running && <span className="text-xs text-emerald-300">SolarDeck is up to date.</span>}
         {done && st.exit_code === 0 && (
           <GlassButton onClick={() => window.location.reload()}>
-            <RefreshCw size={13} /> Reload ProxmoxOS
+            <RefreshCw size={13} /> Reload SolarDeck
           </GlassButton>
         )}
       </div>
@@ -319,7 +320,7 @@ function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; run
         error={error}
         title="Install update"
         confirmLabel="Install Update Now"
-        message={`Update ProxmoxOS from ${st?.tag ?? short(st?.commit)} to ${latest}? Your settings and data are kept. The desktop is briefly unavailable while services restart.`}
+        message={`Update SolarDeck from ${st?.tag ?? short(st?.commit)} to ${latest}? Your settings and data are kept. The desktop is briefly unavailable while services restart.`}
       />
     </Card>
   );
@@ -364,10 +365,10 @@ function UpdatePreferences({ initial, onSaved }: { initial: UpdateSettings; onSa
         )}
         <p className="text-[11px] text-slate-500">
           {f.mode === "manual"
-            ? "ProxmoxOS never checks on its own. Use Check for Updates above."
+            ? "SolarDeck never checks on its own. Use Check for Updates above."
             : f.mode === "notify"
-              ? "ProxmoxOS checks on this schedule and shows a notification in the top bar when an update is ready."
-              : "ProxmoxOS checks on this schedule and installs updates by itself. Settings and data are always kept."}
+              ? "SolarDeck checks on this schedule and shows a notification in the top bar when an update is ready."
+              : "SolarDeck checks on this schedule and installs updates by itself. Settings and data are always kept."}
         </p>
         <div className="flex items-center gap-2">
           <GlassButton variant="primary" disabled={busy} onClick={save}>
@@ -435,14 +436,14 @@ function VersionHistory({ st, running, start }: { st: UpdateStatus | null; runni
         onConfirm={go}
         busy={busy}
         error={error}
-        title={pick && versions && older(versions.indexOf(pick)) ? "Downgrade ProxmoxOS" : "Switch ProxmoxOS version"}
+        title={pick && versions && older(versions.indexOf(pick)) ? "Downgrade SolarDeck" : "Switch SolarDeck version"}
         confirmLabel="Switch Version"
         message={
           <>
-            Switch ProxmoxOS to <b>{pick?.tag ?? pick?.short_hash}</b> ({pick?.subject})?
+            Switch SolarDeck to <b>{pick?.tag ?? pick?.short_hash}</b> ({pick?.subject})?
             <br />
             <br />
-            Only the ProxmoxOS program files change. All settings, users, passwords, 2FA, ZFS pools and datasets, schedules and network shares remain untouched, and you can switch back from
+            Only the SolarDeck program files change. All settings, users, passwords, 2FA, ZFS pools and datasets, schedules and network shares remain untouched, and you can switch back from
             this list at any time. {st?.settings.mode === "auto" && "Automatic updates are switched to Notify so they do not undo the downgrade."}
           </>
         }
@@ -586,13 +587,13 @@ function PowerSection({ info }: { info: SystemInfo }) {
       </Card>
       <UpdatesSection />
       <Card title="Report a Bug">
-        <p className="mb-3 text-xs text-slate-400">Something not working? Send a report to the ProxmoxOS developers on GitHub, with anonymized diagnostics if you like.</p>
+        <p className="mb-3 text-xs text-slate-400">Something not working? Send a report to the SolarDeck developers on GitHub, with anonymized diagnostics if you like.</p>
         <GlassButton onClick={() => openBugReport(true)}>
           <Bug size={13} /> Report a Bug
         </GlassButton>
       </Card>
       <Card title="Power">
-        <p className="mb-3 text-xs text-slate-400">All VMs and containers on the host stop, and ProxmoxOS goes offline until the host is back.</p>
+        <p className="mb-3 text-xs text-slate-400">All VMs and containers on the host stop, and SolarDeck goes offline until the host is back.</p>
         <div className="flex flex-wrap gap-2">
           <GlassButton onClick={() => setAsk("reboot")} disabled={!!notice}>
             <RotateCcw size={13} /> Reboot host
@@ -617,9 +618,10 @@ function PowerSection({ info }: { info: SystemInfo }) {
         message={
           ask === "shutdown"
             ? "The server powers off and stays off until someone powers it on again."
-            : "The server restarts. ProxmoxOS will be unavailable for a few minutes."
+            : "The server restarts. SolarDeck will be unavailable for a few minutes."
         }
       />
+      <p className="px-1 text-[11px] leading-snug text-slate-500">{TRADEMARK_NOTICE}</p>
     </div>
   );
 }

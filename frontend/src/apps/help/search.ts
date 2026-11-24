@@ -1,4 +1,4 @@
-/** Offline "Ask ProxmoxOS" matcher: scores plain-language questions against help content (no external service). */
+/** Offline "Ask SolarDeck" matcher: scores plain-language questions against help content (no external service). */
 
 const STOP = new Set(
   "a an the i im my me to of in on at for and or is are be it its how do does did can could cant with what why not want need please help this that there when where which who get got make use using from into about any some still dont doesnt wont isnt".split(

@@ -27,21 +27,21 @@ def _q(v: str) -> str:
 
 
 def service_ids() -> tuple[str, str]:
-    """(userid, tokenid) ProxmoxOS itself authenticates with; changing them would lock the app out."""
+    """(userid, tokenid) SolarDeck itself authenticates with; changing them would lock the app out."""
     user, _, token = (settings.pve_token_id or "pve-desktop@pve!webui").partition("!")
     return user, token
 
 
 def guard_user(userid: str, deleting: bool = False) -> None:
     if userid == service_ids()[0]:
-        raise HTTPException(403, f"{userid} is the ProxmoxOS service account; changing it would break ProxmoxOS")
+        raise HTTPException(403, f"{userid} is the SolarDeck service account; changing it would break SolarDeck")
     if deleting and userid == "root@pam":
         raise HTTPException(403, "root@pam cannot be deleted")
 
 
 def guard_token(userid: str, tokenid: str) -> None:
     if (userid, tokenid) == service_ids():
-        raise HTTPException(403, "This API token is used by ProxmoxOS itself and cannot be removed")
+        raise HTTPException(403, "This API token is used by SolarDeck itself and cannot be removed")
 
 
 # ---------------------------------------------------------------- Users
@@ -220,7 +220,7 @@ async def add_acl(body: AclBody):
 async def delete_acl(path: str = Query(pattern=ACL_PATH_RE, max_length=300), roleid: str = Query(pattern=ID_RE),
                      type: str = Query(pattern=r"^(user|group|token)$"), ugid: str = Query(max_length=200)):
     if ugid in (service_ids()[0], "!".join(service_ids())):
-        raise HTTPException(403, "These permissions belong to the ProxmoxOS service account")
+        raise HTTPException(403, "These permissions belong to the SolarDeck service account")
     await pve("PUT", "/access/acl", data={**acl_params(path, roleid, type, ugid), "delete": 1})
     return {"ok": True}
 

@@ -1,4 +1,4 @@
-"""SMB shares on STORAGE_ROOT. Samba runs in the ProxmoxOS container; this module owns SAMBA_CONF entirely."""
+"""SMB shares on STORAGE_ROOT. Samba runs in the SolarDeck container; this module owns SAMBA_CONF entirely."""
 import configparser
 import re
 import subprocess
@@ -40,7 +40,7 @@ def _load() -> configparser.ConfigParser:
 def _save(cp: configparser.ConfigParser) -> None:
     tmp = settings.samba_conf.with_suffix(".tmp")
     with tmp.open("w") as f:
-        f.write("# Managed by ProxmoxOS (Network Shares). Manual edits are overwritten.\n")
+        f.write("# Managed by SolarDeck (Network Shares). Manual edits are overwritten.\n")
         cp.write(f)
     tmp.replace(settings.samba_conf)
     _sh(["systemctl", "reload-or-restart", "smbd"])

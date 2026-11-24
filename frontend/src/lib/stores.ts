@@ -198,7 +198,7 @@ interface PrefsState {
 
 export const usePrefs = create<PrefsState>()(
   persist((set) => ({ wallpaper: "aurora", widgets: true, set: (patch) => set(patch) }), {
-    name: "proxmoxos-prefs",
+    name: "solardeck-prefs",
     partialize: ({ wallpaper, widgets }) => ({ wallpaper, widgets }),
   }),
 );
@@ -240,7 +240,7 @@ export const useDock = create<DockState>()(
       set: (patch) => set(patch),
     }),
     {
-      name: "proxmoxos-dock",
+      name: "solardeck-dock",
       partialize: ({ pinned, autoHide, baseSize, magnification }) => ({ pinned, autoHide, baseSize, magnification }),
       // Drop apps that no longer exist and clamp values edited by hand in localStorage.
       merge: (saved, cur) => {

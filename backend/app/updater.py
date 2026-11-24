@@ -1,4 +1,4 @@
-"""Git-backed ProxmoxOS updater: update checks, version history, update/rollback to any ref and scheduled auto-updates.
+"""Git-backed SolarDeck updater: update checks, version history, update/rollback to any ref and scheduled auto-updates.
 
 The actual code swap runs in deploy/self-update.sh as a detached systemd unit, because it restarts this backend.
 """

@@ -208,8 +208,8 @@ def vfio_files(ids: list[str], vendors: set[str]) -> dict[str, str | None]:
     mods = {"nvidia": ["nouveau", "nvidia", "nvidiafb", "nvidia_drm"], "amd": ["amdgpu", "radeon"]}
     black = [m for v in sorted(vendors) for m in mods.get(v, [])]
     soft = "".join(f"softdep {m} pre: vfio-pci\n" for m in ["nouveau", "nvidia", "amdgpu", "radeon", "snd_hda_intel", "i915"])
-    return {VFIO_CONF: f"# Managed by ProxmoxOS (GPU passthrough)\noptions vfio-pci ids={','.join(ids)}\n{soft}",
-            "/etc/modprobe.d/proxmox-os-blacklist.conf": "# Managed by ProxmoxOS\n" + "".join(f"blacklist {m}\n" for m in black)
+    return {VFIO_CONF: f"# Managed by SolarDeck (GPU passthrough)\noptions vfio-pci ids={','.join(ids)}\n{soft}",
+            "/etc/modprobe.d/proxmox-os-blacklist.conf": "# Managed by SolarDeck\n" + "".join(f"blacklist {m}\n" for m in black)
             if black else None,
             "/etc/modules-load.d/proxmox-os-vfio.conf": "vfio\nvfio_iommu_type1\nvfio_pci\n"}
 
@@ -362,7 +362,7 @@ def mode_script(files: dict[str, str | None]) -> str:
         if content is None:
             lines.append(f"rm -f {path} && echo 'removed {path}'")
         else:
-            lines.append(f"cat > {path} <<'PROXMOXOS_EOF'\n{content}PROXMOXOS_EOF\necho 'wrote {path}'; cat {path}")
+            lines.append(f"cat > {path} <<'SOLARDECK_EOF'\n{content}SOLARDECK_EOF\necho 'wrote {path}'; cat {path}")
     lines += ["echo '==> update-initramfs -u -k all'", "update-initramfs -u -k all",
               "echo '==> Done. Reboot the host to apply the new GPU driver binding.'"]
     return "\n".join(lines) + "\n"

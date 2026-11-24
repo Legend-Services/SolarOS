@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.5.0 - Phase 12: Rebranded to SolarDeck for Proxmox VE with Trademark Attribution & Seamless Upgrade Compatibility — 2026-11-24
+
+ProxmoxOS is now **SolarDeck** (*SolarDeck for Proxmox VE*), so the project name no longer suggests a connection to Proxmox Server Solutions GmbH. Existing installations upgrade in place with no manual steps.
+
+### Changed
+- **Brand**: all UI labels, the browser title (`SolarDeck — Web Desktop for Proxmox VE`), top bar, sign-in screen, Control Panel, Help Center, wizards, BIOS guides, bug reports, notifications, 2FA issuer and managed-file headers now say SolarDeck.
+- **Backend**: FastAPI title `SolarDeck API`; `GET /api/health` returns `{"status": "ok", "app": "SolarDeck", "node": ...}`.
+- **Automatic ZFS snapshots** are named `solardeck-auto-<interval>-<timestamp>`. Existing `proxmoxos-auto-*` snapshots still count toward retention and are pruned as new ones arrive.
+- **Disk tuning rules** are written with a `# solardeck` marker; rules files with the old `# proxmoxos` marker are still read.
+- **Installer**: new containers get the hostname `solardeck`. `install.sh`, `deploy.sh` and the host helper find a `solardeck`, `proxmox-os` or `proxmos-os` container, so re-running the installer always upgrades in place and keeps `.env`, `data/`, `.ssh/` and shares. The completion banner reads **SolarDeck for Proxmox VE**.
+
+### Added
+- **Trademark notice** on the sign-in screen, in Control Panel → System & Updates, in `README.md` and in the new `COMMERCIAL_LICENSE.md`.
+- **localStorage migration** (`frontend/src/lib/migrateStorage.ts`): `proxmoxos-prefs`, `proxmoxos-dock`, `proxmoxos-layout`, `proxmoxos-wizard` and `proxmoxos.seenAlerts` are copied once to their `solardeck-*` keys before the stores load, so view mode, icon size, alignment and Dock settings carry over.
+- **`/opt/solardeck`** symlink to `/opt/proxmox-os`, created by the installer and the self-updater.
+
+### Compatibility
+- Kept on purpose so in-place Git updates never break running containers: the install directory `/opt/proxmox-os`, systemd units (`proxmox-os-backend`, `proxmox-os-router`, `proxmox-os-job-*`), the host helper `/usr/local/sbin/proxmox-os-helper` and its SSH keys, guest/app tags (`proxmox-os-guest`, `proxmox-os-app`), managed config file paths on the host, and the `pve-desktop@pve` service account.
+
 ## v1.4.0 - Phase 11: Centered Desktop Icon Alignment, Vertical Placement & Safe-Zone Grid Layout — 2026-11-24
 
 ### Added

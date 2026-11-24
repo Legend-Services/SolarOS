@@ -192,7 +192,7 @@ function UsersTab({ service }: { service: string }) {
           return (
             <tr key={u.userid}>
               <Td mono>
-                {u.userid} {locked && <GlassBadge tone="info">PROXMOXOS</GlassBadge>}
+                {u.userid} {locked && <GlassBadge tone="info">SOLARDECK</GlassBadge>}
               </Td>
               <Td>{[u.firstname, u.lastname].filter(Boolean).join(" ") || "—"}</Td>
               <Td>{u.email || "—"}</Td>
@@ -671,7 +671,7 @@ function TokensTab() {
         {tokens.data?.map((t) => (
           <tr key={`${t.userid}!${t.tokenid}`}>
             <Td mono>
-              {t.userid}!{t.tokenid} {t.service && <GlassBadge tone="info">PROXMOXOS</GlassBadge>}
+              {t.userid}!{t.tokenid} {t.service && <GlassBadge tone="info">SOLARDECK</GlassBadge>}
             </Td>
             <Td>{t.comment || "—"}</Td>
             <Td>{t.privsep ? "Yes" : "No (full user rights)"}</Td>
@@ -967,7 +967,7 @@ function FirewallTab() {
         confirmLabel="Enable anyway"
         message={
           <>
-            The inbound policy will drop traffic and no enabled rule accepts SSH (22) or the Proxmox web UI (8006). You may lose access to the host and to ProxmoxOS.
+            The inbound policy will drop traffic and no enabled rule accepts SSH (22) or the Proxmox web UI (8006). You may lose access to the host and to SolarDeck.
             Add an ACCEPT rule for <span className="font-mono">8006</span> and <span className="font-mono">22</span> first.
           </>
         }

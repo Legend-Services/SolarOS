@@ -252,7 +252,7 @@ assert scrub["interval"] == "monthly" and snap["next_run"] > snap["created"], (s
 assert c.patch(f"/api/schedules/{scrub['id']}", json={"enabled": False}).json()["enabled"] is False
 
 hcalls = []
-listing = "\n".join(f"tank/media@proxmoxos-auto-hourly-{i}\tsnapshot\t1\t1\t{1700000000 + i}\t-" for i in range(4))
+listing = "\n".join(f"tank/media@{'solardeck' if i > 1 else 'proxmoxos'}-auto-hourly-{i}\tsnapshot\t1\t1\t{1700000000 + i}\t-" for i in range(4))
 listing += "\ntank/media@proxmoxos-auto-daily-0\tsnapshot\t1\t1\t1600000000\t-\ntank/media@manual\tsnapshot\t1\t1\t1\t-"
 
 
@@ -264,7 +264,7 @@ async def sched_run(args, stdin=None, on_line=None, timeout=120):
 host.run = sched_run
 future = snap["next_run"] + 1
 assert asyncio.run(schedules.run_due(future)) == 1  # the scrub is disabled
-assert hcalls[0][0] == "zfs-snapshot" and hcalls[0][1].startswith("tank/media@proxmoxos-auto-hourly-"), hcalls
+assert hcalls[0][0] == "zfs-snapshot" and hcalls[0][1].startswith("tank/media@solardeck-auto-hourly-"), hcalls
 assert [a for a in hcalls if a[0] == "zfs-destroy"] == [["zfs-destroy", "tank/media@proxmoxos-auto-hourly-1"],
                                                        ["zfs-destroy", "tank/media@proxmoxos-auto-hourly-0"]], hcalls
 s0 = next(s for s in c.get("/api/schedules").json() if s["id"] == snap["id"])

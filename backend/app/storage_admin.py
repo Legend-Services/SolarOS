@@ -372,7 +372,7 @@ async def dataset_update(body: DatasetPatch):
 
 @router.post("/zfs/datasets/map")
 async def dataset_map(name: str = Query(pattern=DATASET_RE, max_length=200)):
-    """Bind-mount an existing dataset into the ProxmoxOS container under /mnt/storage/<dataset>."""
+    """Bind-mount an existing dataset into the SolarDeck container under /mnt/storage/<dataset>."""
     return {"ok": True, "output": await host.run(["storage-map", name], timeout=600), "path": f"/{name}"}
 
 
@@ -561,18 +561,18 @@ async def ensure_tool(cmd: str, package: str) -> None:
 
 
 def parse_rules(text: str) -> dict[str, dict]:
-    """Persisted tuning: each disk is a `# proxmoxos {json}` comment followed by its udev rule."""
+    """Persisted tuning: each disk is a `# solardeck {json}` comment (legacy `# proxmoxos` still read) followed by its udev rule."""
     out = {}
     for line in text.splitlines():
-        if line.startswith("# proxmoxos "):
+        if line.startswith(("# solardeck ", "# proxmoxos ")):
             with suppress(ValueError, KeyError, TypeError):
-                d = json.loads(line.removeprefix("# proxmoxos "))
+                d = json.loads(line.split(" ", 2)[2])
                 out[d["by_id"]] = d
     return out
 
 
 def render_rules(entries: dict[str, dict]) -> str:
-    lines = ["# Managed by ProxmoxOS (Storage Manager > Disks > Tune). Re-applies drive settings at boot and hotplug.", ""]
+    lines = ["# Managed by SolarDeck (Storage Manager > Disks > Tune). Re-applies drive settings at boot and hotplug.", ""]
     for by_id, e in sorted(entries.items()):
         # DEVLINKS is a space-separated list; match the exact by-id link in any position.
         match = (f'ACTION=="add", SUBSYSTEM=="block", ENV{{DEVTYPE}}=="disk", '
@@ -588,7 +588,7 @@ def render_rules(entries: dict[str, dict]) -> str:
         if e.get("power_state") is not None:
             runs.append(f'RUN+="/usr/sbin/nvme set-feature /dev/%k -f 2 -v {int(e["power_state"])}"')
         if runs:
-            lines += [f"# proxmoxos {json.dumps(e, sort_keys=True)}", f"{match}, {', '.join(runs)}", ""]
+            lines += [f"# solardeck {json.dumps(e, sort_keys=True)}", f"{match}, {', '.join(runs)}", ""]
     return "\n".join(lines)
 
 

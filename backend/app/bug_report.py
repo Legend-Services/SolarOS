@@ -93,20 +93,20 @@ def format_body(r: BugReport, diag: dict | None) -> str:
     if r.steps_to_reproduce.strip():
         parts += ["", "### Steps to reproduce", r.steps_to_reproduce.strip()]
     if diag:
-        rows = [("ProxmoxOS", f"{diag['proxmox_os_version'] or '?'} ({diag['proxmox_os_tag'] or 'untagged'}, {diag['commit'] or '?'})"),
+        rows = [("SolarDeck", f"{diag['proxmox_os_version'] or '?'} ({diag['proxmox_os_tag'] or 'untagged'}, {diag['commit'] or '?'})"),
                 ("Proxmox VE", diag["pve_version"]), ("Kernel", diag["kernel"]), ("CPU", diag["cpu"]),
                 ("Memory", f"{diag['memory_gb']} GB" if diag["memory_gb"] else None),
                 ("Browser", redact(r.user_agent) or diag["user_agent"])]
         parts += ["", "### System diagnostics", "| | |", "|---|---|", *[f"| {k} | {v or '?'} |" for k, v in rows],
                   "", "<details><summary>Backend log (last 30 lines, anonymized)</summary>", "", "```",
                   *diag["logs"], "```", "</details>"]
-    parts += ["", "_Reported from the ProxmoxOS in-app bug reporter._"]
+    parts += ["", "_Reported from the SolarDeck in-app bug reporter._"]
     return "\n".join(parts)
 
 
 def prefilled_url(slug: str, title: str, body: str) -> str:
     base = f"https://github.com/{slug}/issues/new?"
-    note = "\n\n_(Report shortened to fit the link. Use **Copy Report Markdown** in ProxmoxOS and paste the full report.)_"
+    note = "\n\n_(Report shortened to fit the link. Use **Copy Report Markdown** in SolarDeck and paste the full report.)_"
     text = body
     while True:
         url = base + urlencode({"title": title, "labels": ",".join(LABELS), "body": text})

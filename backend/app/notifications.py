@@ -88,7 +88,7 @@ async def notifications():
     alerts = evaluate(pools, details, targets or [], status or {}, hw["disks"], [normalize(t) for t in tasks or []])
     u = updater.load_settings()
     if u["mode"] != "manual" and u["update_available"]:
-        alerts.append(_alert("proxmox-os-update", "info", "update", "ProxmoxOS update available",
+        alerts.append(_alert("proxmox-os-update", "info", "update", "SolarDeck update available",
                              f"Version {u['latest_remote_tag'] or (u['latest_remote_commit'] or '')[:10]} is ready. "
                              "Install it in Control Panel → System & Updates."))
     counts = {s: sum(a["severity"] == s for a in alerts) for s in RANK}

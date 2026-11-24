@@ -66,7 +66,7 @@ async def _open(command: str | None, **kw) -> asyncssh.SSHClientProcess:
             except (OSError, asyncssh.Error) as e:
                 _conn = None
                 raise HTTPException(503, f"Host SSH bridge unavailable ({target()[1]}): {e}. Re-run install.sh on the "
-                                         "Proxmox host to authorize the ProxmoxOS key.")
+                                         "Proxmox host to authorize the SolarDeck key.")
         try:
             return await conn.create_process(command, **kw)
         except (OSError, asyncssh.Error) as e:

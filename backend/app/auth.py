@@ -117,7 +117,7 @@ def twofa_setup(user: str = Depends(require_user)):
         raise HTTPException(409, "Two-factor authentication is already enabled; disable it first")
     secret = pyotp.random_base32()
     save_security({**sec, "pending_secret": secret})
-    uri = pyotp.TOTP(secret).provisioning_uri(name=user, issuer_name="ProxmoxOS")
+    uri = pyotp.TOTP(secret).provisioning_uri(name=user, issuer_name="SolarDeck")
     svg = qrcode.make(uri, image_factory=qrcode.image.svg.SvgPathImage, border=2).to_string(encoding="unicode")
     return {"secret": secret, "otpauth_uri": uri, "qr_svg": svg}
 
