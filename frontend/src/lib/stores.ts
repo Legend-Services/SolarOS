@@ -13,7 +13,7 @@ interface AuthState {
   status: AuthStatus;
   username: string | null;
   init: () => Promise<void>;
-  login: (username: string, password: string) => Promise<void>;
+  login: (username: string, password: string, otp?: string) => Promise<void>;
   lock: () => void;
   logout: () => Promise<void>;
 }
@@ -29,8 +29,8 @@ export const useAuth = create<AuthState>((set) => ({
       set({ status: "locked" });
     }
   },
-  login: async (username, password) => {
-    const res = await api<{ username: string }>("/auth/login", { method: "POST", json: { username, password } });
+  login: async (username, password, otp) => {
+    const res = await api<{ username: string }>("/auth/login", { method: "POST", json: { username, password, otp: otp || undefined } });
     set({ status: "unlocked", username: res.username });
   },
   // Lock keeps the username but hides the desktop until the password is re-entered.
@@ -127,6 +127,31 @@ export const useWindows = create<WindowState>((set, get) => ({
 
 export const activeWindow = (windows: Win[]) =>
   windows.filter((w) => !w.minimized).sort((a, b) => b.z - a.z)[0] ?? null;
+
+/* ---------------- Cross-app navigation (Spotlight, desktop menu) ---------------- */
+
+/** One-shot deep links: the target app reads its entry on mount / change and clears it with `take`. */
+export interface Intents {
+  files?: string; // File Station path
+  compute?: "vm" | "lxc" | "iso"; // open a wizard or the ISO tab
+  storage?: "pool"; // open the Create Pool dialog
+  controlpanel?: "security" | "network" | "appearance" | "power";
+}
+
+interface IntentState extends Intents {
+  go: <K extends keyof Intents>(app: K & AppId, value: Intents[K]) => void;
+  take: (app: keyof Intents) => void;
+}
+
+export const useIntent = create<IntentState>((set) => ({
+  go: (app, value) => {
+    set({ [app]: value });
+    useWindows.getState().open(app);
+  },
+  take: (app) => set({ [app]: undefined }),
+}));
+
+export const useSpotlight = create<{ open: boolean; set: (open: boolean) => void }>((set) => ({ open: false, set: (open) => set({ open }) }));
 
 /* ---------------- Desktop preferences (per browser) ---------------- */
 

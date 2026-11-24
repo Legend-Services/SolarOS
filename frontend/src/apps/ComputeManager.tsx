@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { Container, Monitor, MonitorPlay, Play, Power, RotateCw, Search, SlidersHorizontal, Square, SquareTerminal } from "lucide-react";
+import { Container, Monitor, MonitorPlay, Play, Plus, Power, RotateCw, Search, SlidersHorizontal, Square, SquareTerminal } from "lucide-react";
 import { api } from "../lib/api";
 import type { Guest, GuestConfig } from "../lib/types";
 import { bytes, pct, uptime } from "../lib/format";
 import { usePoll, useRunner } from "../lib/hooks";
-import { Field, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, Notice } from "../components/ui/GlassKit";
-import { useWindows } from "../lib/stores";
+import { Field, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
+import { useIntent, useWindows } from "../lib/stores";
+import GuestWizard, { type GuestKind } from "./GuestWizard";
+import IsoLibrary from "./IsoLibrary";
 import { Bar } from "../components/charts";
 
 type Filter = "all" | "qemu" | "lxc";
@@ -120,6 +122,16 @@ export default function ComputeManager() {
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Guest | null>(null);
+  const [view, setView] = useState<"guests" | "iso">("guests");
+  const [wizard, setWizard] = useState<GuestKind | null>(null);
+  const intent = useIntent((s) => s.compute);
+  const takeIntent = useIntent((s) => s.take);
+  useEffect(() => {
+    if (!intent) return;
+    if (intent === "iso") setView("iso");
+    else setWizard(intent === "vm" ? "qemu" : "lxc");
+    takeIntent("compute");
+  }, [intent, takeIntent]);
   const openWindow = useWindows((s) => s.open);
   const openConsole = (g: Guest, mode: "vnc" | "shell") => openWindow("console", { type: g.type, vmid: g.vmid, name: g.name, mode });
 
@@ -156,6 +168,30 @@ export default function ComputeManager() {
 
   return (
     <div className="flex h-full flex-col">
+      <div className="flex flex-wrap items-center gap-2 border-b border-white/10 px-3 py-2">
+        <Segmented
+          value={view}
+          onChange={setView}
+          options={[
+            { id: "guests", label: "Guests" },
+            { id: "iso", label: "ISO & Templates" },
+          ]}
+        />
+        <div className="ml-auto flex gap-2">
+          <GlassButton variant="primary" onClick={() => setWizard("qemu")}>
+            <Plus size={13} /> Create VM
+          </GlassButton>
+          <GlassButton onClick={() => setWizard("lxc")}>
+            <Plus size={13} /> Create Container
+          </GlassButton>
+        </div>
+      </div>
+      {view === "iso" ? (
+        <div className="min-h-0 flex-1 overflow-auto">
+          <IsoLibrary />
+        </div>
+      ) : (
+        <>
       <div className="flex flex-wrap items-center gap-2 border-b border-white/10 p-3">
         <div className="flex rounded-lg bg-black/30 p-0.5" role="tablist">
           {FILTERS.map((f) => (
@@ -276,7 +312,10 @@ export default function ComputeManager() {
           </tbody>
         </table>
       </div>
+        </>
+      )}
       <EditGuestModal guest={editing} onClose={() => setEditing(null)} onSaved={load} />
+      <GuestWizard kind={wizard} open={!!wizard} onClose={() => setWizard(null)} onCreated={load} />
     </div>
   );
 }

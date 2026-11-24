@@ -5,6 +5,7 @@ import TopBar from "./components/TopBar";
 import Desktop from "./components/Desktop";
 import Dock from "./components/Dock";
 import WindowLayer from "./components/WindowLayer";
+import SpotlightSearch from "./components/SpotlightSearch";
 
 export default function App() {
   const status = useAuth((s) => s.status);
@@ -32,6 +33,7 @@ export default function App() {
             <WindowLayer />
             <TopBar />
             <Dock />
+            <SpotlightSearch />
           </>
         )}
       </div>

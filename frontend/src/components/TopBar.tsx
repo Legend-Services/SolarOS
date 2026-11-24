@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
-import { Cpu, Database, LayoutGrid, Lock, LogOut, MemoryStick, SlidersHorizontal, User } from "lucide-react";
-import { activeWindow, useAuth, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
+import { Cpu, Database, LayoutGrid, Lock, LogOut, MemoryStick, Search, SlidersHorizontal, User } from "lucide-react";
+import { activeWindow, useAuth, useSpotlight, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
 import { useClock, useDismiss } from "../lib/hooks";
 import TaskCenterPopover from "./TaskCenterPopover";
 import NotificationPopover from "./NotificationPopover";
@@ -24,6 +24,7 @@ export default function TopBar() {
   const overview = useTelemetry((s) => s.overview);
   const storage = useTelemetry((s) => s.storage);
   const { username, lock, logout } = useAuth();
+  const openSpotlight = useSpotlight((s) => s.set);
   const [launcher, setLauncher] = useState(false);
   const [menu, setMenu] = useState(false);
   const launcherRef = useDismiss(launcher, () => setLauncher(false));
@@ -75,6 +76,14 @@ export default function TopBar() {
         label={health}
         tone={health === "ONLINE" ? "text-emerald-300" : health === "N/A" || health === "—" ? "text-slate-400" : "text-rose-300"}
       />
+      <button
+        onClick={() => openSpotlight(true)}
+        className="flex items-center gap-1 rounded-md px-2 py-1 text-slate-200 hover:bg-white/10"
+        aria-label="Search (Ctrl+K)"
+        title="Search (⌘K / Ctrl+K)"
+      >
+        <Search size={14} />
+      </button>
       <TaskCenterPopover />
       <NotificationPopover />
       <span className="tabular-nums text-slate-200">

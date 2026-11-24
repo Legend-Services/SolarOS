@@ -26,6 +26,11 @@ const LABELS: Record<string, string> = {
   vncshell: "Shell",
   aptupdate: "Update package lists",
   download: "Download",
+  qmcreate: "Create VM",
+  qmrestore: "Restore VM",
+  vzrestore: "Restore container",
+  vzdump: "Backup",
+  imgdel: "Delete volume",
 };
 
 /** Live PVE task log; polls while the task runs. */

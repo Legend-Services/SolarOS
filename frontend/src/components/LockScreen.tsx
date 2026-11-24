@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { ArrowRight, Loader2, Server, User } from "lucide-react";
+import { ArrowRight, Loader2, Server, ShieldCheck, User } from "lucide-react";
 import { useAuth } from "../lib/stores";
 import { useClock } from "../lib/hooks";
 
@@ -10,6 +10,8 @@ export default function LockScreen({ visible, checking }: { visible: boolean; ch
   const [node, setNode] = useState<string>("");
   const [username, setUsername] = useState(lockedUser ?? "admin");
   const [password, setPassword] = useState("");
+  const [otp, setOtp] = useState("");
+  const [needOtp, setNeedOtp] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -21,7 +23,7 @@ export default function LockScreen({ visible, checking }: { visible: boolean; ch
   }, []);
 
   useEffect(() => {
-    if (visible) setPassword("");
+    if (visible) (setPassword(""), setOtp(""), setNeedOtp(false));
     if (lockedUser) setUsername(lockedUser);
   }, [visible, lockedUser]);
 
@@ -30,9 +32,15 @@ export default function LockScreen({ visible, checking }: { visible: boolean; ch
     setBusy(true);
     setError("");
     try {
-      await login(username, password);
+      await login(username, password, needOtp ? otp : undefined);
     } catch (err) {
-      setError((err as Error).message);
+      const msg = (err as Error).message;
+      // The backend asks for the TOTP code only after the password checked out.
+      if (msg === "Two-factor code required") {
+        setNeedOtp(true);
+        setError("");
+      } else setError(msg);
+      if (needOtp) setOtp("");
     } finally {
       setBusy(false);
     }
@@ -93,13 +101,31 @@ export default function LockScreen({ visible, checking }: { visible: boolean; ch
               />
               <button
                 type="submit"
-                disabled={busy || !password}
+                disabled={busy || !password || (needOtp && otp.length !== 6)}
                 className="flex w-11 shrink-0 items-center justify-center rounded-lg bg-sky-500 text-white transition hover:bg-sky-400 disabled:opacity-40"
                 aria-label="Sign in"
               >
                 {busy ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
               </button>
             </div>
+            {needOtp && (
+              <div className="mt-3">
+                <label className="mb-1 flex items-center gap-1.5 text-xs text-slate-400" htmlFor="otp">
+                  <ShieldCheck size={12} /> Two-factor code
+                </label>
+                <input
+                  id="otp"
+                  className="input w-full font-mono tracking-[0.4em]"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  placeholder="000000"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                  autoFocus
+                />
+              </div>
+            )}
             {error && (
               <p role="alert" className="mt-3 text-sm text-rose-400">
                 {error}

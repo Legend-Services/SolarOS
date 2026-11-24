@@ -63,6 +63,18 @@ const ICONS: Record<AppId, { stops: [string, string, string]; glyph: ReactNode }
       </>
     ),
   },
+  backup: {
+    stops: ["#5eead4", "#0d9488", "#083d44"],
+    glyph: (
+      <>
+        {/* Archive box with a circular restore arrow. */}
+        <rect x="13" y="15" width="38" height="9" rx="3" fill={W} />
+        <path d="M16 26h32v19a4 4 0 0 1-4 4H20a4 4 0 0 1-4-4Z" fill={W} fillOpacity=".75" />
+        <path d="M38.5 37.5a6.5 6.5 0 1 1-2-4.7" fill="none" stroke="#0d9488" strokeWidth="3" strokeLinecap="round" />
+        <path d="m37.5 28.6.4 5.2-5.2.4" fill="none" stroke="#0d9488" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+      </>
+    ),
+  },
   shares: {
     stops: ["#67e8f9", "#0284c7", "#0b3a75"],
     glyph: (

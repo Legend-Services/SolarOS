@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { ChevronLeft, KeyRound, Network, Palette, Power, RefreshCw, RotateCcw, ShieldCheck } from "lucide-react";
+import { ChevronLeft, CloudDownload, KeyRound, Network, Palette, Power, RefreshCw, RotateCcw, ShieldCheck, Smartphone } from "lucide-react";
 import { api } from "../lib/api";
-import type { SystemInfo } from "../lib/types";
+import type { SystemInfo, UpdateStatus } from "../lib/types";
 import { uptime } from "../lib/format";
-import { useRunner } from "../lib/hooks";
-import { usePrefs, WALLPAPERS } from "../lib/stores";
+import { usePoll, useRunner } from "../lib/hooks";
+import { useIntent, usePrefs, WALLPAPERS } from "../lib/stores";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassSwitch, Notice } from "../components/ui/GlassKit";
 
 type Section = "security" | "network" | "appearance" | "power";
@@ -73,6 +73,7 @@ function Security({ info }: { info: SystemInfo }) {
           </div>
         </form>
       </Card>
+      <TwoFactorCard />
       <Card title="Proxmox API connection" action={<GlassBadge tone={info.api.connected ? "success" : "danger"}>{info.api.connected ? "CONNECTED" : "UNREACHABLE"}</GlassBadge>}>
         <Rows
           rows={[
@@ -84,6 +85,137 @@ function Security({ info }: { info: SystemInfo }) {
         />
       </Card>
     </div>
+  );
+}
+
+function TwoFactorCard() {
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [setup, setSetup] = useState<{ secret: string; qr_svg: string } | null>(null);
+  const [code, setCode] = useState("");
+  const { busy, error, notice, run } = useRunner();
+  useEffect(() => {
+    api<{ enabled: boolean }>("/auth/2fa/status").then((r) => setEnabled(r.enabled), () => setEnabled(false));
+  }, []);
+  const begin = () => run(() => api<{ secret: string; qr_svg: string }>("/auth/2fa/setup", { method: "POST" }).then(setSetup));
+  const confirm = (path: "enable" | "disable") =>
+    run(
+      () => api<{ enabled: boolean }>(`/auth/2fa/${path}`, { method: "POST", json: { code } }).then((r) => (setEnabled(r.enabled), setSetup(null), setCode(""))),
+      path === "enable" ? "Two-factor authentication is on. You will be asked for a code at sign-in." : "Two-factor authentication is off.",
+    );
+  return (
+    <Card
+      title="Two-Factor Authentication (2FA)"
+      action={enabled !== null && <GlassBadge tone={enabled ? "success" : "neutral"}>{enabled ? "ENABLED" : "DISABLED"}</GlassBadge>}
+    >
+      <p className="mb-3 text-xs text-slate-400">Require a 6-digit code from an authenticator app (Google Authenticator, 1Password, Authy, …) when signing in.</p>
+      {enabled ? (
+        <div className="flex flex-wrap items-end gap-2">
+          <Field label="Current code to disable">
+            <GlassInput className="w-32 font-mono tracking-widest" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} />
+          </Field>
+          <GlassButton variant="danger" disabled={busy || code.length !== 6} onClick={() => confirm("disable")}>
+            Disable 2FA
+          </GlassButton>
+        </div>
+      ) : setup ? (
+        <div className="flex flex-wrap gap-4">
+          <img src={`data:image/svg+xml;utf8,${encodeURIComponent(setup.qr_svg)}`} alt="2FA QR code" className="h-40 w-40 rounded-xl bg-white p-2" />
+          <div className="min-w-0 flex-1 space-y-3">
+            <p className="text-xs text-slate-300">1. Scan the QR code, or enter this secret manually:</p>
+            <code className="block rounded-lg bg-black/30 px-3 py-2 font-mono text-xs break-all text-sky-200 select-all">{setup.secret}</code>
+            <p className="text-xs text-slate-300">2. Enter the 6-digit code shown by the app:</p>
+            <div className="flex gap-2">
+              <GlassInput className="w-32 font-mono tracking-widest" inputMode="numeric" maxLength={6} autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} />
+              <GlassButton variant="primary" disabled={busy || code.length !== 6} onClick={() => confirm("enable")}>
+                Verify & enable
+              </GlassButton>
+              <GlassButton variant="ghost" onClick={() => (setSetup(null), setCode(""))}>
+                Cancel
+              </GlassButton>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <GlassButton variant="primary" disabled={busy || enabled === null} onClick={begin}>
+          <Smartphone size={13} /> Set up 2FA
+        </GlassButton>
+      )}
+      <div className="mt-3">
+        <Notice error={error} notice={notice} />
+      </div>
+    </Card>
+  );
+}
+
+function UpdateCard() {
+  const [st, setSt] = useState<UpdateStatus | null>(null);
+  const [ask, setAsk] = useState(false);
+  const [started, setStarted] = useState(false);
+  const { busy, error, notice, run, setError } = useRunner();
+  const load = useCallback((check = false) => api<UpdateStatus>(`/system/update/status${check ? "?check=true" : ""}`).then((s) => (setSt(s), s)), []);
+  // While an update runs, poll; the backend restarts near the end, so failed polls are expected and ignored.
+  const poll = useCallback(() => {
+    if (started) load().catch(() => {});
+  }, [started, load]);
+  usePoll(poll, 3000);
+  useEffect(() => {
+    load().catch((e) => setError(e.message));
+  }, [load, setError]);
+  useEffect(() => {
+    if (started && st && !st.running && st.exit_code !== null) setStarted(false);
+  }, [started, st]);
+
+  const check = () =>
+    run(async () => {
+      const s = await load(true);
+      if (s.check_error) throw new Error(`Update check failed: ${s.check_error}`);
+      if (s.update_available) setAsk(true);
+    });
+  const apply = () => run(() => api("/system/update/apply", { method: "POST" }).then(() => (setAsk(false), setStarted(true))));
+  const short = (c?: string | null) => (c ? c.slice(0, 10) : "unknown");
+  const done = st && !st.running && st.exit_code !== null && st.log.length > 0;
+
+  return (
+    <Card title="System Update" action={st?.update_available && !st.running && <GlassBadge tone="info">UPDATE AVAILABLE</GlassBadge>}>
+      <Rows
+        rows={[
+          ["ProxmoxOS version", st?.version ? `v${st.version}` : "—"],
+          ["Commit", <span className="font-mono">{short(st?.commit)}</span>],
+          ["Branch", <span className="font-mono">{st?.branch}</span>],
+          ["Source", <span className="font-mono">{st?.remote}</span>],
+          ...(st?.remote_commit ? ([["Latest on remote", <span className="font-mono">{short(st.remote_commit)}</span>]] as [string, ReactNode][]) : []),
+        ]}
+      />
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <GlassButton variant="primary" disabled={busy || !!st?.running || started} onClick={check}>
+          <CloudDownload size={13} /> {st?.running || started ? "Updating…" : "Check & Install Updates"}
+        </GlassButton>
+        {st && !st.update_available && st.remote_commit && !st.running && <span className="text-xs text-emerald-300">ProxmoxOS is up to date.</span>}
+        {done && st.exit_code === 0 && (
+          <GlassButton onClick={() => window.location.reload()}>
+            <RefreshCw size={13} /> Reload ProxmoxOS
+          </GlassButton>
+        )}
+      </div>
+      {(st?.running || started || done) && (
+        <pre className="mt-3 max-h-48 overflow-auto rounded-lg bg-black/40 p-2 font-mono text-[10px] whitespace-pre-wrap text-slate-300">{st?.log.join("\n") || "Starting…"}</pre>
+      )}
+      {done && st.exit_code !== 0 && <Notice error={`Update failed (exit code ${st.exit_code}); see the log above.`} />}
+      <p className="mt-2 text-[11px] text-slate-500">Pulls the latest code, syncs backend dependencies, rebuilds the frontend and restarts the services. Your settings and data are kept. Host helper changes still need install.sh on the Proxmox host.</p>
+      <div className="mt-2">
+        <Notice error={error} notice={notice} />
+      </div>
+      <ConfirmModal
+        open={ask}
+        onClose={() => setAsk(false)}
+        onConfirm={apply}
+        busy={busy}
+        error={error}
+        title="Install update"
+        confirmLabel="Install now"
+        message={`Update ProxmoxOS from ${short(st?.commit)} to ${short(st?.remote_commit)}? The desktop is briefly unavailable while services restart.`}
+      />
+    </Card>
   );
 }
 
@@ -187,6 +319,7 @@ function PowerSection({ info }: { info: SystemInfo }) {
           ]}
         />
       </Card>
+      <UpdateCard />
       <Card title="Power">
         <p className="mb-3 text-xs text-slate-400">All VMs and containers on the host stop, and ProxmoxOS goes offline until the host is back.</p>
         <div className="flex flex-wrap gap-2">
@@ -229,6 +362,11 @@ export default function ControlPanelApp() {
   }, []);
   useEffect(load, [load]);
   const current = SECTIONS.find((s) => s.id === section);
+  const intent = useIntent((s) => s.controlpanel);
+  const takeIntent = useIntent((s) => s.take);
+  useEffect(() => {
+    if (intent) (setSection(intent), takeIntent("controlpanel"));
+  }, [intent, takeIntent]);
 
   return (
     <div className="flex h-full flex-col">
