@@ -21,6 +21,14 @@ A web desktop for Proxmox VE, in the style of Synology DSM, QNAP QTS and ZimaOS.
 
 **System app (v0.3.1):** host administration without the Proxmox UI. You can switch APT repositories (for example from Enterprise to No-Subscription), check for and install host updates, open a root shell on the host (it asks for the host's login), and reboot or shut down the server. The API token therefore has the `Administrator` role.
 
+**Phase 4 (v0.4.0): full control and the Liquid Glass UI**
+
+- **Storage & ZFS.** The app is rebuilt around six workflows. **Create ZFS Pool** is a wizard: choose the RAID topology (Single, Mirror, RAID10, RAIDZ1–3), pick unused disks, set compression and ashift, and optionally register the pool as Proxmox storage. You can also scrub or destroy a pool. **Volumes & Datasets** creates datasets and ZVOLs, edits compression and quota inline, has switches for `atime` and auto-share (SMB), and deletes datasets. **Disks & SMART** shows a card per drive with its temperature and remaining life. From there you can open a full SMART attribute drawer, initialize GPT, wipe a disk (you must type the device path), or format it as Directory/LVM/LVM-Thin storage.
+- **Network Shares.** One click creates a share together with its own ZFS dataset. Switches cover read-only, guest access, recycle bin, macOS Time Machine and visibility.
+- **Compute Manager.** An **Edit** dialog changes CPU cores, memory, swap, start at boot, tags and notes, and grows disks.
+- **Control Panel.** A new app with four sections: change the admin password (saved to `.env`, and kept by later `install.sh`/`deploy.sh` runs), view API token status, view host network interfaces and DNS, pick a wallpaper and toggle widgets, see Proxmox VE/kernel info, and reboot or shut down the host.
+- **Liquid Glass UI.** Translucent buttons, switches, inputs and modals; new multi-layer icons for every app; windows animate when they open and close, minimize into their Dock icon, and snap to the left, right or top edge.
+
 ## Deploy from a checkout (`deploy.sh`)
 
 ```bash

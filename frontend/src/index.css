@@ -1,14 +1,97 @@
 @import "tailwindcss";
 
 @layer components {
+  /* Window / dock / top bar surface: frosted fill, 1px light rim on top, soft ambient shadow. */
   .glass {
-    @apply border border-white/10 bg-slate-900/75 backdrop-blur-xl;
+    @apply border border-white/10 bg-slate-900/70 backdrop-blur-2xl backdrop-saturate-150;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 24px 60px -20px rgba(0, 0, 0, 0.6);
   }
   .glass-soft {
-    @apply border border-white/10 bg-white/5 backdrop-blur-xl;
+    @apply border border-white/10 bg-white/[0.045] backdrop-blur-xl;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
+  /* Modal surface: crisp 1px gradient border via a masked pseudo-element. */
+  .glass-panel {
+    @apply bg-slate-900/85 backdrop-blur-2xl backdrop-saturate-150;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.14),
+      0 30px 80px -24px rgba(0, 0, 0, 0.75);
+  }
+  .glass-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.04) 40%, rgba(255, 255, 255, 0.12));
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+    pointer-events: none;
+  }
+
+  .glass-btn {
+    @apply border border-white/15 bg-gradient-to-b from-white/[0.14] to-white/[0.04] hover:brightness-125;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      0 1px 2px rgba(0, 0, 0, 0.25),
+      0 4px 14px -6px rgba(0, 0, 0, 0.4);
+  }
+  .glass-btn-primary {
+    @apply border-sky-200/35 from-sky-400/60 to-blue-600/50;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.3),
+      0 6px 18px -6px rgba(56, 189, 248, 0.55);
+  }
+  .glass-btn-danger {
+    @apply border-rose-200/30 from-rose-500/55 to-rose-700/45;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.25),
+      0 6px 18px -6px rgba(244, 63, 94, 0.5);
+  }
+
+  .glass-field {
+    @apply rounded-lg border border-white/10 bg-black/25 px-2.5 py-1.5 text-xs text-slate-100 outline-none placeholder:text-slate-500 focus:border-sky-300/50 focus:ring-2 focus:ring-sky-400/20;
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.35),
+      0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+  select.glass-field {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%2394a3b8' stroke-width='1.5'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.6rem center;
+  }
+  select.glass-field option {
+    background: #0f172a;
+  }
+
+  .glass-switch {
+    @apply relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-white/15 bg-black/35 transition-[background-color,box-shadow] duration-300 disabled:cursor-not-allowed;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+  }
+  .glass-switch.is-on {
+    @apply border-sky-200/40 bg-sky-500/70;
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.2),
+      0 0 12px rgba(56, 189, 248, 0.55);
+  }
+  .glass-switch-thumb {
+    @apply absolute left-0.5 h-4 w-4 rounded-full bg-gradient-to-b from-white to-slate-200;
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 1px 3px rgba(0, 0, 0, 0.45);
+    /* Slight overshoot = spring feel. */
+    transition: transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .glass-switch.is-on .glass-switch-thumb {
+    transform: translateX(16px);
+  }
+
+  /* Legacy helpers kept for apps not yet on GlassKit; restyled to match. */
   .btn {
-    @apply inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40;
+    @apply inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-gradient-to-b from-white/[0.12] to-white/[0.04] px-2.5 py-1.5 text-xs font-medium text-slate-200 transition hover:brightness-125 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
   }
   .input {
     @apply rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-sky-400/60 focus:ring-2 focus:ring-sky-400/20;
@@ -30,12 +113,65 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ---------------- Wallpapers (picked in Control Panel → Appearance) ---------------- */
+
 .wallpaper {
+  transition: background 600ms ease;
+}
+.wallpaper::after {
+  /* Ambient top light that the glass surfaces pick up. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(70rem 22rem at 50% -6rem, rgba(255, 255, 255, 0.09), transparent 70%);
+}
+.wp-aurora {
   background:
-    radial-gradient(60rem 40rem at 10% 10%, rgba(56, 189, 248, 0.22), transparent 60%),
-    radial-gradient(50rem 40rem at 90% 20%, rgba(168, 85, 247, 0.22), transparent 60%),
-    radial-gradient(60rem 50rem at 50% 110%, rgba(16, 185, 129, 0.18), transparent 60%),
+    radial-gradient(60rem 40rem at 10% 10%, rgba(56, 189, 248, 0.26), transparent 60%),
+    radial-gradient(50rem 40rem at 90% 20%, rgba(168, 85, 247, 0.26), transparent 60%),
+    radial-gradient(60rem 50rem at 50% 110%, rgba(16, 185, 129, 0.2), transparent 60%),
     linear-gradient(160deg, #0b1020 0%, #070b16 100%);
+}
+.wp-sequoia {
+  background:
+    radial-gradient(55rem 40rem at 15% 85%, rgba(234, 88, 12, 0.32), transparent 60%),
+    radial-gradient(50rem 38rem at 85% 15%, rgba(190, 24, 93, 0.3), transparent 60%),
+    radial-gradient(40rem 30rem at 55% 50%, rgba(250, 204, 21, 0.1), transparent 60%),
+    linear-gradient(160deg, #1a0c14 0%, #0b0710 100%);
+}
+.wp-ocean {
+  background:
+    radial-gradient(60rem 45rem at 80% 90%, rgba(6, 182, 212, 0.3), transparent 60%),
+    radial-gradient(55rem 40rem at 10% 20%, rgba(37, 99, 235, 0.32), transparent 60%),
+    radial-gradient(35rem 25rem at 50% 40%, rgba(45, 212, 191, 0.12), transparent 60%),
+    linear-gradient(170deg, #06142a 0%, #030a16 100%);
+}
+.wp-emerald {
+  background:
+    radial-gradient(55rem 40rem at 20% 20%, rgba(16, 185, 129, 0.3), transparent 60%),
+    radial-gradient(50rem 40rem at 85% 80%, rgba(132, 204, 22, 0.18), transparent 60%),
+    radial-gradient(40rem 30rem at 70% 10%, rgba(20, 184, 166, 0.18), transparent 60%),
+    linear-gradient(160deg, #04130f 0%, #030a08 100%);
+}
+.wp-graphite {
+  background:
+    radial-gradient(60rem 40rem at 30% 0%, rgba(148, 163, 184, 0.18), transparent 60%),
+    radial-gradient(50rem 40rem at 90% 100%, rgba(100, 116, 139, 0.2), transparent 60%),
+    linear-gradient(160deg, #15171c 0%, #0a0b0e 100%);
+}
+
+/* Window edge-snap preview. */
+.snap-preview {
+  position: fixed;
+  z-index: 8900;
+  pointer-events: none;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(125, 211, 252, 0.12);
+  backdrop-filter: blur(6px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 40px rgba(56, 189, 248, 0.25);
+  transition: all 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 ::-webkit-scrollbar {
@@ -45,4 +181,13 @@ body {
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.12);
   border-radius: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+  }
 }

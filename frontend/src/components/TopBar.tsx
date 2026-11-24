@@ -1,11 +1,12 @@
 import { useState, type ReactNode } from "react";
-import { Cpu, Database, LayoutGrid, Lock, LogOut, MemoryStick, User } from "lucide-react";
+import { Cpu, Database, LayoutGrid, Lock, LogOut, MemoryStick, SlidersHorizontal, User } from "lucide-react";
 import { activeWindow, useAuth, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
 import { useClock, useDismiss } from "../lib/hooks";
 import TaskCenterPopover from "./TaskCenterPopover";
 import NotificationPopover from "./NotificationPopover";
 import { pct } from "../lib/format";
 import { APPS, APP_IDS } from "../apps/registry";
+import { AppIcon } from "./icons/AppIcons";
 
 function Pill({ icon, label, tone = "text-slate-200" }: { icon: ReactNode; label: string; tone?: string }) {
   return (
@@ -33,7 +34,7 @@ export default function TopBar() {
   const ram = overview ? pct(overview.memory.used, overview.memory.total) : 0;
 
   return (
-    <header className="glass fixed inset-x-0 top-0 z-[9000] flex h-9 items-center gap-3 border-x-0 border-t-0 px-2 text-xs">
+    <header className="glass fixed inset-x-0 top-0 z-[9000] flex h-9 items-center gap-3 border-x-0 border-t-0 bg-slate-900/55 px-2 text-xs">
       <div ref={launcherRef} className="relative">
         <button
           onClick={() => setLauncher((v) => !v)}
@@ -44,9 +45,9 @@ export default function TopBar() {
           <LayoutGrid size={15} /> <span className="hidden sm:inline">ProxmoxOS</span>
         </button>
         {launcher && (
-          <div className="glass absolute top-8 left-0 grid w-72 grid-cols-2 gap-2 rounded-xl p-3 shadow-2xl">
+          <div className="glass absolute top-8 left-0 grid w-80 grid-cols-3 gap-1 rounded-2xl p-3">
             {APP_IDS.map((id) => {
-              const { title, icon: Icon, color } = APPS[id];
+              const { title } = APPS[id];
               return (
                 <button
                   key={id}
@@ -54,11 +55,9 @@ export default function TopBar() {
                     open(id);
                     setLauncher(false);
                   }}
-                  className="flex flex-col items-center gap-2 rounded-lg p-3 text-slate-200 hover:bg-white/10"
+                  className="flex flex-col items-center gap-2 rounded-xl p-3 text-center text-slate-200 transition hover:bg-white/10 active:scale-95"
                 >
-                  <span className={`flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${color}`}>
-                    <Icon size={20} className="text-white" />
-                  </span>
+                  <AppIcon id={id} size={44} />
                   {title}
                 </button>
               );
@@ -93,7 +92,13 @@ export default function TopBar() {
           <User size={14} /> <span className="hidden sm:inline">{username}</span>
         </button>
         {menu && (
-          <div className="glass absolute top-8 right-0 w-40 rounded-xl p-1 shadow-2xl">
+          <div className="glass absolute top-8 right-0 w-44 rounded-xl p-1">
+            <button
+              onClick={() => (open("controlpanel"), setMenu(false))}
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10"
+            >
+              <SlidersHorizontal size={14} /> Control Panel
+            </button>
             <button onClick={lock} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
               <Lock size={14} /> Lock
             </button>

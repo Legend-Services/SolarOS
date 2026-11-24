@@ -1,4 +1,31 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+
+/** Busy / error / success-notice state around async actions. `run` resolves to true on success. */
+export function useRunner(onDone?: () => void) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const run = useCallback(
+    async (fn: () => Promise<unknown>, ok?: string) => {
+      setBusy(true);
+      setError("");
+      setNotice("");
+      try {
+        await fn();
+        if (ok) setNotice(ok);
+        onDone?.();
+        return true;
+      } catch (e) {
+        setError((e as Error).message);
+        return false;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [onDone],
+  );
+  return { busy, error, notice, run, setError };
+}
 
 export function useClock(intervalMs = 1000) {
   const [now, setNow] = useState(() => new Date());

@@ -1,13 +1,14 @@
 import type { ReactNode } from "react";
 import { Boxes, Container, Database, Gauge as GaugeIcon, HeartPulse, Monitor } from "lucide-react";
-import { useTelemetry, useWindows } from "../lib/stores";
+import { usePrefs, useTelemetry, useWindows } from "../lib/stores";
 import { bytes, healthColor, pct, tempColor, uptime } from "../lib/format";
 import { APPS, APP_IDS } from "../apps/registry";
 import { Bar, Gauge } from "./charts";
+import { AppIcon } from "./icons/AppIcons";
 
 function Widget({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
   return (
-    <section className="glass rounded-2xl p-4 shadow-xl">
+    <section className="glass rounded-2xl p-4">
       <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold tracking-wide text-slate-300 uppercase">
         {icon}
         {title}
@@ -21,13 +22,14 @@ export default function Desktop() {
   const open = useWindows((s) => s.open);
   const { overview: o, storage, hardware, error } = useTelemetry();
   const gpu = hardware?.gpu;
+  const widgets = usePrefs((s) => s.widgets);
 
   return (
     <div className="absolute inset-0 flex gap-6 overflow-y-auto px-4 pt-14 pb-28">
       {/* Shortcuts */}
       <div className="grid h-max grid-cols-1 gap-2">
         {APP_IDS.map((id) => {
-          const { title, icon: Icon, color } = APPS[id];
+          const { title } = APPS[id];
           return (
             <button
               key={id}
@@ -35,11 +37,9 @@ export default function Desktop() {
               onKeyDown={(e) => e.key === "Enter" && open(id)}
               // Single tap opens on touch devices, which have no double-click.
               onPointerUp={(e) => e.pointerType === "touch" && open(id)}
-              className="flex w-24 flex-col items-center gap-1.5 rounded-xl p-2 text-center text-xs text-slate-100 drop-shadow hover:bg-white/10 focus:bg-white/10 focus:outline-none"
+              className="group flex w-24 flex-col items-center gap-1.5 rounded-xl p-2 text-center text-xs text-slate-100 drop-shadow hover:bg-white/10 focus:bg-white/10 focus:outline-none"
             >
-              <span className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br shadow-lg ${color}`}>
-                <Icon size={24} className="text-white" />
-              </span>
+              <AppIcon id={id} size={52} className="transition-transform group-hover:scale-105 group-active:scale-95" />
               {title}
             </button>
           );
@@ -47,7 +47,7 @@ export default function Desktop() {
       </div>
 
       {/* Widgets */}
-      <div className="ml-auto hidden w-80 shrink-0 flex-col gap-4 md:flex">
+      <div className={`ml-auto hidden w-80 shrink-0 flex-col gap-4 ${widgets ? "md:flex" : ""}`}>
         {error && <div className="glass rounded-xl px-3 py-2 text-xs text-rose-300">{error}</div>}
         <Widget title="System Health" icon={<HeartPulse size={14} />}>
           <div className="flex justify-around">

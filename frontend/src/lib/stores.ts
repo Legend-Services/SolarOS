@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { api, setUnauthorizedHandler } from "./api";
 import type { ConsoleTarget, HardwareInfo, Overview, StorageInfo } from "./types";
 import type { AppId } from "../apps/registry";
@@ -58,9 +59,19 @@ export interface Win {
   maximized: boolean;
 }
 
+export interface Rect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
 interface WindowState {
   windows: Win[];
   topZ: number;
+  /** Screen rect of each Dock icon: the target of the minimize (genie) animation. */
+  dockIconRects: Partial<Record<AppId, Rect>>;
+  setDockIconRect: (id: AppId, r: Rect) => void;
   open: (id: AppId, params?: ConsoleTarget) => void;
   close: (key: string) => void;
   focus: (key: string) => void;
@@ -72,6 +83,8 @@ interface WindowState {
 export const useWindows = create<WindowState>((set, get) => ({
   windows: [],
   topZ: 10,
+  dockIconRects: {},
+  setDockIconRect: (id, r) => set((s) => ({ dockIconRects: { ...s.dockIconRects, [id]: r } })),
   open: (id, params) => {
     const key = params ? `${id}:${params.type}:${params.vmid}:${params.mode}` : id;
     if (get().windows.some((w) => w.key === key)) return get().focus(key);
@@ -114,6 +127,30 @@ export const useWindows = create<WindowState>((set, get) => ({
 
 export const activeWindow = (windows: Win[]) =>
   windows.filter((w) => !w.minimized).sort((a, b) => b.z - a.z)[0] ?? null;
+
+/* ---------------- Desktop preferences (per browser) ---------------- */
+
+export const WALLPAPERS = [
+  { id: "aurora", name: "Aurora", swatch: "linear-gradient(135deg,#38bdf8,#a855f7 60%,#10b981)" },
+  { id: "sequoia", name: "Sequoia", swatch: "linear-gradient(135deg,#ea580c,#be185d 60%,#facc15)" },
+  { id: "ocean", name: "Ocean", swatch: "linear-gradient(135deg,#2563eb,#06b6d4 60%,#2dd4bf)" },
+  { id: "emerald", name: "Emerald", swatch: "linear-gradient(135deg,#10b981,#14b8a6 60%,#84cc16)" },
+  { id: "graphite", name: "Graphite", swatch: "linear-gradient(135deg,#94a3b8,#475569 60%,#1e293b)" },
+] as const;
+export type WallpaperId = (typeof WALLPAPERS)[number]["id"];
+
+interface PrefsState {
+  wallpaper: WallpaperId;
+  widgets: boolean;
+  set: (patch: Partial<Pick<PrefsState, "wallpaper" | "widgets">>) => void;
+}
+
+export const usePrefs = create<PrefsState>()(
+  persist((set) => ({ wallpaper: "aurora", widgets: true, set: (patch) => set(patch) }), {
+    name: "proxmoxos-prefs",
+    partialize: ({ wallpaper, widgets }) => ({ wallpaper, widgets }),
+  }),
+);
 
 /* ---------------- Telemetry ---------------- */
 

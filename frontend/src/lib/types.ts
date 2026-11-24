@@ -131,6 +131,9 @@ export interface Share {
   comment: string;
   read_only: boolean;
   guest_ok: boolean;
+  browseable: boolean;
+  recycle_bin: boolean;
+  timemachine: boolean;
   users: string[];
 }
 
@@ -241,4 +244,91 @@ export interface FileEntry {
   is_dir: boolean;
   size: number;
   mtime: number;
+}
+
+export interface PveDisk {
+  devpath: string;
+  by_id: string;
+  model: string;
+  serial: string;
+  vendor: string;
+  size: number;
+  type: string;
+  bus: "NVMe" | "SATA" | "SAS" | "USB";
+  rpm: number | null;
+  used: string; // empty = unused
+  gpt: boolean;
+  health: string;
+  wearout: number | null; // % of rated life remaining
+}
+
+export interface SmartReport {
+  health: string;
+  type: string;
+  temperature_c: number | null;
+  power_on_hours: number | null;
+  unsafe_shutdowns: number | null;
+  media_errors: number | null;
+  wearout_used_pct: number | null;
+  attributes: { id?: string; name: string; value?: number; worst?: number; threshold?: number; raw?: string; flags?: string; fail?: string }[];
+  text: string;
+}
+
+export interface ZfsDatasetInfo {
+  name: string;
+  type: "filesystem" | "volume";
+  pool: string;
+  used: number;
+  available: number;
+  refer: number;
+  mountpoint: string;
+  compression: string;
+  recordsize: string;
+  quota: number;
+  atime: string;
+  volsize: number;
+  guest_volume: boolean;
+}
+
+export interface GuestConfig {
+  name: string;
+  cores: number;
+  sockets: number;
+  memory: number;
+  swap: number | null;
+  onboot: boolean;
+  description: string;
+  tags: string;
+  disks: { key: string; volume: string; size: string | null; resizable: boolean }[];
+}
+
+export interface NetIface {
+  iface: string;
+  type: string;
+  active?: number;
+  autostart?: number;
+  method?: string;
+  cidr?: string;
+  address?: string;
+  netmask?: string;
+  gateway?: string;
+  bridge_ports?: string;
+  comments?: string;
+}
+
+export interface SystemInfo {
+  node: string;
+  version: { version?: string; release?: string; repoid?: string };
+  pveversion: string;
+  kernel: string;
+  uptime: number;
+  cpu_model: string;
+  cpus: number;
+  boot_mode: string;
+  network: NetIface[];
+  dns: { search?: string; dns1?: string; dns2?: string; dns3?: string };
+  api: { host: string; token_id: string; connected: boolean; verify_ssl: boolean };
+  admin_username: string;
+  storage_root: string;
+  helper: string;
 }

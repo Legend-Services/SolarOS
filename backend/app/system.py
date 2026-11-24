@@ -1,13 +1,17 @@
 """Host administration: APT repositories, package updates, power. Needs the Administrator role (Sys.Modify)."""
+import asyncio
 import re
+import secrets
+from pathlib import Path
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from . import host
+from . import config, host
 from .auth import require_user
-from .pve import _node, pve
+from .config import settings
+from .pve import _node, _safe, pve
 
 router = APIRouter(prefix="/api/system", tags=["system"], dependencies=[Depends(require_user)])
 
@@ -107,4 +111,59 @@ class PowerBody(BaseModel):
 @router.post("/power")
 async def power(body: PowerBody):
     await pve("POST", _node("/status"), data={"command": body.command})
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------- Control Panel
+
+
+@router.get("/info")
+async def info():
+    version, status, network, dns = await asyncio.gather(
+        _safe("/version"), _safe(_node("/status"), {}), _safe(_node("/network"), []), _safe(_node("/dns"), {}),
+    )
+    status, cpu = status or {}, (status or {}).get("cpuinfo", {})
+    return {
+        "node": settings.pve_node,
+        "version": version or {},
+        "pveversion": status.get("pveversion", ""),
+        "kernel": status.get("kversion", ""),
+        "uptime": status.get("uptime", 0),
+        "cpu_model": cpu.get("model", ""),
+        "cpus": cpu.get("cpus", 0),
+        "boot_mode": (status.get("boot-info") or {}).get("mode", ""),
+        "network": sorted(network or [], key=lambda n: (n.get("type") != "bridge", n.get("iface", ""))),
+        "dns": dns or {},
+        "api": {"host": settings.pve_host, "token_id": settings.pve_token_id, "connected": version is not None,
+                "verify_ssl": settings.pve_verify_ssl},
+        "admin_username": settings.admin_username,
+        "storage_root": str(settings.storage_root),
+        "helper": "ssh " + settings.host_ssh if settings.host_ssh else "local",
+    }
+
+
+class PasswordBody(BaseModel):
+    current_password: str = Field(max_length=128)
+    # No quotes, backslashes or newlines: the value is stored single-quoted in .env.
+    new_password: str = Field(min_length=8, max_length=128, pattern=r"^[^'\\\r\n]+$")
+
+
+def write_env(path: Path, key: str, value: str) -> None:
+    lines = path.read_text().splitlines() if path.exists() else []
+    entry = f"{key}='{value}'"
+    lines = [entry if line.startswith(f"{key}=") else line for line in lines]
+    if entry not in lines:
+        lines.append(entry)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text("\n".join(lines) + "\n")
+    tmp.chmod(0o600)
+    tmp.replace(path)
+
+
+@router.post("/password")
+def change_password(body: PasswordBody):
+    if not secrets.compare_digest(body.current_password.encode(), settings.admin_password.encode()):
+        raise HTTPException(403, "Current password is incorrect")
+    write_env(config.ENV_FILE, "ADMIN_PASSWORD", body.new_password)
+    settings.admin_password = body.new_password
     return {"ok": True}

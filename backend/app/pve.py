@@ -1,4 +1,5 @@
 import asyncio
+import re
 from typing import Literal
 
 import httpx
@@ -175,3 +176,74 @@ async def zfs_snapshot_rollback(body: RollbackBody):
 async def zfs_snapshot_delete(snapshot: str = Query(pattern=SNAPSHOT_RE, max_length=300)):
     await host.run(["zfs-destroy", snapshot])
     return {"ok": True}
+
+
+# ---------------------------------------------------------------- Guest resource editor
+
+QEMU_DISK_RE = re.compile(r"^(scsi|virtio|sata|ide|efidisk|tpmstate)\d+$")
+LXC_DISK_RE = re.compile(r"^(rootfs|mp\d+)$")
+
+
+def guest_disks(guest_type: str, cfg: dict) -> list[dict]:
+    out = []
+    for key, val in cfg.items():
+        is_disk = (QEMU_DISK_RE if guest_type == "qemu" else LXC_DISK_RE).match(key)
+        if not is_disk or not isinstance(val, str) or "media=cdrom" in val:
+            continue
+        size = re.search(r"(?:^|,)size=([0-9.]+[KMGT]?)", val)
+        out.append({"key": key, "volume": val.split(",", 1)[0], "size": size.group(1) if size else None,
+                    # EFI vars / TPM state disks have a fixed size; bind mounts (no size) can't be resized.
+                    "resizable": bool(size) and not key.startswith(("efidisk", "tpmstate"))})
+    return sorted(out, key=lambda d: d["key"])
+
+
+@router.get("/guests/{guest_type}/{vmid}/config")
+async def guest_config(guest_type: Literal["qemu", "lxc"], vmid: int):
+    cfg = await pve("GET", _node(f"/{guest_type}/{vmid}/config")) or {}
+    return {
+        "name": cfg.get("name") or cfg.get("hostname") or f"{guest_type}-{vmid}",
+        "cores": int(cfg.get("cores") or 1), "sockets": int(cfg.get("sockets") or 1),
+        "memory": int(cfg.get("memory") or 512), "swap": int(cfg["swap"]) if "swap" in cfg else None,
+        "onboot": bool(int(cfg.get("onboot") or 0)), "description": cfg.get("description") or "",
+        "tags": cfg.get("tags") or "", "disks": guest_disks(guest_type, cfg),
+    }
+
+
+class GuestConfigBody(BaseModel):
+    cores: int | None = Field(None, ge=1, le=512)
+    memory: int | None = Field(None, ge=16, le=4 * 1024 * 1024)  # MB
+    swap: int | None = Field(None, ge=0, le=1024 * 1024)  # MB, containers only
+    onboot: bool | None = None
+    description: str | None = Field(None, max_length=8000)
+    tags: str | None = Field(None, pattern=r"^[A-Za-z0-9_.;, -]*$", max_length=500)
+    resize_disk: str | None = Field(None, pattern=r"^(scsi|virtio|sata|ide)\d+$|^(rootfs|mp\d+)$")
+    resize_to: str | None = Field(None, pattern=r"^\+?[0-9]+(\.[0-9]+)?[KMGT]$")  # "+10G" grows, "64G" sets
+
+
+@router.patch("/guests/{guest_type}/{vmid}/config")
+async def guest_config_update(guest_type: Literal["qemu", "lxc"], vmid: int, body: GuestConfigBody):
+    if body.swap is not None and guest_type != "lxc":
+        raise HTTPException(400, "Swap is a container setting")
+    if bool(body.resize_disk) != bool(body.resize_to):
+        raise HTTPException(400, "resize_disk and resize_to go together")
+    data: dict = {k: v for k, v in body.model_dump(include={"cores", "memory", "swap"}).items() if v is not None}
+    if body.onboot is not None:
+        data["onboot"] = int(body.onboot)
+    deletes = []
+    for k in ("description", "tags"):
+        v = getattr(body, k)
+        if v is not None:
+            if v.strip():
+                data[k] = v
+            else:
+                deletes.append(k)  # PVE rejects empty strings; deleting the key clears it
+    if deletes:
+        data["delete"] = ",".join(deletes)
+    if data:
+        await pve("PUT", _node(f"/{guest_type}/{vmid}/config"), data=data)
+    task = None
+    if body.resize_disk:
+        # PVE only grows disks; a smaller absolute size is refused by the API.
+        task = await pve("PUT", _node(f"/{guest_type}/{vmid}/resize"),
+                         data={"disk": body.resize_disk, "size": body.resize_to})
+    return {"ok": True, "task": task}

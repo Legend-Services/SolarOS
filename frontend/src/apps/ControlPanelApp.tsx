@@ -1,0 +1,280 @@
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { ChevronLeft, KeyRound, Network, Palette, Power, RefreshCw, RotateCcw, ShieldCheck } from "lucide-react";
+import { api } from "../lib/api";
+import type { SystemInfo } from "../lib/types";
+import { uptime } from "../lib/format";
+import { useRunner } from "../lib/hooks";
+import { usePrefs, WALLPAPERS } from "../lib/stores";
+import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassSwitch, Notice } from "../components/ui/GlassKit";
+
+type Section = "security" | "network" | "appearance" | "power";
+
+const SECTIONS: { id: Section; title: string; desc: string; icon: ReactNode; tint: string }[] = [
+  { id: "security", title: "User & Security", desc: "Admin password, API token status", icon: <ShieldCheck size={22} />, tint: "from-indigo-400 to-violet-600" },
+  { id: "network", title: "Network & DNS", desc: "Host interfaces, bridges, resolvers", icon: <Network size={22} />, tint: "from-sky-400 to-cyan-600" },
+  { id: "appearance", title: "Appearance & Desktop", desc: "Wallpaper, desktop widgets", icon: <Palette size={22} />, tint: "from-pink-400 to-rose-600" },
+  { id: "power", title: "System & Power", desc: "Proxmox VE version, reboot, shut down", icon: <Power size={22} />, tint: "from-amber-300 to-orange-600" },
+];
+
+function Card({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
+  return (
+    <section className="glass-soft rounded-2xl p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <h3 className="flex-1 text-sm font-semibold text-slate-100">{title}</h3>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Rows({ rows }: { rows: [string, ReactNode][] }) {
+  return (
+    <dl className="grid grid-cols-[minmax(120px,max-content)_1fr] gap-x-6 gap-y-2 text-xs">
+      {rows.map(([k, v]) => (
+        <div key={k} className="contents">
+          <dt className="text-slate-400">{k}</dt>
+          <dd className="min-w-0 truncate text-slate-100">{v || "—"}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function Security({ info }: { info: SystemInfo }) {
+  const [f, setF] = useState({ current: "", next: "", confirm: "" });
+  const { busy, error, notice, run, setError } = useRunner();
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (f.next !== f.confirm) return setError("The new passwords do not match");
+    run(
+      () => api("/system/password", { method: "POST", json: { current_password: f.current, new_password: f.next } }).then(() => setF({ current: "", next: "", confirm: "" })),
+      "Password changed. Use it the next time you sign in.",
+    );
+  };
+  return (
+    <div className="space-y-4">
+      <Card title={`Change password for "${info.admin_username}"`}>
+        <form onSubmit={submit} className="grid max-w-md gap-3">
+          <Field label="Current password">
+            <GlassInput type="password" className="w-full" value={f.current} onChange={(e) => setF({ ...f, current: e.target.value })} autoComplete="current-password" required />
+          </Field>
+          <Field label="New password" hint="At least 8 characters. Quotes, backslashes and line breaks are not allowed.">
+            <GlassInput type="password" className="w-full" value={f.next} minLength={8} pattern={"[^'\\\\]+"} onChange={(e) => setF({ ...f, next: e.target.value })} autoComplete="new-password" required />
+          </Field>
+          <Field label="Confirm new password">
+            <GlassInput type="password" className="w-full" value={f.confirm} onChange={(e) => setF({ ...f, confirm: e.target.value })} autoComplete="new-password" required />
+          </Field>
+          <Notice error={error} notice={notice} />
+          <div>
+            <GlassButton type="submit" variant="primary" disabled={busy}>
+              <KeyRound size={13} /> Change password
+            </GlassButton>
+          </div>
+        </form>
+      </Card>
+      <Card title="Proxmox API connection" action={<GlassBadge tone={info.api.connected ? "success" : "danger"}>{info.api.connected ? "CONNECTED" : "UNREACHABLE"}</GlassBadge>}>
+        <Rows
+          rows={[
+            ["API endpoint", <span className="font-mono">{info.api.host}</span>],
+            ["Token", <span className="font-mono">{info.api.token_id}</span>],
+            ["TLS verification", info.api.verify_ssl ? "Enabled" : "Disabled (self-signed certificate)"],
+            ["Host helper", <span className="font-mono">{info.helper}</span>],
+          ]}
+        />
+      </Card>
+    </div>
+  );
+}
+
+function NetworkSection({ info }: { info: SystemInfo }) {
+  return (
+    <div className="space-y-4">
+      <Card title="Interfaces">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[600px] text-left text-xs">
+            <thead className="text-slate-400">
+              <tr>
+                <th className="py-1.5 font-medium">Name</th>
+                <th className="px-2 font-medium">Type</th>
+                <th className="px-2 font-medium">Status</th>
+                <th className="px-2 font-medium">Address</th>
+                <th className="px-2 font-medium">Gateway</th>
+                <th className="px-2 font-medium">Ports / comment</th>
+              </tr>
+            </thead>
+            <tbody>
+              {info.network.map((n) => (
+                <tr key={n.iface} className="border-t border-white/5">
+                  <td className="py-2 font-mono text-slate-100">{n.iface}</td>
+                  <td className="px-2 capitalize text-slate-300">{n.type}</td>
+                  <td className="px-2">
+                    <GlassBadge tone={n.active ? "success" : "neutral"}>{n.active ? "ACTIVE" : "DOWN"}</GlassBadge>
+                  </td>
+                  <td className="px-2 font-mono text-slate-300">{n.cidr || n.address || (n.method === "dhcp" ? "DHCP" : "—")}</td>
+                  <td className="px-2 font-mono text-slate-300">{n.gateway || "—"}</td>
+                  <td className="px-2 text-slate-400">{n.bridge_ports || n.comments || "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-3 text-[11px] text-slate-500">Read-only view. Network changes are made in the Proxmox web UI so a typo cannot cut off access to the host.</p>
+      </Card>
+      <Card title="DNS">
+        <Rows
+          rows={[
+            ["Search domain", info.dns.search],
+            ["DNS server 1", info.dns.dns1],
+            ["DNS server 2", info.dns.dns2],
+            ["DNS server 3", info.dns.dns3],
+          ]}
+        />
+      </Card>
+    </div>
+  );
+}
+
+function Appearance() {
+  const { wallpaper, widgets, set } = usePrefs();
+  return (
+    <div className="space-y-4">
+      <Card title="Wallpaper">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          {WALLPAPERS.map((w) => (
+            <button
+              key={w.id}
+              onClick={() => set({ wallpaper: w.id })}
+              aria-pressed={wallpaper === w.id}
+              className={`group overflow-hidden rounded-xl text-left ring-2 transition active:scale-[0.97] ${wallpaper === w.id ? "ring-sky-400" : "ring-transparent hover:ring-white/20"}`}
+            >
+              <span className="relative block h-16" style={{ background: w.swatch }}>
+                <span className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/35 to-transparent" />
+              </span>
+              <span className="block bg-black/30 px-2 py-1.5 text-[11px] text-slate-200">{w.name}</span>
+            </button>
+          ))}
+        </div>
+      </Card>
+      <Card title="Desktop">
+        <GlassSwitch checked={widgets} onChange={(v) => set({ widgets: v })} label="Show desktop widgets (system health, GPU, ZFS, compute)" />
+        <p className="mt-2 text-[11px] text-slate-500">Appearance settings are stored in this browser.</p>
+      </Card>
+    </div>
+  );
+}
+
+function PowerSection({ info }: { info: SystemInfo }) {
+  const [ask, setAsk] = useState<"reboot" | "shutdown" | null>(null);
+  const { busy, error, notice, run } = useRunner();
+  const send = async () => {
+    const verb = ask === "reboot" ? "Reboot" : "Shutdown";
+    if (await run(() => api("/system/power", { method: "POST", json: { command: ask } }), `${verb} command sent to ${info.node}.`)) setAsk(null);
+  };
+  return (
+    <div className="space-y-4">
+      <Card title="Proxmox VE">
+        <Rows
+          rows={[
+            ["Node", info.node],
+            ["Version", info.version.version ? `${info.version.version}${info.version.repoid ? ` (${info.version.repoid})` : ""}` : info.pveversion],
+            ["Manager", info.pveversion],
+            ["Kernel", info.kernel],
+            ["CPU", info.cpus ? `${info.cpu_model} · ${info.cpus} threads` : info.cpu_model],
+            ["Boot mode", info.boot_mode.toUpperCase()],
+            ["Uptime", uptime(info.uptime)],
+            ["Storage root", <span className="font-mono">{info.storage_root}</span>],
+          ]}
+        />
+      </Card>
+      <Card title="Power">
+        <p className="mb-3 text-xs text-slate-400">All VMs and containers on the host stop, and ProxmoxOS goes offline until the host is back.</p>
+        <div className="flex flex-wrap gap-2">
+          <GlassButton onClick={() => setAsk("reboot")} disabled={!!notice}>
+            <RotateCcw size={13} /> Reboot host
+          </GlassButton>
+          <GlassButton variant="danger" onClick={() => setAsk("shutdown")} disabled={!!notice}>
+            <Power size={13} /> Shut down host
+          </GlassButton>
+        </div>
+        <div className="mt-3">
+          <Notice notice={notice} />
+        </div>
+      </Card>
+      <ConfirmModal
+        open={!!ask}
+        onClose={() => setAsk(null)}
+        onConfirm={send}
+        busy={busy}
+        error={error}
+        title={ask === "reboot" ? "Reboot Proxmox host" : "Shut down Proxmox host"}
+        confirmLabel={ask === "reboot" ? "Reboot now" : "Shut down now"}
+        expect={info.node}
+        message={
+          ask === "shutdown"
+            ? "The server powers off and stays off until someone powers it on again."
+            : "The server restarts. ProxmoxOS will be unavailable for a few minutes."
+        }
+      />
+    </div>
+  );
+}
+
+export default function ControlPanelApp() {
+  const [section, setSection] = useState<Section | null>(null);
+  const [info, setInfo] = useState<SystemInfo | null>(null);
+  const [error, setError] = useState("");
+  const load = useCallback(() => {
+    api<SystemInfo>("/system/info").then((i) => (setInfo(i), setError("")), (e) => setError(e.message));
+  }, []);
+  useEffect(load, [load]);
+  const current = SECTIONS.find((s) => s.id === section);
+
+  return (
+    <div className="flex h-full flex-col">
+      <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2.5">
+        {current ? (
+          <GlassButton variant="ghost" size="xs" onClick={() => setSection(null)}>
+            <ChevronLeft size={14} /> All settings
+          </GlassButton>
+        ) : (
+          <h2 className="text-sm font-semibold text-white">Control Panel</h2>
+        )}
+        {current && <span className="text-sm font-medium text-slate-200">{current.title}</span>}
+        <GlassButton variant="ghost" size="xs" className="ml-auto" onClick={load} aria-label="Refresh">
+          <RefreshCw size={13} />
+        </GlassButton>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto p-4">
+        <Notice error={error} />
+        {!current ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {SECTIONS.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setSection(s.id)}
+                className="glass-soft flex items-center gap-3 rounded-2xl p-4 text-left transition hover:bg-white/[0.08] active:scale-[0.98]"
+              >
+                <span className={`flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-lg shadow-black/30 ${s.tint}`}>{s.icon}</span>
+                <span>
+                  <span className="block text-sm font-semibold text-slate-100">{s.title}</span>
+                  <span className="block text-[11px] text-slate-400">{s.desc}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : section === "appearance" ? (
+          <Appearance />
+        ) : !info ? (
+          !error && <p className="text-sm text-slate-400">Loading…</p>
+        ) : section === "security" ? (
+          <Security info={info} />
+        ) : section === "network" ? (
+          <NetworkSection info={info} />
+        ) : (
+          <PowerSection info={info} />
+        )}
+      </div>
+    </div>
+  );
+}

@@ -322,4 +322,155 @@ assert sys_calls[-1] == ("POST", "/status", "command=reboot")
 c.post("/api/pve/guests/node/0/terminal")
 assert sys_calls[-1][:2] == ("POST", "/termproxy"), sys_calls  # host shell, not /node/0/termproxy
 assert c.post("/api/pve/guests/node/0/vnc").status_code == 422  # graphical console stays guests-only
+
+# ---------------- Phase 4 ----------------
+
+from app import config, storage_admin  # noqa: E402
+
+# SMART parsing: NVMe text and ATA attribute tables.
+nv = storage_admin.parse_smart({"health": "PASSED", "type": "text", "text": (
+    "Temperature:                        44 Celsius\nPercentage Used:                    3%\n"
+    "Power On Hours:                     12,345\nUnsafe Shutdowns:                   17\n")})
+assert (nv["temperature_c"], nv["wearout_used_pct"], nv["power_on_hours"], nv["unsafe_shutdowns"]) == (44, 3, 12345, 17), nv
+assert {"name": "Percentage Used", "raw": "3%"} in nv["attributes"], nv
+ata = storage_admin.parse_smart({"health": "PASSED", "type": "ata", "attributes": [
+    {"id": "  9", "name": "Power_On_Hours", "value": 90, "raw": "8760"},
+    {"id": "177", "name": "Wear_Leveling_Count", "value": 96, "raw": "40"},
+    {"id": "194", "name": "Temperature_Celsius", "value": 64, "raw": "36 (Min/Max 20/50)"}]})
+assert (ata["temperature_c"], ata["power_on_hours"], ata["wearout_used_pct"]) == (36, 8760, 4), ata
+
+ds = storage_admin.parse_datasets("tank\tfilesystem\t10\t90\t5\t/tank\tlz4\t131072\t0\ton\t-\n"
+                                  "tank/vm-100-disk-0\tvolume\t1\t2\t1\t-\tlz4\t-\t0\t-\t34359738368\njunk")
+assert len(ds) == 2 and ds[0]["available"] == 90 and ds[0]["quota"] == 0 and ds[0]["pool"] == "tank", ds
+assert ds[1]["guest_volume"] and ds[1]["volsize"] == 34359738368, ds
+
+assert storage_admin.bus_type({"devpath": "/dev/nvme0n1"}) == "NVMe"
+assert storage_admin.bus_type({"devpath": "/dev/sdb", "type": "hdd", "by_id_link": "/dev/disk/by-id/scsi-SATA_X"}) == "SATA"
+
+p4 = []
+
+
+def handler5(req: httpx.Request) -> httpx.Response:
+    path = req.url.path.removeprefix("/api2/json").removeprefix("/nodes/pve")
+    p4.append((req.method, path, req.url.query.decode(), req.content.decode()))
+    data = {
+        "/disks/list": [{"devpath": "/dev/sda", "by_id_link": "/dev/disk/by-id/ata-WD", "used": "", "wearout": "N/A",
+                         "size": 4, "type": "hdd", "health": "PASSED"}],
+        "/disks/smart": {"health": "PASSED", "type": "text", "text": "Temperature: 40 Celsius"},
+        "/qemu/101/config": {"name": "vm", "cores": 2, "memory": "4096", "onboot": 1, "scsi0": "local-zfs:vm-101-disk-0,size=32G",
+                             "ide2": "local:iso/x.iso,media=cdrom", "efidisk0": "local-zfs:vm-101-disk-1,size=1M"},
+        "/version": {"version": "8.4.1", "release": "8.4"},
+        "/status": {"pveversion": "pve-manager/8.4.1", "kversion": "Linux 6.8", "cpuinfo": {"model": "Ryzen"}},
+        "/network": [{"iface": "eno1", "type": "eth"}, {"iface": "vmbr0", "type": "bridge", "cidr": "192.168.1.2/24"}],
+        "/dns": {"dns1": "1.1.1.1", "search": "lan"},
+    }.get(path, "UPID:x")
+    return httpx.Response(200, json={"data": data})
+
+
+pve._client = httpx.AsyncClient(transport=httpx.MockTransport(handler5), base_url="https://pve/api2/json")
+assert c.get("/api/pve/disks").json()[0] == {"devpath": "/dev/sda", "by_id": "/dev/disk/by-id/ata-WD", "model": "", "serial": "",
+                                             "vendor": "", "size": 4, "type": "hdd", "bus": "SATA", "rpm": None, "used": "",
+                                             "gpt": False, "health": "PASSED", "wearout": None}
+assert c.get("/api/pve/disks/sda/smart").json()["temperature_c"] == 40
+assert p4[-1][2] == "disk=%2Fdev%2Fsda", p4[-1]
+assert c.get("/api/pve/disks/%2Fdev%2Fnvme0n1/smart").status_code == 200 and p4[-1][2] == "disk=%2Fdev%2Fnvme0n1", p4[-1]
+assert c.get("/api/pve/disks/..%2Fetc/smart").status_code == 422
+assert c.post("/api/pve/disks/wipe", json={"disk": "/dev/sda", "confirm_device": "/dev/sdb"}).status_code == 400
+assert c.post("/api/pve/disks/wipe", json={"disk": "/dev/sda;x", "confirm_device": "/dev/sda;x"}).status_code == 422
+assert c.post("/api/pve/disks/wipe", json={"disk": "/dev/sda", "confirm_device": "/dev/sda"}).json() == {"task": "UPID:x"}
+assert p4[-1][:2] == ("PUT", "/disks/wipedisk") and p4[-1][3] == "disk=%2Fdev%2Fsda", p4[-1]
+assert c.post("/api/pve/disks/initgpt", json={"disk": "/dev/sda"}).status_code == 200 and p4[-1][1] == "/disks/initgpt"
+assert c.post("/api/pve/disks/directory", json={"device": "/dev/sda", "name": "backup", "filesystem": "xfs"}).status_code == 200
+assert "filesystem=xfs" in p4[-1][3] and "add_storage=1" in p4[-1][3], p4[-1]
+assert c.post("/api/pve/disks/lvm", json={"device": "/dev/sda", "name": "thin1", "thin": True}).status_code == 200
+assert p4[-1][1] == "/disks/lvmthin", p4[-1]
+assert c.post("/api/pve/disks/lvm", json={"device": "/dev/sda", "name": "Bad Name"}).status_code == 422
+
+pool = {"name": "tank2", "raidlevel": "mirror", "devices": ["/dev/disk/by-id/ata-A", "/dev/disk/by-id/ata-B"]}
+assert c.post("/api/pve/zfs/pools", json=pool).status_code == 200
+assert p4[-1][:2] == ("POST", "/disks/zfs") and "devices=%2Fdev%2Fdisk%2Fby-id%2Fata-A%2C%2Fdev%2Fdisk%2Fby-id%2Fata-B" in p4[-1][3], p4[-1]
+assert "ashift=12" in p4[-1][3] and "compression=lz4" in p4[-1][3], p4[-1]
+assert c.post("/api/pve/zfs/pools", json={**pool, "raidlevel": "raidz2"}).status_code == 400  # too few disks
+assert c.post("/api/pve/zfs/pools", json={**pool, "devices": ["/dev/sda", "/dev/sda"]}).status_code == 400
+assert c.post("/api/pve/zfs/pools", json={**pool, "raidlevel": "raid5"}).status_code == 422
+assert c.delete("/api/pve/zfs/pools/tank2", params={"confirm": "tank"}).status_code == 400
+assert c.delete("/api/pve/zfs/pools/tank2", params={"confirm": "tank2"}).status_code == 200
+assert p4[-1][:3] == ("DELETE", "/disks/zfs/tank2", "cleanup-config=1&cleanup-disks=1"), p4[-1]
+
+# Guest resource editor.
+gc = c.get("/api/pve/guests/qemu/101/config").json()
+assert gc["memory"] == 4096 and gc["onboot"] is True and [d["key"] for d in gc["disks"]] == ["efidisk0", "scsi0"], gc
+assert gc["disks"][1]["size"] == "32G" and gc["disks"][1]["resizable"] and not gc["disks"][0]["resizable"], gc
+r = c.patch("/api/pve/guests/qemu/101/config", json={"cores": 4, "memory": 8192, "onboot": False, "description": "",
+                                                    "resize_disk": "scsi0", "resize_to": "+10G"})
+assert r.json() == {"ok": True, "task": "UPID:x"}, r.text
+assert p4[-2] == ("PUT", "/qemu/101/config", "", "cores=4&memory=8192&onboot=0&delete=description"), p4[-2]
+assert p4[-1] == ("PUT", "/qemu/101/resize", "", "disk=scsi0&size=%2B10G"), p4[-1]
+assert c.patch("/api/pve/guests/qemu/101/config", json={"swap": 512}).status_code == 400
+assert c.patch("/api/pve/guests/lxc/100/config", json={"resize_disk": "rootfs"}).status_code == 400
+assert c.patch("/api/pve/guests/lxc/100/config", json={"resize_disk": "rootfs", "resize_to": "-5G"}).status_code == 422
+
+# Control Panel: system info + admin password persisted to .env.
+si = c.get("/api/system/info").json()
+assert si["api"]["connected"] and si["version"]["version"] == "8.4.1" and si["network"][0]["iface"] == "vmbr0", si
+assert si["dns"]["dns1"] == "1.1.1.1", si
+config.ENV_FILE = __import__("pathlib").Path(tmp).parent / f"env-{os.getpid()}"
+config.ENV_FILE.write_text("PVE_NODE=pve\nADMIN_PASSWORD=pw\nJWT_SECRET=x\n")
+assert c.post("/api/system/password", json={"current_password": "nope", "new_password": "longenough1"}).status_code == 403
+assert c.post("/api/system/password", json={"current_password": "pw", "new_password": "short"}).status_code == 422
+assert c.post("/api/system/password", json={"current_password": "pw", "new_password": "it's bad'"}).status_code == 422
+new_pw = "N3w pass#word$"
+assert c.post("/api/system/password", json={"current_password": "pw", "new_password": new_pw}).status_code == 200
+from dotenv import dotenv_values  # noqa: E402
+
+assert dotenv_values(config.ENV_FILE) == {"PVE_NODE": "pve", "ADMIN_PASSWORD": new_pw, "JWT_SECRET": "x"}
+assert (config.ENV_FILE.stat().st_mode & 0o777) == 0o600
+assert c.post("/api/auth/login", json={"username": "admin", "password": new_pw}).status_code == 200
+assert c.post("/api/auth/login", json={"username": "admin", "password": "pw"}).status_code == 401
+config.ENV_FILE.unlink()
+
+# ZFS datasets through the helper (mocked).
+h4 = []
+
+
+async def ds_run(args, stdin=None, on_line=None, timeout=120):
+    h4.append(args)
+    if args[0] == "storage-map":  # emulate the bind mount appearing in the container
+        os.makedirs(os.path.join(tmp, args[1]), exist_ok=True)
+    return "tank\tfilesystem\t10\t90\t5\t/tank\tlz4\t131072\t0\ton\t-" if args[0] == "zfs-datasets" else ""
+
+
+host.run = ds_run
+assert c.get("/api/pve/zfs/datasets").json()[0]["name"] == "tank"
+r = c.post("/api/pve/zfs/datasets", json={"name": "tank/media", "compression": "zstd", "atime": "off", "quota": "500G"})
+assert r.json()["path"] == "/tank/media" and h4[-2:] == [["zfs-create", "tank/media", "compression=zstd", "quota=500G", "atime=off"],
+                                                          ["storage-map", "tank/media"]], h4
+c.post("/api/pve/zfs/datasets", json={"name": "tank/vol1", "kind": "volume", "volsize": "32G", "atime": "off"})
+assert h4[-1] == ["zfs-create", "tank/vol1", "volsize=32G"], h4  # no fs-only props, no mapping for ZVOLs
+assert c.post("/api/pve/zfs/datasets", json={"name": "tank/vol2", "kind": "volume"}).status_code == 400
+assert c.post("/api/pve/zfs/datasets", json={"name": "tank"}).status_code == 422  # pool root
+assert c.post("/api/pve/zfs/datasets", json={"name": "tank/x", "recordsize": "3K"}).status_code == 422
+assert c.post("/api/pve/zfs/datasets", json={"name": "tank/x", "mountpoint": "/a b"}).status_code == 422
+assert c.patch("/api/pve/zfs/datasets", json={"name": "tank/media", "recordsize": "1M"}).status_code == 200
+assert h4[-1] == ["zfs-set", "tank/media", "recordsize=1M"], h4
+assert c.patch("/api/pve/zfs/datasets", json={"name": "tank/media"}).status_code == 400
+assert c.delete("/api/pve/zfs/datasets", params={"name": "tank/media", "confirm": "tank"}).status_code == 400
+assert c.delete("/api/pve/zfs/datasets", params={"name": "tank", "confirm": "tank"}).status_code == 422
+assert c.delete("/api/pve/zfs/datasets", params={"name": "tank/media", "confirm": "tank/media", "recursive": True}).status_code == 200
+assert h4[-1] == ["zfs-destroy-dataset", "tank/media", "recursive"], h4
+assert c.post("/api/pve/zfs/pools/tank/scrub").status_code == 200 and h4[-1] == ["zpool-scrub", "tank"]
+
+# Shares: dataset-backed share + Samba options.
+settings.samba_conf = __import__("pathlib").Path(tmp).parent / f"smb4-{os.getpid()}.conf"
+r = c.post("/api/shares", json={"name": "tm", "dataset": "tank/timemachine", "create_dataset": True, "timemachine": True,
+                                "recycle_bin": True, "browseable": False})
+assert r.status_code == 200, r.text
+assert h4[-2:] == [["zfs-create", "tank/timemachine"], ["storage-map", "tank/timemachine"]], h4
+sj = r.json()
+assert sj["path"] == "/tank/timemachine" and sj["timemachine"] and sj["recycle_bin"] and not sj["browseable"], sj
+conf = settings.samba_conf.read_text()
+assert "vfs objects = catia fruit streams_xattr recycle" in conf and "fruit:time machine = yes" in conf, conf
+assert c.post("/api/shares", json={"name": "x", "dataset": "tank", "create_dataset": True}).status_code == 422
+assert c.post("/api/shares", json={"name": "x"}).status_code == 422  # neither path nor dataset
+settings.samba_conf.unlink()
 print("selfcheck OK")
