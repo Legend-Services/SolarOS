@@ -271,7 +271,8 @@ if [[ -n "$SRC_DIR" ]]; then
     -czf "$TARBALL" .
   pct push "$CTID" "$TARBALL" /tmp/proxmox-os.tar.gz
   rm -f "$TARBALL"
-  ct "mkdir -p ${APP_DIR} && tar -xzf /tmp/proxmox-os.tar.gz -C ${APP_DIR} && rm /tmp/proxmox-os.tar.gz"
+  # Source-only folders are replaced, not overlaid, so files deleted or renamed upstream do not linger and break the build.
+  ct "mkdir -p ${APP_DIR} && rm -rf ${APP_DIR}/frontend/src ${APP_DIR}/backend/app ${APP_DIR}/backend/tests && tar -xzf /tmp/proxmox-os.tar.gz -C ${APP_DIR} && rm /tmp/proxmox-os.tar.gz"
   ok "Copied local checkout ${SRC_DIR}"
 else
   # Full history + tags so the in-app Version History can offer downgrades. Untracked files (.env, data/*.json,
