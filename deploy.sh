@@ -46,8 +46,9 @@ echo "==> Verifying the root SSH bridge from the SolarDeck container"
 "${SSH[@]}" "${SUDO} bash -s" <<'EOF'
 set -euo pipefail
 CT="$(pct list | awk '$NF=="solardeck" || $NF=="proxmox-os" || $NF=="proxmos-os" {print $1; exit}')"
-IP="$(hostname -I | awk '{print $1}')"
+IP="$(ip -4 -o addr show dev vmbr0 2>/dev/null | awk '{print $4; exit}' | cut -d/ -f1 || true)"
+[[ -n "$IP" ]] || IP="$(hostname -I | awk '{print $1}')"
 K=/opt/proxmox-os/backend/.ssh
-pct exec "$CT" -- ssh -i "$K/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$K/known_hosts" \
+pct exec "$CT" -- ssh -i "$K/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
   -o ConnectTimeout=10 "root@$IP" 'echo "    bridge OK: $(whoami)@$(hostname)"'
 EOF

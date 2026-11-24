@@ -8,19 +8,9 @@ import { ViewToggle } from "../components/ViewOptions";
 import { GuideBanner } from "../components/wizards/GuidedWizardModal";
 import { useIntentFor } from "../lib/stores";
 import { useAppView } from "../store/layoutStore";
+import { copyText } from "../lib/format";
 
 type Tab = "shares" | "users";
-
-async function copyText(text: string) {
-  // navigator.clipboard only exists in secure contexts; the UI is usually plain http on the LAN.
-  if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
-  const ta = document.createElement("textarea");
-  ta.value = text;
-  document.body.appendChild(ta);
-  ta.select();
-  document.execCommand("copy");
-  ta.remove();
-}
 
 function CopyPath({ label, value }: { label: string; value: string }) {
   const [done, setDone] = useState(false);

@@ -21,3 +21,14 @@ export const tempColor = (c: number | null | undefined) =>
 
 export const healthColor = (h?: string) =>
   !h ? "text-slate-400" : /ONLINE|PASSED|OK/i.test(h) ? "text-emerald-400" : /DEGRADED|UNKNOWN/i.test(h) ? "text-amber-400" : "text-rose-400";
+
+export async function copyText(text: string) {
+  // navigator.clipboard only exists in secure contexts; the UI is usually plain http on the LAN.
+  if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand("copy");
+  ta.remove();
+}

@@ -6,6 +6,7 @@ Driver installs and vfio-pci mode switches run as detached host jobs (host_ssh.s
 """
 import asyncio
 import json
+import logging
 import re
 from typing import Literal
 
@@ -17,6 +18,7 @@ from .auth import require_user
 from .pve import _node, _safe
 
 router = APIRouter(tags=["hardware_admin"], dependencies=[Depends(require_user)])
+log = logging.getLogger(__name__)
 
 PKGS = ("nvidia-container-toolkit", "intel-media-va-driver-non-free", "intel-gpu-tools", "vainfo", "pve-firmware",
         "radeontop", "rocminfo", "rocm-smi", "lm-sensors")
@@ -161,8 +163,16 @@ def parse_pkgs(text: str) -> dict[str, str | None]:
 def parse_lscpu(text: str) -> dict[str, str]:
     try:
         return {f["field"].rstrip(":"): f.get("data") or "" for f in json.loads(text)["lscpu"]}
-    except (ValueError, KeyError, TypeError):
+    except (ValueError, KeyError, TypeError, AttributeError):
         return {}
+
+
+def num(v, cast=int):
+    """Lenient number: '-', '' or '5800,0000' (comma locale) never raise; 0 and junk become None."""
+    try:
+        return cast(str(v).replace(",", ".")) or None
+    except (TypeError, ValueError):
+        return None
 
 
 def parse_nics(ipaddr: str, netsys: str) -> list[dict]:
@@ -217,9 +227,39 @@ def vfio_files(ids: list[str], vendors: set[str]) -> dict[str, str | None]:
 # ---------------------------------------------------------------- Inventory
 
 
-async def _collect() -> tuple[dict[str, str], dict]:
-    out, probe = await asyncio.gather(host_ssh.run(PROBE, timeout=40, check=False), pci.probe())
-    return split_sections(out), probe
+async def _pci() -> dict:
+    """lspci over the bridge, else the Proxmox API PCI list (no drivers or kernel cmdline from that source)."""
+    try:
+        probe = await pci.probe()
+        if probe["devices"]:
+            return probe
+    except HTTPException:
+        pass
+    return pci.parse(pci.from_pve(await _safe(_node("/hardware/pci"), []) or []))
+
+
+async def _collect() -> tuple[dict[str, str], dict, bool, str]:
+    """(sections, pci probe, bridge connected, bridge message). Never raises: missing tools leave sections empty."""
+    (ok, out, err), probe = await asyncio.gather(host_ssh.run_host_cmd(PROBE + "\ntrue", timeout=40), _pci())
+    connected = ok or bool(out.strip())
+    return split_sections(out), probe, connected, "Connected" if connected else (err.strip() or "No response from host")
+
+
+def fill_from_pve(inv: dict, st: dict) -> dict:
+    """Fill CPU, memory and kernel gaps (no SSH bridge, no dmidecode/lscpu) from PVE /nodes/{node}/status."""
+    ci, mem, swap = st.get("cpuinfo") or {}, st.get("memory") or {}, st.get("swap") or {}
+    c, m, flags = inv["cpu"], inv["memory"], str(ci.get("flags", "")).split()
+    c["model"] = c["model"] or ci.get("model")
+    c["sockets"] = c["sockets"] or num(ci.get("sockets"))
+    c["cores"] = c["cores"] or ((num(ci.get("cores")) or 0) * (num(ci.get("sockets")) or 1)) or None
+    c["threads"] = c["threads"] or num(ci.get("cpus"))
+    c["max_mhz"] = c["max_mhz"] or num(ci.get("mhz"), float)
+    if not m["total"] and mem.get("total"):
+        m.update(total=mem["total"], used=mem.get("used", 0), available=mem["total"] - mem.get("used", 0),
+                 swap_total=swap.get("total", 0), swap_used=swap.get("used", 0))
+    inv["system"]["kernel"] = inv["system"]["kernel"] or (st.get("current-kernel") or {}).get("release") or st.get("kversion")
+    inv["virtualization"]["cpu"] = inv["virtualization"]["cpu"] or ("VT-x" if "vmx" in flags else "AMD-V" if "svm" in flags else None)
+    return inv
 
 
 def build_inventory(s: dict[str, str], probe: dict, disks: list[dict]) -> dict:
@@ -256,9 +296,9 @@ def build_inventory(s: dict[str, str], probe: dict, disks: list[dict]) -> dict:
                    "kernel": kernel[0] if kernel else None},
         "virtualization": {"cpu": cpu.get("Virtualization") or None, "iommu": probe["iommu_enabled"],
                            "cmdline": probe["cmdline"]},
-        "cpu": {"model": cpu.get("Model name"), "sockets": int(cpu.get("Socket(s)") or 0) or None,
-                "cores": (int(cpu.get("Core(s) per socket") or 0) * int(cpu.get("Socket(s)") or 1)) or None,
-                "threads": int(cpu.get("CPU(s)") or 0) or None, "max_mhz": float(cpu.get("CPU max MHz") or 0) or None,
+        "cpu": {"model": cpu.get("Model name"), "sockets": num(cpu.get("Socket(s)")),
+                "cores": ((num(cpu.get("Core(s) per socket")) or 0) * (num(cpu.get("Socket(s)")) or 1)) or None,
+                "threads": num(cpu.get("CPU(s)")), "max_mhz": num(cpu.get("CPU max MHz"), float),
                 "mhz": {"min": min(mhz), "avg": round(sum(mhz) / len(mhz)), "max": max(mhz)} if mhz else None,
                 "package_c": temps["package_c"], "cores_c": temps["cores"]},
         "memory": {"total": mem.get("MemTotal", 0), "available": mem.get("MemAvailable", 0),
@@ -279,17 +319,46 @@ def build_inventory(s: dict[str, str], probe: dict, disks: list[dict]) -> dict:
     }
 
 
+def safe_inventory(s: dict[str, str], probe: dict, disks: list[dict]) -> dict:
+    try:
+        return build_inventory(s, probe, disks)
+    except Exception:  # unexpected host output must degrade to API data, never an HTTP 500
+        log.exception("hardware inventory parse failed; using Proxmox API data only")
+        return build_inventory({}, probe, [])
+
+
 @router.get("/api/hardware/inventory")
 async def inventory():
-    (s, probe), disks = await asyncio.gather(_collect(), _safe(_node("/disks/list"), []))
-    return build_inventory(s, probe, disks or [])
+    (s, probe, connected, message), disks, st = await asyncio.gather(
+        _collect(), _safe(_node("/disks/list"), []), _safe(_node("/status"), {}))
+    inv = fill_from_pve(safe_inventory(s, probe, disks or []), st or {})
+    pub = host_ssh.public_key_or_none()
+    return {**inv, "ssh_bridge_connected": connected, "ssh_bridge_message": message,
+            "ssh_setup_command": None if connected or not pub else host_ssh.setup_command(pub)}
 
 
 @router.get("/api/hardware/gpu-metrics")
 async def gpu_metrics():
     """Light poll for live GPU numbers (nvidia-smi / amdgpu sysfs) while the panel is open."""
-    s = split_sections(await host_ssh.run(f"echo @@nvidia@@; {NVIDIA_CMD}; echo @@amd@@; {AMD_CMD}", check=False))
+    _, out, _ = await host_ssh.run_host_cmd(f"echo @@nvidia@@; {NVIDIA_CMD}; echo @@amd@@; {AMD_CMD}", timeout=15)
+    s = split_sections(out)
     return {"nvidia": parse_nvidia(s.get("nvidia", "")), "amd_vram": parse_amd_vram(s.get("amd", ""))}
+
+
+@router.get("/api/pve/bios/status")
+async def bios_status():
+    """Board/BIOS facts: dmidecode, then /sys/devices/virtual/dmi/id, then Proxmox API node info. Never a 500."""
+    from . import help_center  # lazy: help_center -> backups -> storage_admin imports this module
+    (ok, out, err), st = await asyncio.gather(host_ssh.run_host_cmd(help_center.BIOS_PROBE, timeout=20),
+                                              _safe(_node("/status"), {}))
+    facts = help_center.parse_bios_facts(out)
+    ci = (st or {}).get("cpuinfo") or {}
+    if not out.strip():  # bridge down: CPU vendor and VT-x/AMD-V from the API's /proc/cpuinfo flags
+        flags = str(ci.get("flags", "")).split()
+        facts.update(virtualization="vmx" in flags or "svm" in flags, cpu="amd" if "AMD" in str(ci.get("model")) else "intel")
+    return {**facts, "cpu_model": ci.get("model"), "pve_version": (st or {}).get("pveversion"),
+            "ssh_bridge_connected": bool(out.strip()), "ssh_bridge_message": "Connected" if out.strip() else
+            (err.strip() or "No response from host")}
 
 
 # ---------------------------------------------------------------- GPU drivers & modes
@@ -377,8 +446,8 @@ Action = Literal["nvidia-install", "intel-install", "amd-install", "mode-passthr
 
 @router.get("/api/hardware/gpu-drivers")
 async def gpu_drivers():
-    s, probe = await _collect()
-    inv = build_inventory(s, probe, [])
+    s, probe, _, _ = await _collect()
+    inv = safe_inventory(s, probe, [])
     return {"gpus": [{k: g[k] for k in ("id", "name", "vendor", "driver", "iommu_group", "audio_function", "functions",
                                         "warnings", "mode", "reboot_required", "metrics")} for g in inv["gpus"]],
             "packages": inv["packages"], "nvidia_driver": next((g["metrics"]["driver_version"] for g in inv["gpus"]

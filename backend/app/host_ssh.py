@@ -46,11 +46,8 @@ def ensure_key() -> str:
 async def _connect() -> asyncssh.SSHClientConnection:
     ensure_key()
     user, host = target()
-    known = settings.host_root_key.parent / "known_hosts"
-    # install.sh writes known_hosts with the host's key. shortcut: without it the host key is not verified; re-run
-    # install.sh to pin it.
-    return await asyncssh.connect(host, username=user, client_keys=[str(settings.host_root_key)],
-                                  known_hosts=str(known) if known.exists() else None,
+    # Host key not verified so a reinstalled or newly provisioned Proxmox host never locks the bridge out.
+    return await asyncssh.connect(host, username=user, client_keys=[str(settings.host_root_key)], known_hosts=None,
                                   keepalive_interval=30, connect_timeout=10)
 
 
@@ -63,7 +60,7 @@ async def _open(command: str | None, **kw) -> asyncssh.SSHClientProcess:
                 if _conn is None or _conn.is_closed():
                     _conn = await _connect()
                 conn = _conn
-            except (OSError, asyncssh.Error) as e:
+            except (OSError, ValueError, asyncssh.Error) as e:  # ValueError: unreadable key file
                 _conn = None
                 raise HTTPException(503, f"Host SSH bridge unavailable ({target()[1]}): {e}. Re-run install.sh on the "
                                          "Proxmox host to authorize the SolarDeck key.")
@@ -103,6 +100,37 @@ async def run(cmd: str, *, input: str | None = None, timeout: float = 120, check
         tail = next((x for x in reversed(out) if x.strip()), "")
         raise HTTPException(502, f"Host command failed (exit {proc.exit_status}): {tail[:300]}")
     return "\n".join(out)
+
+
+async def run_host_cmd(cmd: str, timeout: int = 10) -> tuple[bool, str, str]:
+    """Run a host command without raising: (exit status 0, stdout, stderr or the connection error)."""
+    proc = None
+    try:
+        proc = await _open(cmd, encoding="utf-8", errors="replace")
+        out, err = await asyncio.wait_for(proc.communicate(), timeout)
+        return proc.exit_status == 0, out or "", err or ""
+    except HTTPException as e:
+        return False, "", str(e.detail)
+    except asyncio.TimeoutError:
+        if proc:
+            proc.kill()
+        return False, "", f"Host command timed out after {timeout}s"
+    except (asyncssh.Error, OSError) as e:
+        return False, "", f"Host SSH bridge error: {e}"
+
+
+def setup_command(public_key: str) -> str:
+    """One-liner to paste into the Proxmox host shell to authorize the bridge key on a manual setup."""
+    k = shlex.quote(public_key)
+    return (f"mkdir -p /root/.ssh && touch /root/.ssh/authorized_keys && (grep -qxF {k} /root/.ssh/authorized_keys || "
+            f"echo {k} >> /root/.ssh/authorized_keys) && chmod 600 /root/.ssh/authorized_keys")
+
+
+def public_key_or_none() -> str | None:
+    try:
+        return ensure_key()
+    except (OSError, ValueError):
+        return None
 
 
 async def write_file(path: str, content: str, mode: str = "644") -> None:
@@ -169,11 +197,11 @@ async def get_job(name: str = Path(pattern=JOB_RE)):
 async def bridge():
     """Key + connectivity status of the root SSH bridge (shown in Control Panel)."""
     user, host = target()
-    info = {"target": f"{user}@{host}", "public_key": ensure_key(), "connected": False, "error": None,
-            "host_key_pinned": (settings.host_root_key.parent / "known_hosts").exists()}
-    try:
-        info["hostname"] = (await run("hostname", timeout=15)).strip()
-        info["connected"] = True
-    except HTTPException as e:
-        info["error"] = e.detail
+    pub = public_key_or_none()
+    ok, out, err = await run_host_cmd("hostname", timeout=15)
+    info = {"target": f"{user}@{host}", "public_key": pub or "", "connected": ok,
+            "error": None if ok else (err.strip() or "Host SSH bridge unavailable"),
+            "setup_command": setup_command(pub) if pub else None}
+    if ok:
+        info["hostname"] = out.strip()
     return info

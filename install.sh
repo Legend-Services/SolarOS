@@ -13,8 +13,10 @@ CT_HOSTNAME="solardeck"
 APP_LINK="/opt/solardeck"  # new-name alias; APP_DIR keeps the legacy path so in-place updates never move files
 APP_DIR="/opt/proxmox-os"
 STORAGE_ROOT="/mnt/storage"
-PVE_USER="pve-desktop@pve"
-TOKEN_NAME="webui"
+# Fresh installs only; upgrades keep the token already in backend/.env (older installs use pve-desktop@pve!webui).
+PVE_USER="solardeck@pve"
+TOKEN_NAME="solardeck"
+PVE_PORT=8006
 MAX_MOUNTS=100
 
 C_RESET=$'\e[0m'; C_BLUE=$'\e[1;34m'; C_GREEN=$'\e[1;32m'; C_YELLOW=$'\e[1;33m'; C_RED=$'\e[1;31m'
@@ -48,9 +50,23 @@ command -v pveversion >/dev/null || die "This does not look like a Proxmox VE ho
 for bin in pct pvesh pvesm pveam pveum python3 openssl; do command -v "$bin" >/dev/null || die "Missing $bin"; done
 msg "Proxmox VE $(pveversion | cut -d/ -f2)"
 
-PVE_NODE="$(hostname)"
-HOST_IP="$(hostname -I | awk '{print $1}')"
-PVE_HOST="https://${HOST_IP}:8006"
+# Hardware inventory, BIOS facts, PCI passthrough and SMART read these over the SSH bridge.
+HOST_TOOLS="dmidecode pciutils lm-sensors smartmontools"
+msg "Installing host diagnostic tools (${HOST_TOOLS})"
+# shellcheck disable=SC2086
+if apt-get install -y -qq $HOST_TOOLS >/dev/null 2>&1 \
+  || { apt-get update -qq >/dev/null 2>&1 || true; apt-get install -y -qq $HOST_TOOLS >/dev/null 2>&1; }; then
+  ok "Host diagnostic tools installed"
+else
+  warn "Could not install ${HOST_TOOLS} (check the host's APT repositories); SolarDeck falls back to Proxmox API data"
+fi
+
+# The PVE node name is the short hostname; the API address is the management bridge's IPv4.
+PVE_NODE="$(hostname -s)"
+HOST_IP="$(ip -4 -o addr show dev vmbr0 2>/dev/null | awk '{print $4; exit}' | cut -d/ -f1 || true)"
+[[ -n "$HOST_IP" ]] || HOST_IP="$(hostname -I | awk '{print $1}')"
+[[ -n "$HOST_IP" ]] || die "Could not determine this host's IP address."
+PVE_HOST="https://${HOST_IP}:${PVE_PORT}"
 ok "Node ${PVE_NODE}, API ${PVE_HOST}"
 
 # Local source tree, first match wins: $SRC_DIR, the script's own directory (checkout, tarball or deploy.sh
@@ -296,22 +312,19 @@ fi
 msg "Authorizing the SolarDeck root SSH bridge"
 BRIDGE_DIR="${APP_DIR}/backend/.ssh"
 ct "mkdir -p ${BRIDGE_DIR} && chmod 700 ${BRIDGE_DIR}
-[ -f ${BRIDGE_DIR}/id_ed25519 ] || ssh-keygen -q -t ed25519 -N '' -C proxmox-os-root -f ${BRIDGE_DIR}/id_ed25519"
+[ -f ${BRIDGE_DIR}/id_ed25519 ] || ssh-keygen -q -t ed25519 -N '' -C proxmox-os-root -f ${BRIDGE_DIR}/id_ed25519
+[ -f ${BRIDGE_DIR}/id_ed25519.pub ] || ssh-keygen -y -f ${BRIDGE_DIR}/id_ed25519 >${BRIDGE_DIR}/id_ed25519.pub
+chmod 600 ${BRIDGE_DIR}/id_ed25519"
 PUB_FILE="$(mktemp)"
 pct pull "$CTID" "${BRIDGE_DIR}/id_ed25519.pub" "$PUB_FILE"
 AUTH_TMP="$(mktemp)"
 { grep -v ' proxmox-os-root$' "$AUTH_KEYS" || true; awk '{print $1, $2, "proxmox-os-root"}' "$PUB_FILE"; } >"$AUTH_TMP"
 cat "$AUTH_TMP" >"$AUTH_KEYS"
 rm -f "$AUTH_TMP" "$PUB_FILE"
-# Pin this host's SSH keys so the backend refuses any other machine answering on ${HOST_IP}.
-KNOWN_TMP="$(mktemp)"
-for k in /etc/ssh/ssh_host_ed25519_key.pub /etc/ssh/ssh_host_ecdsa_key.pub /etc/ssh/ssh_host_rsa_key.pub; do
-  [[ -f "$k" ]] && echo "${HOST_IP} $(cut -d' ' -f1,2 "$k")" >>"$KNOWN_TMP"
-done
-pct push "$CTID" "$KNOWN_TMP" "${BRIDGE_DIR}/known_hosts" --perms 644
-rm -f "$KNOWN_TMP"
-if pct exec "$CTID" -- ssh -i "${BRIDGE_DIR}/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=yes \
-    -o UserKnownHostsFile="${BRIDGE_DIR}/known_hosts" -o ConnectTimeout=10 "root@${HOST_IP}" true >/dev/null 2>&1; then
+chmod 600 "$AUTH_KEYS" 2>/dev/null || true  # on PVE it links into /etc/pve, which manages its own permissions
+# The backend does not verify the host key (a reinstalled host keeps working), so neither does this check.
+if pct exec "$CTID" -- ssh -i "${BRIDGE_DIR}/id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=no \
+    -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 "root@${HOST_IP}" true >/dev/null 2>&1; then
   ok "Root SSH bridge ready (Host Shell, container shells, drivers, network services)"
 else
   warn "Root SSH bridge check failed (is PermitRootLogin disabled in /etc/ssh/sshd_config?); Host Shell will not work"
@@ -337,6 +350,7 @@ ENV_FILE="$(mktemp)"
 chmod 600 "$ENV_FILE"
 cat >"$ENV_FILE" <<EOF
 PVE_HOST=${PVE_HOST}
+PVE_PORT=${PVE_PORT}
 PVE_NODE=${PVE_NODE}
 PVE_TOKEN_ID=${PVE_USER}!${TOKEN_NAME}
 PVE_TOKEN_SECRET=${PVE_TOKEN_SECRET}
@@ -389,6 +403,34 @@ done
 [[ "${HEALTHY:-}" == 1 ]] || die "Health check failed. Inspect with: pct exec ${CTID} -- journalctl -u proxmox-os-backend -n 50"
 ok "Healthy"
 
+# Self-test: sign in with the credentials in backend/.env and call the host-inspection endpoints a fresh install
+# used to fail on. Failures are reported, not fatal: the web UI itself is already up.
+msg "Self-test (Proxmox API token + host SSH bridge)"
+SELFTEST="passed"
+env_get() { pct exec "$CTID" -- sed -n "s/^$1=//p" "${APP_DIR}/backend/.env" 2>/dev/null | head -n1 || true; }
+API_TOKEN="$(U="$(env_get ADMIN_USERNAME)" P="$(env_get ADMIN_PASSWORD)" \
+  python3 -c 'import json, os; print(json.dumps({"username": os.environ["U"] or "admin", "password": os.environ["P"]}))' \
+  | curl -fsS -m 15 -H 'Content-Type: application/json' --data-binary @- "http://${CT_IP}/api/auth/login" 2>/dev/null \
+  | python3 -c 'import json, sys; print(json.load(sys.stdin)["token"])' 2>/dev/null || true)"
+if [[ -z "$API_TOKEN" ]]; then
+  SELFTEST="skipped (sign-in needs a 2FA code)"
+  warn "Self-test skipped: could not sign in without a 2FA code"
+else
+  for ep in /api/pve/bios/status /api/hardware/inventory; do
+    BODY="$(mktemp)"
+    CODE="$(curl -sS -m 90 -o "$BODY" -w '%{http_code}' -H "Authorization: Bearer ${API_TOKEN}" "http://${CT_IP}${ep}" 2>/dev/null || true)"
+    if [[ "$CODE" == 200 ]]; then
+      BRIDGE_OK="$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("ssh_bridge_connected"))' "$BODY" 2>/dev/null || true)"
+      ok "GET ${ep}: HTTP 200 (SSH bridge connected: ${BRIDGE_OK:-unknown})"
+      [[ "$BRIDGE_OK" == True ]] || SELFTEST="passed (SSH bridge offline: API data only)"
+    else
+      warn "GET ${ep}: HTTP ${CODE:-no response}. Inspect with: pct exec ${CTID} -- journalctl -u proxmox-os-backend -n 50"
+      SELFTEST="failed (see warnings above)"
+    fi
+    rm -f "$BODY"
+  done
+fi
+
 trap - ERR
 VERSION="$(pct exec "$CTID" -- python3 -c "import json; print(json.load(open('${APP_DIR}/frontend/package.json'))['version'])" 2>/dev/null || echo "?")"
 BAR="════════════════════════════════════════════════════════════════════════════"
@@ -401,6 +443,7 @@ if [[ -n "$UPGRADE" ]]; then
   edge ╠ ╣
   row "Web UI URL:" "http://${CT_IP}"
   row "Status:" "Healthy (backend and nginx restarted)"
+  row "Self-test:" "${SELFTEST}"
   row "Login:" "unchanged (your existing admin password)"
   row "Container ID:" "${CTID}"
   row "Backup (in CT):" "${BACKUP}"
@@ -413,6 +456,7 @@ else
   row "" "(Saved in ${APP_DIR}/backend/.env)"
   row "Container ID:" "${CTID}"
   row "Proxmox Host:" "${PVE_NODE} (${HOST_IP})"
+  row "Self-test:" "${SELFTEST}"
   row "Storage Mount:" "${STORAGE_ROOT} (${#MOUNTS[@]} ZFS dataset(s))"
   edge ╠ ╣
   row "Tip:" "Save these credentials now. You can update SolarDeck"

@@ -65,6 +65,20 @@ def warnings(d: dict, iommu: bool) -> list[str]:
     return w
 
 
+def from_pve(rows: list[dict]) -> str:
+    """PVE /nodes/{node}/hardware/pci rows -> PROBE-format text, so parse() works while the SSH bridge is down."""
+    lines, groups = [], []
+    for r in rows:
+        slot, cls = str(r.get("id", "")), str(r.get("class", ""))[2:6]
+        vid, did = str(r.get("vendor", ""))[2:], str(r.get("device", ""))[2:]
+        name = " ".join(x for x in (r.get("vendor_name"), r.get("device_name")) if x) or "Device"
+        kind = "VGA compatible controller" if cls.startswith("03") else "Device"
+        lines.append(f"{slot} {kind} [{cls}]: {name} [{vid}:{did}]")
+        if isinstance(r.get("iommugroup"), int) and r["iommugroup"] >= 0:
+            groups.append(f"/sys/kernel/iommu_groups/{r['iommugroup']}/devices/{slot}")
+    return "\n".join([*lines, "---IOMMU---", *groups, "---CMDLINE---"])
+
+
 async def probe() -> dict:
     return parse(await host_ssh.run(PROBE, timeout=30))
 

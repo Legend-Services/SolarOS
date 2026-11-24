@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 from . import host, host_ssh
 from .auth import require_user
 from .hardware_admin import split_sections
-from .pve import DATASET_RE, _node, pve
+from .pve import DATASET_RE, _node, pve, zfs_helper
 from .telemetry import smart_temp
 
 router = APIRouter(prefix="/api/pve", tags=["storage-admin"], dependencies=[Depends(require_user)])
@@ -316,7 +316,7 @@ def parse_datasets(out: str) -> list[dict]:
 
 @router.get("/zfs/datasets")
 async def datasets():
-    return parse_datasets(await host.run(["zfs-datasets"]))
+    return parse_datasets(await zfs_helper("zfs-datasets") or "")  # [] on hosts without ZFS
 
 
 Compression = Literal["on", "off", "lz4", "zstd", "gzip", "zle"]

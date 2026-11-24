@@ -1,5 +1,32 @@
 # Changelog
 
+## v1.5.1 - Phase 13: Fault-Tolerant Hardware/BIOS Telemetry & Zero-Touch Fresh Install SSH/API Setup — 2026-11-24
+
+Fresh installations no longer show `Internal Server Error` in **Control Panel → Hardware & System** or when inspecting hosts without ZFS or a discrete GPU, and the installer sets up the host SSH bridge, API token and hardware tools by itself.
+
+### Fixed
+- **Hardware inventory** (`GET /api/hardware/inventory`) never returns HTTP 500. Every probe section (`dmidecode`, `lscpu`, `/proc/meminfo`, `lspci`, hwmon sensors, `ip -j addr`, SMART) is parsed independently, so a missing binary or empty output leaves that section empty. Odd `lscpu` values (`-`, comma decimals) no longer crash the parser.
+- When the SSH bridge is down or returns partial data, CPU, memory, kernel and virtualization fall back to Proxmox API `/nodes/{node}/status`, and PCI devices/GPUs to `/nodes/{node}/hardware/pci`.
+- **ZFS on LVM / LVM-Thin / Directory hosts**: `GET /api/pve/zfs/snapshots` returns empty lists with `zfs_available: false`, `GET /api/pve/zfs/datasets` returns `[]`, and `GET /api/pve/storage` includes `zfs_available`, instead of an error. A real helper failure on a host that has ZFS pools is still reported.
+- **BIOS facts** read `/sys/devices/virtual/dmi/id/*` when `dmidecode` is missing or empty, and ignore placeholders such as `To Be Filled By O.E.M.` and `Default string`.
+- **Host SSH bridge**: an unreadable key file is reported as "bridge unavailable" (HTTP 503) instead of a 500; `GET /api/host/bridge` never fails.
+
+### Added
+- `GET /api/pve/bios/status`: board, BIOS, CPU vendor, VT-x/AMD-V and Secure Boot facts with dmidecode → sysfs → Proxmox API fallbacks; always HTTP 200.
+- Inventory fields `ssh_bridge_connected`, `ssh_bridge_message` and `ssh_setup_command`. Hardware & System shows a bridge status badge and, when the key is not authorized yet, a **Copy SSH Setup Command** button (also in Control Panel → User & Security → SSH key bridge).
+- `host_ssh.run_host_cmd(cmd, timeout=10) -> (ok, stdout, stderr)`: never raises on connection, SSH or timeout errors.
+- The backend creates `backend/.ssh/id_ed25519` (mode 600) at startup when it is missing.
+- **Installer**:
+  - installs `dmidecode`, `pciutils`, `lm-sensors` and `smartmontools` on the host;
+  - takes the host IP from `vmbr0` and the node name from `hostname -s`, and writes `PVE_PORT=8006` to `backend/.env`;
+  - creates the `solardeck@pve!solardeck` API token (`Administrator` on `/`, `--privsep 0`) on fresh installs;
+  - sets `chmod 600` on the bridge key and `/root/.ssh/authorized_keys`;
+  - runs a post-install self-test of `/api/pve/bios/status` and `/api/hardware/inventory` and shows the result in the final box.
+
+### Changed
+- The SSH bridge no longer verifies the host key (`known_hosts=None`), so a reinstalled or re-provisioned Proxmox host keeps working without re-running the installer. The installer stops writing `backend/.ssh/known_hosts`, and Control Panel no longer shows a "Host key" row.
+- Upgrades keep their existing API token (`pve-desktop@pve!webui` on installs from before v1.5.1).
+
 ## v1.5.0 - Phase 12: Rebranded to SolarDeck for Proxmox VE with Trademark Attribution & Seamless Upgrade Compatibility — 2026-11-24
 
 ProxmoxOS is now **SolarDeck** (*SolarDeck for Proxmox VE*), so the project name no longer suggests a connection to Proxmox Server Solutions GmbH. Existing installations upgrade in place with no manual steps.
