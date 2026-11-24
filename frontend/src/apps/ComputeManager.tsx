@@ -1,9 +1,10 @@
 import { useCallback, useMemo, useState } from "react";
-import { Container, Monitor, Play, Power, RotateCw, Search, Square } from "lucide-react";
+import { Container, Monitor, MonitorPlay, Play, Power, RotateCw, Search, Square, SquareTerminal } from "lucide-react";
 import { api } from "../lib/api";
 import type { Guest } from "../lib/types";
 import { bytes, pct, uptime } from "../lib/format";
 import { usePoll } from "../lib/hooks";
+import { useWindows } from "../lib/stores";
 import { Bar } from "../components/charts";
 
 type Filter = "all" | "qemu" | "lxc";
@@ -21,6 +22,8 @@ export default function ComputeManager() {
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [error, setError] = useState("");
+  const openWindow = useWindows((s) => s.open);
+  const openConsole = (g: Guest, mode: "vnc" | "shell") => openWindow("console", { type: g.type, vmid: g.vmid, name: g.name, mode });
 
   const load = useCallback(() => {
     api<Guest[]>("/pve/guests")
@@ -77,7 +80,7 @@ export default function ComputeManager() {
       {error && <div className="bg-rose-500/10 px-4 py-2 text-xs text-rose-300">{error}</div>}
 
       <div className="min-h-0 flex-1 overflow-auto">
-        <table className="w-full min-w-[760px] text-left text-xs">
+        <table className="w-full min-w-[900px] text-left text-xs">
           <thead className="sticky top-0 bg-slate-900/90 text-slate-400 backdrop-blur">
             <tr>
               <th className="px-4 py-2 font-medium">Guest</th>
@@ -141,6 +144,17 @@ export default function ComputeManager() {
                   <td className="px-2 text-slate-300 tabular-nums">{running ? uptime(g.uptime) : "—"}</td>
                   <td className="px-4">
                     <div className="flex justify-end gap-1">
+                      <button className="btn" disabled={!running} onClick={() => openConsole(g, "vnc")} title="Graphical console (noVNC)">
+                        <MonitorPlay size={12} /> Console
+                      </button>
+                      <button
+                        className="btn"
+                        disabled={!running}
+                        onClick={() => openConsole(g, "shell")}
+                        title={g.type === "lxc" ? "Container shell" : "Serial terminal (needs serial0 on the VM)"}
+                      >
+                        <SquareTerminal size={12} /> Shell
+                      </button>
                       <button className="btn" disabled={b || running} onClick={() => run(g, "start")} title="Start">
                         <Play size={12} /> Start
                       </button>

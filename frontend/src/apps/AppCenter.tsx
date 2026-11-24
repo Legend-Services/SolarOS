@@ -1,0 +1,348 @@
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  BrainCircuit, Check, Clapperboard, Container, Cpu, ExternalLink, FolderTree, Images, LayoutGrid, Network, Package,
+  Search, Server, ShieldCheck, Waypoints, X, Zap, type LucideIcon,
+} from "lucide-react";
+import { api } from "../lib/api";
+import type { CatalogApp, Deployment } from "../lib/types";
+import { TaskLog } from "../components/TaskCenterPopover";
+
+const ICONS: Record<string, LucideIcon> = { Clapperboard, Container, FolderTree, ShieldCheck, Waypoints, Images, BrainCircuit };
+
+const CATEGORIES: { id: string; label: string; icon: LucideIcon; color: string }[] = [
+  { id: "all", label: "All Apps", icon: LayoutGrid, color: "" },
+  { id: "Media", label: "Media", icon: Clapperboard, color: "from-pink-400 to-rose-600" },
+  { id: "Infrastructure", label: "Infrastructure", icon: Server, color: "from-sky-400 to-blue-600" },
+  { id: "Network", label: "Network", icon: Network, color: "from-emerald-300 to-teal-600" },
+  { id: "AI & Compute", label: "AI & Compute", icon: Cpu, color: "from-violet-400 to-fuchsia-600" },
+];
+
+const PHASES: Deployment["phase"][] = ["creating", "configuring", "starting", "installing", "done"];
+const PHASE_LABEL: Record<Deployment["phase"], string> = {
+  creating: "Create container",
+  configuring: "Host options",
+  starting: "Start",
+  installing: "Install app",
+  done: "Done",
+  error: "Failed",
+};
+
+function AppIcon({ app, size = 22 }: { app: CatalogApp; size?: number }) {
+  const Icon = ICONS[app.icon] ?? Package;
+  const color = CATEGORIES.find((c) => c.id === app.category)?.color || "from-slate-400 to-slate-600";
+  return (
+    <span className={`flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br shadow-lg ${color}`} style={{ width: size * 2, height: size * 2 }}>
+      <Icon size={size} className="text-white" />
+    </span>
+  );
+}
+
+function Progress({ app, vmid, upid, onClose }: { app: CatalogApp; vmid: number; upid: string; onClose: () => void }) {
+  const [dep, setDep] = useState<Deployment | null>(null);
+  const [error, setError] = useState("");
+  const log = useRef<HTMLPreElement>(null);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    let stop = false;
+    const tick = () =>
+      api<Deployment>(`/apps/deployments/${vmid}`)
+        .then((d) => {
+          if (stop) return;
+          setDep(d);
+          if (d.phase !== "done" && d.phase !== "error") timer = setTimeout(tick, 2000);
+        })
+        .catch((e) => !stop && setError(e.message));
+    tick();
+    return () => {
+      stop = true;
+      clearTimeout(timer);
+    };
+  }, [vmid]);
+
+  useEffect(() => log.current?.scrollTo(0, log.current.scrollHeight), [dep?.log.length]);
+
+  const current = dep ? PHASES.indexOf(dep.phase) : 0;
+  const url = dep?.ip && dep.web_port ? `${dep.web_scheme}://${dep.ip}:${dep.web_port}` : null;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <AppIcon app={app} size={18} />
+        <div>
+          <h3 className="text-sm font-semibold text-white">Installing {app.name}</h3>
+          <p className="text-[11px] text-slate-400">Container {vmid}</p>
+        </div>
+      </div>
+      <ol className="flex flex-wrap gap-1.5 text-[11px]">
+        {PHASES.map((p, i) => {
+          const failed = dep?.phase === "error";
+          const state = failed ? "text-slate-500" : i < current || dep?.phase === "done" ? "text-emerald-300" : i === current ? "text-sky-300" : "text-slate-500";
+          return (
+            <li key={p} className={`flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 ${state}`}>
+              {i < current || dep?.phase === "done" ? <Check size={11} /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
+              {PHASE_LABEL[p]}
+            </li>
+          );
+        })}
+        {dep?.phase === "error" && <li className="rounded-full bg-rose-500/15 px-2 py-0.5 text-rose-300">Failed</li>}
+      </ol>
+      <div>
+        <p className="mb-1 text-[11px] text-slate-400">Proxmox task</p>
+        <TaskLog upid={upid} className="h-28" />
+      </div>
+      <div>
+        <p className="mb-1 text-[11px] text-slate-400">Installer output</p>
+        <pre ref={log} className="h-40 overflow-auto rounded-lg bg-black/50 p-2 font-mono text-[11px] whitespace-pre-wrap text-slate-300">
+          {dep?.log.join("\n") || "Waiting for the container…"}
+        </pre>
+      </div>
+      {(error || dep?.error) && <p className="text-xs text-rose-300">{error || dep?.error}</p>}
+      <div className="flex justify-end gap-2">
+        {url && (
+          <a className="btn border-sky-400/40 bg-sky-500/20" href={url} target="_blank" rel="noreferrer">
+            <ExternalLink size={12} /> Open {app.name}
+          </a>
+        )}
+        <button className="btn" onClick={onClose}>
+          {dep?.phase === "done" || dep?.phase === "error" ? "Close" : "Run in background"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function InstallDrawer({ app, onClose }: { app: CatalogApp; onClose: (deployed: boolean) => void }) {
+  const [form, setForm] = useState({
+    hostname: app.id,
+    cores: app.cores,
+    memory: app.memory_mb,
+    disk_gb: app.disk_gb,
+    net: "dhcp" as "dhcp" | "static",
+    cidr: "",
+    gateway: "",
+    mount_storage: app.supports_storage_mount,
+    enable_igpu: app.supports_igpu,
+  });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [job, setJob] = useState<{ vmid: number; upid: string } | null>(null);
+  const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      setJob(
+        await api<{ vmid: number; upid: string }>("/apps/deploy", {
+          method: "POST",
+          json: {
+            app_id: app.id,
+            hostname: form.hostname,
+            cores: form.cores,
+            memory: form.memory,
+            disk_gb: form.disk_gb,
+            ip_config: form.net === "dhcp" ? "dhcp" : { cidr: form.cidr, gateway: form.gateway },
+            mount_storage: form.mount_storage,
+            enable_igpu: form.enable_igpu,
+          },
+        }),
+      );
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const num = (k: "cores" | "memory" | "disk_gb", label: string, min: number, max: number, step = 1) => (
+    <label className="block text-[11px] text-slate-400">
+      {label}
+      <input type="number" className="input mt-1 w-full py-1.5 text-xs" min={min} max={max} step={step} value={form[k]} onChange={(e) => set(k, Number(e.target.value))} required />
+    </label>
+  );
+
+  return (
+    <div className="absolute inset-0 z-10 flex justify-end bg-black/50 backdrop-blur-sm" onPointerDown={(e) => e.target === e.currentTarget && !busy && onClose(!!job)}>
+      <div className="glass flex h-full w-full max-w-md flex-col overflow-auto border-y-0 border-r-0 p-4" role="dialog" aria-label={`Install ${app.name}`}>
+        <button className="absolute top-3 right-3 rounded p-1 text-slate-400 hover:bg-white/10" onClick={() => onClose(!!job)} aria-label="Close" disabled={busy}>
+          <X size={16} />
+        </button>
+        {job ? (
+          <Progress app={app} vmid={job.vmid} upid={job.upid} onClose={() => onClose(true)} />
+        ) : (
+          <form onSubmit={submit} className="space-y-4">
+            <div className="flex items-center gap-3">
+              <AppIcon app={app} size={18} />
+              <div>
+                <h3 className="text-sm font-semibold text-white">Install {app.name}</h3>
+                <p className="text-[11px] text-slate-400">Unprivileged Debian 12 LXC · nesting enabled</p>
+              </div>
+            </div>
+            <label className="block text-[11px] text-slate-400">
+              Hostname
+              <input
+                className="input mt-1 w-full py-1.5 text-xs"
+                value={form.hostname}
+                onChange={(e) => set("hostname", e.target.value.toLowerCase())}
+                pattern="[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?"
+                title="Lowercase letters, digits and hyphens"
+                required
+              />
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {num("cores", "CPU cores", 1, 64)}
+              {num("memory", "Memory (MB)", 256, 262144, 256)}
+              {num("disk_gb", "Disk (GB)", 2, 4096)}
+            </div>
+            <fieldset className="space-y-2">
+              <legend className="mb-1 text-[11px] text-slate-400">Network</legend>
+              <div className="flex rounded-lg bg-black/30 p-0.5 text-xs" role="radiogroup">
+                {(["dhcp", "static"] as const).map((n) => (
+                  <button
+                    type="button"
+                    key={n}
+                    role="radio"
+                    aria-checked={form.net === n}
+                    onClick={() => set("net", n)}
+                    className={`flex-1 rounded-md py-1 ${form.net === n ? "bg-white/15 text-white" : "text-slate-400"}`}
+                  >
+                    {n === "dhcp" ? "DHCP" : "Static IP"}
+                  </button>
+                ))}
+              </div>
+              {form.net === "static" && (
+                <div className="grid grid-cols-2 gap-2">
+                  <input className="input py-1.5 text-xs" placeholder="192.168.1.50/24" value={form.cidr} onChange={(e) => set("cidr", e.target.value)} aria-label="IP address with prefix" required />
+                  <input className="input py-1.5 text-xs" placeholder="Gateway 192.168.1.1" value={form.gateway} onChange={(e) => set("gateway", e.target.value)} aria-label="Gateway" required />
+                </div>
+              )}
+            </fieldset>
+            {app.supports_storage_mount && (
+              <label className="flex items-start gap-2 rounded-lg bg-white/5 p-2.5 text-xs text-slate-200">
+                <input type="checkbox" className="mt-0.5" checked={form.mount_storage} onChange={(e) => set("mount_storage", e.target.checked)} />
+                <span>
+                  Mount ZFS Storage (/mnt/storage)
+                  <span className="block text-[11px] text-slate-400">Same datasets File Station sees, bind-mounted into the container.</span>
+                </span>
+              </label>
+            )}
+            {app.supports_igpu && (
+              <label className="flex items-start gap-2 rounded-lg border border-amber-400/30 bg-amber-400/10 p-2.5 text-xs text-amber-100">
+                <input type="checkbox" className="mt-0.5" checked={form.enable_igpu} onChange={(e) => set("enable_igpu", e.target.checked)} />
+                <span>
+                  <span className="flex items-center gap-1 font-medium">
+                    <Zap size={12} /> Enable Intel Quick Sync iGPU (/dev/dri)
+                  </span>
+                  <span className="block text-[11px] text-amber-200/70">Passes the host's render devices through for hardware transcoding.</span>
+                </span>
+              </label>
+            )}
+            {error && <p className="text-xs text-rose-300">{error}</p>}
+            <button className="btn w-full justify-center border-sky-400/40 bg-sky-500/30 py-2 text-white hover:bg-sky-500/40" disabled={busy}>
+              {busy ? "Preparing template & creating container…" : "Install"}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function AppCenter() {
+  const [apps, setApps] = useState<CatalogApp[] | null>(null);
+  const [category, setCategory] = useState("all");
+  const [query, setQuery] = useState("");
+  const [installing, setInstalling] = useState<CatalogApp | null>(null);
+  const [error, setError] = useState("");
+
+  const load = useCallback(() => {
+    api<CatalogApp[]>("/apps/catalog")
+      .then((a) => {
+        setApps(a);
+        setError("");
+      })
+      .catch((e) => setError(e.message));
+  }, []);
+  useEffect(load, [load]);
+
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (apps ?? []).filter(
+      (a) => (category === "all" || a.category === category) && (!q || `${a.name} ${a.description}`.toLowerCase().includes(q)),
+    );
+  }, [apps, category, query]);
+
+  return (
+    <div className="relative flex h-full">
+      <nav className="w-44 shrink-0 space-y-1 border-r border-white/10 bg-black/20 p-2 max-sm:w-14">
+        {CATEGORIES.map((c) => (
+          <button
+            key={c.id}
+            onClick={() => setCategory(c.id)}
+            aria-current={category === c.id}
+            title={c.label}
+            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs ${
+              category === c.id ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+            }`}
+          >
+            <c.icon size={15} />
+            <span className="max-sm:hidden">{c.label}</span>
+          </button>
+        ))}
+      </nav>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex items-center gap-2 border-b border-white/10 p-3">
+          <h2 className="text-sm font-semibold text-white">{CATEGORIES.find((c) => c.id === category)?.label}</h2>
+          <label className="relative ml-auto">
+            <Search size={14} className="absolute top-1/2 left-2.5 -translate-y-1/2 text-slate-500" />
+            <input className="input w-56 py-1.5 pl-8 text-xs max-sm:w-36" placeholder="Search apps" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search apps" />
+          </label>
+        </div>
+        {error && <div className="bg-rose-500/10 px-4 py-2 text-xs text-rose-300">{error}</div>}
+        <div className="min-h-0 flex-1 overflow-auto p-4">
+          {!apps && !error && <p className="text-sm text-slate-400">Loading…</p>}
+          {apps && shown.length === 0 && <p className="text-sm text-slate-400">No apps match.</p>}
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {shown.map((a) => (
+              <article key={a.id} className="glass-soft flex flex-col rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <AppIcon app={a} />
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-sm font-semibold text-white">{a.name}</h3>
+                    <p className="text-[11px] text-slate-400">{a.category}</p>
+                  </div>
+                  {a.installed.length > 0 && (
+                    <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-medium text-emerald-300" title={a.installed.map((i) => `${i.name} (${i.vmid}, ${i.status})`).join("\n")}>
+                      Installed{a.installed.length > 1 ? ` ×${a.installed.length}` : ""}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-3 line-clamp-3 flex-1 text-xs text-slate-300">{a.description}</p>
+                <div className="mt-3 flex flex-wrap gap-1 text-[10px] text-slate-400">
+                  <span className="rounded bg-white/5 px-1.5 py-0.5">{a.cores} vCPU</span>
+                  <span className="rounded bg-white/5 px-1.5 py-0.5">{a.memory_mb / 1024} GB RAM</span>
+                  <span className="rounded bg-white/5 px-1.5 py-0.5">{a.disk_gb} GB disk</span>
+                  {a.supports_igpu && <span className="rounded bg-amber-400/15 px-1.5 py-0.5 text-amber-300">iGPU</span>}
+                </div>
+                <button className="btn mt-3 justify-center border-sky-400/30 bg-sky-500/20 text-white hover:bg-sky-500/30" onClick={() => setInstalling(a)}>
+                  {a.installed.length ? "Install another" : "Install"}
+                </button>
+              </article>
+            ))}
+          </div>
+        </div>
+      </div>
+      {installing && (
+        <InstallDrawer
+          app={installing}
+          onClose={(deployed) => {
+            setInstalling(null);
+            if (deployed) load();
+          }}
+        />
+      )}
+    </div>
+  );
+}

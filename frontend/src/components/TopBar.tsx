@@ -1,25 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Cpu, Database, LayoutGrid, Lock, LogOut, MemoryStick, User } from "lucide-react";
 import { activeWindow, useAuth, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
-import { useClock } from "../lib/hooks";
+import { useClock, useDismiss } from "../lib/hooks";
+import TaskCenterPopover from "./TaskCenterPopover";
 import { pct } from "../lib/format";
 import { APPS, APP_IDS } from "../apps/registry";
-
-function useDismiss(open: boolean, close: () => void) {
-  const ref = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && close();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
-    window.addEventListener("pointerdown", onDown);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      window.removeEventListener("pointerdown", onDown);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open, close]);
-  return ref;
-}
 
 function Pill({ icon, label, tone = "text-slate-200" }: { icon: ReactNode; label: string; tone?: string }) {
   return (
@@ -90,6 +75,7 @@ export default function TopBar() {
         label={health}
         tone={health === "ONLINE" ? "text-emerald-300" : health === "N/A" || health === "—" ? "text-slate-400" : "text-rose-300"}
       />
+      <TaskCenterPopover />
       <span className="tabular-nums text-slate-200">
         {now.toLocaleDateString([], { month: "short", day: "numeric" })}{" "}
         {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}

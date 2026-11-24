@@ -78,6 +78,79 @@ export interface StorageInfo {
   disks: Disk[];
 }
 
+export interface ConsoleTarget {
+  type: "qemu" | "lxc";
+  vmid: number;
+  name: string;
+  mode: "vnc" | "shell";
+}
+
+export type TaskState = "running" | "ok" | "error";
+
+export interface PveTask {
+  upid: string;
+  type: string;
+  id: string;
+  user: string;
+  status: string;
+  state: TaskState;
+  starttime: number;
+  endtime?: number;
+}
+
+export interface CatalogApp {
+  id: string;
+  name: string;
+  category: string;
+  description: string;
+  icon: string;
+  cores: number;
+  memory_mb: number;
+  disk_gb: number;
+  web_port: number | null;
+  web_scheme: string;
+  supports_igpu: boolean;
+  supports_storage_mount: boolean;
+  installed: { vmid: number; name: string; status: string }[];
+}
+
+export interface Deployment {
+  vmid: number;
+  upid: string;
+  phase: "creating" | "configuring" | "starting" | "installing" | "done" | "error";
+  error: string | null;
+  ip: string | null;
+  web_port: number | null;
+  web_scheme: string;
+  log: string[];
+}
+
+export interface Share {
+  name: string;
+  path: string;
+  comment: string;
+  read_only: boolean;
+  guest_ok: boolean;
+  users: string[];
+}
+
+export interface ZfsDataset {
+  name: string;
+  type: string;
+  used: number;
+  refer: number;
+  mountpoint: string;
+}
+
+export interface ZfsSnapshot {
+  name: string;
+  dataset: string;
+  snapshot: string;
+  used: number;
+  refer: number;
+  creation: number;
+}
+
 export interface FileEntry {
   name: string;
   path: string;
