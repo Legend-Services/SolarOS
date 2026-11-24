@@ -14,6 +14,8 @@ from .config import settings
 from .pve import _node, pve
 
 GuestType = Literal["qemu", "lxc"]
+# "node" (vmid 0) is the Proxmox host itself; termproxy then shows a login prompt for a host account.
+ShellType = Literal["qemu", "lxc", "node"]
 TICKET_TTL = 60  # seconds a console session may wait before the browser connects
 
 router = APIRouter(prefix="/api/pve", tags=["console"])
@@ -45,11 +47,15 @@ async def vnc_ticket(guest_type: GuestType, vmid: int):
 
 
 @router.post("/guests/{guest_type}/{vmid}/terminal", dependencies=[Depends(require_user)])
-async def terminal_ticket(guest_type: GuestType, vmid: int):
+async def terminal_ticket(guest_type: ShellType, vmid: int):
     # QEMU guests only get a shell through a serial port (serial0 must be configured on the VM).
     params = {"serial": "serial0"} if guest_type == "qemu" else {}
-    data = await pve("POST", _node(f"/{guest_type}/{vmid}/termproxy"), data=params)
+    data = await pve("POST", _target(guest_type, vmid, "/termproxy"), data=params)
     return {"session": _new_session("terminal", guest_type, vmid, data)}
+
+
+def _target(guest_type: str, vmid: int, suffix: str) -> str:
+    return _node(suffix) if guest_type == "node" else _node(f"/{guest_type}/{vmid}{suffix}")
 
 
 def _ssl() -> ssl.SSLContext:
@@ -73,7 +79,7 @@ async def _open(ws: WebSocket, kind: str, guest_type: str, vmid: int):
         return None
     await ws.accept(subprotocol="binary" if "binary" in ws.scope.get("subprotocols", []) else None)
     base = settings.pve_host.rstrip("/").replace("https://", "wss://", 1).replace("http://", "ws://", 1)
-    url = (f"{base}/api2/json{_node(f'/{guest_type}/{vmid}/vncwebsocket')}"
+    url = (f"{base}/api2/json{_target(guest_type, vmid, '/vncwebsocket')}"
            f"?port={s['port']}&vncticket={quote(s['ticket'], safe='')}")
     try:
         upstream = await connect(
@@ -119,7 +125,7 @@ async def vnc_ws(ws: WebSocket, guest_type: GuestType, vmid: int):
 
 
 @router.websocket("/ws/terminal/{guest_type}/{vmid}")
-async def terminal_ws(ws: WebSocket, guest_type: GuestType, vmid: int):
+async def terminal_ws(ws: WebSocket, guest_type: ShellType, vmid: int):
     opened = await _open(ws, "terminal", guest_type, vmid)
     if not opened:
         return

@@ -19,6 +19,8 @@ A web desktop for Proxmox VE, in the style of Synology DSM, QNAP QTS and ZimaOS.
 - **ZFS schedules.** Storage & ZFS has a **Schedules** tab. You can create hourly, daily or weekly automatic snapshots with a retention limit, and monthly pool scrubs. You can pause or delete each schedule. The backend runs them itself, so you don't need cron.
 - **`deploy.sh`.** Deploys your local checkout to any Proxmox VE host over SSH, without pushing to GitHub first.
 
+**System app (v0.3.1):** host administration without the Proxmox UI. You can switch APT repositories (for example from Enterprise to No-Subscription), check for and install host updates, open a root shell on the host (it asks for the host's login), and reboot or shut down the server. The API token therefore has the `Administrator` role.
+
 ## Deploy from a checkout (`deploy.sh`)
 
 ```bash
@@ -39,7 +41,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/
 You don't need to configure anything. The installer:
 
 1. Finds the node name, host IP, next free CT ID, rootfs storage (ZFS > `local-lvm` > `local`), the latest `debian-12-standard` template, the bridge and gateway, and a free static IP in `.230`–`.249`. If no address there is free, the container uses DHCP.
-2. Creates the `pve-desktop@pve` user with the `PVEAdmin` role, plus a fresh `webui` API token.
+2. Creates the `pve-desktop@pve` user with the `Administrator` role, plus a fresh `webui` API token.
 3. Creates the unprivileged container `proxmox-os` (2 cores, 2 GB RAM, 16 GB disk, `nesting=1`, `onboot=1`). Every mounted ZFS dataset outside `rpool` is bind-mounted at `/mnt/storage/<dataset>`. If there are no data pools, the host's `/mnt/storage` is mounted instead.
 4. Installs Python, Node 22, nginx and Samba in the container, and deploys the app to `/opt/proxmox-os`.
 5. Installs the host helper (see below), adds `include = /etc/samba/proxmox-os-shares.conf` to the container's `smb.conf`, writes `backend/.env`, starts the services and runs a health check.
@@ -59,7 +61,7 @@ Some operations are restricted to root on the host, so the Proxmox API token can
 - bind mounts and `/dev/dri` passthrough for App Center containers
 - running the app installer inside a new container (`pct exec`)
 
-For these, the installer puts `deploy/proxmox-os-helper.sh` on the host at `/usr/local/sbin/proxmox-os-helper`. It gives the ProxmoxOS container an SSH key whose `authorized_keys` entry is locked to that script (`command="…",restrict`). The helper accepts only a fixed list of commands (`zfs-list|snapshot|rollback|destroy`, `zpool-scrub`, `hw-info`, `app-configure`, `app-provision`) and validates every argument again. The `app-*` commands refuse any container that isn't tagged `proxmox-os-app`. The host's sshd must allow root key logins, which is the Proxmox default.
+For these, the installer puts `deploy/proxmox-os-helper.sh` on the host at `/usr/local/sbin/proxmox-os-helper`. It gives the ProxmoxOS container an SSH key whose `authorized_keys` entry is locked to that script (`command="…",restrict`). The helper accepts only a fixed list of commands (`zfs-list|snapshot|rollback|destroy`, `zpool-scrub`, `hw-info`, `apt-upgrade`, `apt-upgrade-status`, `app-configure`, `app-provision`) and validates every argument again. The `app-*` commands refuse any container that isn't tagged `proxmox-os-app`. The host's sshd must allow root key logins, which is the Proxmox default.
 
 ## Layout
 
@@ -79,6 +81,7 @@ backend/                   FastAPI + httpx + PyJWT
   app/telemetry.py         /api/pve/telemetry/hardware (disk SMART/temps, Intel iGPU, NVIDIA GPU)
   app/notifications.py     /api/notifications (health alerts)
   app/schedules.py         /api/schedules + the background snapshot/scrub scheduler
+  app/system.py            /api/system/repositories|updates|upgrade|power (host administration)
   data/                    app_catalog.json + per-app install scripts
   tests/test_selfcheck.py  auth, sandbox, mocked-PVE, shares, ZFS, App Center, console auth, telemetry,
                            alert and scheduler checks

@@ -79,7 +79,7 @@ export interface StorageInfo {
 }
 
 export interface ConsoleTarget {
-  type: "qemu" | "lxc";
+  type: "qemu" | "lxc" | "node"; // "node" = Proxmox host shell (vmid 0, mode "shell" only)
   vmid: number;
   name: string;
   mode: "vnc" | "shell";
@@ -200,6 +200,39 @@ export interface Schedule {
   last_run: number | null;
   last_status: "ok" | "error" | null;
   last_error: string | null;
+}
+
+export interface AptRepository {
+  path: string;
+  index: number;
+  enabled: boolean;
+  types: string[];
+  uris: string[];
+  suites: string[];
+  components: string[];
+  handle: string | null;
+}
+
+export interface RepoInfo {
+  digest: string | null;
+  repositories: AptRepository[];
+  names: Record<string, string>;
+  available: { handle: string; name: string; description: string }[];
+  errors: string[];
+}
+
+export interface AptUpdate {
+  Package: string;
+  Title?: string;
+  OldVersion?: string;
+  Version: string;
+  Origin?: string;
+}
+
+export interface UpgradeStatus {
+  running: boolean;
+  exit_code: number | null;
+  log: string[];
 }
 
 export interface FileEntry {

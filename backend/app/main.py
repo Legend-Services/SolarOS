@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 
-from . import apps, auth, console, files, notifications, pve, schedules, shares, tasks, telemetry
+from . import apps, auth, console, files, notifications, pve, schedules, shares, system, tasks, telemetry
 from .config import settings
 
 
@@ -28,6 +28,7 @@ app.include_router(shares.router)
 app.include_router(telemetry.router)
 app.include_router(notifications.router)
 app.include_router(schedules.router)
+app.include_router(system.router)
 
 
 @app.get("/api/health")

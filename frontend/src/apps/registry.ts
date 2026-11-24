@@ -1,4 +1,4 @@
-import { Activity, Boxes, FolderOpen, HardDrive, Share2, Store, SquareTerminal, type LucideIcon } from "lucide-react";
+import { Activity, Boxes, FolderOpen, HardDrive, Settings, Share2, Store, SquareTerminal, type LucideIcon } from "lucide-react";
 
 // Metadata only (no components) so stores can import it without a circular dependency.
 export const APPS = {
@@ -8,6 +8,7 @@ export const APPS = {
   files: { title: "File Station", icon: FolderOpen, color: "from-emerald-300 to-teal-600", size: { w: 960, h: 620 } },
   appcenter: { title: "App Center", icon: Store, color: "from-pink-400 to-rose-600", size: { w: 1040, h: 660 } },
   shares: { title: "Network Shares", icon: Share2, color: "from-cyan-300 to-sky-600", size: { w: 920, h: 600 } },
+  system: { title: "System", icon: Settings, color: "from-slate-300 to-zinc-600", size: { w: 960, h: 640 } },
   // Opened per guest from Compute Manager, so it is not in the dock or launcher.
   console: { title: "Console", icon: SquareTerminal, color: "from-slate-400 to-slate-700", size: { w: 900, h: 620 } },
 } satisfies Record<string, { title: string; icon: LucideIcon; color: string; size: { w: number; h: number } }>;
