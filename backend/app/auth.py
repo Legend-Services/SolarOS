@@ -26,6 +26,10 @@ def require_user(request: Request) -> str:
     header = request.headers.get("authorization", "")
     if header.lower().startswith("bearer "):
         token = header[7:]
+    return decode_token(token)
+
+
+def decode_token(token: str | None) -> str:
     if not token:
         raise HTTPException(401, "Not authenticated")
     try:

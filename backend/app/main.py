@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from . import auth, files, pve
+from . import apps, auth, console, files, pve, shares, tasks
 from .config import settings
 
 
@@ -16,6 +16,10 @@ app = FastAPI(title="ProxmoxOS API", lifespan=lifespan, docs_url="/api/docs", op
 app.include_router(auth.router)
 app.include_router(pve.router)
 app.include_router(files.router)
+app.include_router(console.router)
+app.include_router(tasks.router)
+app.include_router(apps.router)
+app.include_router(shares.router)
 
 
 @app.get("/api/health")
