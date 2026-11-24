@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.6.1 - Hotfix: Local AI Playground Blank Screen, Streaming Chat & Full-GPU 32B Models — 2026-11-24
+
+### Fixed
+- **Blank desktop after Send** in Local AI → Playground Chat. The chat's auto-scroll effect returned the Promise that newer Chrome builds return from `scrollIntoView`, and React then called it as a cleanup function (`TypeError: … is not a function`), unmounting the whole desktop. The App Center install log had the same pattern. Both now scroll their own pane with `scrollTop`.
+- **32B models running partly on the CPU**: Ollama's default 32K context made `deepseek-r1:32b` need 28 GB (17% CPU / 83% GPU on an RTX 3090). Local AI now sets `OLLAMA_CONTEXT_LENGTH=8192`, the window the VRAM fit ratings assume, so 27B–32B Q4 models run 100% on a 24 GB GPU. Existing installs get it on the next Apply in Hardware & Performance.
+
+### Changed
+- **Playground Chat streams replies** word by word. Reasoning models (DeepSeek R1, Qwen 3) show their thinking in a collapsible "Thought process" block. `POST /api/ai/chat` takes `"stream": true` and returns NDJSON (`{delta, thinking}` chunks, then `{done, tokens_per_sec, eval_count, total_duration_ms}`); without it, the JSON response now also includes `thinking`.
+
 ## v1.6.0 - Phase 14: Local AI Studio, Online Model Library & Selectable GPU/RTX 3090 Acceleration — 2026-11-24
 
 ### Added

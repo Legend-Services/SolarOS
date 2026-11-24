@@ -62,7 +62,10 @@ function Progress({ app, vmid, upid, onClose }: { app: CatalogApp; vmid: number;
     };
   }, [vmid]);
 
-  useEffect(() => log.current?.scrollTo(0, log.current.scrollHeight), [dep?.log.length]);
+  // Braces matter: newer Chrome returns a Promise from scroll methods, and React would call it as a cleanup.
+  useEffect(() => {
+    if (log.current) log.current.scrollTop = log.current.scrollHeight;
+  }, [dep?.log.length]);
 
   const current = dep ? PHASES.indexOf(dep.phase) : 0;
   const url = dep?.ip && dep.web_port ? `${dep.web_scheme}://${dep.ip}:${dep.web_port}` : null;

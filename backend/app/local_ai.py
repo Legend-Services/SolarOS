@@ -17,6 +17,7 @@ from typing import Literal
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Path as PathParam, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from . import host_ssh, pci
@@ -37,6 +38,9 @@ NV_Q = "index,pci.bus_id,name,memory.total,memory.free,driver_version"
 GB_PER_B = 0.6  # Q4_K_M weights ≈ 0.57 GB per billion parameters, rounded up
 OVERHEAD_GB = 1.5  # KV cache for a 4–8K context + CUDA runtime
 CACHE_TTL = 900
+# Ollama defaults to a 32K context, whose KV cache pushes a 32B model past 24 GB (CPU offload). The VRAM estimates
+# above assume this smaller window.
+CONTEXT_LENGTH = 8192
 
 
 # ---------------------------------------------------------------- State
@@ -181,7 +185,7 @@ def dri_devs(conf: str) -> dict[int, str]:
 
 
 def ollama_env(target: str, flash: bool, kv_q8: bool) -> str:
-    env = {"OLLAMA_HOST": "0.0.0.0:11434"}
+    env = {"OLLAMA_HOST": "0.0.0.0:11434", "OLLAMA_CONTEXT_LENGTH": str(CONTEXT_LENGTH)}
     if target == "cpu":
         env["CUDA_VISIBLE_DEVICES"] = "-1"
     elif target.startswith(("intel:", "amd:")):
@@ -643,13 +647,45 @@ class ChatBody(BaseModel):
     model: str = Field(pattern=MODEL_RE)
     messages: list[ChatMessage] = Field(min_length=1, max_length=100)
     system: str | None = Field(None, max_length=20_000)
+    stream: bool = False
+
+
+def speed(r: dict) -> dict:
+    ev, dur = r.get("eval_count") or 0, r.get("eval_duration") or 0
+    return {"tokens_per_sec": round(ev / (dur / 1e9), 1) if dur else None, "eval_count": ev,
+            "total_duration_ms": round((r.get("total_duration") or 0) / 1e6)}
 
 
 @router.post("/chat")
 async def chat(body: ChatBody):
     msgs = ([{"role": "system", "content": body.system}] if body.system else []) + [m.model_dump() for m in body.messages]
-    r = await ollama("POST", "/api/chat", timeout=900, json={"model": body.model, "messages": msgs, "stream": False})
-    ev, dur = r.get("eval_count") or 0, r.get("eval_duration") or 0
-    return {"model": body.model, "text": (r.get("message") or {}).get("content", ""),
-            "tokens_per_sec": round(ev / (dur / 1e9), 1) if dur else None, "eval_count": ev,
-            "total_duration_ms": round((r.get("total_duration") or 0) / 1e6)}
+    req = {"model": body.model, "messages": msgs}
+    if not body.stream:
+        r = await ollama("POST", "/api/chat", timeout=900, json={**req, "stream": False})
+        msg = r.get("message") or {}
+        return {"model": body.model, "text": msg.get("content", ""), "thinking": msg.get("thinking") or "", **speed(r)}
+    url = _base() + "/api/chat"
+
+    async def events():
+        """NDJSON: {"delta", "thinking"} chunks while generating, then {"done": true, ...speed} or {"error"}."""
+        try:
+            async with httpx.AsyncClient(timeout=httpx.Timeout(30, read=900)) as c, \
+                    c.stream("POST", url, json={**req, "stream": True}) as r:
+                if r.status_code >= 400:
+                    raise RuntimeError((await r.aread()).decode(errors="replace")[:300])
+                async for line in r.aiter_lines():
+                    if not line.strip():
+                        continue
+                    ev = json.loads(line)
+                    if ev.get("error"):
+                        raise RuntimeError(ev["error"])
+                    msg = ev.get("message") or {}
+                    if msg.get("content") or msg.get("thinking"):
+                        yield json.dumps({"delta": msg.get("content", ""), "thinking": msg.get("thinking", "")}) + "\n"
+                    if ev.get("done"):
+                        yield json.dumps({"done": True, **speed(ev)}) + "\n"
+        except (httpx.HTTPError, RuntimeError, ValueError) as e:
+            yield json.dumps({"error": f"Ollama: {e or type(e).__name__}"}) + "\n"
+
+    # X-Accel-Buffering: nginx would otherwise hold the chunks until the reply is complete.
+    return StreamingResponse(events(), media_type="application/x-ndjson", headers={"X-Accel-Buffering": "no"})
