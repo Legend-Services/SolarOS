@@ -3,19 +3,20 @@ from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 
-from . import (apps, auth, backups, console, disk_benchmark, files, guest_hardware, hardware_admin, help_center, host_ssh, net_services, notifications,
+from . import (apps, auth, backups, bug_report, console, disk_benchmark, files, guest_hardware, hardware_admin, help_center, host_ssh, net_services, notifications,
                provisioning, pve, pve_access, pve_datacenter, schedules, shares, storage_admin, system, system_extra, tasks,
-               telemetry)
+               telemetry, updater)
 from .config import settings
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    scheduler = asyncio.create_task(schedules.scheduler_loop())
+    loops = [asyncio.create_task(schedules.scheduler_loop()), asyncio.create_task(updater.scheduler_loop())]
     yield
-    scheduler.cancel()
-    with suppress(asyncio.CancelledError):
-        await scheduler
+    for t in loops:
+        t.cancel()
+        with suppress(asyncio.CancelledError):
+            await t
     await pve.close_client()
     await host_ssh.close()
 
@@ -37,7 +38,7 @@ app.include_router(provisioning.router)
 app.include_router(backups.router)
 app.include_router(system_extra.router)
 for module in (host_ssh, pve_access, pve_datacenter, net_services, hardware_admin, guest_hardware, help_center,
-               disk_benchmark):
+               disk_benchmark, updater, bug_report):
     app.include_router(module.router)
 
 

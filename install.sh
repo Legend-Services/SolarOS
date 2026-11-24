@@ -2,7 +2,9 @@
 # ProxmoxOS zero-touch installer.
 # Run on a Proxmox VE host as root:
 #   bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/main/install.sh)"
-# Re-running is safe: an existing "proxmox-os" container is reused and redeployed.
+# Re-running is safe (Upgrade Mode): an existing "proxmox-os" container keeps its backend/.env, data/, .ssh/ and
+# Samba shares; only the code, dependencies and frontend build are refreshed. Running it inside the ProxmoxOS
+# container upgrades that container in place.
 set -Eeuo pipefail
 
 REPO_URL="${REPO_URL:-https://github.com/Legend-Services/SolarOS.git}"
@@ -26,6 +28,21 @@ ct() { pct exec "$CTID" -- env DEBIAN_FRONTEND=noninteractive bash -euo pipefail
 
 # ---------------------------------------------------------------- 1. Discovery
 [[ $EUID -eq 0 ]] || die "Run as root."
+
+# Inside an existing ProxmoxOS container: upgrade in place with the same script the in-app updater uses.
+if ! command -v pveversion >/dev/null && [[ -f "${APP_DIR}/backend/.env" ]]; then
+  msg "ProxmoxOS container detected: Upgrade Mode"
+  BACKUP="/var/backups/proxmox-os-preupgrade-$(date +%Y%m%d-%H%M%S)"
+  mkdir -p "$BACKUP" && cp -a "${APP_DIR}/backend/.env" "${APP_DIR}/backend/data" "$BACKUP/"
+  ok "Settings backed up to ${BACKUP}"
+  # Run a copy: the update rewrites the script while bash is reading it.
+  cp "${APP_DIR}/deploy/self-update.sh" /tmp/proxmox-os-self-update.sh
+  bash /tmp/proxmox-os-self-update.sh "$APP_DIR" "$REPO_URL" "$REPO_BRANCH"
+  trap - ERR
+  echo; ok "ProxmoxOS upgraded. Web UI: http://$(hostname -I | awk '{print $1}')  (login unchanged)"
+  exit 0
+fi
+
 command -v pveversion >/dev/null || die "This does not look like a Proxmox VE host (pveversion not found)."
 for bin in pct pvesh pvesm pveam pveum python3 openssl; do command -v "$bin" >/dev/null || die "Missing $bin"; done
 msg "Proxmox VE $(pveversion | cut -d/ -f2)"
@@ -49,11 +66,19 @@ for d in "${CANDIDATES[@]}"; do
 done
 if [[ -n "$SRC_DIR" ]]; then ok "Installing from local source ${SRC_DIR}"; else ok "Installing from ${REPO_URL} (${REPO_BRANCH})"; fi
 
-EXISTING_CTID="$(pct list | awk -v h="$CT_HOSTNAME" 'NR>1 && $NF==h {print $1; exit}')"
+# "proxmos-os" is a common typo'd hostname from early manual installs.
+EXISTING_CTID="$(pct list | awk 'NR>1 && ($NF=="proxmox-os" || $NF=="proxmos-os") {print $1; exit}')"
+UPGRADE=""
 
 if [[ -n "$EXISTING_CTID" ]]; then
   CTID="$EXISTING_CTID"
-  ok "Reusing existing container ${CTID} (${CT_HOSTNAME})"
+  [[ "$(pct status "$CTID")" == *running* ]] || { pct start "$CTID"; sleep 3; }
+  if pct exec "$CTID" -- grep -q '^PVE_TOKEN_SECRET=.' "${APP_DIR}/backend/.env" 2>/dev/null; then
+    UPGRADE=1
+    ok "Existing ProxmoxOS container ${CTID} found: Upgrade Mode (settings, data and shares are kept)"
+  else
+    ok "Reusing container ${CTID} without a configured backend/.env: configuring it from scratch"
+  fi
 else
   CTID="$(pvesh get /cluster/nextid)"
 
@@ -143,6 +168,7 @@ grant_storage_access() {
 }
 
 # ---------------------------------------------------------------- 2. API user + token
+if [[ -z "$UPGRADE" ]]; then
 msg "Configuring Proxmox API user ${PVE_USER}"
 pveum user add "$PVE_USER" --comment "ProxmoxOS Web Desktop" >/dev/null 2>&1 || true
 # Administrator (not PVEAdmin): the System app needs Sys.Modify (repositories, updates) and Sys.PowerMgmt.
@@ -154,6 +180,7 @@ PVE_TOKEN_SECRET="$(pveum user token add "$PVE_USER" "$TOKEN_NAME" --privsep 0 -
 JWT_SECRET="$(openssl rand -hex 32)"
 ADMIN_PASSWORD="$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 14)"
 ok "API token ${PVE_USER}!${TOKEN_NAME} created"
+fi
 
 # ---------------------------------------------------------------- 3. Container
 if [[ -z "$EXISTING_CTID" ]]; then
@@ -209,25 +236,33 @@ if ! node -v 2>/dev/null | grep -q '^v22\.'; then
 fi"
 ok "Packages installed ($(pct exec "$CTID" -- node -v))"
 
+if [[ -n "$UPGRADE" ]]; then
+  BACKUP="/var/backups/proxmox-os-preupgrade-$(date +%Y%m%d-%H%M%S)"
+  ct "mkdir -p ${BACKUP} && cp -a ${APP_DIR}/backend/.env ${APP_DIR}/backend/data ${BACKUP}/"
+  ok "Settings backed up inside the container to ${BACKUP}"
+fi
+
 msg "Deploying application to ${APP_DIR}"
 if [[ -n "$SRC_DIR" ]]; then
   TARBALL="$(mktemp --suffix=.tar.gz)"
   tar -C "$SRC_DIR" --exclude=node_modules --exclude=dist --exclude=.venv --exclude=.git \
-    --exclude=backend/.env --exclude=__pycache__ --exclude=.claude --exclude=backend/data/schedules.json --exclude=backend/data/security.json --exclude=backend/data/user_preferences.json --exclude=backend/data/benchmarks.json --exclude=backend/.ssh \
+    --exclude=backend/.env --exclude=__pycache__ --exclude=.claude --exclude=backend/data/schedules.json --exclude=backend/data/security.json --exclude=backend/data/user_preferences.json --exclude=backend/data/benchmarks.json --exclude=backend/data/update_settings.json --exclude=backend/.ssh \
     -czf "$TARBALL" .
   pct push "$CTID" "$TARBALL" /tmp/proxmox-os.tar.gz
   rm -f "$TARBALL"
   ct "mkdir -p ${APP_DIR} && tar -xzf /tmp/proxmox-os.tar.gz -C ${APP_DIR} && rm /tmp/proxmox-os.tar.gz"
   ok "Copied local checkout ${SRC_DIR}"
 else
-  ct "if [ -d ${APP_DIR}/.git ]; then
-  git -C ${APP_DIR} fetch -q --depth 1 origin ${REPO_BRANCH}
-  git -C ${APP_DIR} reset -q --hard FETCH_HEAD
-else
-  rm -rf ${APP_DIR}
-  git clone -q --depth 1 -b ${REPO_BRANCH} ${REPO_URL} ${APP_DIR}
-fi"
-  ok "Cloned ${REPO_URL} (${REPO_BRANCH})"
+  # Full history + tags so the in-app Version History can offer downgrades. Untracked files (.env, data/*.json,
+  # .ssh) survive the reset; an existing tree without .git (deploy.sh install) is converted in place, never deleted.
+  ct "mkdir -p ${APP_DIR} && cd ${APP_DIR}
+G='git -c safe.directory=*'
+[ -d .git ] || { \$G init -q -b ${REPO_BRANCH}; \$G remote add origin ${REPO_URL}; }
+[ -f .git/shallow ] && U=--unshallow || U=
+\$G fetch -q --tags --force \$U origin +refs/heads/${REPO_BRANCH}:refs/remotes/origin/${REPO_BRANCH}
+\$G checkout -q -f -B ${REPO_BRANCH} origin/${REPO_BRANCH}
+\$G rev-parse HEAD >.build-commit"
+  ok "Fetched ${REPO_URL} (${REPO_BRANCH})"
 fi
 
 # ---------------------------------------------------------------- Host helper (root-only operations)
@@ -292,15 +327,11 @@ ok "Samba ready (shares managed in Network Shares)"
 
 PVE_BRIDGE="$(pct config "$CTID" | sed -n 's/^net0:.*bridge=\([^,]*\).*/\1/p')"
 
-# Keep a password changed in Control Panel across updates; only fresh installs get a generated one.
-ADMIN_PW_LINE="$(pct exec "$CTID" -- grep -m1 '^ADMIN_PASSWORD=.' "${APP_DIR}/backend/.env" 2>/dev/null || true)"
-if [[ -n "$ADMIN_PW_LINE" ]]; then
-  ADMIN_PASSWORD_SHOWN="(unchanged; change it in Control Panel)"
+if [[ -n "$UPGRADE" ]]; then
+  # Never rewrite an existing .env: only append keys introduced by newer releases.
+  ct "bash ${APP_DIR}/deploy/merge-env.sh ${APP_DIR}/backend/.env ${APP_DIR}/deploy/env-defaults"
+  ok "Kept backend/.env (new keys appended with defaults)"
 else
-  ADMIN_PW_LINE="ADMIN_PASSWORD=${ADMIN_PASSWORD}"
-  ADMIN_PASSWORD_SHOWN="${ADMIN_PASSWORD}"
-fi
-
 ENV_FILE="$(mktemp)"
 chmod 600 "$ENV_FILE"
 cat >"$ENV_FILE" <<EOF
@@ -310,15 +341,19 @@ PVE_TOKEN_ID=${PVE_USER}!${TOKEN_NAME}
 PVE_TOKEN_SECRET=${PVE_TOKEN_SECRET}
 PVE_VERIFY_SSL=false
 ADMIN_USERNAME=admin
-${ADMIN_PW_LINE}
+ADMIN_PASSWORD=${ADMIN_PASSWORD}
 JWT_SECRET=${JWT_SECRET}
 STORAGE_ROOT=${STORAGE_ROOT}
 PVE_BRIDGE=${PVE_BRIDGE:-vmbr0}
 HOST_SSH=root@${HOST_IP}
+REPO_URL=${REPO_URL}
+REPO_BRANCH=${REPO_BRANCH}
 EOF
 pct push "$CTID" "$ENV_FILE" "${APP_DIR}/backend/.env" --perms 600
 rm -f "$ENV_FILE"
+ct "bash ${APP_DIR}/deploy/merge-env.sh ${APP_DIR}/backend/.env ${APP_DIR}/deploy/env-defaults >/dev/null"
 ok "Wrote backend/.env"
+fi
 
 msg "Installing backend"
 ct "cd ${APP_DIR}/backend
@@ -353,18 +388,33 @@ done
 ok "Healthy"
 
 trap - ERR
-cat <<EOF
-
-${C_GREEN}╔══════════════════════════════════════════════════════╗
-║              ProxmoxOS is ready                      ║
-╚══════════════════════════════════════════════════════╝${C_RESET}
-  Web UI:    http://${CT_IP}
-  Username:  admin
-  Password:  ${ADMIN_PASSWORD_SHOWN}
-
-  Container: ${CTID} (${CT_HOSTNAME})
-  Storage:   ${STORAGE_ROOT} (${#MOUNTS[@]} ZFS dataset(s) mounted)
-  SMB:       smb://${CT_IP}/<share>  (create shares in Network Shares)
-  Re-run this installer any time to update; it rotates the API token and keeps the admin password.
-
-EOF
+VERSION="$(pct exec "$CTID" -- python3 -c "import json; print(json.load(open('${APP_DIR}/frontend/package.json'))['version'])" 2>/dev/null || echo "?")"
+BAR="════════════════════════════════════════════════════════════════════════════"
+row() { printf "${C_GREEN}║${C_RESET}  %-16s %-56s ${C_GREEN}║${C_RESET}\n" "$1" "$2"; }
+edge() { echo "${C_GREEN}$1${BAR}$2${C_RESET}"; }
+echo
+edge ╔ ╗
+if [[ -n "$UPGRADE" ]]; then
+  row "" "ProxmoxOS upgraded to v${VERSION}"
+  edge ╠ ╣
+  row "Web UI URL:" "http://${CT_IP}"
+  row "Status:" "Healthy (backend and nginx restarted)"
+  row "Login:" "unchanged (your existing admin password)"
+  row "Container ID:" "${CTID}"
+  row "Backup (in CT):" "${BACKUP}"
+else
+  row "" "ProxmoxOS v${VERSION} is ready"
+  edge ╠ ╣
+  row "Web UI URL:" "http://${CT_IP}"
+  row "Username:" "admin"
+  row "Password:" "${ADMIN_PASSWORD}"
+  row "" "(Saved in ${APP_DIR}/backend/.env)"
+  row "Container ID:" "${CTID}"
+  row "Proxmox Host:" "${PVE_NODE} (${HOST_IP})"
+  row "Storage Mount:" "${STORAGE_ROOT} (${#MOUNTS[@]} ZFS dataset(s))"
+  edge ╠ ╣
+  row "Tip:" "Save these credentials now. You can update ProxmoxOS"
+  row "" "anytime from Control Panel -> System & Updates."
+fi
+edge ╚ ╝
+echo

@@ -4,7 +4,7 @@ import time
 
 from fastapi import APIRouter, Depends
 
-from . import telemetry
+from . import telemetry, updater
 from .auth import require_user
 from .pve import _node, _safe
 from .tasks import normalize
@@ -86,5 +86,10 @@ async def notifications():
     pools = pools or []
     details = await asyncio.gather(*[_safe(_node(f"/disks/zfs/{p['name']}"), {}) for p in pools])
     alerts = evaluate(pools, details, targets or [], status or {}, hw["disks"], [normalize(t) for t in tasks or []])
+    u = updater.load_settings()
+    if u["mode"] != "manual" and u["update_available"]:
+        alerts.append(_alert("proxmox-os-update", "info", "update", "ProxmoxOS update available",
+                             f"Version {u['latest_remote_tag'] or (u['latest_remote_commit'] or '')[:10]} is ready. "
+                             "Install it in Control Panel → System & Updates."))
     counts = {s: sum(a["severity"] == s for a in alerts) for s in RANK}
     return {"alerts": alerts, "counts": counts, "generated_at": int(time.time())}

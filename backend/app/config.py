@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # Self-updater source; a deployment without .git is converted to a checkout of this repo on first update.
     repo_url: str = "https://github.com/Legend-Services/SolarOS.git"
     repo_branch: str = "main"
+    update_settings_file: Path = Path(__file__).resolve().parent.parent / "data" / "update_settings.json"
+    # Optional: lets the in-app bug reporter open GitHub issues directly (needs the "issues: write" scope).
+    github_token: str = ""
 
 
 settings = Settings()

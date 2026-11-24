@@ -6,6 +6,7 @@ import Desktop from "./components/Desktop";
 import Dock from "./components/Dock";
 import WindowLayer from "./components/WindowLayer";
 import SpotlightSearch from "./components/SpotlightSearch";
+import BugReportModal from "./components/BugReportModal";
 import GuidedWizardModal from "./components/wizards/GuidedWizardModal";
 import { startPreferencesSync } from "./store/layoutStore";
 import { useWizard } from "./store/wizardStore";
@@ -51,6 +52,7 @@ export default function App() {
             <TopBar />
             <Dock />
             <SpotlightSearch />
+            <BugReportModal />
             <GuidedWizardModal />
           </>
         )}

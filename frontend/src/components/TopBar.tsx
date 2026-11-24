@@ -1,9 +1,9 @@
 import { useState, type ReactNode } from "react";
-import { BookOpen, CircleHelp, Cpu, Database, LayoutDashboard, LayoutGrid, LifeBuoy, Lock, LogOut, MemoryStick, Search, SlidersHorizontal, Sparkles, SquareTerminal, User } from "lucide-react";
+import { BookOpen, Bug, CircleHelp, Cpu, Database, LayoutDashboard, LayoutGrid, LifeBuoy, Lock, LogOut, MemoryStick, Search, SlidersHorizontal, Sparkles, SquareTerminal, User } from "lucide-react";
 import { useLayout } from "../store/layoutStore";
 import { useWizard } from "../store/wizardStore";
 import { ViewOptionsPanel } from "./ViewOptions";
-import { activeWindow, useAuth, useSpotlight, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
+import { activeWindow, useAuth, useBugReport, useSpotlight, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
 import { useClock, useDismiss } from "../lib/hooks";
 import TaskCenterPopover from "./TaskCenterPopover";
 import NotificationPopover from "./NotificationPopover";
@@ -28,6 +28,7 @@ export default function TopBar() {
   const storage = useTelemetry((s) => s.storage);
   const { username, lock, logout } = useAuth();
   const openSpotlight = useSpotlight((s) => s.set);
+  const openBugReport = useBugReport((s) => s.set);
   const [launcher, setLauncher] = useState(false);
   const [menu, setMenu] = useState(false);
   const launcherRef = useDismiss(launcher, () => setLauncher(false));
@@ -136,6 +137,9 @@ export default function TopBar() {
             <button onClick={() => (open("help"), setHelp(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
               <LifeBuoy size={14} /> Help &amp; Support
             </button>
+            <button onClick={() => (openBugReport(true), setHelp(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
+              <Bug size={14} /> Report a Bug
+            </button>
           </div>
         )}
       </div>
@@ -162,6 +166,9 @@ export default function TopBar() {
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10"
             >
               <SlidersHorizontal size={14} /> Control Panel
+            </button>
+            <button onClick={() => (openBugReport(true), setMenu(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
+              <Bug size={14} /> Report a Bug
             </button>
             <button onClick={lock} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
               <Lock size={14} /> Lock

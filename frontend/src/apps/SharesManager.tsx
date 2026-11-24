@@ -105,7 +105,7 @@ function ShareForm({ users, onDone }: { users: string[]; onDone: () => void }) {
         <GlassSwitch checked={f.read_only} onChange={toggle("read_only")} label="Read-only" />
         <GlassSwitch checked={f.guest_ok} onChange={toggle("guest_ok")} label="Guest access (no password)" />
         <GlassSwitch checked={f.recycle_bin} onChange={toggle("recycle_bin")} label="Recycle bin (.recycle folder)" />
-        <GlassSwitch checked={f.timemachine} onChange={toggle("timemachine")} label="Time Machine backup target" />
+        <GlassSwitch checked={f.timemachine} onChange={toggle("timemachine")} label="Network Backup Target (for desktop backup apps)" />
         <GlassSwitch checked={f.browseable} onChange={toggle("browseable")} label="Visible in network browsing" />
       </div>
       <fieldset>
@@ -317,7 +317,7 @@ export default function SharesManager() {
                   <span className="font-mono text-[11px] text-slate-400">{s.path}</span>
                   <GlassBadge tone={s.read_only ? "warning" : "success"}>{s.read_only ? "READ-ONLY" : "READ/WRITE"}</GlassBadge>
                   {s.guest_ok && <GlassBadge tone="info">GUEST</GlassBadge>}
-                  {s.timemachine && <GlassBadge tone="info">TIME MACHINE</GlassBadge>}
+                  {s.timemachine && <GlassBadge tone="info">BACKUP TARGET</GlassBadge>}
                   {s.recycle_bin && <GlassBadge>RECYCLE BIN</GlassBadge>}
                   {!s.browseable && <GlassBadge>HIDDEN</GlassBadge>}
                   <GlassButton size="xs" variant="danger" className="ml-auto" onClick={() => remove(s)} aria-label={`Delete share ${s.name}`}>
