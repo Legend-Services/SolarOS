@@ -6,6 +6,7 @@ import { deviceControls, useInsets, useLayout } from "../store/layoutStore";
 import { useWizard } from "../store/wizardStore";
 import { useActiveTheme } from "../store/themeStore";
 import { APPS } from "../apps/registry";
+import { useTranslation } from "../i18n";
 import WindowErrorBoundary from "./WindowErrorBoundary";
 import type { ConsoleTarget } from "../lib/types";
 
@@ -77,6 +78,7 @@ function towards(r: Rect, target: Rect | undefined) {
 export default function WindowFrame({ win, mobile, Body }: { win: Win; mobile: boolean; Body: ComponentType<{ params?: ConsoleTarget }> }) {
   const { focus, close, minimize, toggleMaximize, update } = useWindows();
   const dockRect = useWindows((s) => s.dockIconRects[win.id]);
+  const { t, appTitle } = useTranslation();
   const showGuide = useWizard((s) => s.show); // guide ids match app ids (APP_GUIDES)
   const drag = useRef<{ mode: "move" | Dir; sx: number; sy: number; ox: number; oy: number; ow: number; oh: number } | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -90,7 +92,7 @@ export default function WindowFrame({ win, mobile, Body }: { win: Win; mobile: b
   const { top, bottom } = useInsets(); // space taken by the top bar (Dock layout) or the taskbar
   const { icon: Icon } = APPS[win.id];
   const p = win.params;
-  const title = p ? `${p.mode === "vnc" ? "Console" : "Shell"} — ${p.name} (${p.type === "node" ? "host" : p.vmid})` : APPS[win.id].title;
+  const title = p ? `${p.mode === "vnc" ? "Console" : "Shell"} — ${p.name} (${p.type === "node" ? "host" : p.vmid})` : appTitle(win.id);
 
   useEffect(() => {
     const r = requestAnimationFrame(() => setPhase("open"));
@@ -193,7 +195,7 @@ export default function WindowFrame({ win, mobile, Body }: { win: Win; mobile: b
           <button
             onClick={() => showGuide(win.id)}
             className="flex items-center gap-1 rounded-full bg-white/[0.07] px-2 py-0.5 text-[11px] font-medium text-slate-200 ring-1 ring-white/10 transition ring-inset hover:bg-sky-400/25 hover:text-white active:scale-95"
-            aria-label={`Step-by-step guide for ${APPS[win.id].title}`}
+            aria-label={t("top.guide", { app: appTitle(win.id) })}
             title="Step-by-step guide for this app"
           >
             <CircleHelp size={12} /> Guide
@@ -216,7 +218,7 @@ export default function WindowFrame({ win, mobile, Body }: { win: Win; mobile: b
           )}
         </header>
         <div className="min-h-0 flex-1 overflow-hidden">
-          <WindowErrorBoundary app={APPS[win.id].title}>
+          <WindowErrorBoundary app={appTitle(win.id)}>
             <Suspense fallback={<p className="p-4 text-sm text-slate-400">Loading…</p>}>
               <Body params={win.params} />
             </Suspense>

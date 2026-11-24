@@ -3,8 +3,11 @@ import { ArrowRight, Loader2, Server, ShieldCheck, User } from "lucide-react";
 import { useAuth } from "../lib/stores";
 import { useClock } from "../lib/hooks";
 import { TRADEMARK_NOTICE } from "../lib/brand";
+import { useTranslation } from "../i18n";
+import LanguagePill from "./LanguagePill";
 
 export default function LockScreen({ visible, checking }: { visible: boolean; checking: boolean }) {
+  const { t, language } = useTranslation();
   const now = useClock();
   const login = useAuth((s) => s.login);
   const lockedUser = useAuth((s) => s.username);
@@ -55,12 +58,13 @@ export default function LockScreen({ visible, checking }: { visible: boolean; ch
       aria-hidden={!visible}
     >
       <div className="absolute inset-0 bg-black/30 backdrop-blur-md" />
+      <LanguagePill className="glass-soft absolute top-4 right-4 px-3 py-1" />
       <div className="relative text-center select-none">
         <div className="text-7xl font-extralight tracking-tight text-white tabular-nums sm:text-8xl">
-          {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+          {now.toLocaleTimeString(language, { hour: "2-digit", minute: "2-digit" })}
         </div>
         <div className="mt-2 text-lg text-slate-300">
-          {now.toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" })}
+          {now.toLocaleDateString(language, { weekday: "long", month: "long", day: "numeric" })}
         </div>
         <div className="glass-soft mx-auto mt-4 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs text-slate-300">
           <Server size={12} /> {node || "…"}
@@ -80,15 +84,15 @@ export default function LockScreen({ visible, checking }: { visible: boolean; ch
               </div>
               <div>
                 <div className="font-medium text-white">SolarDeck</div>
-                <div className="text-xs text-slate-400">SolarDeck for Proxmox VE · Sign in to continue</div>
+                <div className="text-xs text-slate-400">{t("login.subtitle")}</div>
               </div>
             </div>
             <label className="mb-1 block text-xs text-slate-400" htmlFor="u">
-              Username
+              {t("login.username")}
             </label>
             <input id="u" className="input mb-3 w-full" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
             <label className="mb-1 block text-xs text-slate-400" htmlFor="p">
-              Password
+              {t("login.password")}
             </label>
             <div className="flex gap-2">
               <input
@@ -104,7 +108,7 @@ export default function LockScreen({ visible, checking }: { visible: boolean; ch
                 type="submit"
                 disabled={busy || !password || (needOtp && otp.length !== 6)}
                 className="flex w-11 shrink-0 items-center justify-center rounded-lg bg-sky-500 text-white transition hover:bg-sky-400 disabled:opacity-40"
-                aria-label="Sign in"
+                aria-label={t("login.signIn")}
               >
                 {busy ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
               </button>
@@ -112,7 +116,7 @@ export default function LockScreen({ visible, checking }: { visible: boolean; ch
             {needOtp && (
               <div className="mt-3">
                 <label className="mb-1 flex items-center gap-1.5 text-xs text-slate-400" htmlFor="otp">
-                  <ShieldCheck size={12} /> Two-factor code
+                  <ShieldCheck size={12} /> {t("login.twoFactor")}
                 </label>
                 <input
                   id="otp"

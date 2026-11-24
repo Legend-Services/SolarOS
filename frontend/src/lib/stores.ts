@@ -146,9 +146,9 @@ export interface Intents {
   files?: string; // File Station path
   compute?: "vm" | "lxc" | "iso"; // open a wizard or the ISO tab
   storage?: "pool" | "dataset" | "pools" | "disks" | "benchmark" | "snapshots"; // a dialog or a tab
-  controlpanel?: "security" | "network" | "appearance" | "hardware" | "power";
+  controlpanel?: "security" | "network" | "appearance" | "automation" | "hardware" | "power";
   help?: "ask" | "fix" | "bios" | "tutorials" | "faq";
-  netservices?: "dns" | "dhcp" | "wg" | "wgc" | "router" | "domains" | "certs";
+  netservices?: "dns" | "dhcp" | "wg" | "wgc" | "router" | "domains" | "certs" | "topology";
   backup?: "backups" | "schedules" | "now"; // a tab, or the Back Up Now dialog
   shares?: "create" | "users";
 }

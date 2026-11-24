@@ -11,3 +11,7 @@ data/update_settings.json
 data/update_settings.tmp
 data/app_usage.json
 data/app_usage.tmp
+data/alert_channels.json
+data/automation_rules.json
+data/automation_logs.json
+data/*.tmp

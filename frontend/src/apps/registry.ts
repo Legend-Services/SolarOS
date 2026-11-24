@@ -11,7 +11,7 @@ export const APPS = {
   appcenter: { title: "App Center", desc: "One-click installs: Jellyfin, Docker, AdGuard Home and more", icon: Store, size: { w: 1040, h: 660 } },
   "local-ai": { title: "Local AI", desc: "Download and run AI models on your GPU, with a test chat", icon: BrainCircuit, size: { w: 1080, h: 700 } },
   backup: { title: "Backup Center", desc: "Back up, schedule and restore VMs and containers", icon: ArchiveRestore, size: { w: 980, h: 640 } },
-  shares: { title: "Network Shares", desc: "Share folders with Windows, Linux and phones", icon: Share2, size: { w: 940, h: 640 } },
+  shares: { title: "Network Shares", desc: "Share folders with every computer and phone on your network", icon: Share2, size: { w: 940, h: 640 } },
   netservices: { title: "Network & Services", desc: "DNS, ad blocking, DHCP, WireGuard VPN and certificates", icon: Globe, size: { w: 1060, h: 680 } },
   datacenter: { title: "Datacenter", desc: "Users, roles, permissions, firewall and logs", icon: Building2, size: { w: 1080, h: 680 } },
   terminal: { title: "Host Shell", desc: "Instant root command line on the host, no password", icon: Terminal, size: { w: 900, h: 560 } },

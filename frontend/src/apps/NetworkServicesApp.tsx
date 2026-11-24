@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { AtSign, Award, Download, Globe, Network, Plus, QrCode, RefreshCw, Route, ShieldCheck, Trash2, Waypoints } from "lucide-react";
+import { AtSign, Award, Download, Globe, Network, Share2, Plus, QrCode, RefreshCw, Route, ShieldCheck, Trash2, Waypoints } from "lucide-react";
 import { api } from "../lib/api";
 import { bytes } from "../lib/format";
 import { usePoll, useRunner } from "../lib/hooks";
@@ -7,6 +7,8 @@ import { JobLog } from "../components/JobLog";
 import { GuideBanner } from "../components/wizards/GuidedWizardModal";
 import { useIntentFor } from "../lib/stores";
 import DomainsTab from "./network/DomainsTab";
+import TopologyTab from "./network/TopologyTab";
+import { useTranslation, type TKey } from "../i18n";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, Notice } from "../components/ui/GlassKit";
 
 /* ---------------- Types (local to this app) ---------------- */
@@ -140,15 +142,16 @@ interface CertState {
   nginx_https: boolean;
 }
 
-type Tab = "dns" | "dhcp" | "wg" | "wgc" | "router" | "domains" | "certs";
-const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
-  { id: "dns", label: "DNS & AdBlock", icon: <ShieldCheck size={15} /> },
-  { id: "dhcp", label: "DHCP", icon: <Network size={15} /> },
-  { id: "wg", label: "WireGuard Server", icon: <Waypoints size={15} /> },
-  { id: "wgc", label: "WireGuard Client", icon: <Globe size={15} /> },
-  { id: "router", label: "Router & NAT", icon: <Route size={15} /> },
-  { id: "domains", label: "Domains", icon: <AtSign size={15} /> },
-  { id: "certs", label: "Certificates", icon: <Award size={15} /> },
+type Tab = "topology" | "dns" | "dhcp" | "wg" | "wgc" | "router" | "domains" | "certs";
+const TABS: { id: Tab; label: TKey; icon: ReactNode }[] = [
+  { id: "topology", label: "net.topology", icon: <Share2 size={15} /> },
+  { id: "dns", label: "net.dns", icon: <ShieldCheck size={15} /> },
+  { id: "dhcp", label: "net.dhcp", icon: <Network size={15} /> },
+  { id: "wg", label: "net.wg", icon: <Waypoints size={15} /> },
+  { id: "wgc", label: "net.wgc", icon: <Globe size={15} /> },
+  { id: "router", label: "net.router", icon: <Route size={15} /> },
+  { id: "domains", label: "net.domains", icon: <AtSign size={15} /> },
+  { id: "certs", label: "net.certs", icon: <Award size={15} /> },
 ];
 
 const lines = (s: string) => s.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean);
@@ -1061,7 +1064,8 @@ function CertsTab() {
 /* ---------------- App ---------------- */
 
 export default function NetworkServicesApp() {
-  const [tab, setTab] = useState<Tab>("dns");
+  const { t: tr } = useTranslation();
+  const [tab, setTab] = useState<Tab>("topology");
   useIntentFor("netservices", setTab);
   const [status, setStatus] = useState<NetStatus | null>(null);
   const [error, setError] = useState("");
@@ -1080,19 +1084,21 @@ export default function NetworkServicesApp() {
             className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition ${
               tab === t.id ? "bg-white/12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
             }`}
-            title={t.label}
+            title={tr(t.label)}
           >
             {t.icon}
-            <span className="max-sm:hidden">{t.label}</span>
+            <span className="max-sm:hidden">{tr(t.label)}</span>
           </button>
         ))}
         <button onClick={reload} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-slate-500 hover:text-slate-200" title="Refresh">
-          <RefreshCw size={15} /> <span className="max-sm:hidden">Refresh</span>
+          <RefreshCw size={15} /> <span className="max-sm:hidden">{tr("common.refresh")}</span>
         </button>
       </nav>
       <div className="min-w-0 flex-1 overflow-auto p-4">
         <Notice error={error} />
-        {tab === "certs" ? (
+        {tab === "topology" ? (
+          <TopologyTab onTab={setTab} />
+        ) : tab === "certs" ? (
           <CertsTab />
         ) : tab === "domains" ? (
           <DomainsTab onOpenDns={() => setTab("dns")} />

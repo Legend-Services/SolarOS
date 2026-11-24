@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager, suppress
 
 from fastapi import FastAPI
 
-from . import (apps, auth, backups, bug_report, console, disk_benchmark, domains, files, guest_hardware, hardware_admin, help_center, host_ssh, local_ai, net_services, notifications,
+from . import (apps, auth, automation, backups, bug_report, console, disk_benchmark, domains, files, guest_hardware, hardware_admin, help_center, host_ssh, local_ai, net_services, notifications,
                provisioning, pve, pve_access, pve_datacenter, schedules, shares, storage_admin, system, system_extra, tasks,
                telemetry, themes, updater)
 from .config import settings
@@ -12,7 +12,8 @@ from .config import settings
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     host_ssh.public_key_or_none()  # create the bridge key on first start so install.sh / the UI can authorize it
-    loops = [asyncio.create_task(schedules.scheduler_loop()), asyncio.create_task(updater.scheduler_loop())]
+    loops = [asyncio.create_task(schedules.scheduler_loop()), asyncio.create_task(updater.scheduler_loop()),
+             asyncio.create_task(automation.scheduler_loop())]
     yield
     for t in loops:
         t.cancel()
@@ -39,9 +40,10 @@ app.include_router(provisioning.router)
 app.include_router(backups.router)
 app.include_router(system_extra.router)
 for module in (host_ssh, pve_access, pve_datacenter, net_services, hardware_admin, guest_hardware, help_center,
-               disk_benchmark, updater, bug_report, local_ai, domains, themes):
+               disk_benchmark, updater, bug_report, local_ai, domains, themes, automation):
     app.include_router(module.router)
 app.include_router(themes.public)
+app.include_router(automation.topology_router)
 
 
 @app.get("/api/health")

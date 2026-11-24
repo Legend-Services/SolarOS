@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.12.0 - Phase 17: Interactive Desktop Widget Studio, Automation Rules & External Alerts, Network Topology Map & Multi-Language Support — 2026-11-24
+
+### Added
+- **Widget Studio**: Edit Widgets mode (View Options → Customize Widgets, right-click the desktop → Customize Widgets, or the *Edit Widgets* pill under the widgets).
+  - Switch each widget on or off, drag it to a new place or to another slot (left column, right column or the grid in the middle of the desktop), and pick Compact or Expanded. The drawer offers the same with buttons, for keyboard use.
+  - Widgets: System Health, ZFS & Storage Pools, Compute Summary, GPU & Thermal Monitor (GPU load, VRAM, power, integrated GPU and drive temperatures), Live Network Throughput (RX/TX graph), Local AI Studio card (active model, VRAM, one-click Playground) and Quick Actions & Scratchpad (Host Shell, Backup Now, Lock Screen and admin notes).
+  - The layout and notes are saved in the browser and under `widgets` in `/api/system/preferences`.
+- **Automation & Alerts** in the Control Panel:
+  - *Alert Channels*: Telegram Bot, Discord Webhook (rich embeds), Custom Webhook (POST or PUT, optional bearer token) and SMTP Email (STARTTLS or TLS on port 465), each with **Send Test** and the exact delivery result. Secrets are masked in the UI and kept in `backend/data/alert_channels.json` (mode 600).
+  - *Automation Rules*: triggers `gpu_temp_above`, `disk_temp_above`, `zfs_pool_degraded`, `storage_usage_above`, `guest_stopped_unexpectedly` (keep-alive guest) and `scheduled_time` (HH:MM, every day or chosen weekdays); actions `send_external_alert`, `restart_guest`, `start_guest`, `stop_guest` and `prune_old_snapshots`. Plain-English summaries such as *When GPU Temperature > 80°C → Send Telegram & Discord Alert*, a cooldown per rule (default 15 minutes) and a live execution log.
+  - Rule alerts and failed actions of the last 24 hours also appear in the top bar Notification Center.
+  - API: `GET|PUT /api/automation/channels`, `POST /api/automation/channels/test`, `GET|POST /api/automation/rules`, `PUT|DELETE /api/automation/rules/{id}`, `GET /api/automation/logs`. Rules are checked every minute by the backend's scheduler.
+- **Network Topology** (Network & Services, now the first tab): an interactive map from Internet / WAN through the host's NICs, bonds, bridges and VLANs to every VM, container, the WireGuard server and its peers, and port forwards. Click a node to highlight its links and see IP, MAC and link status, with Open Console, Configure Bridge, Edit Port Forward or Configure VPN. API: `GET /api/pve/network/topology` (`nodes[]`, `edges[]`).
+- **Languages**: English, Nederlands, Deutsch, Español and Français for the login screen, top bar, Dock, taskbar, App Gallery, View Options, Control Panel, app names, widgets, Automation & Alerts and Network & Services tabs. Choose the language on the login screen, in the top bar or taskbar, or in Control Panel → Appearance & Themes. It is saved in the browser and under `i18n.language` in `/api/system/preferences`; on the first visit the browser language is used.
+
+### Changed
+- Control Panel → Appearance & Themes has Language and Desktop (widgets) cards; the widget switch and layout now follow you between browsers.
+
 ## v1.11.0 - Phase 16: Clean Desktop, Adaptive Dock/Taskbar App Gallery Button, Drag-and-Drop Icon Reordering & Real Usage Sorting — 2026-11-24
 
 ### Added

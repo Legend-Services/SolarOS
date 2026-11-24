@@ -4,7 +4,7 @@ import time
 
 from fastapi import APIRouter, Depends
 
-from . import telemetry, updater
+from . import automation, telemetry, updater
 from .auth import require_user
 from .pve import _node, _safe
 from .tasks import normalize
@@ -91,5 +91,7 @@ async def notifications():
         alerts.append(_alert("proxmox-os-update", "info", "update", "SolarDeck update available",
                              f"Version {u['latest_remote_tag'] or (u['latest_remote_commit'] or '')[:10]} is ready. "
                              "Install it in Control Panel → System & Updates."))
+    alerts += automation.recent_alerts()
+    alerts.sort(key=lambda a: RANK[a["severity"]])
     counts = {s: sum(a["severity"] == s for a in alerts) for s in RANK}
     return {"alerts": alerts, "counts": counts, "generated_at": int(time.time())}

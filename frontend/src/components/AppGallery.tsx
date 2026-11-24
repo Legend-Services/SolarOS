@@ -7,16 +7,17 @@ import { APP_GUIDES } from "../data/wizardGuides";
 import { useWizard } from "../store/wizardStore";
 import { useAppView, useLayout, useShell, type GallerySort } from "../store/layoutStore";
 import { AppIcon } from "./icons/AppIcons";
+import { useTranslation, type TKey } from "../i18n";
 import { AppListRow, ViewToggle } from "./ViewOptions";
 import { GlassButton, GlassSelect } from "./ui/GlassKit";
 
 const CATEGORIES = {
-  all: "All",
-  system: "System & Hardware",
-  storage: "Storage & Backups",
-  compute: "Compute & AI",
-  network: "Network & Shares",
-} as const;
+  all: "gallery.cat.all",
+  system: "gallery.cat.system",
+  storage: "gallery.cat.storage",
+  compute: "gallery.cat.compute",
+  network: "gallery.cat.network",
+} as const satisfies Record<string, TKey>;
 type Category = keyof typeof CATEGORIES;
 
 const CATEGORY_OF: Partial<Record<AppId, Exclude<Category, "all">>> = {
@@ -36,20 +37,20 @@ const CATEGORY_OF: Partial<Record<AppId, Exclude<Category, "all">>> = {
   netservices: "network",
 };
 
-const SORT_LABELS: Record<GallerySort, string> = {
-  custom: "Custom Order",
-  "most-used": "Most Used",
-  "alpha-asc": "Name (A–Z)",
-  "alpha-desc": "Name (Z–A)",
-  recent: "Recently Used",
+const SORT_LABELS: Record<GallerySort, TKey> = {
+  custom: "gallery.sort.custom",
+  "most-used": "gallery.sort.mostUsed",
+  "alpha-asc": "gallery.sort.alphaAsc",
+  "alpha-desc": "gallery.sort.alphaDesc",
+  recent: "gallery.sort.recent",
 };
 
 /** Every app in display order: the saved custom order first (unknown apps appended), then the chosen sort on top of it. */
-export function sortApps(mode: GallerySort, custom: AppId[], usage: Partial<Record<AppId, AppUsage>>): AppId[] {
+export function sortApps(mode: GallerySort, custom: AppId[], usage: Partial<Record<AppId, AppUsage>>, title = (id: AppId) => APPS[id].title): AppId[] {
   const base = [...custom.filter((id) => (APP_IDS as AppId[]).includes(id)), ...APP_IDS.filter((id) => !custom.includes(id))];
   const count = (id: AppId) => usage[id]?.launch_count ?? 0;
   const last = (id: AppId) => Date.parse(usage[id]?.last_opened_at ?? "") || 0;
-  const name = (a: AppId, b: AppId) => APPS[a].title.localeCompare(APPS[b].title);
+  const name = (a: AppId, b: AppId) => title(a).localeCompare(title(b));
   // Array.prototype.sort is stable, so ties keep the custom order.
   if (mode === "most-used") return base.sort((a, b) => count(b) - count(a));
   if (mode === "recent") return base.sort((a, b) => last(b) - last(a));
@@ -60,6 +61,7 @@ export function sortApps(mode: GallerySort, custom: AppId[], usage: Partial<Reco
 
 /** Full-screen frosted-glass App Gallery: search, categories, sort, Grid | List, drag-and-drop order, pin to the bottom bar. */
 export default function AppGallery() {
+  const { t, appTitle, appDesc } = useTranslation();
   const { gallery: open, pinned, pin, unpin, set } = useDock();
   const openApp = useWindows((s) => s.open);
   const usage = useUsage((s) => s.usage);
@@ -75,10 +77,10 @@ export default function AppGallery() {
   const menuRef = useDismiss(!!menu, () => setMenu(null));
   const close = () => set({ gallery: false });
 
-  const ordered = sortApps(sort, galleryAppOrder, usage);
+  const ordered = sortApps(sort, galleryAppOrder, usage, appTitle);
   const q = query.trim().toLowerCase();
   const apps = ordered.filter(
-    (id) => (category === "all" || CATEGORY_OF[id] === category) && (!q || `${APPS[id].title} ${APPS[id].desc}`.toLowerCase().includes(q)),
+    (id) => (category === "all" || CATEGORY_OF[id] === category) && (!q || `${appTitle(id)} ${appDesc(id)} ${APPS[id].title}`.toLowerCase().includes(q)),
   );
   const topUsed = sortApps("most-used", galleryAppOrder, usage).find((id) => (usage[id]?.launch_count ?? 0) > 0);
   const flipRef = useFlip<HTMLDivElement>(apps.join(",") + view);
@@ -116,7 +118,7 @@ export default function AppGallery() {
     onContextMenu: (e: RMouseEvent) => (e.preventDefault(), e.stopPropagation(), setMenu(id)),
   });
   const count = (id: AppId) => usage[id]?.launch_count ?? 0;
-  const badge = (id: AppId) => (id === topUsed && sort === "most-used" ? "Top Used" : count(id) ? `${count(id)} ${count(id) === 1 ? "open" : "opens"}` : "");
+  const badge = (id: AppId) => (id === topUsed && sort === "most-used" ? t("gallery.topUsed") : count(id) ? t("gallery.opens", { n: count(id) }) : "");
   // Shown always under Most Used, otherwise on hover only.
   const badgeEl = (id: AppId) =>
     badge(id) ? (
@@ -127,20 +129,20 @@ export default function AppGallery() {
 
   const menuEl = (id: AppId) => (
     <div ref={menuRef} data-gallery-menu className="glass absolute top-full left-1/2 z-10 mt-1 w-52 -translate-x-1/2 rounded-xl p-1 text-left text-xs text-slate-100" role="menu" onClick={(e) => e.stopPropagation()}>
-      <MenuItem icon={<Play size={13} />} onClick={() => launch(id)}>Open</MenuItem>
+      <MenuItem icon={<Play size={13} />} onClick={() => launch(id)}>{t("common.open")}</MenuItem>
       {pinned.includes(id) ? (
-        <MenuItem icon={<PinOff size={13} />} onClick={() => (unpin(id), setMenu(null))}>Unpin from Bottom Bar</MenuItem>
+        <MenuItem icon={<PinOff size={13} />} onClick={() => (unpin(id), setMenu(null))}>{t("gallery.unpin")}</MenuItem>
       ) : (
-        <MenuItem icon={<Pin size={13} />} onClick={() => (pin(id), setMenu(null))}>Pin to Bottom Bar</MenuItem>
+        <MenuItem icon={<Pin size={13} />} onClick={() => (pin(id), setMenu(null))}>{t("gallery.pin")}</MenuItem>
       )}
-      {APP_GUIDES[id] && <MenuItem icon={<BookOpen size={13} />} onClick={() => (useWizard.getState().show(id), close())}>Open App Guide</MenuItem>}
+      {APP_GUIDES[id] && <MenuItem icon={<BookOpen size={13} />} onClick={() => (useWizard.getState().show(id), close())}>{t("gallery.guide")}</MenuItem>}
     </div>
   );
   const moreEl = (id: AppId) => (
     <span
       role="button"
       tabIndex={0}
-      aria-label={`More options for ${APPS[id].title}`}
+      aria-label={t("gallery.more", { app: appTitle(id) })}
       onClick={(e) => (e.stopPropagation(), setMenu(menu === id ? null : id))}
       onKeyDown={(e) => e.key === "Enter" && (e.stopPropagation(), setMenu(id))}
       className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-slate-900/70 text-slate-200 opacity-0 transition group-hover:opacity-100 focus:opacity-100 hover:bg-slate-700"
@@ -154,7 +156,7 @@ export default function AppGallery() {
       className={`fixed inset-0 z-[8900] flex flex-col items-center bg-slate-950/40 px-4 pt-12 backdrop-blur-3xl backdrop-saturate-150 transition-all duration-300 ${taskbar ? "pb-16" : "pb-32"} ${shown ? "opacity-100" : "scale-105 opacity-0"}`}
       onClick={close}
       role="dialog"
-      aria-label="App Gallery"
+      aria-label={t("gallery.title")}
     >
       <div className="mb-6 flex w-full max-w-4xl flex-col gap-3" onClick={(e) => e.stopPropagation()}>
         <div className="flex flex-wrap items-center gap-2">
@@ -163,28 +165,28 @@ export default function AppGallery() {
             <input
               autoFocus
               className="glass-field w-full rounded-xl py-2 pl-9 text-sm"
-              placeholder="Search apps..."
+              placeholder={t("gallery.search")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && apps[0] && launch(apps[0])}
-              aria-label="Search apps"
+              aria-label={t("gallery.search")}
             />
           </label>
-          <GlassSelect value={sort} onChange={(e) => setLayout({ gallerySortMode: e.target.value as GallerySort })} aria-label="Sort apps">
+          <GlassSelect value={sort} onChange={(e) => setLayout({ gallerySortMode: e.target.value as GallerySort })} aria-label={t("gallery.sort")}>
             {(Object.keys(SORT_LABELS) as GallerySort[]).map((s) => (
               <option key={s} value={s}>
-                {SORT_LABELS[s]}
+                {t(SORT_LABELS[s])}
               </option>
             ))}
           </GlassSelect>
           <ViewToggle app="gallery" />
           {sort === "custom" && galleryAppOrder.length > 0 && (
-            <GlassButton variant="ghost" size="xs" onClick={() => setLayout({ galleryAppOrder: [] })} title="Back to the default app order">
-              <RotateCcw size={12} /> Reset Order
+            <GlassButton variant="ghost" size="xs" onClick={() => setLayout({ galleryAppOrder: [] })} title={t("gallery.resetOrderHint")}>
+              <RotateCcw size={12} /> {t("gallery.resetOrder")}
             </GlassButton>
           )}
         </div>
-        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Categories">
+        <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={t("gallery.categories")}>
           {(Object.keys(CATEGORIES) as Category[]).map((c) => (
             <button
               key={c}
@@ -193,7 +195,7 @@ export default function AppGallery() {
               onClick={() => setCategory(c)}
               className={`rounded-full px-3 py-1 text-xs transition ${category === c ? "bg-sky-400/25 text-white ring-1 ring-sky-300/50" : "bg-white/5 text-slate-300 hover:bg-white/10"}`}
             >
-              {CATEGORIES[c]}
+              {t(CATEGORIES[c])}
             </button>
           ))}
         </div>
@@ -215,13 +217,13 @@ export default function AppGallery() {
               <button
                 onClick={(e) => (e.stopPropagation(), launch(id))}
                 className="flex w-full flex-col items-center gap-1.5 rounded-2xl p-2 text-center text-xs text-slate-100 transition hover:bg-white/10 active:scale-95"
-                title={APPS[id].desc}
+                title={appDesc(id)}
               >
                 <span className="relative">
                   <AppIcon id={id} size={72} />
-                  {pinned.includes(id) && <Pin size={11} className="absolute -right-1 -bottom-1 rounded-full bg-slate-900/80 p-0.5 text-sky-300" aria-label="On the bottom bar" />}
+                  {pinned.includes(id) && <Pin size={11} className="absolute -right-1 -bottom-1 rounded-full bg-slate-900/80 p-0.5 text-sky-300" aria-label={t("gallery.onBar")} />}
                 </span>
-                <span style={{ textShadow: "0 1px 2px var(--sd-label-shadow)" }}>{APPS[id].title}</span>
+                <span style={{ textShadow: "0 1px 2px var(--sd-label-shadow)" }}>{appTitle(id)}</span>
                 <span className="h-4">
                   {badgeEl(id)}
                 </span>
@@ -231,7 +233,7 @@ export default function AppGallery() {
             </div>
           ),
         )}
-        {apps.length === 0 && <p className="col-span-full text-center text-sm text-slate-300">No apps match “{query}”.</p>}
+        {apps.length === 0 && <p className="col-span-full text-center text-sm text-slate-300">{t("gallery.noMatch")}</p>}
       </div>
 
       {/* The taskbar has no top bar: the account actions live here (they were in the old Start menu). */}
@@ -243,13 +245,13 @@ export default function AppGallery() {
             </span>
             <span className="truncate">{username}</span>
           </span>
-          <GlassButton variant="ghost" size="xs" onClick={() => launch("controlpanel")} aria-label="Control Panel" title="Control Panel">
+          <GlassButton variant="ghost" size="xs" onClick={() => launch("controlpanel")} aria-label={t("top.controlPanel")} title={t("top.controlPanel")}>
             <SlidersHorizontal size={15} />
           </GlassButton>
-          <GlassButton variant="ghost" size="xs" onClick={() => (close(), lock())} aria-label="Lock" title="Lock">
+          <GlassButton variant="ghost" size="xs" onClick={() => (close(), lock())} aria-label={t("top.lock")} title={t("top.lock")}>
             <Lock size={15} />
           </GlassButton>
-          <GlassButton variant="ghost" size="xs" onClick={() => (close(), logout())} aria-label="Log out" title="Log out">
+          <GlassButton variant="ghost" size="xs" onClick={() => (close(), logout())} aria-label={t("top.logout")} title={t("top.logout")}>
             <LogOut size={15} className="text-rose-300" />
           </GlassButton>
         </div>
