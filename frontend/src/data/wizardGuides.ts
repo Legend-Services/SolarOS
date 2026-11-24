@@ -72,7 +72,7 @@ export const WELCOME: Guide = {
   steps: [
     {
       title: "Your Desktop & Widgets",
-      body: "This is your server's desktop. Every app has an icon here — double-click one to open it (one tap on a touchscreen). The glass cards on the right are live widgets showing CPU, memory, storage health and running machines.",
+      body: "This is your server's desktop. Every app has an icon here — click one to open it (prefer double-click? Change it under Control Panel → Appearance & Layout). The glass cards on the right are live widgets showing CPU, memory, storage health and running machines.",
       bullets: [
         "Right-click empty space for quick actions like New Virtual Machine or View Options.",
         "Use View Options (the grid icon in the top bar) to switch between Grid and List, and to change icon size and spacing.",

@@ -28,7 +28,7 @@ export default function Desktop() {
   const gpu = hardware?.gpu;
   const widgets = usePrefs((s) => s.widgets);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
-  const { desktopView, iconSize, colGap, rowGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns } = useLayout();
+  const { desktopView, iconSize, colGap, rowGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, iconClick } = useLayout();
   const dockSize = useDock((s) => s.baseSize);
 
   // Shortcuts fill columns top to bottom and wrap into a new column when the next one would pass the Dock.
@@ -59,12 +59,17 @@ export default function Desktop() {
         rowGap,
       }
     : { gridAutoFlow: "column", gridTemplateRows: `repeat(auto-fill, ${cellH}px)`, gridAutoColumns: cellW, alignContent: "start", columnGap: colGap, rowGap };
-  const launch = (id: AppId) => ({
-    onDoubleClick: () => open(id),
-    onKeyDown: (e: KeyboardEvent) => e.key === "Enter" && open(id),
-    // Single tap opens on touch devices, which have no double-click.
-    onPointerUp: (e: PointerEvent) => e.pointerType === "touch" && open(id),
-  });
+  // Single click (default): the button's own click, which also covers Enter/Space and touch taps.
+  const launch = (id: AppId) =>
+    iconClick === "single"
+      ? { onClick: () => open(id) }
+      : {
+          onDoubleClick: () => open(id),
+          onKeyDown: (e: KeyboardEvent) => e.key === "Enter" && open(id),
+          // Single tap opens on touch devices, which have no double-click.
+          onPointerUp: (e: PointerEvent) => e.pointerType === "touch" && open(id),
+        };
+  const hint = (id: AppId) => `${iconClick === "single" ? "Click" : "Double-click"} to open ${APPS[id].title}`;
 
   return (
     <div
@@ -78,12 +83,13 @@ export default function Desktop() {
         <div className="grid h-full transition-all duration-200 ease-out" style={gridStyle}>
           {APP_IDS.map((id) =>
             list ? (
-              <AppListRow key={id} id={id} iconSize={listIcon} title={`Double-click to open ${APPS[id].title}`} {...launch(id)} />
+              <AppListRow key={id} id={id} iconSize={listIcon} title={hint(id)} {...launch(id)} />
             ) : (
               <button
                 key={id}
                 {...launch(id)}
-                className="group flex w-full flex-col items-center gap-1.5 rounded-xl p-2 text-center text-slate-100 hover:bg-white/10 focus:bg-white/10 focus:outline-none"
+                title={hint(id)}
+                className={`group flex w-full flex-col items-center gap-1.5 rounded-xl p-2 text-center text-slate-100 hover:bg-white/10 focus:bg-white/10 focus:outline-none ${iconClick === "single" ? "cursor-pointer" : ""}`}
                 // text-shadow, not a CSS drop-shadow filter (see AppIcon: filters bleed through window glass in Chrome).
                 style={{ fontSize: font, lineHeight: 1.25, textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}
               >
