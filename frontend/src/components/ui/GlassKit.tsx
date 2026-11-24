@@ -78,6 +78,47 @@ export function GlassSelect({ className = "", children, ...rest }: SelectHTMLAtt
   );
 }
 
+/** Range slider with a label and the current value (or `display`) on the right. */
+export function GlassSlider({
+  value,
+  onChange,
+  min,
+  max,
+  step = 1,
+  label,
+  display,
+  disabled,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  min: number;
+  max: number;
+  step?: number;
+  label: ReactNode;
+  display?: ReactNode;
+  disabled?: boolean;
+}) {
+  return (
+    <label className={`block text-[11px] text-slate-400 ${disabled ? "opacity-40" : ""}`}>
+      <span className="mb-1 flex justify-between gap-2">
+        <span>{label}</span>
+        <span className="text-slate-100 tabular-nums">{display ?? value}</span>
+      </span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        disabled={disabled}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="h-1.5 w-full cursor-pointer accent-sky-400 disabled:cursor-not-allowed"
+        aria-label={typeof label === "string" ? label : undefined}
+      />
+    </label>
+  );
+}
+
 /** Labeled form field wrapper. */
 export function Field({ label, hint, children, className = "" }: { label: ReactNode; hint?: ReactNode; children: ReactNode; className?: string }) {
   return (

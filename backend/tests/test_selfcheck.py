@@ -370,8 +370,11 @@ def handler5(req: httpx.Request) -> httpx.Response:
 
 pve._client = httpx.AsyncClient(transport=httpx.MockTransport(handler5), base_url="https://pve/api2/json")
 assert c.get("/api/pve/disks").json()[0] == {"devpath": "/dev/sda", "by_id": "/dev/disk/by-id/ata-WD", "model": "", "serial": "",
-                                             "vendor": "", "size": 4, "type": "hdd", "bus": "SATA", "rpm": None, "used": "",
-                                             "gpt": False, "health": "PASSED", "wearout": None}
+                                             "vendor": "", "size": 4, "type": "hdd", "bus": "SATA", "rotational": True,
+                                             "rpm": None, "rpm_label": "HDD", "used": "", "gpt": False, "health": "PASSED",
+                                             "wearout_pct": None, "pool_name": None, "vdev_name": None, "member_device": None,
+                                             "member_state": None, "read_errors": None, "write_errors": None,
+                                             "cksum_errors": None}
 assert c.get("/api/pve/disks/sda/smart").json()["temperature_c"] == 40
 assert p4[-1][2] == "disk=%2Fdev%2Fsda", p4[-1]
 assert c.get("/api/pve/disks/%2Fdev%2Fnvme0n1/smart").status_code == 200 and p4[-1][2] == "disk=%2Fdev%2Fnvme0n1", p4[-1]

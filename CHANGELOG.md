@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.2.0 - Phase 9: Storage Asset List/Grid Modes, Disk Tuning, ZFS Member Offline/Replace, SMART Scans & Storage Benchmark — 2026-11-24
+
+### Added
+- **Disk metadata** (`GET /api/pve/disks`): `rotational`, `rpm` (a known spindle speed, otherwise `null`), `rpm_label` (`7200 RPM`, `HDD`, `SSD / NVMe`, `Flash (USB)`) and `wearout_pct` (`null` for hard disks). Each disk also carries its ZFS membership from `zpool status -P`: `pool_name`, `vdev_name`, `member_device`, `member_state`, `read_errors`, `write_errors`, `cksum_errors`. If the SSH bridge is down, the list still loads without them.
+- **Disk tuning** (`GET|PUT /api/pve/disks/{disk}/settings`): APM (`hdparm -B`, 1–254 or `disabled`), spindown (`hdparm -S`, 0/5/10/20/30/60/120 min), write cache (`hdparm -W`), NVMe power state (`nvme set-feature -f 2`; `nvme-cli` is installed on first use; power states come from `smartctl -j`), and SMART on/off (`smartctl -s`). Each control reports `supported` and a `reason` per bus. Tuning is persisted in `/etc/udev/rules.d/69-proxmoxos-disk-tuning.rules`, matched on the exact `/dev/disk/by-id` link.
+- **ZFS member control** (`POST /api/pve/zfs/pools/{pool}/members/offline|online|replace|detach`): devices are checked against `zpool status -P` (full path, short name or kernel device). Offline refuses when the vdev would lose its last redundancy (mirror: all but one; RAIDZ1/2/3: parity). Replace requires `confirm_device`, refuses disks that belong to a pool, and with `partition_match` copies the old disk's GPT (`sgdisk -R`, `-G`) and replaces partition-for-partition. Detach is limited to mirror, replacing and spare members.
+- **Disk scans** (`POST|GET|DELETE /api/pve/disks/{disk}/scan`): SMART short/long self-tests (`smartctl -t`) and a read-only `badblocks -sv -b 4096` surface scan as a detached host job. Status returns progress, ETA, read errors, the bad-block count and the self-test history parsed from `smartctl -j` (ATA and NVMe). DELETE stops the scan and runs `smartctl -X`.
+- **Storage benchmark** (`backend/app/disk_benchmark.py`): `POST /api/pve/disks/benchmark`, `GET /api/pve/disks/benchmark/{id}` (live step progress), `DELETE /api/pve/disks/benchmark/{id}` (stop), `GET /api/pve/disks/benchmark/history`. fio with libaio and `direct=1`, 5 s per pass, best of N passes. Raw disks open with `--readonly` unless unused and confirmed; mountpoints use a temporary `.proxmoxos-bench.tmp` that is always removed. Only one run at a time. Finished runs are stored in `backend/data/benchmarks.json` (last 200).
+- **Storage Manager UI**: Grid | List toggle for disks and datasets, Tune and Scan Drive dialogs, member actions with offline and replace dialogs and a resilver progress bar in ZFS Pools, a new **Benchmark** tab, and a `GlassSlider` primitive. Storage deep links (`pools`, `disks`, `benchmark`) for Help Center "Show me" buttons.
+- **Help Center**: three new tutorials: replacing a failing RAID disk, SMART short vs. extended test vs. surface scan, and reading SEQ1M vs. RND4K benchmark results.
+
+### Changed
+- `GET /api/pve/disks`: `wearout` is renamed to `wearout_pct`. Hard disks that Proxmox reports with `rpm: -1` no longer show "-1 rpm".
+
 ## v0.6.1 — 2026-11-24
 
 ### Fixed

@@ -2,9 +2,12 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNo
 import {
   CalendarClock,
   Camera,
+  ChevronDown,
+  ChevronUp,
   Database,
   Eraser,
   FolderPlus,
+  Gauge,
   HardDrive,
   History,
   Layers,
@@ -14,6 +17,8 @@ import {
   ScanSearch,
   Server,
   ShieldCheck,
+  SlidersHorizontal,
+  Stethoscope,
   Thermometer,
   Trash2,
   Wrench,
@@ -24,15 +29,18 @@ import type { PveDisk, Schedule, Share, SmartReport, StorageInfo, ZfsDataset, Zf
 import { bytes, healthColor, pct, tempColor } from "../lib/format";
 import { useRunner } from "../lib/hooks";
 import { Bar } from "../components/charts";
+import Benchmark from "./storage/Benchmark";
+import { DiskSettingsModal, ScanModal, useViewMode, ViewToggle } from "./storage/DiskTools";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, healthTone, Notice, Segmented } from "../components/ui/GlassKit";
 
-type Tab = "overview" | "pools" | "datasets" | "disks" | "snapshots" | "backends";
+type Tab = "overview" | "pools" | "datasets" | "disks" | "benchmark" | "snapshots" | "backends";
 
 const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
   { id: "overview", label: "Overview", icon: <LayoutDashboard size={15} /> },
   { id: "pools", label: "ZFS Pools", icon: <Database size={15} /> },
   { id: "datasets", label: "Volumes & Datasets", icon: <Layers size={15} /> },
   { id: "disks", label: "Disks & SMART", icon: <HardDrive size={15} /> },
+  { id: "benchmark", label: "Benchmark", icon: <Gauge size={15} /> },
   { id: "snapshots", label: "Snapshots & Schedules", icon: <Camera size={15} /> },
   { id: "backends", label: "Storage backends", icon: <Server size={15} /> },
 ];
@@ -351,26 +359,209 @@ function Overview({ storage, onCreatePool, onCreateDataset }: { storage: Storage
 
 /* ================================================================ Pools */
 
-function Vdev({ v, depth }: { v: ZfsVdev; depth: number }) {
+const memberTone = (st?: string) => (!st ? "neutral" : st === "ONLINE" ? "success" : /OFFLINE|DEGRADED|AVAIL|RESILVER/.test(st) ? "warning" : "danger");
+const REDUNDANT = /^(mirror|raidz[123]?|replacing|spare|draid)/;
+const resilverPct = (scan?: string) => {
+  const m = scan && /(resilver|replac)[\s\S]*in progress[\s\S]*?([\d.]+)% done/i.exec(scan);
+  return m ? Number(m[2]) : null;
+};
+
+type MemberAction = { pool: string; device: string; parent: string; kind: "offline" | "replace" };
+
+function Vdev({
+  v,
+  depth,
+  pool,
+  parent,
+  busy,
+  onAction,
+  onRun,
+}: {
+  v: ZfsVdev;
+  depth: number;
+  pool: string;
+  parent: string;
+  busy: boolean;
+  onAction: (a: MemberAction) => void;
+  onRun: (path: "online" | "detach", device: string) => void;
+}) {
+  const leaf = !v.children?.length && depth > 0 && v.state !== undefined;
+  const redundant = REDUNDANT.test(parent);
+  const errors = (v.read ?? 0) + (v.write ?? 0) + (v.cksum ?? 0);
   return (
     <>
       <tr className="border-t border-white/5">
         <td className="py-1.5 pr-2 font-mono text-slate-200" style={{ paddingLeft: depth * 16 + 8 }}>
+          {leaf && <HardDrive size={11} className="mr-1.5 inline text-slate-500" />}
           {v.name}
+          {v.msg && <span className="ml-2 font-sans text-[10px] text-slate-500">{v.msg}</span>}
         </td>
-        <td className={`px-2 ${healthColor(v.state)}`}>{v.state ?? ""}</td>
-        <td className="px-2 text-right tabular-nums text-slate-400">{v.read ?? ""}</td>
-        <td className="px-2 text-right tabular-nums text-slate-400">{v.write ?? ""}</td>
-        <td className="px-2 text-right tabular-nums text-slate-400">{v.cksum ?? ""}</td>
+        <td className="px-2">{v.state && <GlassBadge tone={memberTone(v.state)}>{v.state}</GlassBadge>}</td>
+        {(["read", "write", "cksum"] as const).map((k) => (
+          <td key={k} className={`px-2 text-right tabular-nums ${v[k] ? "text-rose-300" : "text-slate-400"}`}>
+            {v[k] ?? ""}
+          </td>
+        ))}
+        <td className="px-2 py-1">
+          {leaf && (
+            <div className="flex justify-end gap-1">
+              {v.state === "ONLINE" ? (
+                <GlassButton
+                  size="xs"
+                  disabled={busy || !redundant}
+                  title={redundant ? "Take offline for removal" : "Not redundant: taking this disk offline would fault the pool"}
+                  onClick={() => onAction({ pool, device: v.name, parent, kind: "offline" })}
+                >
+                  Set Offline
+                </GlassButton>
+              ) : (
+                <GlassButton size="xs" disabled={busy} onClick={() => onRun("online", v.name)}>
+                  Bring Online
+                </GlassButton>
+              )}
+              <GlassButton
+                size="xs"
+                disabled={busy}
+                title={errors ? `${errors} error(s): consider replacing` : "Replace with another disk"}
+                onClick={() => onAction({ pool, device: v.name, parent, kind: "replace" })}
+              >
+                Replace Disk
+              </GlassButton>
+              {/^(mirror|replacing|spare)/.test(parent) && (
+                <GlassButton size="xs" variant="ghost" disabled={busy} onClick={() => onRun("detach", v.name)}>
+                  Detach
+                </GlassButton>
+              )}
+            </div>
+          )}
+        </td>
       </tr>
-      {v.children?.map((c) => <Vdev key={`${v.name}/${c.name}`} v={c} depth={depth + 1} />)}
+      {v.children?.map((c) => (
+        <Vdev key={`${v.name}/${c.name}`} v={c} depth={depth + 1} pool={pool} parent={v.name} busy={busy} onAction={onAction} onRun={onRun} />
+      ))}
     </>
   );
 }
 
-function Pools({ storage, onCreate, onChanged }: { storage: StorageInfo; onCreate: () => void; onChanged: () => void }) {
+function ReplaceModal({ action, disks, onClose, onDone }: { action: MemberAction | null; disks: PveDisk[]; onClose: () => void; onDone: () => void }) {
+  const [pick, setPick] = useState<PveDisk | null>(null);
+  const [typed, setTyped] = useState("");
+  const short = action?.device.split("/").pop() ?? "";
+  const isPart = /(-part|p)\d+$|^sd[a-z]+\d+$/.test(short);
+  const [partitionMatch, setPartitionMatch] = useState(false);
+  const { busy, error, run } = useRunner();
+  useEffect(() => {
+    setPick(null);
+    setTyped("");
+    setPartitionMatch(isPart);
+  }, [action, isPart]);
+  const old = disks.find((d) => d.member_device?.split("/").pop() === short);
+  const eligible = disks.filter((d) => !d.used && !d.pool_name);
+  const submit = async () => {
+    const dev = pick!.by_id || pick!.devpath;
+    const json = { old_device: action!.device, new_device: dev, confirm_device: dev, partition_match: partitionMatch };
+    if (await run(() => api(`/pve/zfs/pools/${encodeURIComponent(action!.pool)}/members/replace`, { method: "POST", json }))) {
+      onDone();
+      onClose();
+    }
+  };
+  return (
+    <GlassModal
+      open={!!action}
+      onClose={onClose}
+      title={
+        <>
+          Replace <span className="font-mono">{short}</span>
+        </>
+      }
+      width="max-w-xl"
+      footer={
+        <>
+          <GlassButton onClick={onClose}>Cancel</GlassButton>
+          <GlassButton variant="danger" disabled={busy || !pick || typed !== pick.devpath} onClick={submit}>
+            {busy ? "Starting…" : "Replace & resilver"}
+          </GlassButton>
+        </>
+      }
+    >
+      <div className="space-y-3 text-xs text-slate-300">
+        <p>
+          ZFS copies (<i>resilvers</i>) everything that belonged to the old disk onto the new one. The pool stays usable meanwhile; progress shows on the pool card.
+          {old && (
+            <>
+              {" "}
+              The old disk is {old.model} ({bytes(old.size)}).
+            </>
+          )}
+        </p>
+        <p className="text-[11px] text-slate-400">Unused drives (wipe a disk in Disks & SMART to list it here):</p>
+        {eligible.length === 0 && <p className="text-amber-300">No unused drives found. Insert the new disk, then press Refresh.</p>}
+        <div className="grid gap-2 sm:grid-cols-2">
+          {eligible.map((d) => {
+            const small = !!old && d.size < old.size;
+            return (
+              <button
+                key={d.devpath}
+                type="button"
+                onClick={() => setPick(d)}
+                className={`flex items-center gap-3 rounded-xl border p-2.5 text-left transition active:scale-[0.98] ${pick?.devpath === d.devpath ? "border-sky-300/50 bg-sky-500/15" : "border-white/10 bg-white/[0.03] hover:bg-white/[0.07]"}`}
+              >
+                <HardDrive size={16} className="text-slate-400" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium text-slate-100">{d.model || d.devpath}</span>
+                  <span className="block truncate font-mono text-[10px] text-slate-500">{d.devpath}</span>
+                </span>
+                <span className={`text-right text-[11px] ${small ? "text-rose-300" : "text-slate-300"}`}>
+                  {bytes(d.size)}
+                  {small && <span className="block text-[10px]">smaller than the old disk</span>}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <GlassSwitch checked={partitionMatch} onChange={setPartitionMatch} disabled={!isPart && !/^\d+$/.test(short)} label="Copy the old disk's partition layout (boot / system mirrors)" />
+        {partitionMatch && (
+          <p className="text-[11px] text-slate-400">
+            The new disk gets the same partition table and ZFS uses the matching partition. On a boot mirror, also run <span className="font-mono">proxmox-boot-tool format</span>{" "}
+            and <span className="font-mono">init</span> on the new EFI partition so the server can boot from it.
+          </p>
+        )}
+        {pick && (
+          <Field
+            label={
+              <>
+                Everything on the new disk is overwritten. Type <span className="font-mono text-rose-200">{pick.devpath}</span> to confirm
+              </>
+            }
+          >
+            <GlassInput className="w-full font-mono" value={typed} onChange={(e) => setTyped(e.target.value)} spellCheck={false} />
+          </Field>
+        )}
+        <Notice error={error} />
+      </div>
+    </GlassModal>
+  );
+}
+
+function Pools({ storage, disks, onCreate, onChanged, refresh }: { storage: StorageInfo; disks: PveDisk[]; onCreate: () => void; onChanged: () => void; refresh: () => void }) {
   const [destroy, setDestroy] = useState<string | null>(null);
+  const [action, setAction] = useState<MemberAction | null>(null);
+  const [temporary, setTemporary] = useState(false);
   const { busy, error, notice, run } = useRunner(onChanged);
+  const resilvering = storage.pools.some((p) => resilverPct(p.detail.scan) != null);
+  useEffect(() => {
+    if (!resilvering) return;
+    const t = setInterval(refresh, 4000);
+    return () => clearInterval(t);
+  }, [resilvering, refresh]);
+  const member = (pool: string, path: string, json: object, ok: string) => run(() => api(`/pve/zfs/pools/${encodeURIComponent(pool)}/members/${path}`, { method: "POST", json }), ok);
+  const onRun = (pool: string) => (path: "online" | "detach", device: string) => {
+    if (path === "detach" && !window.confirm(`Detach ${device} from ${pool}? The mirror loses this copy; the disk is no longer part of the pool.`)) return;
+    member(pool, path, { device }, path === "online" ? `${device} is back online; ZFS resilvers what it missed.` : `${device} detached.`);
+  };
+  const confirmOffline = async () => {
+    if (await member(action!.pool, "offline", { device: action!.device, temporary }, `${action!.device} is offline. You can now remove it and insert the replacement.`)) setAction(null);
+  };
   const confirmDestroy = async () => {
     if (await run(() => api(`/pve/zfs/pools/${encodeURIComponent(destroy!)}?confirm=${encodeURIComponent(destroy!)}`, { method: "DELETE" }), TASK_NOTE)) setDestroy(null);
   };
@@ -382,52 +573,93 @@ function Pools({ storage, onCreate, onChanged }: { storage: StorageInfo; onCreat
           <Plus size={13} /> Create Pool
         </GlassButton>
       </div>
-      <Notice error={destroy ? undefined : error} notice={notice} />
+      <Notice error={destroy || action?.kind === "offline" ? undefined : error} notice={notice} />
       {storage.pools.length === 0 && <p className="text-sm text-slate-400">No ZFS pools yet.</p>}
-      {storage.pools.map((p) => (
-        <section key={p.name} className="glass-soft rounded-2xl p-4">
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <Database size={16} className="text-amber-300" />
-            <h3 className="text-sm font-semibold text-white">{p.name}</h3>
-            <GlassBadge tone={healthTone(p.health)}>{p.health}</GlassBadge>
-            <span className="text-[11px] text-slate-400">
-              Fragmentation {p.frag}% · Dedup {p.dedup}x
-            </span>
-            <span className="ml-auto flex gap-1.5">
-              <GlassButton size="xs" disabled={busy} onClick={() => run(() => api(`/pve/zfs/pools/${encodeURIComponent(p.name)}/scrub`, { method: "POST" }), `Scrub of ${p.name} started.`)}>
-                <ShieldCheck size={12} /> Scrub
-              </GlassButton>
-              <GlassButton size="xs" variant="danger" onClick={() => setDestroy(p.name)}>
-                <Trash2 size={12} /> Destroy
-              </GlassButton>
-            </span>
-          </div>
-          <Bar value={pct(p.alloc, p.size)} className="bg-amber-400" />
-          <div className="mt-1.5 text-[11px] text-slate-400">
-            {bytes(p.alloc)} used · {bytes(p.free)} free · {bytes(p.size)} total
-          </div>
-          {p.detail.scan && <p className="mt-2 text-[11px] text-slate-400">Scan: {p.detail.scan}</p>}
-          {p.detail.errors && <p className="text-[11px] text-slate-400">Errors: {p.detail.errors}</p>}
-          {p.detail.children && (
-            <table className="mt-3 w-full text-xs">
-              <thead className="text-slate-500">
-                <tr>
-                  <th className="py-1 pl-2 text-left font-medium">Topology</th>
-                  <th className="px-2 text-left font-medium">State</th>
-                  <th className="px-2 text-right font-medium">Read</th>
-                  <th className="px-2 text-right font-medium">Write</th>
-                  <th className="px-2 text-right font-medium">Cksum</th>
-                </tr>
-              </thead>
-              <tbody>
-                {p.detail.children.map((c) => (
-                  <Vdev key={c.name} v={c} depth={0} />
-                ))}
-              </tbody>
-            </table>
-          )}
-        </section>
-      ))}
+      {storage.pools.map((p) => {
+        const rs = resilverPct(p.detail.scan);
+        return (
+          <section key={p.name} className="glass-soft rounded-2xl p-4">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <Database size={16} className="text-amber-300" />
+              <h3 className="text-sm font-semibold text-white">{p.name}</h3>
+              <GlassBadge tone={healthTone(p.health)}>{p.health}</GlassBadge>
+              <span className="text-[11px] text-slate-400">
+                Fragmentation {p.frag}% · Dedup {p.dedup}x
+              </span>
+              <span className="ml-auto flex gap-1.5">
+                <GlassButton size="xs" disabled={busy} onClick={() => run(() => api(`/pve/zfs/pools/${encodeURIComponent(p.name)}/scrub`, { method: "POST" }), `Scrub of ${p.name} started.`)}>
+                  <ShieldCheck size={12} /> Scrub
+                </GlassButton>
+                <GlassButton size="xs" variant="danger" onClick={() => setDestroy(p.name)}>
+                  <Trash2 size={12} /> Destroy
+                </GlassButton>
+              </span>
+            </div>
+            <Bar value={pct(p.alloc, p.size)} className="bg-amber-400" />
+            <div className="mt-1.5 text-[11px] text-slate-400">
+              {bytes(p.alloc)} used · {bytes(p.free)} free · {bytes(p.size)} total
+            </div>
+            {rs != null && (
+              <div className="mt-3 space-y-1 rounded-xl bg-sky-500/10 p-2.5">
+                <div className="flex justify-between text-[11px] text-sky-200">
+                  <span>Resilvering onto the new disk…</span>
+                  <span className="tabular-nums">{rs.toFixed(1)}%</span>
+                </div>
+                <Bar value={rs} />
+              </div>
+            )}
+            {p.detail.status && <p className="mt-2 text-[11px] text-amber-200/90">{p.detail.status}</p>}
+            {p.detail.scan && <p className="mt-2 text-[11px] text-slate-400">Scan: {p.detail.scan}</p>}
+            {p.detail.errors && <p className="text-[11px] text-slate-400">Errors: {p.detail.errors}</p>}
+            {p.detail.children && (
+              <div className="overflow-x-auto">
+                <table className="mt-3 w-full min-w-[640px] text-xs">
+                  <thead className="text-slate-500">
+                    <tr>
+                      <th className="py-1 pl-2 text-left font-medium">Topology</th>
+                      <th className="px-2 text-left font-medium">State</th>
+                      <th className="px-2 text-right font-medium">Read</th>
+                      <th className="px-2 text-right font-medium">Write</th>
+                      <th className="px-2 text-right font-medium">Cksum</th>
+                      <th className="px-2 text-right font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {p.detail.children.map((c) => (
+                      <Vdev key={c.name} v={c} depth={0} pool={p.name} parent={p.name} busy={busy} onAction={(a) => (setTemporary(false), setAction(a))} onRun={onRun(p.name)} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        );
+      })}
+      <ConfirmModal
+        open={action?.kind === "offline"}
+        onClose={() => setAction(null)}
+        onConfirm={confirmOffline}
+        busy={busy}
+        error={error}
+        title={`Take ${action?.device.split("/").pop()} offline`}
+        confirmLabel="Set Offline"
+        message={
+          <>
+            <p>
+              ZFS stops using this disk so it can be <b>safely unplugged</b> for a hot-swap. <span className="font-mono">{action?.pool}</span> keeps running from the other disks in{" "}
+              <span className="font-mono">{action?.parent}</span>, with less redundancy until the replacement has resilvered.
+            </p>
+            <ol className="mt-2 list-decimal space-y-0.5 pl-4 text-slate-400">
+              <li>Set Offline (this step).</li>
+              <li>Remove the disk and insert the new one. Check the serial number on the label first.</li>
+              <li>Press Refresh, then Replace Disk and pick the new drive.</li>
+            </ol>
+          </>
+        }
+      >
+        <GlassSwitch checked={temporary} onChange={setTemporary} label="Temporary: bring it back online automatically after a reboot" />
+      </ConfirmModal>
+      <ReplaceModal action={action?.kind === "replace" ? action : null} disks={disks} onClose={() => setAction(null)} onDone={onChanged} />
       <ConfirmModal
         open={!!destroy}
         onClose={() => setDestroy(null)}
@@ -481,6 +713,7 @@ function Datasets({ version, onCreate }: { version: number; onCreate: () => void
   const [guests, setGuests] = useState(false);
   const [destroy, setDestroy] = useState<ZfsDatasetInfo | null>(null);
   const [recursive, setRecursive] = useState(false);
+  const [view, setView] = useViewMode("proxmoxos.storage.datasets.view");
   const load = useCallback(() => {
     api<ZfsDatasetInfo[]>("/pve/zfs/datasets").then(setItems, () => setItems([]));
     api<Share[]>("/shares").then(setShares, () => {});
@@ -508,12 +741,61 @@ function Datasets({ version, onCreate }: { version: number; onCreate: () => void
       <div className="flex flex-wrap items-center gap-3">
         <h3 className="mr-auto text-sm font-semibold text-slate-100">Volumes & datasets</h3>
         <GlassSwitch checked={guests} onChange={setGuests} label="Show guest disks" />
+        <ViewToggle mode={view} onChange={setView} />
         <GlassButton variant="primary" onClick={onCreate}>
           <FolderPlus size={13} /> Create
         </GlassButton>
       </div>
       <Notice error={destroy ? undefined : error} notice={notice} />
-      <div className="overflow-x-auto">
+      {view === "grid" && (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {items === null && <p className="text-sm text-slate-400">Loading…</p>}
+          {items?.length === 0 && <p className="text-sm text-slate-400">No datasets (or the host helper is unavailable).</p>}
+          {shown.map((d) => {
+            const fs = d.type === "filesystem";
+            const root = !d.name.includes("/");
+            const used = fs ? pct(d.used, d.used + d.available) : pct(d.used, d.volsize || d.used);
+            return (
+              <section key={d.name} className="glass-soft flex flex-col gap-2 rounded-3xl p-4">
+                <div className="flex items-start gap-2.5">
+                  <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl ring-1 ring-white/10 ${fs ? "bg-amber-400/15" : "bg-violet-400/15"}`}>
+                    {fs ? <Layers size={16} className="text-amber-300" /> : <HardDrive size={16} className="text-violet-300" />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="truncate font-mono text-sm font-semibold text-slate-100">{d.name.split("/").pop()}</span>
+                      {!fs && <GlassBadge tone="info">ZVOL {bytes(d.volsize, 0)}</GlassBadge>}
+                      {d.guest_volume && <GlassBadge>GUEST</GlassBadge>}
+                      {fs && shareOf(d) && <GlassBadge tone="success">SMB</GlassBadge>}
+                    </div>
+                    <div className="truncate font-mono text-[10px] text-slate-500" title={d.name}>
+                      {fs ? d.mountpoint : d.name}
+                    </div>
+                  </div>
+                  {!root && !d.guest_volume && (
+                    <GlassButton size="xs" variant="ghost" onClick={() => (setRecursive(false), setDestroy(d))} aria-label={`Delete ${d.name}`}>
+                      <Trash2 size={12} className="text-rose-300" />
+                    </GlassButton>
+                  )}
+                </div>
+                <Bar value={used} className="bg-amber-400" />
+                <div className="flex justify-between text-[11px] text-slate-400">
+                  <span>{bytes(d.used)} used</span>
+                  <span>{fs ? `${bytes(d.available)} free` : ""}</span>
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500">
+                  <span>compression {d.compression}</span>
+                  {fs && <span>quota {d.quota ? bytes(d.quota, 0) : "none"}</span>}
+                  {fs && <span>atime {d.atime}</span>}
+                  {fs && <span>record {d.recordsize}</span>}
+                </div>
+                {fs && !d.guest_volume && <GlassSwitch checked={!!shareOf(d)} disabled={busy} onChange={(v) => toggleShare(d, v)} label="Auto-share (SMB)" />}
+              </section>
+            );
+          })}
+        </div>
+      )}
+      <div className={`overflow-x-auto ${view === "grid" ? "hidden" : ""}`}>
         <table className="w-full min-w-[860px] text-left text-xs">
           <thead className="text-slate-400">
             <tr>
@@ -734,83 +1016,227 @@ function FormatDiskModal({ disk, onClose, onDone }: { disk: PveDisk | null; onCl
   );
 }
 
+type SortKey = "model" | "devpath" | "bus" | "size" | "temp" | "wear" | "pool" | "health";
+
+function LifeCell({ d }: { d: PveDisk }) {
+  if (d.wearout_pct == null)
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <span className="text-slate-400">N/A{d.rotational ? " (HDD)" : ""}</span>
+        <GlassBadge>{d.rpm_label}</GlassBadge>
+      </span>
+    );
+  return <span className={d.wearout_pct < 20 ? "text-rose-300" : d.wearout_pct < 50 ? "text-amber-300" : "text-emerald-300"}>{d.wearout_pct}% life left</span>;
+}
+
+function PoolBadge({ d }: { d: PveDisk }) {
+  if (!d.pool_name) return null;
+  const errs = (d.read_errors ?? 0) + (d.write_errors ?? 0) + (d.cksum_errors ?? 0);
+  return (
+    <GlassBadge tone={d.member_state === "ONLINE" && !errs ? "success" : d.member_state === "ONLINE" || d.member_state === "OFFLINE" ? "warning" : "danger"}>
+      <Database size={10} /> {d.pool_name}
+      {d.vdev_name && d.vdev_name !== d.pool_name ? ` · ${d.vdev_name}` : ""} · {d.member_state}
+      {errs ? ` · ${errs} err` : ""}
+    </GlassBadge>
+  );
+}
+
 function Disks({ disks, onChanged }: { disks: PveDisk[] | null; onChanged: () => void }) {
   const temps = useTelemetry((s) => s.hardware?.disks);
+  const [view, setView] = useViewMode("proxmoxos.storage.disks.view");
+  const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "devpath", dir: 1 });
   const [smart, setSmart] = useState<PveDisk | null>(null);
+  const [tune, setTune] = useState<PveDisk | null>(null);
+  const [scan, setScan] = useState<PveDisk | null>(null);
   const [wipe, setWipe] = useState<PveDisk | null>(null);
   const [format, setFormat] = useState<PveDisk | null>(null);
   const { busy, error, notice, run } = useRunner(onChanged);
+  const tempOf = useCallback((d: PveDisk) => temps?.find((t) => t.devpath === d.devpath)?.temp_c ?? null, [temps]);
   const initGpt = (d: PveDisk) => {
     if (window.confirm(`Initialize a new, empty GPT partition table on ${d.devpath}?`)) run(() => api("/pve/disks/initgpt", { method: "POST", json: { disk: d.devpath } }), TASK_NOTE);
   };
   const confirmWipe = async () => {
     if (await run(() => api("/pve/disks/wipe", { method: "POST", json: { disk: wipe!.devpath, confirm_device: wipe!.devpath } }), TASK_NOTE)) setWipe(null);
   };
+  const sorted = useMemo(() => {
+    const val = (d: PveDisk): string | number =>
+      ({
+        model: d.model,
+        devpath: d.devpath,
+        bus: d.bus,
+        size: d.size,
+        temp: tempOf(d) ?? -1,
+        wear: d.wearout_pct ?? -1,
+        pool: d.pool_name || d.used,
+        health: d.health,
+      })[sort.key];
+    return [...(disks ?? [])].sort((a, b) => {
+      const [x, y] = [val(a), val(b)];
+      return (typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y), undefined, { numeric: true })) * sort.dir;
+    });
+  }, [disks, sort, tempOf]);
   if (!disks) return <p className="text-sm text-slate-400">Loading…</p>;
+
+  const actions = (d: PveDisk, compact: boolean) => (
+    <>
+      <GlassButton size="xs" onClick={() => setSmart(d)} title="Inspect SMART attributes" aria-label={`SMART of ${d.devpath}`}>
+        <ScanSearch size={12} /> {!compact && "SMART"}
+      </GlassButton>
+      <GlassButton size="xs" onClick={() => setTune(d)} title="Power management, write cache, SMART monitoring" aria-label={`Tune ${d.devpath}`}>
+        <SlidersHorizontal size={12} /> {!compact && "Tune"}
+      </GlassButton>
+      <GlassButton size="xs" onClick={() => setScan(d)} title="SMART self-tests and surface scan" aria-label={`Scan ${d.devpath}`}>
+        <Stethoscope size={12} /> {!compact && "Scan Drive"}
+      </GlassButton>
+      {!compact && (
+        <>
+          <GlassButton size="xs" disabled={busy || !!d.used} onClick={() => initGpt(d)} title={d.used ? "Disk is in use" : "Write an empty GPT"}>
+            <Wrench size={12} /> Initialize GPT
+          </GlassButton>
+          <GlassButton size="xs" disabled={busy || !!d.used} onClick={() => setFormat(d)} title={d.used ? "Disk is in use" : "Directory / LVM storage"}>
+            <Plus size={12} /> Create storage
+          </GlassButton>
+        </>
+      )}
+      <GlassButton size="xs" variant="danger" disabled={busy} onClick={() => setWipe(d)} title="Wipe disk" aria-label={`Wipe ${d.devpath}`}>
+        <Eraser size={12} /> {!compact && "Wipe Disk"}
+      </GlassButton>
+    </>
+  );
+
+  const th = (key: SortKey, label: string, right = false) => (
+    <th className={`px-2 py-2 font-medium ${right ? "text-right" : ""}`} aria-sort={sort.key === key ? (sort.dir === 1 ? "ascending" : "descending") : "none"}>
+      <button type="button" className="inline-flex items-center gap-1 hover:text-slate-200" onClick={() => setSort({ key, dir: sort.key === key ? ((-sort.dir) as 1 | -1) : 1 })}>
+        {label}
+        {sort.key === key && (sort.dir === 1 ? <ChevronUp size={11} /> : <ChevronDown size={11} />)}
+      </button>
+    </th>
+  );
+
   return (
     <div className="space-y-4">
-      <Notice error={wipe ? undefined : error} notice={notice} />
-      <div className="grid gap-3 lg:grid-cols-2">
-        {disks.map((d) => {
-          const temp = temps?.find((t) => t.devpath === d.devpath)?.temp_c ?? null;
-          const life = d.wearout;
-          return (
-            <section key={d.devpath} className="glass-soft rounded-2xl p-4">
-              <div className="flex items-start gap-3">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-500/40 to-slate-800/40 ring-1 ring-white/10">
-                  <HardDrive size={18} className="text-slate-200" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="truncate text-sm font-semibold text-slate-100">{d.model || "Unknown model"}</span>
-                    <GlassBadge tone="info">{d.bus}</GlassBadge>
-                    <GlassBadge tone={healthTone(d.health)}>{d.health}</GlassBadge>
-                  </div>
-                  <div className="truncate font-mono text-[11px] text-slate-400">
-                    {d.devpath} · {d.serial || "no serial"}
-                  </div>
-                  {d.by_id && <div className="truncate font-mono text-[10px] text-slate-500" title={d.by_id}>{d.by_id}</div>}
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-semibold text-slate-100">{bytes(d.size)}</div>
-                  <div className={`flex items-center justify-end gap-0.5 text-[11px] ${tempColor(temp)}`}>
-                    <Thermometer size={11} /> {temp ?? "—"} °C
-                  </div>
-                </div>
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-3 text-[11px]">
-                <div>
-                  <div className="mb-1 flex justify-between text-slate-400">
-                    <span>Life remaining</span>
-                    <span className="text-slate-200">{life != null ? `${life}%` : d.rpm ? `${d.rpm} rpm` : "N/A"}</span>
-                  </div>
-                  <Bar value={life ?? 0} className={life == null ? "bg-slate-600" : life < 20 ? "bg-rose-400" : life < 50 ? "bg-amber-400" : "bg-emerald-400"} />
-                </div>
-                <div>
-                  <div className="mb-1 text-slate-400">Usage</div>
-                  <span className={d.used ? "text-slate-200" : "text-emerald-300"}>{d.used || "Unused"}</span>
-                  {d.gpt && <span className="text-slate-500"> · GPT</span>}
-                </div>
-              </div>
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                <GlassButton size="xs" onClick={() => setSmart(d)}>
-                  <ScanSearch size={12} /> Inspect SMART
-                </GlassButton>
-                <GlassButton size="xs" disabled={busy || !!d.used} onClick={() => initGpt(d)} title={d.used ? "Disk is in use" : "Write an empty GPT"}>
-                  <Wrench size={12} /> Initialize GPT
-                </GlassButton>
-                <GlassButton size="xs" disabled={busy || !!d.used} onClick={() => setFormat(d)} title={d.used ? "Disk is in use" : "Directory / LVM storage"}>
-                  <Plus size={12} /> Create storage
-                </GlassButton>
-                <GlassButton size="xs" variant="danger" disabled={busy} onClick={() => setWipe(d)}>
-                  <Eraser size={12} /> Wipe Disk
-                </GlassButton>
-              </div>
-            </section>
-          );
-        })}
+      <div className="flex items-center gap-2">
+        <h3 className="mr-auto text-sm font-semibold text-slate-100">Disks & SMART</h3>
+        <ViewToggle mode={view} onChange={setView} />
       </div>
+      <Notice error={wipe ? undefined : error} notice={notice} />
+      {view === "grid" ? (
+        <div className="grid gap-3 lg:grid-cols-2">
+          {sorted.map((d) => {
+            const temp = tempOf(d);
+            const life = d.wearout_pct;
+            return (
+              <section key={d.devpath} className="glass-soft rounded-3xl p-4">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-500/40 to-slate-800/40 ring-1 ring-white/10">
+                    <HardDrive size={19} className="text-slate-200" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="truncate text-sm font-semibold text-slate-100">{d.model || "Unknown model"}</span>
+                      <GlassBadge tone="info">{d.bus}</GlassBadge>
+                      <GlassBadge tone={healthTone(d.health)}>SMART {d.health}</GlassBadge>
+                    </div>
+                    <div className="truncate font-mono text-[11px] text-slate-400">
+                      {d.devpath} · {d.serial || "no serial"}
+                    </div>
+                    {d.by_id && (
+                      <div className="truncate font-mono text-[10px] text-slate-500" title={d.by_id}>
+                        {d.by_id}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-semibold text-slate-100">{bytes(d.size)}</div>
+                    <div className={`flex items-center justify-end gap-0.5 text-[11px] ${tempColor(temp)}`}>
+                      <Thermometer size={11} /> {temp ?? "—"} °C
+                    </div>
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3 text-[11px]">
+                  <div>
+                    <div className="mb-1 flex justify-between gap-1 text-slate-400">
+                      <span>Life remaining</span>
+                      {life != null ? <span className="text-slate-200">{life}%</span> : <GlassBadge>{d.rpm_label}</GlassBadge>}
+                    </div>
+                    {life != null ? (
+                      <Bar value={life} className={life < 20 ? "bg-rose-400" : life < 50 ? "bg-amber-400" : "bg-emerald-400"} />
+                    ) : (
+                      <span className="text-slate-500">N/A{d.rotational ? " (HDD)" : ""}</span>
+                    )}
+                  </div>
+                  <div>
+                    <div className="mb-1 text-slate-400">Pool / usage</div>
+                    {d.pool_name ? <PoolBadge d={d} /> : <span className={d.used ? "text-slate-200" : "text-emerald-300"}>{d.used || "Unused"}</span>}
+                    {d.gpt && <span className="text-slate-500"> · GPT</span>}
+                  </div>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-1.5">{actions(d, false)}</div>
+              </section>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="glass-soft overflow-x-auto rounded-2xl">
+          <table className="w-full min-w-[1060px] text-left text-xs">
+            <thead className="text-slate-400">
+              <tr>
+                {th("model", "Drive & Model")}
+                {th("devpath", "Device & By-ID")}
+                {th("bus", "Bus / Type")}
+                {th("size", "Capacity", true)}
+                {th("temp", "Temp", true)}
+                {th("wear", "Wearout / RPM")}
+                {th("pool", "Pool / Usage")}
+                {th("health", "SMART Status")}
+                <th className="px-2 py-2 text-right font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((d) => {
+                const temp = tempOf(d);
+                return (
+                  <tr key={d.devpath} className="border-t border-white/5 hover:bg-white/[0.03]">
+                    <td className="px-2 py-2">
+                      <div className="flex items-center gap-2">
+                        <HardDrive size={14} className="shrink-0 text-slate-400" />
+                        <span className="min-w-0">
+                          <span className="block truncate font-medium text-slate-100">{d.model || "Unknown model"}</span>
+                          <span className="block truncate text-[10px] text-slate-500">{d.serial || "no serial"}</span>
+                        </span>
+                      </div>
+                    </td>
+                    <td className="max-w-[220px] px-2">
+                      <span className="block font-mono text-slate-200">{d.devpath}</span>
+                      <span className="block truncate font-mono text-[10px] text-slate-500" title={d.by_id}>
+                        {d.by_id.replace("/dev/disk/by-id/", "") || "—"}
+                      </span>
+                    </td>
+                    <td className="px-2">
+                      <GlassBadge tone="info">{d.bus}</GlassBadge> <span className="text-[10px] text-slate-400">{d.rotational ? "HDD" : "SSD"}</span>
+                    </td>
+                    <td className="px-2 text-right tabular-nums text-slate-200">{bytes(d.size)}</td>
+                    <td className={`px-2 text-right tabular-nums ${tempColor(temp)}`}>{temp ?? "—"} °C</td>
+                    <td className="px-2">
+                      <LifeCell d={d} />
+                    </td>
+                    <td className="px-2">{d.pool_name ? <PoolBadge d={d} /> : <span className={d.used ? "text-slate-300" : "text-emerald-300"}>{d.used || "Unused"}</span>}</td>
+                    <td className="px-2">
+                      <GlassBadge tone={healthTone(d.health)}>{d.health}</GlassBadge>
+                    </td>
+                    <td className="px-2">
+                      <div className="flex justify-end gap-1">{actions(d, true)}</div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
       <SmartDrawer disk={smart} onClose={() => setSmart(null)} />
+      <DiskSettingsModal disk={tune} onClose={() => setTune(null)} />
+      <ScanModal disk={scan} onClose={() => setScan(null)} />
       <FormatDiskModal disk={format} onClose={() => setFormat(null)} onDone={onChanged} />
       <ConfirmModal
         open={!!wipe}
@@ -827,6 +1253,7 @@ function Disks({ disks, onChanged }: { disks: PveDisk[] | null; onChanged: () =>
               Partition tables and filesystem signatures on <span className="font-mono">{wipe?.devpath}</span> ({wipe?.model}, {wipe && bytes(wipe.size)}) are erased. Data on it
               becomes unreachable.
             </p>
+            {wipe?.pool_name && <p className="mt-2 text-rose-300">This disk is a member of ZFS pool {wipe.pool_name}. Take it offline or replace it in ZFS Pools first.</p>}
             {wipe?.used && <p className="mt-2 text-amber-300">This disk is currently in use: {wipe.used}. Proxmox refuses to wipe disks that are mounted or part of an active pool.</p>}
           </>
         }
@@ -1353,7 +1780,10 @@ export default function StorageManager() {
   const intent = useIntent((s) => s.storage);
   const takeIntent = useIntent((s) => s.take);
   useEffect(() => {
-    if (intent === "pool") (setModal("pool"), takeIntent("storage"));
+    if (!intent) return;
+    if (intent === "pool") setModal("pool");
+    else setTab(intent);
+    takeIntent("storage");
   }, [intent, takeIntent]);
   useEffect(() => {
     if (modal === "dataset")
@@ -1407,12 +1837,14 @@ export default function StorageManager() {
           <Datasets version={version} onCreate={() => setModal("dataset")} />
         ) : tab === "disks" ? (
           <Disks disks={disks} onChanged={afterTask} />
+        ) : tab === "benchmark" ? (
+          <Benchmark disks={disks} />
         ) : !storage ? (
           <p className="text-sm text-slate-400">Loading…</p>
         ) : tab === "overview" ? (
           <Overview storage={storage} onCreatePool={() => (loadDisks(), setModal("pool"))} onCreateDataset={() => setModal("dataset")} />
         ) : (
-          <Pools storage={storage} onCreate={() => (loadDisks(), setModal("pool"))} onChanged={afterTask} />
+          <Pools storage={storage} disks={disks ?? []} onCreate={() => (loadDisks(), setModal("pool"))} onChanged={afterTask} refresh={refreshStorage} />
         )}
       </div>
       <CreatePoolModal open={modal === "pool"} onClose={() => setModal(null)} disks={disks ?? []} onDone={afterTask} />

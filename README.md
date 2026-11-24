@@ -1,6 +1,6 @@
 # ProxmoxOS
 
-A web desktop for Proxmox VE, in the style of Synology DSM, QNAP QTS and ZimaOS. It runs in its own unprivileged LXC container and talks to the host through the Proxmox API.
+A web desktop for Proxmox VE. It runs in its own unprivileged LXC container and talks to the host through the Proxmox API.
 
 **Phase 1 (MVP):** lock screen, multi-window desktop, live widgets, Resource Monitor, Compute Manager (VMs + LXC), Storage & ZFS Manager, File Station.
 
@@ -46,8 +46,17 @@ A web desktop for Proxmox VE, in the style of Synology DSM, QNAP QTS and ZimaOS.
 - **Datacenter** app: users, groups, roles, ACLs, pools, API tokens, realms, firewall and logs. Storage Manager adds Directory/LVM/LVM-Thin/ZFS/NFS/CIFS storages.
 - **Compute Manager**: GPU/PCI/USB passthrough in the VM wizard and in a new guest drawer (hardware, network, cloud-init, snapshots, options).
 - **Network & Services** app: DNS server + AdBlocker, DHCP, WireGuard server/client with QR codes, router/NAT with port forwarding, Let's Encrypt and custom certificates.
-- **Help & Support** app: ask questions in plain words, run a health check with one-click **Fix it for me** wizards (each ends with do-it-yourself steps), 24 tutorials that link straight to the right settings, an FAQ, and BIOS instructions for your exact motherboard. The BIOS instructions come with QR codes that carry the text itself, so you can read them on your phone while the server is offline.
+- **Help & Support** app: ask questions in plain words, run a health check with one-click **Fix it for me** wizards (each ends with do-it-yourself steps), 27 tutorials that link straight to the right settings, an FAQ, and BIOS instructions for your exact motherboard. The BIOS instructions come with QR codes that carry the text itself, so you can read them on your phone while the server is offline.
 - **Control Panel → Hardware & System**: full hardware inventory and one-click NVIDIA/Intel/AMD driver installs or VFIO passthrough mode. GPU passthrough needs IOMMU (VT-d) enabled in the BIOS and kernel.
+
+**Phase 9 (v1.2.0): disk tuning, RAID member control, SMART scans and benchmarks**
+
+- **Grid | List views** in Disks & SMART and Volumes & Datasets (remembered per browser). Grid shows large drive cards with bus, SMART health, temperature, remaining life (or `N/A (HDD)` plus an RPM badge for hard disks) and the ZFS pool the drive belongs to. List is a sortable table with every attribute in columns.
+- **Tune** a drive: APM level, spindown timeout and write cache for SATA disks (`hdparm`), the power state of NVMe drives (`nvme-cli`, installed on first use) and SMART monitoring. Controls a drive or its USB bridge doesn't support are disabled with the reason. Settings are re-applied at every boot through `/etc/udev/rules.d/69-proxmoxos-disk-tuning.rules`, keyed by `/dev/disk/by-id`.
+- **Scan Drive**: SMART Short and Extended self-tests, and a read-only `badblocks` surface scan that runs in the background on the host. Shows progress, ETA, bad-block count, an Abort button and the drive's self-test history.
+- **ZFS member control** in ZFS Pools: every disk of a mirror, RAID10 or RAIDZ pool has its state, Read/Write/Cksum error counters, and **Set Offline** (refused when it would fault the pool), **Bring Online**, **Replace Disk** (pick an unused drive, optionally copy the partition layout for boot mirrors, live resilver progress) and **Detach**.
+- **Benchmark** tab: the four classic profiles SEQ1M Q8T1, SEQ128K Q32T1, RND4K Q32T1 and RND4K Q1T1, with read and write results in MB/s, IOPS or latency. Test sizes are 256 MiB, 1 GiB or 4 GiB, with 1, 3 or 5 passes (best one kept). **Safe Read-Only** never writes, so it is fine on disks in use. **Read + Write** on a pool or folder uses a temporary `.proxmoxos-bench.tmp` file and deletes it afterwards. Raw disks can only be write-tested when they are unused and you type the device path. `fio` is installed on the host on first use. Results are saved in `backend/data/benchmarks.json` for side-by-side comparison.
+- **Help guides** for replacing a failing RAID disk, choosing between the three disk tests, and reading benchmark results.
 
 ## Deploy from a checkout (`deploy.sh`)
 
