@@ -20,7 +20,7 @@ const readSeen = (): string[] => {
   }
 };
 
-export default function NotificationPopover() {
+export default function NotificationPopover({ up = false }: { up?: boolean }) {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [seen, setSeen] = useState<string[]>(readSeen);
   const [open, setOpen] = useState(false);
@@ -62,7 +62,7 @@ export default function NotificationPopover() {
         )}
       </button>
       {open && (
-        <div className="glass absolute top-8 right-0 w-[min(24rem,calc(100vw-1rem))] rounded-xl p-2 shadow-2xl">
+        <div className={`glass absolute ${up ? "bottom-full mb-3" : "top-8"} right-0 w-[min(24rem,calc(100vw-1rem))] rounded-xl p-2 shadow-2xl`}>
           <div className="flex items-center justify-between px-2 pb-2 text-[11px] font-semibold tracking-wide text-slate-400 uppercase">
             <span>Notifications</span>
             <span>{alerts.length ? `${alerts.length} active` : "All clear"}</span>

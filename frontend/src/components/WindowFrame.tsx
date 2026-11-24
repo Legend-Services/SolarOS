@@ -2,13 +2,12 @@ import { Suspense, useEffect, useRef, useState, type ComponentType, type CSSProp
 import { createPortal } from "react-dom";
 import { CircleHelp, Copy, Maximize2, Minimize2, Minus, Square, X } from "lucide-react";
 import { useWindows, type Rect, type Win } from "../lib/stores";
-import { deviceControls, useLayout } from "../store/layoutStore";
+import { deviceControls, useInsets, useLayout } from "../store/layoutStore";
 import { useWizard } from "../store/wizardStore";
 import { APPS } from "../apps/registry";
 import WindowErrorBoundary from "./WindowErrorBoundary";
 import type { ConsoleTarget } from "../lib/types";
 
-export const TOP = 36; // top bar height
 const CAPTION = "flex h-full w-11 items-center justify-center text-slate-300 transition-colors hover:bg-white/10 hover:text-white";
 
 /** One traffic-light circle; its glyph shows while the pointer or keyboard focus is on the circle group. */
@@ -44,7 +43,7 @@ const HANDLES: { dir: Dir; cls: string }[] = [
 ];
 
 /** New frame geometry for dragging the `dir` grip by (dx, dy) from the start rect `o`; opposite edges stay put. */
-function resized(o: Rect, dir: Dir, dx: number, dy: number): Rect {
+function resized(o: Rect, dir: Dir, dx: number, dy: number, top: number): Rect {
   const r = { ...o };
   if (dir.includes("e")) r.w = Math.max(MIN_W, o.w + dx);
   if (dir.includes("s")) r.h = Math.max(MIN_H, o.h + dy);
@@ -53,16 +52,17 @@ function resized(o: Rect, dir: Dir, dx: number, dy: number): Rect {
     r.x = o.x + o.w - r.w;
   }
   if (dir.includes("n")) {
-    r.h = Math.max(MIN_H, o.y + o.h - Math.max(TOP, o.y + dy)); // never under the top bar
+    r.h = Math.max(MIN_H, o.y + o.h - Math.max(top, o.y + dy)); // never under the top bar
     r.y = o.y + o.h - r.h;
   }
   return r;
 }
 
-const snapRect = (s: Exclude<Snap, null>): Rect => {
+/** Snap target between the shell bars (`top` / `bottom` from useInsets). */
+const snapRect = (s: Exclude<Snap, null>, top: number, bottom: number): Rect => {
   const vw = window.innerWidth;
-  const h = window.innerHeight - TOP;
-  return s === "left" ? { x: 0, y: TOP, w: vw / 2, h } : s === "right" ? { x: vw / 2, y: TOP, w: vw / 2, h } : { x: 0, y: TOP, w: vw, h };
+  const h = window.innerHeight - top - bottom;
+  return s === "left" ? { x: 0, y: top, w: vw / 2, h } : s === "right" ? { x: vw / 2, y: top, w: vw / 2, h } : { x: 0, y: top, w: vw, h };
 };
 
 /** Transform that shrinks the frame `r` onto the centre of `target` (genie-style scale-to-dock). */
@@ -84,6 +84,7 @@ export default function WindowFrame({ win, mobile, Body }: { win: Win; mobile: b
   const full = mobile || win.maximized;
   const controls = useLayout((s) => s.windowControls);
   const left = (controls === "auto" ? deviceControls() : controls) === "left";
+  const { top, bottom } = useInsets(); // space taken by the top bar (Dock layout) or the taskbar
   const { icon: Icon } = APPS[win.id];
   const p = win.params;
   const title = p ? `${p.mode === "vnc" ? "Console" : "Shell"} — ${p.name} (${p.type === "node" ? "host" : p.vmid})` : APPS[win.id].title;
@@ -115,13 +116,13 @@ export default function WindowFrame({ win, mobile, Body }: { win: Win; mobile: b
       // Keep at least part of the title bar reachable.
       update(win.key, {
         x: Math.min(Math.max(d.ox + dx, 80 - win.w), window.innerWidth - 80),
-        y: Math.min(Math.max(d.oy + dy, TOP), window.innerHeight - 40),
+        y: Math.min(Math.max(d.oy + dy, top), window.innerHeight - bottom - 40),
       });
       const next: Snap =
-        e.clientX <= EDGE ? "left" : e.clientX >= window.innerWidth - EDGE ? "right" : e.clientY <= TOP + EDGE ? "top" : null;
+        e.clientX <= EDGE ? "left" : e.clientX >= window.innerWidth - EDGE ? "right" : e.clientY <= top + EDGE ? "top" : null;
       if (next !== snap) setSnap(next);
     } else {
-      update(win.key, resized({ x: d.ox, y: d.oy, w: d.ow, h: d.oh }, d.mode, dx, dy));
+      update(win.key, resized({ x: d.ox, y: d.oy, w: d.ow, h: d.oh }, d.mode, dx, dy, top));
     }
   };
   const end = () => {
@@ -130,17 +131,17 @@ export default function WindowFrame({ win, mobile, Body }: { win: Win; mobile: b
     setDragging(false);
     if (snap === "top") update(win.key, { maximized: true });
     // shortcut: half-screen snapping overwrites the free geometry instead of remembering it; add a restore rect if users ask.
-    else if (snap) update(win.key, snapRect(snap));
+    else if (snap) update(win.key, snapRect(snap, top, bottom));
     setSnap(null);
   };
 
-  const rect: Rect = full ? { x: 0, y: TOP, w: window.innerWidth, h: window.innerHeight - TOP } : win;
+  const rect: Rect = full ? { x: 0, y: top, w: window.innerWidth, h: window.innerHeight - top - bottom } : win;
   // Geometry transitions (maximize / snap) are disabled while the pointer drives the frame.
   const geo = dragging ? "" : `, left ${DUR}ms ${EASE}, top ${DUR}ms ${EASE}, width ${DUR}ms ${EASE}, height ${DUR}ms ${EASE}`;
   const transform =
     win.minimized ? towards(rect, dockRect) : phase === "enter" ? "scale(0.94)" : phase === "exit" ? "scale(0.95)" : "translate(0px, 0px) scale(1)";
   const style: CSSProperties = {
-    ...(full ? { left: 0, top: TOP, width: "100%", height: `calc(100% - ${TOP}px)` } : { left: win.x, top: win.y, width: win.w, height: win.h }),
+    ...(full ? { left: 0, top, width: "100%", height: `calc(100% - ${top + bottom}px)` } : { left: win.x, top: win.y, width: win.w, height: win.h }),
     zIndex: win.z,
     transform,
     transformOrigin: "center",
@@ -236,7 +237,7 @@ export default function WindowFrame({ win, mobile, Body }: { win: Win; mobile: b
       {snap &&
         createPortal(
           (() => {
-            const r = snapRect(snap);
+            const r = snapRect(snap, top, bottom);
             return <div className="snap-preview" style={{ left: r.x + 8, top: r.y + 8, width: r.w - 16, height: r.h - 16 }} />;
           })(),
           document.body,

@@ -11,7 +11,7 @@ import { pct } from "../lib/format";
 import { APPS, APP_IDS } from "../apps/registry";
 import { AppIcon } from "./icons/AppIcons";
 
-function Pill({ icon, label, tone = "text-slate-200" }: { icon: ReactNode; label: string; tone?: string }) {
+export function Pill({ icon, label, tone = "text-slate-200" }: { icon: ReactNode; label: string; tone?: string }) {
   return (
     <span className={`hidden items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 tabular-nums sm:inline-flex ${tone}`}>
       {icon}
@@ -33,9 +33,6 @@ export default function TopBar() {
   const [menu, setMenu] = useState(false);
   const launcherRef = useDismiss(launcher, () => setLauncher(false));
   const menuRef = useDismiss(menu, () => setMenu(false));
-  const [help, setHelp] = useState(false);
-  const helpRef = useDismiss(help, () => setHelp(false));
-  const showGuide = useWizard((s) => s.show);
   const viewPanel = useLayout((s) => s.panel);
   const setLayout = useLayout((s) => s.set);
   const viewRef = useDismiss(viewPanel, () => setLayout({ panel: false }));
@@ -114,35 +111,7 @@ export default function TopBar() {
         </button>
         {viewPanel && <ViewOptionsPanel />}
       </div>
-      <div ref={helpRef} className="relative">
-        <button
-          onClick={() => setHelp((v) => !v)}
-          className="flex items-center gap-1 rounded-md px-2 py-1 text-slate-200 hover:bg-white/10"
-          aria-expanded={help}
-          aria-label="Help menu"
-          title="Help: guides, Welcome Tour, tutorials and automatic fixes"
-        >
-          <CircleHelp size={14} />
-        </button>
-        {help && (
-          <div className="glass absolute top-8 right-0 w-56 rounded-xl p-1">
-            {active && (
-              <button onClick={() => (showGuide(active.id), setHelp(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
-                <BookOpen size={14} /> Guide: {APPS[active.id].title}
-              </button>
-            )}
-            <button onClick={() => (showGuide("welcome"), setHelp(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
-              <Sparkles size={14} /> Welcome Tour
-            </button>
-            <button onClick={() => (open("help"), setHelp(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
-              <LifeBuoy size={14} /> Help &amp; Support
-            </button>
-            <button onClick={() => (openBugReport(true), setHelp(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
-              <Bug size={14} /> Report a Bug
-            </button>
-          </div>
-        )}
-      </div>
+      <HelpMenu />
       <TaskCenterPopover />
       <NotificationPopover />
       <span className="tabular-nums text-slate-200">
@@ -180,5 +149,46 @@ export default function TopBar() {
         )}
       </div>
     </header>
+  );
+}
+
+/** Help: guide for the focused app, Welcome Tour, Help & Support and the bug reporter. `up` opens it above (taskbar). */
+export function HelpMenu({ up = false }: { up?: boolean }) {
+  const [help, setHelp] = useState(false);
+  const helpRef = useDismiss(help, () => setHelp(false));
+  const showGuide = useWizard((s) => s.show);
+  const open = useWindows((s) => s.open);
+  const active = activeWindow(useWindows((s) => s.windows));
+  const openBugReport = useBugReport((s) => s.set);
+  return (
+    <div ref={helpRef} className="relative">
+      <button
+        onClick={() => setHelp((v) => !v)}
+        className="flex items-center gap-1 rounded-md px-2 py-1 text-slate-200 hover:bg-white/10"
+        aria-expanded={help}
+        aria-label="Help menu"
+        title="Help: guides, Welcome Tour, tutorials and automatic fixes"
+      >
+        <CircleHelp size={14} />
+      </button>
+      {help && (
+        <div className={`glass absolute ${up ? "bottom-full mb-3" : "top-8"} right-0 w-56 rounded-xl p-1 text-xs`}>
+          {active && (
+            <button onClick={() => (showGuide(active.id), setHelp(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
+              <BookOpen size={14} /> Guide: {APPS[active.id].title}
+            </button>
+          )}
+          <button onClick={() => (showGuide("welcome"), setHelp(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
+            <Sparkles size={14} /> Welcome Tour
+          </button>
+          <button onClick={() => (open("help"), setHelp(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
+            <LifeBuoy size={14} /> Help &amp; Support
+          </button>
+          <button onClick={() => (openBugReport(true), setHelp(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
+            <Bug size={14} /> Report a Bug
+          </button>
+        </div>
+      )}
+    </div>
   );
 }

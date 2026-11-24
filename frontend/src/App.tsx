@@ -8,7 +8,8 @@ import WindowLayer from "./components/WindowLayer";
 import SpotlightSearch from "./components/SpotlightSearch";
 import BugReportModal from "./components/BugReportModal";
 import GuidedWizardModal from "./components/wizards/GuidedWizardModal";
-import { startPreferencesSync } from "./store/layoutStore";
+import Taskbar from "./components/Taskbar";
+import { startPreferencesSync, useShell } from "./store/layoutStore";
 import { useWizard } from "./store/wizardStore";
 
 // The automatic Welcome Tour shows at most once per page load (not again after a lock / unlock).
@@ -19,6 +20,7 @@ export default function App() {
   const init = useAuth((s) => s.init);
   const start = useTelemetry((s) => s.start);
   const wallpaper = usePrefs((s) => s.wallpaper);
+  const shell = useShell();
 
   useEffect(() => {
     init();
@@ -49,8 +51,14 @@ export default function App() {
           <>
             <Desktop />
             <WindowLayer />
-            <TopBar />
-            <Dock />
+            {shell === "taskbar" ? (
+              <Taskbar />
+            ) : (
+              <>
+                <TopBar />
+                <Dock />
+              </>
+            )}
             <SpotlightSearch />
             <BugReportModal />
             <GuidedWizardModal />

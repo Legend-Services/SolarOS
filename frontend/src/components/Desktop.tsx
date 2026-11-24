@@ -1,11 +1,10 @@
 import { useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { Boxes, Container, Database, Gauge as GaugeIcon, HeartPulse, Monitor } from "lucide-react";
 import { useDock, usePrefs, useTelemetry, useWindows } from "../lib/stores";
-import { useLayout } from "../store/layoutStore";
+import { useInsets, useLayout, useShell } from "../store/layoutStore";
 import { bytes, healthColor, pct, tempColor, uptime } from "../lib/format";
 import { APPS, APP_IDS, type AppId } from "../apps/registry";
 import { AppListRow } from "./ViewOptions";
-import { TOP } from "./WindowFrame";
 import { Bar, Gauge } from "./charts";
 import { AppIcon } from "./icons/AppIcons";
 import DesktopContextMenu from "./DesktopContextMenu";
@@ -30,6 +29,9 @@ export default function Desktop() {
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const { desktopView, iconSize, colGap, rowGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, iconClick } = useLayout();
   const dockSize = useDock((s) => s.baseSize);
+  const { top, bottom } = useInsets();
+  // Dock layout: clear the floating Dock; taskbar layout: clear the taskbar.
+  const padBottom = useShell() === "taskbar" ? bottom + 20 : dockSize + 52;
 
   // Shortcuts fill columns top to bottom and wrap into a new column when the next one would pass the Dock.
   // Row height is fixed per mode so `repeat(auto-fill, …)` can count how many rows fit.
@@ -74,7 +76,7 @@ export default function Desktop() {
   return (
     <div
       className="absolute inset-0 flex gap-6 overflow-auto px-4"
-      style={{ paddingTop: TOP + 20, paddingBottom: dockSize + 52 }}
+      style={{ paddingTop: top + 20, paddingBottom: padBottom }}
       onContextMenu={(e) => (e.preventDefault(), setMenu({ x: e.clientX, y: e.clientY }))}
     >
       <DesktopContextMenu at={menu} onClose={() => setMenu(null)} />

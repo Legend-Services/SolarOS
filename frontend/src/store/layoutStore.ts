@@ -12,11 +12,21 @@ export type IconClick = "single" | "double";
 /** Window button layout: follow the device ("auto"), traffic-light circles on the left, or flat buttons on the right. */
 export type WindowControls = "auto" | "left" | "right";
 
-/** The side "auto" resolves to. The platform name comes from the browser and only picks this default. */
-export const deviceControls = (): "left" | "right" => {
+/** Desktop shell: follow the device ("auto"), top bar + Dock, or one taskbar along the bottom. */
+export type ShellLayout = "auto" | "dock" | "taskbar";
+
+/** The browser's platform name; only used to pick the "auto" defaults below. */
+const platformName = () => {
   const nav = navigator as Navigator & { userAgentData?: { platform?: string } };
-  return /mac|iphone|ipad/i.test(nav.userAgentData?.platform || nav.platform || "") ? "left" : "right";
+  return nav.userAgentData?.platform || nav.platform || "";
 };
+/** The side "auto" window buttons resolve to. */
+export const deviceControls = (): "left" | "right" => (/mac|iphone|ipad/i.test(platformName()) ? "left" : "right");
+/** The shell "auto" resolves to. */
+export const deviceShell = (): "dock" | "taskbar" => (/^win/i.test(platformName()) ? "taskbar" : "dock");
+
+export const TOP_BAR = 36; // px, top bar height in the Dock layout
+export const TASKBAR = 48; // px, taskbar height in the taskbar layout
 /** "auto" fits as many columns as the safe width allows; a number caps it (3–8). */
 export type MaxColumns = "auto" | number;
 /** Apps with a Grid | List switcher. */
@@ -34,10 +44,10 @@ export const LIMITS = {
 
 export const DEFAULTS = { desktopView: "grid" as ViewMode, iconSize: 56, colGap: 20, rowGap: 16, dockGap: 8, dockSize: 46,
   desktopAlignment: "left" as Align, desktopVerticalAlign: "top" as VAlign, desktopMaxColumns: "auto" as MaxColumns,
-  iconClick: "single" as IconClick, windowControls: "auto" as WindowControls };
+  iconClick: "single" as IconClick, windowControls: "auto" as WindowControls, shellLayout: "auto" as ShellLayout };
 
 type Numeric = "iconSize" | "colGap" | "rowGap" | "dockGap";
-type Placement = "desktopAlignment" | "desktopVerticalAlign" | "desktopMaxColumns" | "iconClick" | "windowControls";
+type Placement = "desktopAlignment" | "desktopVerticalAlign" | "desktopMaxColumns" | "iconClick" | "windowControls" | "shellLayout";
 
 interface LayoutState {
   desktopView: ViewMode;
@@ -50,6 +60,7 @@ interface LayoutState {
   desktopMaxColumns: MaxColumns;
   iconClick: IconClick;
   windowControls: WindowControls;
+  shellLayout: ShellLayout;
   appViews: Partial<Record<ViewApp, ViewMode>>;
   /** View Options popover (not persisted). */
   panel: boolean;
@@ -79,13 +90,14 @@ function sanitize(saved: Partial<LayoutState> | undefined, cur: LayoutState): Pa
     desktopMaxColumns: p.desktopMaxColumns === "auto" ? "auto" : typeof p.desktopMaxColumns === "number" ? clamp(p.desktopMaxColumns, LIMITS.maxColumns, 3) : cur.desktopMaxColumns,
     iconClick: p.iconClick === "single" || p.iconClick === "double" ? p.iconClick : cur.iconClick,
     windowControls: p.windowControls === "auto" || p.windowControls === "left" || p.windowControls === "right" ? p.windowControls : cur.windowControls,
+    shellLayout: p.shellLayout === "auto" || p.shellLayout === "dock" || p.shellLayout === "taskbar" ? p.shellLayout : cur.shellLayout,
     appViews: Object.fromEntries(Object.entries(views).map(([k, v]) => [k, mode(v, "grid")])),
   };
 }
 
 /** The fields saved to localStorage and /api/system/preferences. */
-const persisted = ({ desktopView, iconSize, colGap, rowGap, dockGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, iconClick, windowControls, appViews }: LayoutState) =>
-  ({ desktopView, iconSize, colGap, rowGap, dockGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, iconClick, windowControls, appViews });
+const persisted = ({ desktopView, iconSize, colGap, rowGap, dockGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, iconClick, windowControls, shellLayout, appViews }: LayoutState) =>
+  ({ desktopView, iconSize, colGap, rowGap, dockGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, iconClick, windowControls, shellLayout, appViews });
 
 export const useLayout = create<LayoutState>()(
   persist(
@@ -100,6 +112,7 @@ export const useLayout = create<LayoutState>()(
       desktopMaxColumns: DEFAULTS.desktopMaxColumns,
       iconClick: DEFAULTS.iconClick,
       windowControls: DEFAULTS.windowControls,
+      shellLayout: DEFAULTS.shellLayout,
       appViews: {},
       panel: false,
       set: (patch) => set(patch),
@@ -107,7 +120,7 @@ export const useLayout = create<LayoutState>()(
       reset: () => {
         set({ desktopView: DEFAULTS.desktopView, iconSize: DEFAULTS.iconSize, colGap: DEFAULTS.colGap, rowGap: DEFAULTS.rowGap, dockGap: DEFAULTS.dockGap,
           desktopAlignment: DEFAULTS.desktopAlignment, desktopVerticalAlign: DEFAULTS.desktopVerticalAlign, desktopMaxColumns: DEFAULTS.desktopMaxColumns, iconClick: DEFAULTS.iconClick,
-          windowControls: DEFAULTS.windowControls });
+          windowControls: DEFAULTS.windowControls, shellLayout: DEFAULTS.shellLayout });
         useDock.getState().set({ baseSize: DEFAULTS.dockSize });
       },
     }),
@@ -118,6 +131,17 @@ export const useLayout = create<LayoutState>()(
     },
   ),
 );
+
+/** The shell actually shown ("auto" resolved for this device). */
+export function useShell(): "dock" | "taskbar" {
+  const s = useLayout((st) => st.shellLayout);
+  return s === "auto" ? deviceShell() : s;
+}
+
+/** Screen space taken by the shell bars, which windows (maximize, snap, drag) and desktop icons stay clear of. */
+export function useInsets(): { top: number; bottom: number } {
+  return useShell() === "taskbar" ? { top: 0, bottom: TASKBAR } : { top: TOP_BAR, bottom: 0 };
+}
 
 /** Default view per app: each keeps the layout it had before the switcher existed. */
 export const APP_VIEW_DEFAULTS: Record<ViewApp, ViewMode> = { compute: "list", disks: "grid", datasets: "list", appcenter: "grid", shares: "grid" };
