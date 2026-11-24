@@ -4,6 +4,7 @@ import { CircleHelp, Maximize2, Minimize2, Minus, X } from "lucide-react";
 import { useWindows, type Rect, type Win } from "../lib/stores";
 import { useWizard } from "../store/wizardStore";
 import { APPS } from "../apps/registry";
+import WindowErrorBoundary from "./WindowErrorBoundary";
 import type { ConsoleTarget } from "../lib/types";
 
 export const TOP = 36; // top bar height
@@ -147,9 +148,11 @@ export default function WindowFrame({ win, mobile, Body }: { win: Win; mobile: b
           </button>
         </header>
         <div className="min-h-0 flex-1 overflow-hidden">
-          <Suspense fallback={<p className="p-4 text-sm text-slate-400">Loading…</p>}>
-            <Body params={win.params} />
-          </Suspense>
+          <WindowErrorBoundary app={APPS[win.id].title}>
+            <Suspense fallback={<p className="p-4 text-sm text-slate-400">Loading…</p>}>
+              <Body params={win.params} />
+            </Suspense>
+          </WindowErrorBoundary>
         </div>
         {!full && (
           <div
