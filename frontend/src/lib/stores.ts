@@ -321,7 +321,7 @@ export const useTelemetry = create<TelemetryState>((set, get) => ({
   error: null,
   refreshStorage: async () => {
     try {
-      set({ storage: await api<StorageInfo>("/pve/storage") });
+      set({ storage: await api<StorageInfo>("/v1/storage") });
     } catch (e) {
       set({ error: (e as Error).message });
     }
@@ -329,7 +329,7 @@ export const useTelemetry = create<TelemetryState>((set, get) => ({
   start: () => {
     const poll = async () => {
       try {
-        const o = await api<Overview>("/pve/overview");
+        const o = await api<Overview>("/v1/overview");
         const arc = Math.min(o.memory.arc, o.memory.used);
         const sample: Sample = {
           cpu: o.cpu,
@@ -345,7 +345,7 @@ export const useTelemetry = create<TelemetryState>((set, get) => ({
       }
     };
     // Hardware is optional telemetry (no GPU, no helper): failures keep the last value and show no error.
-    const pollHardware = () => api<HardwareInfo>("/pve/telemetry/hardware").then((hardware) => set({ hardware }), () => {});
+    const pollHardware = () => api<HardwareInfo>("/v1/telemetry/hardware").then((hardware) => set({ hardware }), () => {});
     poll();
     get().refreshStorage();
     pollHardware();

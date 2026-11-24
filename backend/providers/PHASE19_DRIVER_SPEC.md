@@ -66,5 +66,5 @@ local RBAC in `data/local_rbac.json`, the VNC bridge in-process instead of a sep
 
 1. No method in `NativeUbuntuProvider` falls back to the generated stub. Then delete the stub loop.
 2. `python -m tests.test_phase18_providers` passes with the native driver exercised against recorded command fixtures.
-3. Every `/api/pve/*` route that the desktop calls goes through `get_provider()`. Today that is overview, guests and
+3. Every `/api/v1/*` route that the desktop calls goes through `get_provider()`. Today that is overview, guests and
    power actions; the remaining `app/*` handlers are Proxmox driver internals.

@@ -43,7 +43,7 @@ jobs:
           from fastapi.routing import APIRoute
           from app.main import app
           paths = {r.path for r in app.routes if isinstance(r, APIRoute)}
-          assert {'/api/pve/guests', '/api/v1/guests', '/api/system/updates/apply', '/api/system/updates/iso', '/api/v1/system/capabilities'} <= paths
+          assert {'/api/v1/guests', '/api/v1/guests', '/api/system/updates/apply', '/api/system/updates/iso', '/api/v1/system/capabilities'} <= paths
           print('$driver:', len(paths), 'routes')"
           done
       - name: Backend self-checks

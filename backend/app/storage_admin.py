@@ -21,7 +21,7 @@ from .hardware_admin import split_sections
 from .pve import DATASET_RE, _node, pve, zfs_helper
 from .telemetry import smart_temp
 
-router = APIRouter(prefix="/api/pve", tags=["storage-admin"], dependencies=[Depends(require_user)])
+router = APIRouter(prefix="/api/v1", tags=["storage-admin"], dependencies=[Depends(require_user)])
 
 DEV_RE = r"^/dev/[A-Za-z0-9][A-Za-z0-9/_.:-]*$"
 POOL_RE = r"^[A-Za-z][A-Za-z0-9_.:-]{0,63}$"

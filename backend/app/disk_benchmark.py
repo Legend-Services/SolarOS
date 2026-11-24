@@ -21,7 +21,7 @@ from .auth import require_user
 from .config import settings
 from .storage_admin import _dev, disk_info, ensure_tool, probe_host_disks
 
-router = APIRouter(prefix="/api/pve/disks/benchmark", tags=["disk-benchmark"], dependencies=[Depends(require_user)])
+router = APIRouter(prefix="/api/v1/disks/benchmark", tags=["disk-benchmark"], dependencies=[Depends(require_user)])
 
 PROFILES = {
     "SEQ1M_Q8T1": {"bs": "1m", "iodepth": 8, "seq": True},

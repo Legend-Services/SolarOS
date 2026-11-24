@@ -1389,7 +1389,7 @@ class NativeUbuntuProvider(HypervisorProvider):
             raise HTTPException(409, "The VM is not running or has no VNC display")
         port = 5900 + int(m.group(1))
         sid = console._new_session("vnc", kind, vmid, {"port": port})
-        return ConsoleTicket(session=sid, password=None, ws_path=f"/api/pve/ws/vnc/{kind}/{vmid}")
+        return ConsoleTicket(session=sid, password=None, ws_path=f"/api/v1/ws/vnc/{kind}/{vmid}")
 
     async def open_terminal_console(self, kind: GuestKind, vmid: int) -> ConsoleTicket:
         from app import console
@@ -1400,10 +1400,10 @@ class NativeUbuntuProvider(HypervisorProvider):
             # Same PTY relay as the host shell: a root login in the container, or the VM's serial console.
             cmd = f"incus exec {name} -- login -f root" if kind == "lxc" else f"virsh console --force {name}"
         sid = console._new_session("terminal", kind, vmid, {"ssh": cmd})
-        return ConsoleTicket(session=sid, ws_path=f"/api/pve/ws/terminal/{kind}/{vmid}")
+        return ConsoleTicket(session=sid, ws_path=f"/api/v1/ws/terminal/{kind}/{vmid}")
 
     async def open_host_shell(self) -> ConsoleTicket:
-        return ConsoleTicket(ws_path="/api/pve/ws/host-shell")
+        return ConsoleTicket(ws_path="/api/v1/ws/host-shell")
 
 
 # ---------------------------------------------------------------- Request models & pure helpers (unit tested)

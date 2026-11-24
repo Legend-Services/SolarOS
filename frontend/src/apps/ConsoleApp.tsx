@@ -18,7 +18,7 @@ const BADGE: Record<Status, string> = {
 };
 
 const wsUrl = (kind: "vnc" | "terminal", t: ConsoleTarget, session: string) =>
-  `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/pve/ws/${kind}/${t.type}/${t.vmid}?session=${encodeURIComponent(session)}`;
+  `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/v1/ws/${kind}/${t.type}/${t.vmid}?session=${encodeURIComponent(session)}`;
 
 export default function ConsoleApp({ params }: { params?: ConsoleTarget }) {
   const t = params!;
@@ -40,7 +40,7 @@ export default function ConsoleApp({ params }: { params?: ConsoleTarget }) {
     (async () => {
       try {
         if (t.mode === "vnc") {
-          const { session, password } = await api<{ session: string; password: string }>(`/pve/guests/${t.type}/${t.vmid}/vnc`, { method: "POST" });
+          const { session, password } = await api<{ session: string; password: string }>(`/v1/guests/${t.type}/${t.vmid}/vnc`, { method: "POST" });
           if (cancelled) return;
           const r = new RFB(el, wsUrl("vnc", t, session), { credentials: { password }, wsProtocols: ["binary"] });
           r.scaleViewport = true;
@@ -58,8 +58,8 @@ export default function ConsoleApp({ params }: { params?: ConsoleTarget }) {
           // Host shells open a root PTY over the SSH bridge directly; guests get a single-use session first.
           const url =
             t.type === "node"
-              ? `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/pve/ws/host-shell`
-              : wsUrl("terminal", t, (await api<{ session: string }>(`/pve/guests/${t.type}/${t.vmid}/terminal`, { method: "POST" })).session);
+              ? `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/v1/ws/host-shell`
+              : wsUrl("terminal", t, (await api<{ session: string }>(`/v1/guests/${t.type}/${t.vmid}/terminal`, { method: "POST" })).session);
           if (cancelled) return;
           const term = new Terminal({
             cursorBlink: true,

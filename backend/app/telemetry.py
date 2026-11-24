@@ -13,7 +13,7 @@ from . import host
 from .auth import require_user
 from .pve import _node, _safe
 
-router = APIRouter(prefix="/api/pve/telemetry", tags=["telemetry"], dependencies=[Depends(require_user)])
+router = APIRouter(prefix="/api/v1/telemetry", tags=["telemetry"], dependencies=[Depends(require_user)])
 
 NVIDIA_QUERY = ["nvidia-smi", "--query-gpu=name,temperature.gpu,utilization.gpu,memory.used,memory.total,power.draw",
                 "--format=csv,noheader,nounits"]

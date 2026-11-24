@@ -22,7 +22,7 @@ from . import host
 from .host import run, run_json
 from .provider import LOCAL, _bridge, _store_dir, _volume_file
 
-router = APIRouter(prefix="/api/pve/guests", dependencies=[Depends(require_user)], tags=["native_ubuntu"])
+router = APIRouter(prefix="/api/v1/guests", dependencies=[Depends(require_user)], tags=["native_ubuntu"])
 AGENT = "org.qemu.guest_agent.0"
 USB_ID_RE = re.compile(r"^[0-9a-fA-F]{4}:[0-9a-fA-F]{4}$")
 

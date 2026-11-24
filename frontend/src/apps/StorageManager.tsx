@@ -89,7 +89,7 @@ function CreatePoolModal({ open, onClose, disks, onDone }: { open: boolean; onCl
   useEffect(() => setPicked([]), [open]);
 
   const submit = async () => {
-    const ok = await run(() => api("/pve/zfs/pools", { method: "POST", json: { name, raidlevel: raid, devices: picked, ashift, compression, add_storage: addStorage } }));
+    const ok = await run(() => api("/v1/zfs/pools", { method: "POST", json: { name, raidlevel: raid, devices: picked, ashift, compression, add_storage: addStorage } }));
     if (ok) {
       onDone();
       onClose();
@@ -203,7 +203,7 @@ function CreateDatasetModal({ open, onClose, parents, onDone }: { open: boolean;
       ...(kind === "filesystem" && recordsize !== "inherit" && { recordsize }),
       ...(quota && kind === "filesystem" && { quota }),
     };
-    if (await run(() => api("/pve/zfs/datasets", { method: "POST", json }))) {
+    if (await run(() => api("/v1/zfs/datasets", { method: "POST", json }))) {
       setName("");
       onDone();
       onClose();
@@ -467,7 +467,7 @@ function ReplaceModal({ action, disks, onClose, onDone }: { action: MemberAction
   const submit = async () => {
     const dev = pick!.by_id || pick!.devpath;
     const json = { old_device: action!.device, new_device: dev, confirm_device: dev, partition_match: partitionMatch };
-    if (await run(() => api(`/pve/zfs/pools/${encodeURIComponent(action!.pool)}/members/replace`, { method: "POST", json }))) {
+    if (await run(() => api(`/v1/zfs/pools/${encodeURIComponent(action!.pool)}/members/replace`, { method: "POST", json }))) {
       onDone();
       onClose();
     }
@@ -561,7 +561,7 @@ function Pools({ storage, disks, onCreate, onChanged, refresh }: { storage: Stor
     const t = setInterval(refresh, 4000);
     return () => clearInterval(t);
   }, [resilvering, refresh]);
-  const member = (pool: string, path: string, json: object, ok: string) => run(() => api(`/pve/zfs/pools/${encodeURIComponent(pool)}/members/${path}`, { method: "POST", json }), ok);
+  const member = (pool: string, path: string, json: object, ok: string) => run(() => api(`/v1/zfs/pools/${encodeURIComponent(pool)}/members/${path}`, { method: "POST", json }), ok);
   const onRun = (pool: string) => (path: "online" | "detach", device: string) => {
     if (path === "detach" && !window.confirm(`Detach ${device} from ${pool}? The mirror loses this copy; the disk is no longer part of the pool.`)) return;
     member(pool, path, { device }, path === "online" ? `${device} is back online; ZFS resilvers what it missed.` : `${device} detached.`);
@@ -570,7 +570,7 @@ function Pools({ storage, disks, onCreate, onChanged, refresh }: { storage: Stor
     if (await member(action!.pool, "offline", { device: action!.device, temporary }, `${action!.device} is offline. You can now remove it and insert the replacement.`)) setAction(null);
   };
   const confirmDestroy = async () => {
-    if (await run(() => api(`/pve/zfs/pools/${encodeURIComponent(destroy!)}?confirm=${encodeURIComponent(destroy!)}`, { method: "DELETE" }), TASK_NOTE)) setDestroy(null);
+    if (await run(() => api(`/v1/zfs/pools/${encodeURIComponent(destroy!)}?confirm=${encodeURIComponent(destroy!)}`, { method: "DELETE" }), TASK_NOTE)) setDestroy(null);
   };
   return (
     <div className="space-y-4">
@@ -602,7 +602,7 @@ function Pools({ storage, disks, onCreate, onChanged, refresh }: { storage: Stor
                 Fragmentation {p.frag}% · Dedup {p.dedup}x
               </span>
               <span className="ml-auto flex gap-1.5">
-                <GlassButton size="xs" disabled={busy} onClick={() => run(() => api(`/pve/zfs/pools/${encodeURIComponent(p.name)}/scrub`, { method: "POST" }), `Scrub of ${p.name} started.`)}>
+                <GlassButton size="xs" disabled={busy} onClick={() => run(() => api(`/v1/zfs/pools/${encodeURIComponent(p.name)}/scrub`, { method: "POST" }), `Scrub of ${p.name} started.`)}>
                   <ShieldCheck size={12} /> Scrub
                 </GlassButton>
                 <GlassButton size="xs" variant="danger" onClick={() => setDestroy(p.name)}>
@@ -730,13 +730,13 @@ function Datasets({ version, onCreate }: { version: number; onCreate: () => void
   const [recursive, setRecursive] = useState(false);
   const [view] = useAppView("datasets");
   const load = useCallback(() => {
-    api<ZfsDatasetInfo[]>("/pve/zfs/datasets").then(setItems, () => setItems([]));
+    api<ZfsDatasetInfo[]>("/v1/zfs/datasets").then(setItems, () => setItems([]));
     api<Share[]>("/shares").then(setShares, () => {});
   }, []);
   const { busy, error, notice, run } = useRunner(load);
   useEffect(load, [load, version]);
 
-  const patch = (d: ZfsDatasetInfo, props: Record<string, string>) => run(() => api("/pve/zfs/datasets", { method: "PATCH", json: { name: d.name, ...props } }));
+  const patch = (d: ZfsDatasetInfo, props: Record<string, string>) => run(() => api("/v1/zfs/datasets", { method: "PATCH", json: { name: d.name, ...props } }));
   const shareOf = (d: ZfsDatasetInfo) => shares.find((s) => s.path === `/${d.name}`);
   const toggleShare = (d: ZfsDatasetInfo, on: boolean) => {
     const s = shareOf(d);
@@ -747,7 +747,7 @@ function Datasets({ version, onCreate }: { version: number; onCreate: () => void
   };
   const confirmDestroy = async () => {
     const q = new URLSearchParams({ name: destroy!.name, confirm: destroy!.name, recursive: String(recursive) });
-    if (await run(() => api(`/pve/zfs/datasets?${q}`, { method: "DELETE" }), `${destroy!.name} destroyed.`)) setDestroy(null);
+    if (await run(() => api(`/v1/zfs/datasets?${q}`, { method: "DELETE" }), `${destroy!.name} destroyed.`)) setDestroy(null);
   };
   const shown = (items ?? []).filter((d) => guests || !d.guest_volume);
 
@@ -913,7 +913,7 @@ function SmartDrawer({ disk, onClose }: { disk: PveDisk | null; onClose: () => v
   useEffect(() => {
     setData(null);
     setError("");
-    if (disk) api<SmartReport>(`/pve/disks/${encodeURIComponent(disk.devpath)}/smart`).then(setData, (e) => setError(e.message));
+    if (disk) api<SmartReport>(`/v1/disks/${encodeURIComponent(disk.devpath)}/smart`).then(setData, (e) => setError(e.message));
   }, [disk]);
   const tiles: [string, ReactNode][] = data
     ? [
@@ -985,8 +985,8 @@ function FormatDiskModal({ disk, onClose, onDone }: { disk: PveDisk | null; onCl
     e.preventDefault();
     const call =
       type === "directory"
-        ? api("/pve/disks/directory", { method: "POST", json: { device: disk!.devpath, name, filesystem: fs, add_storage: addStorage } })
-        : api("/pve/disks/lvm", { method: "POST", json: { device: disk!.devpath, name, thin: type === "lvmthin", add_storage: addStorage } });
+        ? api("/v1/disks/directory", { method: "POST", json: { device: disk!.devpath, name, filesystem: fs, add_storage: addStorage } })
+        : api("/v1/disks/lvm", { method: "POST", json: { device: disk!.devpath, name, thin: type === "lvmthin", add_storage: addStorage } });
     if (await run(() => call)) {
       onDone();
       onClose();
@@ -1069,10 +1069,10 @@ function Disks({ disks, onChanged }: { disks: PveDisk[] | null; onChanged: () =>
   const { busy, error, notice, run } = useRunner(onChanged);
   const tempOf = useCallback((d: PveDisk) => temps?.find((t) => t.devpath === d.devpath)?.temp_c ?? null, [temps]);
   const initGpt = (d: PveDisk) => {
-    if (window.confirm(`Initialize a new, empty GPT partition table on ${d.devpath}?`)) run(() => api("/pve/disks/initgpt", { method: "POST", json: { disk: d.devpath } }), TASK_NOTE);
+    if (window.confirm(`Initialize a new, empty GPT partition table on ${d.devpath}?`)) run(() => api("/v1/disks/initgpt", { method: "POST", json: { disk: d.devpath } }), TASK_NOTE);
   };
   const confirmWipe = async () => {
-    if (await run(() => api("/pve/disks/wipe", { method: "POST", json: { disk: wipe!.devpath, confirm_device: wipe!.devpath } }), TASK_NOTE)) setWipe(null);
+    if (await run(() => api("/v1/disks/wipe", { method: "POST", json: { disk: wipe!.devpath, confirm_device: wipe!.devpath } }), TASK_NOTE)) setWipe(null);
   };
   const sorted = useMemo(() => {
     const val = (d: PveDisk): string | number =>
@@ -1300,7 +1300,7 @@ function Snapshots() {
   const [loadError, setLoadError] = useState("");
 
   const load = useCallback(() => {
-    api<{ datasets: ZfsDataset[]; snapshots: ZfsSnapshot[] }>("/pve/zfs/snapshots")
+    api<{ datasets: ZfsDataset[]; snapshots: ZfsSnapshot[] }>("/v1/zfs/snapshots")
       .then((d) => (setData(d), setLoadError("")))
       .catch((e) => setLoadError(e.message));
   }, []);
@@ -1310,19 +1310,19 @@ function Snapshots() {
   const create = (e: FormEvent) => {
     e.preventDefault();
     const dataset = target || filter || data?.datasets[0]?.name;
-    if (dataset) run(() => api("/pve/zfs/snapshots", { method: "POST", json: { dataset, name } }).then(() => setName(stamp())));
+    if (dataset) run(() => api("/v1/zfs/snapshots", { method: "POST", json: { dataset, name } }).then(() => setName(stamp())));
   };
 
   const rollback = (s: ZfsSnapshot) => {
     const newer = (data?.snapshots ?? []).filter((x) => x.dataset === s.dataset && x.creation > s.creation);
     const warning = newer.length ? `\n\nThis also DESTROYS ${newer.length} newer snapshot(s): ${newer.map((x) => x.snapshot).join(", ")}.` : "";
     if (!window.confirm(`Roll back ${s.dataset} to "${s.snapshot}"? All changes made after it are lost.${warning}`)) return;
-    run(() => api("/pve/zfs/snapshots/rollback", { method: "POST", json: { snapshot: s.name, force: newer.length > 0 } }));
+    run(() => api("/v1/zfs/snapshots/rollback", { method: "POST", json: { snapshot: s.name, force: newer.length > 0 } }));
   };
 
   const remove = (s: ZfsSnapshot) => {
     if (!window.confirm(`Delete snapshot ${s.name}? This cannot be undone.`)) return;
-    run(() => api(`/pve/zfs/snapshots?snapshot=${encodeURIComponent(s.name)}`, { method: "DELETE" }));
+    run(() => api(`/v1/zfs/snapshots?snapshot=${encodeURIComponent(s.name)}`, { method: "DELETE" }));
   };
 
   const shown = useMemo(() => (data?.snapshots ?? []).filter((s) => !filter || s.dataset === filter || s.dataset.startsWith(`${filter}/`)), [data, filter]);
@@ -1422,7 +1422,7 @@ function Schedules() {
   const { busy, error, run } = useRunner(load);
   useEffect(() => {
     load();
-    api<{ datasets: ZfsDataset[] }>("/pve/zfs/snapshots").then(
+    api<{ datasets: ZfsDataset[] }>("/v1/zfs/snapshots").then(
       (d) => setDatasets(d.datasets.filter((x) => x.type === "filesystem").map((x) => x.name)),
       () => {},
     );
@@ -1572,11 +1572,11 @@ function StorageBackends() {
   const [remove, setRemove] = useState<string | null>(null);
   const { busy, error, run, setError } = useRunner();
   const load = useCallback(() => {
-    api<StorageCfg[]>("/pve/storage-config").then(setItems, (e) => setError(e.message));
+    api<StorageCfg[]>("/v1/storage-config").then(setItems, (e) => setError(e.message));
     refreshStorage();
   }, [setError, refreshStorage]);
   useEffect(load, [load]);
-  const toggle = (s: StorageCfg) => run(() => api(`/pve/storage-config/${s.storage}`, { method: "PUT", json: { enable: !!s.disable } }).then(load));
+  const toggle = (s: StorageCfg) => run(() => api(`/v1/storage-config/${s.storage}`, { method: "PUT", json: { enable: !!s.disable } }).then(load));
 
   return (
     <div className="space-y-3">
@@ -1657,7 +1657,7 @@ function StorageBackends() {
         expect={remove ?? undefined}
         message="Removes the storage definition from Proxmox only. Data on the disk, share or pool is not deleted, but guests using it lose access to their disks."
         onConfirm={async () => {
-          if (await run(() => api(`/pve/storage-config/${remove}`, { method: "DELETE" }).then(load))) setRemove(null);
+          if (await run(() => api(`/v1/storage-config/${remove}`, { method: "DELETE" }).then(load))) setRemove(null);
         }}
       />
     </div>
@@ -1684,13 +1684,13 @@ function AddStorageModal({ open, onClose, onDone }: { open: boolean; onClose: ()
   // Local backends are scanned right away; network ones once a server is entered.
   useEffect(() => {
     if (!open) return;
-    const q = (k: string) => api<Record<string, string>[]>(`/pve/storage-scan/${k}`);
+    const q = (k: string) => api<Record<string, string>[]>(`/v1/storage-scan/${k}`);
     if (f.type === "lvm" || f.type === "lvmthin") q("lvm").then((r) => setScan(r.map((x) => x.vg)), () => setScan([]));
     if (f.type === "zfspool") q("zfs").then((r) => setScan(r.map((x) => x.pool)), () => setScan([]));
   }, [open, f.type]);
   useEffect(() => {
     if (f.type === "lvmthin" && f.vgname)
-      api<Record<string, string>[]>(`/pve/storage-scan/lvmthin?vg=${encodeURIComponent(f.vgname)}`).then((r) => setScan2(r.map((x) => x.lv)), () => setScan2([]));
+      api<Record<string, string>[]>(`/v1/storage-scan/lvmthin?vg=${encodeURIComponent(f.vgname)}`).then((r) => setScan2(r.map((x) => x.lv)), () => setScan2([]));
   }, [f.type, f.vgname]);
   const scanServer = () => {
     const p = new URLSearchParams({ server: f.server });
@@ -1699,11 +1699,11 @@ function AddStorageModal({ open, onClose, onDone }: { open: boolean; onClose: ()
       p.set("password", f.password);
       if (f.domain) p.set("domain", f.domain);
     }
-    run(() => api<Record<string, string>[]>(`/pve/storage-scan/${f.type}?${p}`).then((r) => setScan(r.map((x) => (f.type === "nfs" ? x.path : x.share)))));
+    run(() => api<Record<string, string>[]>(`/v1/storage-scan/${f.type}?${p}`).then((r) => setScan(r.map((x) => (f.type === "nfs" ? x.path : x.share)))));
   };
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (await run(() => api("/pve/storage-config", { method: "POST", json: f }))) {
+    if (await run(() => api("/v1/storage-config", { method: "POST", json: f }))) {
       onDone();
       onClose();
     }
@@ -1786,7 +1786,7 @@ export default function StorageManager() {
   const [version, setVersion] = useState(0);
 
   const loadDisks = useCallback(() => {
-    api<PveDisk[]>("/pve/disks").then(setDisks, () => setDisks([]));
+    api<PveDisk[]>("/v1/disks").then(setDisks, () => setDisks([]));
   }, []);
   const refreshAll = useCallback(() => {
     refreshStorage();
@@ -1808,7 +1808,7 @@ export default function StorageManager() {
   });
   useEffect(() => {
     if (modal === "dataset")
-      api<ZfsDatasetInfo[]>("/pve/zfs/datasets").then(
+      api<ZfsDatasetInfo[]>("/v1/zfs/datasets").then(
         (d) => setParents(d.filter((x) => x.type === "filesystem" && !x.guest_volume).map((x) => x.name)),
         () => setParents(storage?.pools.map((p) => p.name) ?? []),
       );

@@ -55,7 +55,7 @@ const initial = {
 
 /** Lists volumes of one content type across every active storage that holds it. */
 async function volumes(content: "iso" | "vztmpl", stores: string[]) {
-  const lists = await Promise.all(stores.map((s) => api<StorageVolume[]>(`/pve/storage/${s}/content?content=${content}`).catch(() => [])));
+  const lists = await Promise.all(stores.map((s) => api<StorageVolume[]>(`/v1/storage/${s}/content?content=${content}`).catch(() => [])));
   return lists.flat();
 }
 
@@ -86,7 +86,7 @@ export default function GuestWizard({ kind, open, onClose, onCreated }: { kind: 
     setError("");
     setF({ ...initial, disk: k === "qemu" ? 32 : 8, memory: k === "qemu" ? 2048 : 1024, cores: k === "qemu" ? 2 : 1 });
     refreshStorage();
-    api<{ vmid: number }>("/pve/nextid").then((r) => set({ vmid: r.vmid }), (e) => setError(e.message));
+    api<{ vmid: number }>("/v1/nextid").then((r) => set({ vmid: r.vmid }), (e) => setError(e.message));
     api<SystemInfo>("/system/info").then(
       (i) => {
         const b = i.network.filter((n) => n.type === "bridge").map((n) => n.iface);
@@ -96,7 +96,7 @@ export default function GuestWizard({ kind, open, onClose, onCreated }: { kind: 
       () => setBridges(["vmbr0"]),
     );
     if (k === "lxc")
-      api<ZfsDatasetInfo[]>("/pve/zfs/datasets").then(
+      api<ZfsDatasetInfo[]>("/v1/zfs/datasets").then(
         (d) => setDatasets(d.filter((x) => x.type === "filesystem" && !x.guest_volume && x.name.includes("/")).map((x) => x.name)),
         () => setDatasets([]),
       );
@@ -143,7 +143,7 @@ export default function GuestWizard({ kind, open, onClose, onCreated }: { kind: 
               storage: f.storage, disk_gb: f.disk, bridge: f.bridge, password: f.password, nesting: f.nesting,
               ip_config: f.dhcp ? "dhcp" : { cidr: f.cidr, gateway: f.gateway }, bind_dataset: f.bind || null,
             };
-      setJob(await api<{ vmid: number; upid: string }>(`/pve/guests/${k}`, { method: "POST", json: body }));
+      setJob(await api<{ vmid: number; upid: string }>(`/v1/guests/${k}`, { method: "POST", json: body }));
     });
 
   const title = k === "qemu" ? "Create Virtual Machine" : "Create Container";

@@ -68,9 +68,9 @@ export function usePassthroughDevices(enabled: boolean): Devices {
     if (!enabled) return;
     setD((x) => ({ ...x, loading: true }));
     Promise.allSettled([
-      api<GpuDevice[]>("/pve/hardware/gpus"),
-      api<PciDev[]>("/pve/hardware/pci"),
-      api<{ devices: UsbDev[] }>("/pve/hardware/usb"),
+      api<GpuDevice[]>("/v1/hardware/gpus"),
+      api<PciDev[]>("/v1/hardware/pci"),
+      api<{ devices: UsbDev[] }>("/v1/hardware/usb"),
     ]).then(([g, p, u]) =>
       setD({
         gpus: g.status === "fulfilled" ? g.value : [],

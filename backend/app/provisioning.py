@@ -18,7 +18,7 @@ from .pve import DATASET_RE, _node, pve
 from .storage_admin import STORAGE_RE
 from .tasks import wait_task
 
-router = APIRouter(prefix="/api/pve", tags=["provisioning"], dependencies=[Depends(require_user)])
+router = APIRouter(prefix="/api/v1", tags=["provisioning"], dependencies=[Depends(require_user)])
 
 GUEST_TAG = "proxmox-os-guest"
 CONTENT = ("iso", "vztmpl", "backup")

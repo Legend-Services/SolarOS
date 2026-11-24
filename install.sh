@@ -423,7 +423,7 @@ if [[ -z "$API_TOKEN" ]]; then
   SELFTEST="skipped (sign-in needs a 2FA code)"
   warn "Self-test skipped: could not sign in without a 2FA code"
 else
-  for ep in /api/pve/bios/status /api/hardware/inventory; do
+  for ep in /api/v1/bios/status /api/hardware/inventory; do
     BODY="$(mktemp)"
     CODE="$(curl -sS -m 90 -o "$BODY" -w '%{http_code}' -H "Authorization: Bearer ${API_TOKEN}" "http://${CT_IP}${ep}" 2>/dev/null || true)"
     if [[ "$CODE" == 200 ]]; then

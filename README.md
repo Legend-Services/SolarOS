@@ -92,7 +92,7 @@ It finds everything by itself: the node name, the next free container ID, the be
 - sets up passwordless SSH from the container to the host (for the Host Shell, ZFS snapshots, drivers and network services),
 - installs Python, Node 22, nginx and Samba, builds the app and runs a health check,
 - enables HTTPS on port 443 with a self-signed certificate for the container's IP and hostname (`deploy/selfsigned-cert.sh`, renewed automatically). Your browser warns about it once; get a Let's Encrypt certificate for your own domain in Network & Services → Domains (DNS-01, renewed automatically) or upload one in Certificates, and updates will keep that one. Plain http keeps working,
-- runs a self-test that signs in and calls `/api/pve/bios/status` and `/api/hardware/inventory`, and prints the result in the final box.
+- runs a self-test that signs in and calls `/api/v1/bios/status` and `/api/hardware/inventory`, and prints the result in the final box.
 
 ## SolarOS: standalone hypervisor OS (no Proxmox VE)
 
@@ -206,7 +206,7 @@ same repository and desktop can manage different platforms. `HYPERVISOR_DRIVER` 
   backends, API tokens, ACME certificates) answer HTTP 501 there. See `hypervisor/README.md`.
 
 `GET /api/system/capabilities` (also `/api/v1/system/capabilities`) returns the active driver, its platform label and
-feature flags. The desktop uses them for labels and to show only supported features. Every `/api/pve/...` route is
+feature flags. The desktop uses them for labels and to show only supported features. Every `/api/v1/...` route is
 also available at the driver-neutral `/api/v1/...` path, with the same handler, sign-in and validation. Updates,
 downgrades and re-installs keep `HYPERVISOR_DRIVER` like every other `.env` value.
 
@@ -246,7 +246,7 @@ The backend checks the rules every minute. API: `GET|PUT /api/automation/channel
 
 ### Network Topology
 
-Network & Services → **Topology** draws `GET /api/pve/network/topology`, a `nodes[]` / `edges[]` graph built from the host's interfaces (`/nodes/{node}/network` plus `ip -j link` for MACs and link state), every VM and container's `net0..netN` bridge bindings and IPs (container interfaces, or the QEMU guest agent), the WireGuard server and its peers, and the router's port forwards. Click a node to highlight its connections and see its IP, MAC and link status, with **Open Console**, **Configure Bridge**, **Edit Port Forward** or **Configure VPN**.
+Network & Services → **Topology** draws `GET /api/v1/network/topology`, a `nodes[]` / `edges[]` graph built from the host's interfaces (`/nodes/{node}/network` plus `ip -j link` for MACs and link state), every VM and container's `net0..netN` bridge bindings and IPs (container interfaces, or the QEMU guest agent), the WireGuard server and its peers, and the router's port forwards. Click a node to highlight its connections and see its IP, MAC and link status, with **Open Console**, **Configure Bridge**, **Edit Port Forward** or **Configure VPN**.
 
 ### Widgets and languages
 

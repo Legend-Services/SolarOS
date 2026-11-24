@@ -11,7 +11,7 @@ from .provisioning import volume
 from .pve import _node, _safe, pve
 from .storage_admin import STORAGE_RE
 
-router = APIRouter(prefix="/api/pve/backups", tags=["backups"], dependencies=[Depends(require_user)])
+router = APIRouter(prefix="/api/v1/backups", tags=["backups"], dependencies=[Depends(require_user)])
 
 BACKUP_VOLID_RE = r"^[a-z][a-z0-9_.-]*:[^,\s]+$"
 JOB_ID_RE = r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"

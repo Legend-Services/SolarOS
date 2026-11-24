@@ -23,7 +23,7 @@ GuestType = Literal["qemu", "lxc"]
 ShellType = Literal["qemu", "lxc", "node"]
 TICKET_TTL = 60  # seconds a console session may wait before the browser connects
 
-router = APIRouter(prefix="/api/pve", tags=["console"])
+router = APIRouter(prefix="/api/v1", tags=["console"])
 _sessions: dict[str, dict] = {}
 
 

@@ -53,16 +53,16 @@ with TestClient(app) as c:  # lifespan runs: creates the bridge key
     assert inv["memory"]["total"] == 16 * 2**30 and inv["system"]["kernel"] == "6.8.12-4-pve"
     assert inv["virtualization"]["cpu"] == "AMD-V" and inv["gpus"] == []
 
-    b = c.get("/api/pve/bios/status")
+    b = c.get("/api/v1/bios/status")
     assert b.status_code == 200, b.text
     assert b.json()["virtualization"] is True and b.json()["cpu"] == "amd" and not b.json()["ssh_bridge_connected"]
 
     assert c.get("/api/hardware/gpu-metrics").json() == {"nvidia": {}, "amd_vram": {}}
     assert c.get("/api/host/bridge").json()["setup_command"]
-    assert c.get("/api/pve/zfs/snapshots").json() == {"datasets": [], "snapshots": [], "zfs_available": False}
-    assert c.get("/api/pve/zfs/datasets").json() == []
-    assert c.get("/api/pve/storage").json()["zfs_available"] is False
-    assert c.get("/api/pve/telemetry/hardware").status_code == 200
+    assert c.get("/api/v1/zfs/snapshots").json() == {"datasets": [], "snapshots": [], "zfs_available": False}
+    assert c.get("/api/v1/zfs/datasets").json() == []
+    assert c.get("/api/v1/storage").json()["zfs_available"] is False
+    assert c.get("/api/v1/telemetry/hardware").status_code == 200
 
 # Parsers: OEM placeholders, sysfs fallback, odd lscpu values, PVE PCI fallback.
 f = help_center.parse_bios_facts("system-manufacturer=To Be Filled By O.E.M.\nbaseboard-product-name=B550M\n"

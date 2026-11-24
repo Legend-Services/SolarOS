@@ -14,7 +14,7 @@ from .auth import require_user
 from .provisioning import BRIDGE_RE, PciPassthrough, UsbPassthrough, hostpci_value, qm_set, usb_value
 from .pve import _node, pve
 
-router = APIRouter(prefix="/api/pve/guests", tags=["guest_hardware"], dependencies=[Depends(require_user)])
+router = APIRouter(prefix="/api/v1/guests", tags=["guest_hardware"], dependencies=[Depends(require_user)])
 
 GuestType = Literal["qemu", "lxc"]
 VMID = Annotated[int, Path(ge=100, le=999_999_999)]

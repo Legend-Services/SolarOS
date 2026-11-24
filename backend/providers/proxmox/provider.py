@@ -310,12 +310,12 @@ class ProxmoxProvider(HypervisorProvider):
 
     async def open_vnc_console(self, kind: GuestKind, vmid: int) -> ConsoleTicket:
         t = await console.vnc_ticket(kind, vmid)
-        return ConsoleTicket(session=t["session"], password=t["password"], ws_path=f"/api/pve/ws/vnc/{kind}/{vmid}")
+        return ConsoleTicket(session=t["session"], password=t["password"], ws_path=f"/api/v1/ws/vnc/{kind}/{vmid}")
 
     async def open_terminal_console(self, kind: GuestKind, vmid: int) -> ConsoleTicket:
         t = await console.terminal_ticket(kind, vmid)
-        return ConsoleTicket(session=t["session"], ws_path=f"/api/pve/ws/terminal/{kind}/{vmid}")
+        return ConsoleTicket(session=t["session"], ws_path=f"/api/v1/ws/terminal/{kind}/{vmid}")
 
     async def open_host_shell(self) -> ConsoleTicket:
         # The host shell socket authenticates with the login cookie itself; no one-time session is needed.
-        return ConsoleTicket(ws_path="/api/pve/ws/host-shell")
+        return ConsoleTicket(ws_path="/api/v1/ws/host-shell")

@@ -47,7 +47,7 @@ export default function ComputeManager() {
   const openConsole = (g: Guest, mode: "vnc" | "shell") => openWindow("console", { type: g.type, vmid: g.vmid, name: g.name, mode });
 
   const load = useCallback(() => {
-    api<Guest[]>("/pve/guests")
+    api<Guest[]>("/v1/guests")
       .then((g) => {
         setGuests(g);
         setError("");
@@ -68,7 +68,7 @@ export default function ComputeManager() {
     const key = `${g.type}/${g.vmid}`;
     setBusy((b) => ({ ...b, [key]: true }));
     try {
-      await api(`/pve/guests/${g.type}/${g.vmid}/action`, { method: "POST", json: { action } });
+      await api(`/v1/guests/${g.type}/${g.vmid}/action`, { method: "POST", json: { action } });
       setTimeout(load, 1500);
     } catch (e) {
       setError((e as Error).message);

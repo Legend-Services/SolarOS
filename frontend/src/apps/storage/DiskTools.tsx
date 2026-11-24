@@ -7,7 +7,7 @@ import { useWizard } from "../../store/wizardStore";
 import { Bar } from "../../components/charts";
 import { Field, GlassBadge, GlassButton, GlassModal, GlassSelect, GlassSlider, GlassSwitch, Notice } from "../../components/ui/GlassKit";
 
-export const diskUrl = (d: PveDisk) => `/pve/disks/${encodeURIComponent(d.devpath)}`;
+export const diskUrl = (d: PveDisk) => `/v1/disks/${encodeURIComponent(d.devpath)}`;
 
 export const eta = (s: number | null | undefined) => {
   if (s == null) return null;

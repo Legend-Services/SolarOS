@@ -129,8 +129,8 @@ order = [(r.path, r.endpoint.__module__) for r in app.routes if isinstance(r, AP
 first = {}
 for path, mod in order:
     first.setdefault(path, mod)
-for p in ("/api/pve/guests/{guest_type}/{vmid}/hardware", "/api/pve/guests/{guest_type}/{vmid}/net/{idx}",
-          "/api/pve/guests/qemu/{vmid}/cloudinit", "/api/pve/guests/{guest_type}/{vmid}/options",
-          "/api/pve/guests/qemu/{vmid}/hostpci/{idx}", "/api/pve/guests/qemu/{vmid}/cdrom"):
+for p in ("/api/v1/guests/{guest_type}/{vmid}/hardware", "/api/v1/guests/{guest_type}/{vmid}/net/{idx}",
+          "/api/v1/guests/qemu/{vmid}/cloudinit", "/api/v1/guests/{guest_type}/{vmid}/options",
+          "/api/v1/guests/qemu/{vmid}/hostpci/{idx}", "/api/v1/guests/qemu/{vmid}/cdrom"):
     assert first[p] == "providers.native_ubuntu.guest_edit", (p, first[p])
 print("SolarOS guest editing self-check OK")

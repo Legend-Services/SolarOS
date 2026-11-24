@@ -361,7 +361,7 @@ async def gpu_metrics():
     return {"nvidia": parse_nvidia(s.get("nvidia", "")), "amd_vram": parse_amd_vram(s.get("amd", ""))}
 
 
-@router.get("/api/pve/bios/status")
+@router.get("/api/v1/bios/status")
 async def bios_status():
     """Board/BIOS facts: dmidecode, then /sys/devices/virtual/dmi/id, then Proxmox API node info. Never a 500."""
     from . import help_center  # lazy: help_center -> backups -> storage_admin imports this module

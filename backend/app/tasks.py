@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from .auth import require_user
 from .pve import _node, pve
 
-router = APIRouter(prefix="/api/pve/tasks", tags=["tasks"], dependencies=[Depends(require_user)])
+router = APIRouter(prefix="/api/v1/tasks", tags=["tasks"], dependencies=[Depends(require_user)])
 
 
 def _upid_path(upid: str, suffix: str) -> str:

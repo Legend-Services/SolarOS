@@ -1,4 +1,4 @@
-"""Phase 18 self-check: provider contract, registry, capabilities and /api/v1 aliases.
+"""Phase 18 self-check: provider contract, registry, capabilities and the /api/v1 API.
 Run: python -m tests.test_phase18_providers (from backend/)."""
 import os
 import tempfile
@@ -44,11 +44,11 @@ for path in ("/api/system/capabilities", "/api/v1/system/capabilities"):
     assert caps["driver"] == "proxmox" and caps["supports_clustering"] is True, caps
 anon = TestClient(app)
 assert anon.get("/api/v1/system/capabilities").status_code == 200  # public: the sign-in screen shows the platform
-assert anon.get("/api/v1/guests").status_code == 401 and anon.get("/api/pve/guests").status_code == 401  # aliases keep auth
+assert anon.get("/api/v1/guests").status_code == 401 and anon.get("/api/pve/guests").status_code == 404  # one API, no legacy path
 
-# Legacy and v1 paths resolve identically through the provider.
-legacy, v1 = c.get("/api/pve/guests").json(), c.get("/api/v1/guests").json()
-assert legacy == v1 and [g["vmid"] for g in v1] == [100, 101] and v1[1]["maxcpu"] == 2, v1
+# Guests resolve through the provider.
+v1 = c.get("/api/v1/guests").json()
+assert [g["vmid"] for g in v1] == [100, 101] and v1[1]["maxcpu"] == 2, v1
 o = c.get("/api/v1/overview").json()
 assert o["cpu"] == 25 and o["vms"] == {"running": 1, "stopped": 0, "total": 1} and o["loadavg"] == [0.5], o
 assert c.post("/api/v1/guests/lxc/100/action", json={"action": "start"}).json() == {"ok": True, "task": "UPID:pve:1"}

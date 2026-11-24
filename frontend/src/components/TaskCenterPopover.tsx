@@ -48,8 +48,8 @@ export function TaskLog({ upid, onDone, className = "h-48" }: { upid: string; on
     const tick = async () => {
       try {
         const [s, l] = await Promise.all([
-          api<{ state: TaskState }>(`/pve/tasks/${id}/status`),
-          api<{ lines: string[] }>(`/pve/tasks/${id}/log`),
+          api<{ state: TaskState }>(`/v1/tasks/${id}/status`),
+          api<{ lines: string[] }>(`/v1/tasks/${id}/log`),
         ]);
         if (stop) return;
         setLines(l.lines);
@@ -86,7 +86,7 @@ export default function TaskCenterPopover({ up = false }: { up?: boolean }) {
   const ref = useDismiss(open, close);
 
   const load = useCallback(() => {
-    api<PveTask[]>("/pve/tasks").then(setTasks).catch(() => {});
+    api<PveTask[]>("/v1/tasks").then(setTasks).catch(() => {});
   }, []);
   usePoll(load, open ? 3000 : 8000);
 

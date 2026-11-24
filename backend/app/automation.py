@@ -25,7 +25,7 @@ from .pve import _node, _safe, parse_zfs_list, pve
 from .schedules import AUTO_PREFIX, LEGACY_AUTO_PREFIX
 
 router = APIRouter(prefix="/api/automation", tags=["automation"], dependencies=[Depends(require_user)])
-topology_router = APIRouter(prefix="/api/pve/network", tags=["automation"], dependencies=[Depends(require_user)])
+topology_router = APIRouter(prefix="/api/v1/network", tags=["automation"], dependencies=[Depends(require_user)])
 log = logging.getLogger("proxmox-os.automation")
 
 TICK_S = 60

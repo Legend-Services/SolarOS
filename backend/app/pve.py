@@ -11,7 +11,7 @@ from .auth import require_user
 from .config import settings
 from providers.registry import get_provider
 
-router = APIRouter(prefix="/api/pve", tags=["pve"], dependencies=[Depends(require_user)])
+router = APIRouter(prefix="/api/v1", tags=["pve"], dependencies=[Depends(require_user)])
 _client: httpx.AsyncClient | None = None
 
 

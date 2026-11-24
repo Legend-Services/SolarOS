@@ -864,8 +864,8 @@ function TaskLog({ upid }: { upid: string }) {
   const [state, setState] = useState("running");
   const poll = useCallback(() => {
     if (state !== "running") return;
-    api<{ lines: string[] }>(`/pve/tasks/${encodeURIComponent(upid)}/log`).then((r) => setLog(r.lines), () => {});
-    api<{ state: string }>(`/pve/tasks/${encodeURIComponent(upid)}/status`).then((s) => setState(s.state), () => {});
+    api<{ lines: string[] }>(`/v1/tasks/${encodeURIComponent(upid)}/log`).then((r) => setLog(r.lines), () => {});
+    api<{ state: string }>(`/v1/tasks/${encodeURIComponent(upid)}/status`).then((s) => setState(s.state), () => {});
   }, [upid, state]);
   usePoll(poll, 2000);
   return (

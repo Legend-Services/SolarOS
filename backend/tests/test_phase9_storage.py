@@ -151,19 +151,19 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.main import app  # noqa: E402
 
 paths = {r.path for r in app.routes}
-for p in ("/api/pve/disks/{disk:path}/settings", "/api/pve/disks/{disk:path}/scan", "/api/pve/disks/benchmark",
-          "/api/pve/disks/benchmark/history", "/api/pve/disks/benchmark/{job_id}",
-          "/api/pve/zfs/pools/{pool}/members/offline", "/api/pve/zfs/pools/{pool}/members/replace"):
+for p in ("/api/v1/disks/{disk:path}/settings", "/api/v1/disks/{disk:path}/scan", "/api/v1/disks/benchmark",
+          "/api/v1/disks/benchmark/history", "/api/v1/disks/benchmark/{job_id}",
+          "/api/v1/zfs/pools/{pool}/members/offline", "/api/v1/zfs/pools/{pool}/members/replace"):
     assert p in paths, p
 cl = TestClient(app)
-assert cl.get("/api/pve/disks/benchmark/history").status_code == 401
+assert cl.get("/api/v1/disks/benchmark/history").status_code == 401
 cl.post("/api/auth/login", json={"username": "admin", "password": "pw"})
 b.history_file = Path(tempfile.mkdtemp()) / "benchmarks.json"
-assert cl.get("/api/pve/disks/benchmark/history").json() == []
+assert cl.get("/api/v1/disks/benchmark/history").json() == []
 b.save_result({"id": "a"})
-assert cl.get("/api/pve/disks/benchmark/history").json() == [{"id": "a"}]
-assert cl.post("/api/pve/disks/benchmark", json={"target_type": "mountpoint", "target": "/../etc"}).status_code == 422
-assert cl.post("/api/pve/disks/benchmark", json={"target_type": "disk", "target": "/dev/sda", "test_size_mb": 7}).status_code == 422
-assert cl.post("/api/pve/zfs/pools/bad name/members/offline", json={"device": "sda"}).status_code == 422
-assert cl.put("/api/pve/disks/sda/settings", json={"spindown_minutes": 7}).status_code == 422
+assert cl.get("/api/v1/disks/benchmark/history").json() == [{"id": "a"}]
+assert cl.post("/api/v1/disks/benchmark", json={"target_type": "mountpoint", "target": "/../etc"}).status_code == 422
+assert cl.post("/api/v1/disks/benchmark", json={"target_type": "disk", "target": "/dev/sda", "test_size_mb": 7}).status_code == 422
+assert cl.post("/api/v1/zfs/pools/bad name/members/offline", json={"device": "sda"}).status_code == 422
+assert cl.put("/api/v1/disks/sda/settings", json={"spindown_minutes": 7}).status_code == 422
 print("phase 9 storage self-check OK")
