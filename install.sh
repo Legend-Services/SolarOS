@@ -394,6 +394,7 @@ msg "Configuring nginx"
 ct "install -m 644 ${APP_DIR}/deploy/nginx.conf /etc/nginx/sites-available/proxmox-os
 ln -sf /etc/nginx/sites-available/proxmox-os /etc/nginx/sites-enabled/proxmox-os
 rm -f /etc/nginx/sites-enabled/default
+bash ${APP_DIR}/deploy/selfsigned-cert.sh || echo '!! Could not create the HTTPS certificate; SolarDeck stays on http'
 nginx -t -q
 systemctl enable -q nginx
 systemctl reload nginx || systemctl restart nginx"
@@ -446,6 +447,7 @@ if [[ -n "$UPGRADE" ]]; then
   row "" "SolarDeck for Proxmox VE - upgraded to v${VERSION}"
   edge ╠ ╣
   row "Web UI URL:" "http://${CT_IP}"
+  row "HTTPS:" "https://${CT_IP} (self-signed certificate)"
   row "Status:" "Healthy (backend and nginx restarted)"
   row "Self-test:" "${SELFTEST}"
   row "Login:" "unchanged (your existing admin password)"
@@ -455,6 +457,7 @@ else
   row "" "SolarDeck for Proxmox VE v${VERSION} is ready"
   edge ╠ ╣
   row "Web UI URL:" "http://${CT_IP}"
+  row "HTTPS:" "https://${CT_IP} (self-signed certificate)"
   row "Username:" "admin"
   row "Password:" "${ADMIN_PASSWORD}"
   row "" "(Saved in ${APP_DIR}/backend/.env)"

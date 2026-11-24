@@ -264,7 +264,13 @@ export default function Taskbar() {
           onClick={toggleFullscreen}
           className="rounded-md px-2 py-1 text-slate-200 hover:bg-white/10 max-sm:hidden"
           aria-label={fullscreen ? "Exit full screen" : "Full screen"}
-          title={fullscreen ? "Exit full screen" : "Full screen: the Start key then opens SolarDeck's Start menu (Chrome or Edge over https)"}
+          title={
+            fullscreen
+              ? "Exit full screen"
+              : window.isSecureContext
+                ? "Full screen: the Start key then opens only SolarDeck's Start menu (Chrome or Edge)"
+                : `Full screen. To keep the Start key inside SolarDeck, open https://${location.host} (Chrome or Edge)`
+          }
         >
           {fullscreen ? <Shrink size={14} /> : <Expand size={14} />}
         </button>

@@ -64,6 +64,7 @@ echo "==> Reloading services"
 # New-name alias for the legacy install dir; the real path stays put so existing units and mounts keep working.
 [[ -e /opt/solardeck ]] || ln -s "$APP_DIR" /opt/solardeck
 install -m 644 deploy/nginx.conf /etc/nginx/sites-available/proxmox-os
+bash deploy/selfsigned-cert.sh || echo "!! Could not create the HTTPS certificate; SolarDeck stays on http"
 nginx -t -q && (systemctl reload nginx || systemctl restart nginx)
 install -m 644 deploy/proxmox-os-backend.service /etc/systemd/system/proxmox-os-backend.service
 systemctl daemon-reload

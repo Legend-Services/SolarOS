@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.8.2 - HTTPS Out of the Box — 2026-11-24
+
+### Added
+- **HTTPS on port 443** for every installation, through a self-signed certificate made by the new `deploy/selfsigned-cert.sh`. `install.sh` and the in-app updater both run it.
+  - The certificate covers the container's IP addresses, `<hostname>`, `<hostname>.local` and `localhost`. It uses ECDSA P-256, CA:FALSE and serverAuth, and is valid for 825 days, the most Apple platforms and Chrome accept when you trust a certificate by hand.
+  - It is renewed automatically when fewer than 30 days remain or when the container's addresses or hostname change.
+  - A certificate you install in **Network & Services → Certificates** (custom or Let's Encrypt) is never replaced. Removing it there turns HTTPS off until the next update makes a new self-signed one.
+  - Plain http keeps working; there is no forced redirect. Browsers show a warning for the self-signed certificate once.
+- The installer's summary box shows the https address.
+- On http, the taskbar's Full screen tooltip points to the https address, which the Start key needs (Keyboard Lock).
+
 ## v1.8.1 - Start Key Opens the Start Menu — 2026-11-24
 
 ### Added
