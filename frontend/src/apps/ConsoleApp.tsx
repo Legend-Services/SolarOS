@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Expand, Keyboard, RotateCw } from "lucide-react";
+import { Disc3, Expand, Keyboard, RotateCw } from "lucide-react";
 import RFB from "@novnc/novnc";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -115,6 +115,15 @@ export default function ConsoleApp({ params }: { params?: ConsoleTarget }) {
     };
   }, [t.type, t.vmid, t.mode, attempt]);
 
+  const [booting, setBooting] = useState(false);
+  const bootIso = () => {
+    setBooting(true);
+    // The console drops while the VM resets; reconnect right away so the installer shows up.
+    setTimeout(() => setAttempt((n) => n + 1), 1500);
+    api(`/pve/guests/qemu/${t.vmid}/boot-iso`, { method: "POST" })
+      .catch((e: Error) => setDetail(e.message))
+      .finally(() => setBooting(false));
+  };
   const fullscreen = () => (document.fullscreenElement ? document.exitFullscreen() : frame.current?.requestFullscreen());
 
   return (
@@ -124,6 +133,16 @@ export default function ConsoleApp({ params }: { params?: ConsoleTarget }) {
         <span className="min-w-0 flex-1 truncate text-[11px] text-slate-400">
           {detail || (t.type === "node" ? `root@${t.name} · host shell (SSH key bridge)` : `${t.mode === "vnc" ? "noVNC" : "Shell"} · ${t.type === "qemu" ? "VM" : "LXC"} ${t.vmid}`)}
         </span>
+        {t.mode === "vnc" && t.type === "qemu" && (
+          <button
+            className="btn"
+            disabled={booting}
+            onClick={bootIso}
+            title="Restart the VM and press Enter automatically, so an installer that asks to press any key boots from its ISO"
+          >
+            <Disc3 size={12} /> {booting ? "Booting from ISO…" : "Boot from ISO"}
+          </button>
+        )}
         {t.mode === "vnc" && (
           <button className="btn" disabled={status !== "connected"} onClick={() => rfb.current?.sendCtrlAltDel()} title="Send Ctrl+Alt+Del">
             <Keyboard size={12} /> Ctrl+Alt+Del
