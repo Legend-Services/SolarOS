@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     jwt_secret: str = ""
     jwt_ttl_hours: int = 12
     storage_root: Path = Path("/mnt/storage")
+    pve_bridge: str = "vmbr0"
+    # Root-only host operations (ZFS, bind mounts, /dev/dri, pct exec) go through proxmox-os-helper.
+    # Empty HOST_SSH runs the helper locally (backend on the PVE host itself).
+    host_ssh: str = ""
+    host_ssh_key: str = "/root/.ssh/proxmox-os-helper"
+    samba_conf: Path = Path("/etc/samba/proxmox-os-shares.conf")
 
 
 settings = Settings()

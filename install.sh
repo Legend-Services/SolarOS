@@ -193,7 +193,8 @@ fi
 
 msg "Installing system packages (this takes a few minutes)"
 ct "apt-get update -qq
-apt-get install -y -qq curl ca-certificates gnupg git build-essential python3 python3-venv python3-pip nginx >/dev/null
+apt-get install -y -qq curl ca-certificates gnupg git build-essential python3 python3-venv python3-pip nginx \
+  samba samba-common-bin openssh-client >/dev/null
 if ! node -v 2>/dev/null | grep -q '^v22\.'; then
   curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null
   apt-get install -y -qq nodejs >/dev/null
@@ -220,6 +221,41 @@ fi"
   ok "Cloned ${REPO_URL} (${REPO_BRANCH})"
 fi
 
+# ---------------------------------------------------------------- Host helper (root-only operations)
+# ZFS snapshots, bind mounts, /dev/dri passthrough and app provisioning (pct exec) are not possible with the API
+# token, so the container gets an SSH key that can only run the allowlisted helper on this host.
+msg "Installing host helper"
+pct pull "$CTID" "${APP_DIR}/deploy/proxmox-os-helper.sh" /usr/local/sbin/proxmox-os-helper
+chmod 755 /usr/local/sbin/proxmox-os-helper
+ct "mkdir -p /root/.ssh && chmod 700 /root/.ssh
+[ -f /root/.ssh/proxmox-os-helper ] || ssh-keygen -q -t ed25519 -N '' -C proxmox-os-helper -f /root/.ssh/proxmox-os-helper"
+PUB_FILE="$(mktemp)"
+pct pull "$CTID" /root/.ssh/proxmox-os-helper.pub "$PUB_FILE"
+AUTH_KEYS=/root/.ssh/authorized_keys
+mkdir -p /root/.ssh && touch "$AUTH_KEYS"
+AUTH_TMP="$(mktemp)"
+{ grep -v ' proxmox-os-helper$' "$AUTH_KEYS" || true; echo "command=\"/usr/local/sbin/proxmox-os-helper\",restrict $(cat "$PUB_FILE")"; } >"$AUTH_TMP"
+# cat > instead of mv: on PVE authorized_keys is a symlink into /etc/pve.
+cat "$AUTH_TMP" >"$AUTH_KEYS"
+rm -f "$AUTH_TMP" "$PUB_FILE"
+if pct exec "$CTID" -- ssh -i /root/.ssh/proxmox-os-helper -o BatchMode=yes -o StrictHostKeyChecking=accept-new \
+    -o ConnectTimeout=10 "root@${HOST_IP}" zfs-list >/dev/null 2>&1; then
+  ok "Host helper reachable from the container"
+else
+  warn "Host helper check failed (no ZFS, or root SSH login disabled); ZFS snapshots and App Center host options may not work"
+fi
+
+msg "Configuring Samba"
+ct "touch /etc/samba/proxmox-os-shares.conf
+# Appended at the end so included share sections never swallow [global] options.
+grep -q 'proxmox-os-shares.conf' /etc/samba/smb.conf || printf '\n# ProxmoxOS Network Shares\ninclude = /etc/samba/proxmox-os-shares.conf\n' >>/etc/samba/smb.conf
+testparm -s >/dev/null 2>&1
+systemctl enable -q smbd
+systemctl restart smbd"
+ok "Samba ready (shares managed in Network Shares)"
+
+PVE_BRIDGE="$(pct config "$CTID" | sed -n 's/^net0:.*bridge=\([^,]*\).*/\1/p')"
+
 ENV_FILE="$(mktemp)"
 chmod 600 "$ENV_FILE"
 cat >"$ENV_FILE" <<EOF
@@ -232,6 +268,8 @@ ADMIN_USERNAME=admin
 ADMIN_PASSWORD=${ADMIN_PASSWORD}
 JWT_SECRET=${JWT_SECRET}
 STORAGE_ROOT=${STORAGE_ROOT}
+PVE_BRIDGE=${PVE_BRIDGE:-vmbr0}
+HOST_SSH=root@${HOST_IP}
 EOF
 pct push "$CTID" "$ENV_FILE" "${APP_DIR}/backend/.env" --perms 600
 rm -f "$ENV_FILE"
@@ -281,6 +319,7 @@ ${C_GREEN}╔══════════════════════�
 
   Container: ${CTID} (${CT_HOSTNAME})
   Storage:   ${STORAGE_ROOT} (${#MOUNTS[@]} ZFS dataset(s) mounted)
+  SMB:       smb://${CT_IP}/<share>  (create shares in Network Shares)
   Re-run this installer any time to update; it rotates the password and API token.
 
 EOF

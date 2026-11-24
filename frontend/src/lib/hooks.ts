@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function useClock(intervalMs = 1000) {
   const [now, setNow] = useState(() => new Date());
@@ -28,4 +28,21 @@ export function usePoll(fn: () => void, ms: number) {
     const t = setInterval(fn, ms);
     return () => clearInterval(t);
   }, [fn, ms]);
+}
+
+/** Close a popover on outside pointer-down or Escape. Attach the returned ref to its container. */
+export function useDismiss(open: boolean, close: () => void) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => !ref.current?.contains(e.target as Node) && close();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
+    window.addEventListener("pointerdown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open, close]);
+  return ref;
 }

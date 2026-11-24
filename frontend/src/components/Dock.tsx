@@ -14,8 +14,8 @@ export default function Dock() {
     if (!w) return open(id);
     const top = Math.max(...windows.filter((x) => !x.minimized).map((x) => x.z), 0);
     // Clicking the focused app minimizes it, like macOS / DSM docks.
-    if (!w.minimized && w.z === top) minimize(id);
-    else focus(id);
+    if (!w.minimized && w.z === top) minimize(w.key);
+    else focus(w.key);
   };
 
   return (

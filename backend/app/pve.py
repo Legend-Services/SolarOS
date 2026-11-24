@@ -2,9 +2,10 @@ import asyncio
 from typing import Literal
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 
+from . import host
 from .auth import require_user
 from .config import settings
 
@@ -116,3 +117,61 @@ async def storage():
         "targets": targets or [],
         "disks": disks or [],
     }
+
+
+# ZFS dataset snapshots: there is no PVE API for these, so they go through the host helper.
+DATASET_RE = r"^[A-Za-z0-9][A-Za-z0-9_.:/-]*$"
+SNAPNAME_RE = r"^[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+SNAPSHOT_RE = r"^[A-Za-z0-9][A-Za-z0-9_.:/-]*@[A-Za-z0-9][A-Za-z0-9_.:-]*$"
+
+
+def parse_zfs_list(out: str) -> dict:
+    datasets, snapshots = [], []
+    for line in out.splitlines():
+        cols = line.split("\t")
+        if len(cols) != 6:
+            continue
+        name, kind, used, refer, creation, mountpoint = cols
+        num = lambda v: int(v) if v.isdigit() else 0  # noqa: E731
+        if kind == "snapshot":
+            ds, snap = name.split("@", 1)
+            snapshots.append({"name": name, "dataset": ds, "snapshot": snap, "used": num(used), "refer": num(refer),
+                              "creation": num(creation)})
+        else:
+            datasets.append({"name": name, "type": kind, "used": num(used), "refer": num(refer),
+                             "mountpoint": mountpoint})
+    snapshots.sort(key=lambda s: s["creation"], reverse=True)
+    return {"datasets": datasets, "snapshots": snapshots}
+
+
+@router.get("/zfs/snapshots")
+async def zfs_snapshots():
+    return parse_zfs_list(await host.run(["zfs-list"]))
+
+
+class SnapshotBody(BaseModel):
+    dataset: str = Field(pattern=DATASET_RE, max_length=200)
+    name: str = Field(pattern=SNAPNAME_RE, max_length=100)
+
+
+class RollbackBody(BaseModel):
+    snapshot: str = Field(pattern=SNAPSHOT_RE, max_length=300)
+    force: bool = False
+
+
+@router.post("/zfs/snapshots")
+async def zfs_snapshot_create(body: SnapshotBody):
+    await host.run(["zfs-snapshot", f"{body.dataset}@{body.name}"])
+    return {"ok": True}
+
+
+@router.post("/zfs/snapshots/rollback")
+async def zfs_snapshot_rollback(body: RollbackBody):
+    await host.run(["zfs-rollback", body.snapshot, *(["force"] if body.force else [])], timeout=600)
+    return {"ok": True}
+
+
+@router.delete("/zfs/snapshots")
+async def zfs_snapshot_delete(snapshot: str = Query(pattern=SNAPSHOT_RE, max_length=300)):
+    await host.run(["zfs-destroy", snapshot])
+    return {"ok": True}

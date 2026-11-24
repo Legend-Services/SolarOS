@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { api, setUnauthorizedHandler } from "./api";
-import type { Overview, StorageInfo } from "./types";
+import type { ConsoleTarget, Overview, StorageInfo } from "./types";
 import type { AppId } from "../apps/registry";
 import { APPS } from "../apps/registry";
 
@@ -46,7 +46,9 @@ setUnauthorizedHandler(() => useAuth.setState({ status: "locked" }));
 /* ---------------- Windows ---------------- */
 
 export interface Win {
+  key: string; // app id, or one key per console target (multi-instance)
   id: AppId;
+  params?: ConsoleTarget;
   x: number;
   y: number;
   w: number;
@@ -59,20 +61,20 @@ export interface Win {
 interface WindowState {
   windows: Win[];
   topZ: number;
-  open: (id: AppId) => void;
-  close: (id: AppId) => void;
-  focus: (id: AppId) => void;
-  minimize: (id: AppId) => void;
-  toggleMaximize: (id: AppId) => void;
-  update: (id: AppId, patch: Partial<Win>) => void;
+  open: (id: AppId, params?: ConsoleTarget) => void;
+  close: (key: string) => void;
+  focus: (key: string) => void;
+  minimize: (key: string) => void;
+  toggleMaximize: (key: string) => void;
+  update: (key: string, patch: Partial<Win>) => void;
 }
 
 export const useWindows = create<WindowState>((set, get) => ({
   windows: [],
   topZ: 10,
-  open: (id) => {
-    const existing = get().windows.find((w) => w.id === id);
-    if (existing) return get().focus(id);
+  open: (id, params) => {
+    const key = params ? `${id}:${params.type}:${params.vmid}:${params.mode}` : id;
+    if (get().windows.some((w) => w.key === key)) return get().focus(key);
     const { w, h } = APPS[id].size;
     const n = get().windows.length;
     const vw = window.innerWidth;
@@ -85,7 +87,9 @@ export const useWindows = create<WindowState>((set, get) => ({
       windows: [
         ...s.windows,
         {
+          key,
           id,
+          params,
           w: width,
           h: height,
           x: Math.max(20, (vw - width) / 2 + n * 28),
@@ -97,15 +101,15 @@ export const useWindows = create<WindowState>((set, get) => ({
       ],
     }));
   },
-  close: (id) => set((s) => ({ windows: s.windows.filter((w) => w.id !== id) })),
-  focus: (id) => {
+  close: (key) => set((s) => ({ windows: s.windows.filter((w) => w.key !== key) })),
+  focus: (key) => {
     const z = get().topZ + 1;
-    set((s) => ({ topZ: z, windows: s.windows.map((w) => (w.id === id ? { ...w, z, minimized: false } : w)) }));
+    set((s) => ({ topZ: z, windows: s.windows.map((w) => (w.key === key ? { ...w, z, minimized: false } : w)) }));
   },
-  minimize: (id) => set((s) => ({ windows: s.windows.map((w) => (w.id === id ? { ...w, minimized: true } : w)) })),
-  toggleMaximize: (id) =>
-    set((s) => ({ windows: s.windows.map((w) => (w.id === id ? { ...w, maximized: !w.maximized } : w)) })),
-  update: (id, patch) => set((s) => ({ windows: s.windows.map((w) => (w.id === id ? { ...w, ...patch } : w)) })),
+  minimize: (key) => set((s) => ({ windows: s.windows.map((w) => (w.key === key ? { ...w, minimized: true } : w)) })),
+  toggleMaximize: (key) =>
+    set((s) => ({ windows: s.windows.map((w) => (w.key === key ? { ...w, maximized: !w.maximized } : w)) })),
+  update: (key, patch) => set((s) => ({ windows: s.windows.map((w) => (w.key === key ? { ...w, ...patch } : w)) })),
 }));
 
 export const activeWindow = (windows: Win[]) =>

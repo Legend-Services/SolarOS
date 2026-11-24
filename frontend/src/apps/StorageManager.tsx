@@ -1,15 +1,17 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { Database, HardDrive, LayoutDashboard, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { Camera, Database, HardDrive, History, LayoutDashboard, RefreshCw, Trash2 } from "lucide-react";
 import { useTelemetry } from "../lib/stores";
-import type { ZfsVdev } from "../lib/types";
+import { api } from "../lib/api";
+import type { ZfsDataset, ZfsSnapshot, ZfsVdev } from "../lib/types";
 import { bytes, healthColor, pct } from "../lib/format";
 import { Bar } from "../components/charts";
 
-type Tab = "overview" | "pools" | "disks";
+type Tab = "overview" | "pools" | "snapshots" | "disks";
 
 const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
   { id: "overview", label: "Overview", icon: <LayoutDashboard size={15} /> },
   { id: "pools", label: "ZFS Pools", icon: <Database size={15} /> },
+  { id: "snapshots", label: "Snapshots", icon: <Camera size={15} /> },
   { id: "disks", label: "Disks & SMART", icon: <HardDrive size={15} /> },
 ];
 
@@ -31,6 +33,146 @@ function Vdev({ v, depth }: { v: ZfsVdev; depth: number }) {
       </tr>
       {v.children?.map((c) => <Vdev key={`${v.name}/${c.name}`} v={c} depth={depth + 1} />)}
     </>
+  );
+}
+
+const stamp = () => {
+  const d = new Date();
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `manual-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`;
+};
+
+function Snapshots() {
+  const [data, setData] = useState<{ datasets: ZfsDataset[]; snapshots: ZfsSnapshot[] } | null>(null);
+  const [filter, setFilter] = useState("");
+  const [target, setTarget] = useState("");
+  const [name, setName] = useState(stamp);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = useCallback(() => {
+    api<{ datasets: ZfsDataset[]; snapshots: ZfsSnapshot[] }>("/pve/zfs/snapshots")
+      .then((d) => (setData(d), setError("")))
+      .catch((e) => setError(e.message));
+  }, []);
+  useEffect(load, [load]);
+
+  const run = async (fn: () => Promise<unknown>) => {
+    setBusy(true);
+    setError("");
+    try {
+      await fn();
+      load();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const create = (e: FormEvent) => {
+    e.preventDefault();
+    const dataset = target || filter || data?.datasets[0]?.name;
+    if (dataset) run(() => api("/pve/zfs/snapshots", { method: "POST", json: { dataset, name } }).then(() => setName(stamp())));
+  };
+
+  const rollback = (s: ZfsSnapshot) => {
+    const newer = (data?.snapshots ?? []).filter((x) => x.dataset === s.dataset && x.creation > s.creation);
+    const warning = newer.length
+      ? `\n\nThis also DESTROYS ${newer.length} newer snapshot(s): ${newer.map((x) => x.snapshot).join(", ")}.`
+      : "";
+    if (!window.confirm(`Roll back ${s.dataset} to "${s.snapshot}"? All changes made after it are lost.${warning}`)) return;
+    run(() => api("/pve/zfs/snapshots/rollback", { method: "POST", json: { snapshot: s.name, force: newer.length > 0 } }));
+  };
+
+  const remove = (s: ZfsSnapshot) => {
+    if (!window.confirm(`Delete snapshot ${s.name}? This cannot be undone.`)) return;
+    run(() => api(`/pve/zfs/snapshots?snapshot=${encodeURIComponent(s.name)}`, { method: "DELETE" }));
+  };
+
+  const shown = useMemo(
+    () => (data?.snapshots ?? []).filter((s) => !filter || s.dataset === filter || s.dataset.startsWith(`${filter}/`)),
+    [data, filter],
+  );
+
+  if (!data) return error ? <p className="text-sm text-rose-300">{error}</p> : <p className="text-sm text-slate-400">Loading…</p>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="text-[11px] text-slate-400">
+          Pool / dataset
+          <select className="input mt-1 block py-1.5 text-xs" value={filter} onChange={(e) => setFilter(e.target.value)}>
+            <option value="">All datasets</option>
+            {data.datasets.map((d) => (
+              <option key={d.name} value={d.name}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <form onSubmit={create} className="ml-auto flex flex-wrap items-end gap-2">
+          <label className="text-[11px] text-slate-400">
+            Snapshot of
+            <select className="input mt-1 block py-1.5 text-xs" value={target || filter} onChange={(e) => setTarget(e.target.value)}>
+              {data.datasets.map((d) => (
+                <option key={d.name} value={d.name}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-[11px] text-slate-400">
+            Name
+            <input className="input mt-1 block w-44 py-1.5 text-xs" value={name} onChange={(e) => setName(e.target.value)} pattern="[A-Za-z0-9][A-Za-z0-9_.:\-]*" required />
+          </label>
+          <button className="btn border-sky-400/40 bg-sky-500/25 text-white" disabled={busy || !data.datasets.length}>
+            <Camera size={12} /> Take snapshot
+          </button>
+        </form>
+      </div>
+      {error && <p className="rounded-lg bg-rose-500/10 px-3 py-2 text-xs text-rose-300">{error}</p>}
+      <table className="w-full min-w-[640px] text-left text-xs">
+        <thead className="text-slate-400">
+          <tr>
+            <th className="py-2 font-medium">Snapshot</th>
+            <th className="px-2 font-medium">Dataset</th>
+            <th className="px-2 font-medium">Created</th>
+            <th className="px-2 text-right font-medium">Used</th>
+            <th className="px-2 text-right font-medium">Refer</th>
+            <th className="px-2 text-right font-medium">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {shown.length === 0 && (
+            <tr>
+              <td colSpan={6} className="py-6 text-center text-slate-400">
+                No snapshots.
+              </td>
+            </tr>
+          )}
+          {shown.map((s) => (
+            <tr key={s.name} className="border-t border-white/5">
+              <td className="py-2 font-mono text-slate-200">{s.snapshot}</td>
+              <td className="px-2 font-mono text-slate-400">{s.dataset}</td>
+              <td className="px-2 text-slate-300">{new Date(s.creation * 1000).toLocaleString()}</td>
+              <td className="px-2 text-right tabular-nums text-slate-300">{bytes(s.used)}</td>
+              <td className="px-2 text-right tabular-nums text-slate-300">{bytes(s.refer)}</td>
+              <td className="px-2">
+                <div className="flex justify-end gap-1">
+                  <button className="btn" disabled={busy} onClick={() => rollback(s)} title="Roll back dataset to this snapshot">
+                    <History size={12} /> Rollback
+                  </button>
+                  <button className="btn text-rose-300" disabled={busy} onClick={() => remove(s)} aria-label={`Delete ${s.name}`}>
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -65,7 +207,9 @@ export default function StorageManager() {
       </nav>
 
       <div className="min-w-0 flex-1 overflow-auto p-4">
-        {!storage ? (
+        {tab === "snapshots" ? (
+          <Snapshots />
+        ) : !storage ? (
           <p className="text-sm text-slate-400">Loading…</p>
         ) : tab === "overview" ? (
           <div className="space-y-4">
