@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.7.1 - Local AI Conversation History — 2026-11-24
+
+### Added
+- **Previous conversations** in a sidebar next to the Local AI chat: *New chat* at the top, then your conversations grouped as Today, Yesterday, Previous 7 days and Older. Click one to continue it with the model it used; hover to delete it (with confirmation). The sidebar can be hidden for narrow windows.
+- Conversations are saved **on the server** after every reply (stopped and failed ones included), so they follow you to any device: `GET /api/ai/chats`, `GET|PUT|DELETE /api/ai/chats/{id}`, stored in `backend/data/ai_chats.json` (newest 200 kept; Git, `install.sh` and `deploy.sh` leave it alone). The title is your first question.
+- Switching conversations while a reply is still streaming stops it, saves it to its own conversation, and never paints it into the one you opened.
+
 ## v1.7.0 - Local AI Opens as a Chat — 2026-11-24
 
 ### Changed

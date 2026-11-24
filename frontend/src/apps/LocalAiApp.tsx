@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
   ArrowLeft, ArrowUp, BrainCircuit, Check, ChevronDown, Copy, Cpu, Download, ExternalLink, Gauge, HardDrive, MessageSquare, Search,
-  Settings as SettingsIcon, Square, SquarePen, Thermometer, Trash2, Zap,
+  PanelLeft, Settings as SettingsIcon, Square, SquarePen, Thermometer, Trash2, Zap,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { bytes, copyText, pct } from "../lib/format";
@@ -490,9 +490,15 @@ function ModelPicker({ models, value, onChange, onManage }: { models: LocalModel
   );
 }
 
-function ChatView({ status, model, setModel, instructions, visible, chatKey, onManage }: {
-  status: AiStatus; model: string; setModel: (m: string) => void; instructions: string; visible: boolean; chatKey: number; onManage: () => void;
+/** 12 hex chars; getRandomValues also works on plain-http LAN pages, unlike crypto.randomUUID. */
+const newChatId = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => b.toString(16).padStart(2, "0")).join("");
+const chatTitle = (msgs: Msg[]) => (msgs.find((m) => m.role === "user")?.content.split("\n")[0].trim() || "New chat").slice(0, 60);
+
+function ChatView({ status, model, setModel, instructions, visible, activeId, chatKey, onCreated, onSaved, onManage }: {
+  status: AiStatus; model: string; setModel: (m: string) => void; instructions: string; visible: boolean;
+  activeId: string | null; chatKey: number; onCreated: (id: string) => void; onSaved: () => void; onManage: () => void;
 }) {
+  const idRef = useRef<string | null>(null); // the conversation on screen
   const [models, setModels] = useState<LocalModel[]>([]);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -514,13 +520,30 @@ function ChatView({ status, model, setModel, instructions, visible, chatKey, onM
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reload on visibility only
   }, [visible]);
   useEffect(() => () => abort.current?.abort(), []); // closing the app stops a running reply on the GPU
-  // New chat: stop generating and start empty.
+  // Open a saved conversation, or start empty (New chat). A reply still streaming for the previous one is stopped.
   useEffect(() => {
+    if (activeId && activeId === idRef.current) return; // this view just created the conversation itself
     abort.current?.abort();
-    setMsgs([]);
     setError("");
-    ta.current?.focus();
-  }, [chatKey]);
+    idRef.current = activeId;
+    if (!activeId) {
+      setMsgs([]);
+      ta.current?.focus();
+      return;
+    }
+    let stop = false;
+    api<{ model: string; messages: Msg[] }>(`/ai/chats/${activeId}`)
+      .then((c) => {
+        if (stop) return;
+        setMsgs(c.messages);
+        if (!models.length || models.some((m) => m.name === c.model)) setModel(c.model);
+      })
+      .catch((e) => !stop && setError(e.message));
+    return () => {
+      stop = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- react to the selection only
+  }, [activeId, chatKey]);
   // Block bodies: scroll methods return a Promise in newer Chrome, which React would call as an effect cleanup.
   useEffect(() => {
     if (box.current) box.current.scrollTop = box.current.scrollHeight;
@@ -537,12 +560,20 @@ function ChatView({ status, model, setModel, instructions, visible, chatKey, onM
     e.preventDefault();
     if (busy || !input.trim() || !model) return;
     const next: Msg[] = [...msgs, { role: "user", content: input.trim() }];
-    setMsgs(next);
+    const id = idRef.current ?? newChatId();
+    if (!idRef.current) {
+      idRef.current = id;
+      onCreated(id);
+    }
+    // Only paint into the conversation that is still on screen (the user may have switched chats meanwhile).
+    const show = (m: Msg[]) => idRef.current === id && setMsgs(m);
+    show(next);
     setInput("");
     setBusy(true);
     setError("");
     let content = "";
     let thinking = "";
+    let final: Msg[] = next;
     const ctl = new AbortController();
     abort.current = ctl;
     try {
@@ -571,24 +602,33 @@ function ChatView({ status, model, setModel, instructions, visible, chatKey, onM
           const ev = JSON.parse(line);
           if (ev.error) throw new Error(ev.error);
           if (ev.done) {
-            setMsgs([...next, { role: "assistant", content, thinking, tps: ev.tokens_per_sec, tokens: ev.eval_count }]);
+            final = [...next, { role: "assistant", content, thinking, tps: ev.tokens_per_sec, tokens: ev.eval_count }];
           } else {
             content += ev.delta ?? "";
             thinking += ev.thinking ?? "";
-            setMsgs([...next, { role: "assistant", content, thinking }]);
+            final = [...next, { role: "assistant", content, thinking }];
           }
+          show(final);
         }
       }
     } catch (err) {
       if (ctl.signal.aborted) {
         // Keep what arrived; an empty reply leaves just the question.
-        setMsgs(content || thinking ? [...next, { role: "assistant", content, thinking, stopped: true }] : next);
-      } else {
+        final = content || thinking ? [...next, { role: "assistant", content, thinking, stopped: true }] : next;
+        show(final);
+      } else if (idRef.current === id) {
         setError((err as Error).message);
       }
     } finally {
       if (abort.current === ctl) abort.current = null;
       setBusy(false);
+      // Save after every reply, stopped or failed ones too, so the question is never lost.
+      api(`/ai/chats/${id}`, {
+        method: "PUT",
+        json: { title: chatTitle(final), model, messages: final.map((m) => ({ ...m, thinking: m.thinking || undefined })) },
+      })
+        .then(onSaved)
+        .catch(() => {}); // history is a convenience; the conversation stays on screen either way
     }
   };
 
@@ -766,6 +806,65 @@ function ChatSettings({ instructions, setInstructions }: { instructions: string;
 
 type SettingsTab = "download" | "installed" | "hardware" | "storage" | "chat";
 
+/* ---------------- Conversation list ---------------- */
+
+type ChatSummary = { id: string; title: string; model: string; updated: number; messages: number };
+
+/** Today / Yesterday / Previous 7 days / Older, newest first (the API already sorts by `updated`). */
+function groupChats(chats: ChatSummary[]): [string, ChatSummary[]][] {
+  const day = new Date();
+  day.setHours(0, 0, 0, 0);
+  const today = day.getTime() / 1000;
+  const label = (t: number) => (t >= today ? "Today" : t >= today - 86400 ? "Yesterday" : t >= today - 7 * 86400 ? "Previous 7 days" : "Older");
+  const groups = new Map<string, ChatSummary[]>();
+  for (const c of chats) groups.set(label(c.updated), [...(groups.get(label(c.updated)) ?? []), c]);
+  return [...groups];
+}
+
+function ChatList({ chats, activeId, onSelect, onNew, onDelete }: {
+  chats: ChatSummary[]; activeId: string | null; onSelect: (id: string) => void; onNew: () => void; onDelete: (c: ChatSummary) => void;
+}) {
+  return (
+    <aside className="flex w-60 shrink-0 flex-col border-r border-white/10 bg-black/15 max-sm:w-48">
+      <div className="p-2">
+        <GlassButton className="w-full justify-start" onClick={onNew}>
+          <SquarePen size={13} /> New chat
+        </GlassButton>
+      </div>
+      <nav className="min-h-0 flex-1 overflow-auto px-2 pb-2" aria-label="Previous conversations">
+        {chats.length === 0 && <p className="px-2 py-1 text-[11px] text-slate-500">Your conversations will appear here.</p>}
+        {groupChats(chats).map(([label, items]) => (
+          <div key={label} className="mb-2">
+            <p className="px-2 pt-2 pb-1 text-[10px] font-semibold tracking-wide text-slate-500 uppercase">{label}</p>
+            {items.map((c) => (
+              <div key={c.id} className={`group flex items-center rounded-lg ${c.id === activeId ? "bg-white/10" : "hover:bg-white/5"}`}>
+                <button
+                  type="button"
+                  onClick={() => onSelect(c.id)}
+                  aria-current={c.id === activeId}
+                  title={`${c.title}\n${c.model} · ${c.messages} messages`}
+                  className={`min-w-0 flex-1 truncate px-2 py-1.5 text-left text-xs ${c.id === activeId ? "text-white" : "text-slate-300"}`}
+                >
+                  {c.title}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onDelete(c)}
+                  aria-label={`Delete ${c.title}`}
+                  title="Delete conversation"
+                  className="mr-1 rounded p-1 text-slate-500 opacity-0 transition group-hover:opacity-100 hover:text-rose-300 focus:opacity-100"
+                >
+                  <Trash2 size={12} />
+                </button>
+              </div>
+            ))}
+          </div>
+        ))}
+      </nav>
+    </aside>
+  );
+}
+
 /* ---------------- Shell ---------------- */
 
 export default function LocalAiApp() {
@@ -777,9 +876,37 @@ export default function LocalAiApp() {
   const [model, setModelState] = useState(() => readPref("solardeck-ai-model"));
   const [instructions, setInstructionsState] = useState(() => readPref("solardeck-ai-instructions"));
   const [chatKey, setChatKey] = useState(0);
+  const [chats, setChats] = useState<ChatSummary[]>([]);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [sidebar, setSidebarState] = useState(() => readPref("solardeck-ai-sidebar") !== "0");
+  const [del, setDel] = useState<ChatSummary | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const open = useWindows((s) => s.open);
   const setModel = (m: string) => (setModelState(m), writePref("solardeck-ai-model", m));
   const setInstructions = (v: string) => (setInstructionsState(v), writePref("solardeck-ai-instructions", v));
+  const setSidebar = (v: boolean) => (setSidebarState(v), writePref("solardeck-ai-sidebar", v ? "1" : "0"));
+  const newChat = () => (setActiveId(null), setChatKey((k) => k + 1), setView("chat"));
+  const loadChats = useCallback(() => {
+    api<ChatSummary[]>("/ai/chats").then(setChats).catch(() => {});
+  }, []);
+  const installed = !!status?.installed;
+  useEffect(() => {
+    if (installed) loadChats();
+  }, [installed, loadChats]);
+  const deleteChat = async () => {
+    if (!del) return;
+    setDeleting(true);
+    try {
+      await api(`/ai/chats/${del.id}`, { method: "DELETE" });
+      if (del.id === activeId) newChat();
+      loadChats();
+      setDel(null);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const loadStatus = useCallback(() => {
     api<AiStatus>("/ai/status")
@@ -822,9 +949,16 @@ export default function LocalAiApp() {
     <div className="flex h-full flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-white/10 px-3 py-2">
         {view === "chat" ? (
-          <GlassButton size="xs" variant="ghost" onClick={() => setChatKey((k) => k + 1)} title="Start a new chat">
-            <SquarePen size={13} /> New chat
-          </GlassButton>
+          <>
+            <GlassButton size="xs" variant="ghost" onClick={() => setSidebar(!sidebar)} aria-label={sidebar ? "Hide conversations" : "Show conversations"} title={sidebar ? "Hide conversations" : "Show conversations"}>
+              <PanelLeft size={14} />
+            </GlassButton>
+            {!sidebar && (
+              <GlassButton size="xs" variant="ghost" onClick={newChat} title="Start a new chat">
+                <SquarePen size={13} /> New chat
+              </GlassButton>
+            )}
+          </>
         ) : (
           <>
             <GlassButton size="xs" variant="ghost" onClick={() => setView("chat")}>
@@ -867,13 +1001,36 @@ export default function LocalAiApp() {
       </div>
       {error && <div className="bg-rose-500/10 px-4 py-2 text-xs text-rose-300">{error}</div>}
       {/* The chat stays mounted while Settings is open, so the conversation survives a trip to Settings. */}
-      <div className={`min-h-0 flex-1 ${view === "chat" ? "" : "hidden"}`}>
-        <ChatView status={status} model={model} setModel={setModel} instructions={instructions} visible={view === "chat"} chatKey={chatKey} onManage={() => settings("download")} />
+      <div className={`min-h-0 flex-1 ${view === "chat" ? "flex" : "hidden"}`}>
+        {sidebar && <ChatList chats={chats} activeId={activeId} onSelect={setActiveId} onNew={newChat} onDelete={setDel} />}
+        <div className="min-w-0 flex-1">
+          <ChatView
+            status={status}
+            model={model}
+            setModel={setModel}
+            instructions={instructions}
+            visible={view === "chat"}
+            activeId={activeId}
+            chatKey={chatKey}
+            onCreated={setActiveId}
+            onSaved={loadChats}
+            onManage={() => settings("download")}
+          />
+        </div>
       </div>
+      <ConfirmModal
+        open={!!del}
+        onClose={() => setDel(null)}
+        title="Delete conversation"
+        message={`Delete "${del?.title}"? This can't be undone.`}
+        confirmLabel="Delete"
+        busy={deleting}
+        onConfirm={deleteChat}
+      />
       {view === "settings" && (
         <div className="min-h-0 flex-1">
           {tab === "download" && <OnlineModels status={status} jobs={jobs} onPull={pull} />}
-          {tab === "installed" && <InstalledModels jobs={jobs} refreshKey={finished} onChat={(m) => (setModel(m), setView("chat"))} />}
+          {tab === "installed" && <InstalledModels jobs={jobs} refreshKey={finished} onChat={(m) => (setModel(m), newChat())} />}
           {tab === "hardware" && <HardwarePerf status={status} reload={loadStatus} />}
           {tab === "storage" && <StorageSettings status={status} reload={loadStatus} />}
           {tab === "chat" && <ChatSettings instructions={instructions} setInstructions={setInstructions} />}
