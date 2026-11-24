@@ -1,0 +1,142 @@
+import { useState, type CSSProperties } from "react";
+import { Check, Moon, Palette, SlidersHorizontal, Sun } from "lucide-react";
+import { useDismiss } from "../lib/hooks";
+import { useIntent } from "../lib/stores";
+import { allThemes, useActiveTheme, useTheme } from "../store/themeStore";
+import { customBackground, type ColorMode, type Theme } from "../theme/themeTypes";
+import { al } from "../theme/wallpaperArt";
+import { Segmented } from "./ui/GlassKit";
+
+/** The desktop background: the active theme's wallpaper (or the custom one), with blur, dimming and scanlines. */
+export function WallpaperLayer() {
+  const { colorMode, selectedWallpaperIndex, customWallpaperUrl, wallpaperBlurPx: blur, wallpaperDimPct: dim } = useTheme();
+  const theme = useActiveTheme();
+  const background = customWallpaperUrl ? customBackground(customWallpaperUrl) : theme.wallpapers[selectedWallpaperIndex][colorMode];
+  return (
+    <div className="wallpaper absolute inset-0 overflow-hidden" aria-hidden>
+      {/* Bleeds past the edges so the blur never shows a soft border. */}
+      <div className="absolute transition-[filter] duration-300" style={{ inset: -blur * 2, background, filter: blur ? `blur(${blur}px)` : undefined }} />
+      {theme.style.scanlines && <div className="sd-scanlines absolute inset-0" />}
+      {dim > 0 && <div className="absolute inset-0 bg-black" style={{ opacity: dim / 100 }} />}
+    </div>
+  );
+}
+
+/** Miniature window on the theme's first wallpaper, drawn with the palette of one color mode. */
+export function ThemePreview({ theme, mode, className = "" }: { theme: Theme; mode: ColorMode; className?: string }) {
+  const p = theme[mode];
+  return (
+    <span className={`relative block overflow-hidden ${className}`} style={{ background: theme.wallpapers[0][mode] }}>
+      <span
+        className="absolute inset-x-[14%] top-[18%] bottom-[12%] flex flex-col overflow-hidden border"
+        style={{ background: al(p.surface, Math.max(p.opacity, 0.78)), borderColor: al(p.text, 0.16), borderRadius: Math.min(theme.style.radiusWindow, 12) / 2 }}
+      >
+        <span className="flex items-center gap-[3px] px-1.5 py-1" style={{ borderBottom: `1px solid ${al(p.text, 0.12)}` }}>
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: p.accent }} />
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: p.accent2 }} />
+          <span className="h-1.5 w-1.5 rounded-full" style={{ background: al(p.text, 0.35) }} />
+        </span>
+        <span className="flex flex-1 flex-col gap-1 p-1.5">
+          <span className="h-1 w-3/4 rounded-full" style={{ background: al(p.text, 0.75) }} />
+          <span className="h-1 w-1/2 rounded-full" style={{ background: al(p.text, 0.35) }} />
+          <span className="mt-auto h-1.5 w-1/3 rounded-full" style={{ background: p.accent }} />
+        </span>
+      </span>
+    </span>
+  );
+}
+
+export function WallpaperThumb({ background, label, active, onClick, className = "h-12" }: { background: string; label: string; active: boolean; onClick: () => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      aria-label={`Wallpaper: ${label}`}
+      title={label}
+      className={`relative block w-full overflow-hidden rounded-lg ring-2 transition active:scale-[0.97] ${active ? "ring-sky-400" : "ring-white/10 hover:ring-white/30"} ${className}`}
+      style={{ background }}
+    >
+      {active && (
+        <span className="absolute top-1 right-1 rounded-full bg-sky-500 p-0.5 text-white" style={{ "--color-white": "#fff" } as CSSProperties}>
+          <Check size={10} strokeWidth={3} />
+        </span>
+      )}
+    </button>
+  );
+}
+
+/** One-click Light / Dark switch; the sun and moon swap with a rotation. */
+export function ModeToggle() {
+  const light = useTheme((s) => s.colorMode === "light");
+  const toggle = useTheme((s) => s.toggleMode);
+  const label = light ? "Switch to Dark Mode" : "Switch to Light Mode";
+  return (
+    <button onClick={toggle} className="relative flex h-6 w-7 items-center justify-center rounded-md text-slate-200 hover:bg-white/10" aria-label={label} title={label}>
+      <Sun size={14} className={`absolute transition-all duration-500 ${light ? "scale-100 rotate-0 opacity-100" : "scale-50 -rotate-90 opacity-0"}`} />
+      <Moon size={14} className={`absolute transition-all duration-500 ${light ? "scale-50 rotate-90 opacity-0" : "scale-100 rotate-0 opacity-100"}`} />
+    </button>
+  );
+}
+
+/** Quick Theme Switcher: theme, color mode and wallpaper on the fly. `up` opens it above (taskbar). */
+export function ThemeSwitcher({ up = false }: { up?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const ref = useDismiss(open, () => setOpen(false));
+  const s = useTheme();
+  const active = useActiveTheme();
+  const go = useIntent((st) => st.go);
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={`flex items-center gap-1 rounded-md px-2 py-1 text-slate-200 hover:bg-white/10 ${open ? "bg-white/10" : ""}`}
+        aria-expanded={open}
+        aria-label="Quick Theme Switcher"
+        title="Theme, Light / Dark and wallpaper"
+      >
+        <Palette size={14} />
+      </button>
+      {open && (
+        <div className={`glass absolute right-0 z-10 w-80 rounded-2xl p-3 text-xs ${up ? "bottom-full mb-5 bg-slate-950/90" : "top-8"}`}>
+          <div className="mb-2 flex items-center justify-between">
+            <span className="font-semibold text-slate-100">Theme</span>
+            <Segmented
+              value={s.colorMode}
+              onChange={s.setMode}
+              options={[
+                { id: "dark", label: <span className="flex items-center gap-1"><Moon size={11} /> Dark</span> },
+                { id: "light", label: <span className="flex items-center gap-1"><Sun size={11} /> Light</span> },
+              ]}
+            />
+          </div>
+          <div className="grid max-h-60 grid-cols-2 gap-1.5 overflow-auto pr-0.5">
+            {allThemes(s.customThemes).map((t) => (
+              <button
+                key={t.id}
+                onClick={() => s.setTheme(t.id)}
+                aria-pressed={t.id === active.id}
+                className={`flex items-center gap-2 rounded-lg p-1 text-left ring-1 transition ring-inset ${t.id === active.id ? "bg-sky-400/15 ring-sky-400/50" : "ring-transparent hover:bg-white/10"}`}
+              >
+                <ThemePreview theme={t} mode={s.colorMode} className="h-8 w-11 shrink-0 rounded-md" />
+                <span className="min-w-0 flex-1 truncate text-[11px] text-slate-200">{t.name}</span>
+              </button>
+            ))}
+          </div>
+          <p className="mt-3 mb-1.5 font-semibold text-slate-100">Wallpaper</p>
+          <div className="grid grid-cols-4 gap-1.5">
+            {active.wallpapers.map((w, i) => (
+              <WallpaperThumb key={i} background={w[s.colorMode]} label={w.name} active={!s.customWallpaperUrl && s.selectedWallpaperIndex === i} onClick={() => s.setWallpaper(i)} />
+            ))}
+          </div>
+          <button
+            onClick={() => (go("controlpanel", "appearance"), setOpen(false))}
+            className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-slate-200 hover:bg-white/10"
+          >
+            <SlidersHorizontal size={13} /> Theme Studio…
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

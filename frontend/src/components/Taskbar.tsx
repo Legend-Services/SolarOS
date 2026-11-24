@@ -10,6 +10,7 @@ import { ViewOptionsPanel } from "./ViewOptions";
 import { HelpMenu, Pill } from "./TopBar";
 import TaskCenterPopover from "./TaskCenterPopover";
 import NotificationPopover from "./NotificationPopover";
+import { ModeToggle, ThemeSwitcher } from "./ThemeQuickSwitcher";
 
 /* One bar along the bottom (the alternative to top bar + Dock): Start, search and app buttons in the middle,
    status, help, tasks, notifications and the clock on the right. Popovers open upwards. */
@@ -274,6 +275,8 @@ export default function Taskbar() {
         >
           {fullscreen ? <Shrink size={14} /> : <Expand size={14} />}
         </button>
+        <ModeToggle />
+        <ThemeSwitcher up />
         <HelpMenu up />
         <TaskCenterPopover up />
         <NotificationPopover up />

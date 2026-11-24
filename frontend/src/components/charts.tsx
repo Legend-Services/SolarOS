@@ -23,7 +23,7 @@ export function AreaChart({ series, max, stacked = false, height = 140 }: { seri
   return (
     <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="h-full w-full" role="img">
       {[0.25, 0.5, 0.75].map((f) => (
-        <line key={f} x1={0} x2={W} y1={H * f} y2={H * f} stroke="rgba(255,255,255,0.06)" />
+        <line key={f} x1={0} x2={W} y1={H * f} y2={H * f} style={{ stroke: "color-mix(in oklab, var(--sd-text-primary) 8%, transparent)" }} />
       ))}
       {len > 1 &&
         series.map((s, si) => {
@@ -63,7 +63,7 @@ export function Gauge({ value, label, sub, color }: { value: number; label: stri
     <div className="flex flex-col items-center">
       <div className="relative h-20 w-20">
       <svg viewBox="0 0 80 80" className="h-20 w-20 -rotate-90">
-        <circle cx={40} cy={40} r={r} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={7} />
+        <circle cx={40} cy={40} r={r} fill="none" style={{ stroke: "color-mix(in oklab, var(--sd-text-primary) 10%, transparent)" }} strokeWidth={7} />
         <circle
           cx={40}
           cy={40}

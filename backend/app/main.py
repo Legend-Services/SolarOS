@@ -5,7 +5,7 @@ from fastapi import FastAPI
 
 from . import (apps, auth, backups, bug_report, console, disk_benchmark, domains, files, guest_hardware, hardware_admin, help_center, host_ssh, local_ai, net_services, notifications,
                provisioning, pve, pve_access, pve_datacenter, schedules, shares, storage_admin, system, system_extra, tasks,
-               telemetry, updater)
+               telemetry, themes, updater)
 from .config import settings
 
 
@@ -39,8 +39,9 @@ app.include_router(provisioning.router)
 app.include_router(backups.router)
 app.include_router(system_extra.router)
 for module in (host_ssh, pve_access, pve_datacenter, net_services, hardware_admin, guest_hardware, help_center,
-               disk_benchmark, updater, bug_report, local_ai, domains):
+               disk_benchmark, updater, bug_report, local_ai, domains, themes):
     app.include_router(module.router)
+app.include_router(themes.public)
 
 
 @app.get("/api/health")

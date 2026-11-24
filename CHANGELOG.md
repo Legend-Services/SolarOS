@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.10.0 - Phase 15: Multi-Theme Engine, Global Light/Dark Mode, 44 Built-in Wallpapers & Custom Theme Studio with Import/Export — 2026-11-24
+
+### Added
+- **Theme engine**: every window, table, modal, chart, widget, the lock screen, top bar, Dock and taskbar now follow the active theme in **Dark and Light Mode**. Surfaces, borders, text, accents, glass blur, corner radii and fonts come from CSS variables (`--sd-*`) on `<html>`, plus `data-color-mode` and `data-window-chrome`.
+- **11 built-in themes**, each with Dark and Light palettes and 4 procedural wallpapers (44 in all, drawn as crisp SVG/CSS that adapts to the mode): SolarDeck Liquid Glass (default), Cupertino Frost, Redmond Mica, Aubergine Yaru, Nordic Slate, Vice Horizon, Nightcity 2099, Synthwave '84, Phosphor Terminal, Solarized Amber and Obsidian Gold.
+  - Window chrome per theme: *Standard* (follows your Window buttons setting), *Traffic Dots* and *Angular HUD* (chamfered frames). Nightcity 2099 and Phosphor Terminal add a faint scanline overlay; Phosphor Terminal uses a monospace UI.
+- **Top bar / taskbar**: a one-click **Light / Dark toggle** (sun and moon swap with a rotation) and a **Quick Theme Switcher** for the theme, mode and the active theme's 4 wallpapers.
+- **Control Panel → Appearance & Themes** (was Appearance & Layout):
+  - **Theme Gallery** with live Dark and Light previews, accent dots and an Active badge.
+  - **Wallpaper** per theme: the 4 built-ins, **Upload Wallpaper** (PNG, JPG, WebP, SVG up to 15 MB), an https image URL or a two-color gradient. Each theme remembers its own wallpaper. **Wallpaper Blur** (0–24 px) and **Background Dimming** (0–60 %).
+  - **Create / Edit Theme**: start from scratch or clone any theme; Background, Glass Surface, Glass Opacity, Blur, Primary and Secondary Accent and Text Color for both modes, Window Corner Radius, Window Button Style, Font Style (Modern Sans, Geometric, Monospace) and 4 wallpaper presets (any built-in artwork or a gradient).
+  - **Export** on every theme downloads `<theme-name>.solardeck-theme.json`; **Import** takes a dropped or chosen file, validates it, previews both modes and adds it.
+- API: `GET|POST /api/system/themes`, `PUT|DELETE /api/system/themes/{id}`, `POST /api/system/themes/wallpapers/upload`, `GET /api/system/themes/wallpapers/{file}`. Custom themes are stored in `backend/data/themes/custom_themes.json` (up to 50), uploads in `backend/data/themes/wallpapers/`.
+- Theme preferences (`activeThemeId`, `colorMode`, `selectedWallpaperIndex`, `customWallpaperUrl`, `wallpaperBlurPx`, `wallpaperDimPct`, `perThemeWallpapers`) are validated and saved under `theme` in `/api/system/preferences`, so they follow you between browsers.
+
+### Changed
+- The five fixed wallpapers of earlier versions are replaced by the theme wallpapers; Aurora and its siblings live on in SolarDeck Liquid Glass.
+- Primary buttons pick black or white text by contrast with the theme's accent.
+
 ## v1.9.0 - Domains and Let's Encrypt for SolarDeck — 2026-11-24
 
 ### Added

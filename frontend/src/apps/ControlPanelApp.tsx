@@ -5,7 +5,8 @@ import type { SystemInfo, UpdateSettings, UpdateStatus, VersionEntry } from "../
 import { copyText, uptime } from "../lib/format";
 import { usePoll, useRunner } from "../lib/hooks";
 import { TRADEMARK_NOTICE } from "../lib/brand";
-import { MAGNIFICATION, useBugReport, useDock, useIntent, usePrefs, useWindows, WALLPAPERS, type Magnification } from "../lib/stores";
+import { MAGNIFICATION, useBugReport, useDock, useIntent, usePrefs, useWindows, type Magnification } from "../lib/stores";
+import ThemeStudio from "./ThemeStudio";
 import { APPS, APP_IDS } from "./registry";
 import { AppIcon } from "../components/icons/AppIcons";
 import HardwarePanel from "./HardwarePanel";
@@ -17,12 +18,12 @@ type Section = "security" | "network" | "appearance" | "hardware" | "power";
 const SECTIONS: { id: Section; title: string; desc: string; icon: ReactNode; tint: string }[] = [
   { id: "security", title: "User & Security", desc: "Admin password, API token status", icon: <ShieldCheck size={22} />, tint: "from-indigo-400 to-violet-600" },
   { id: "network", title: "Network & DNS", desc: "Host interfaces, bridges, resolvers", icon: <Network size={22} />, tint: "from-sky-400 to-cyan-600" },
-  { id: "appearance", title: "Appearance & Layout", desc: "Wallpaper, Grid/List view, icon size, spacing and Dock", icon: <Palette size={22} />, tint: "from-pink-400 to-rose-600" },
+  { id: "appearance", title: "Appearance & Themes", desc: "Themes, Light / Dark Mode, wallpapers, layout and Dock", icon: <Palette size={22} />, tint: "from-pink-400 to-rose-600" },
   { id: "hardware", title: "Hardware & System", desc: "CPU, memory, GPUs, drives, NICs, GPU drivers", icon: <Cpu size={22} />, tint: "from-emerald-400 to-teal-600" },
   { id: "power", title: "System & Updates", desc: "Version, updates, downgrade, bug reports, reboot", icon: <Power size={22} />, tint: "from-amber-300 to-orange-600" },
 ];
 
-function Card({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
+export function Card({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
   return (
     <section className="glass-soft rounded-2xl p-4">
       <div className="mb-3 flex items-center gap-2">
@@ -506,29 +507,13 @@ function NetworkSection({ info }: { info: SystemInfo }) {
 }
 
 function Appearance() {
-  const { wallpaper, widgets, set } = usePrefs();
+  const { widgets, set } = usePrefs();
   return (
     <div className="space-y-4">
-      <Card title="Wallpaper">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {WALLPAPERS.map((w) => (
-            <button
-              key={w.id}
-              onClick={() => set({ wallpaper: w.id })}
-              aria-pressed={wallpaper === w.id}
-              className={`group overflow-hidden rounded-xl text-left ring-2 transition active:scale-[0.97] ${wallpaper === w.id ? "ring-sky-400" : "ring-transparent hover:ring-white/20"}`}
-            >
-              <span className="relative block h-16" style={{ background: w.swatch }}>
-                <span className="absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/35 to-transparent" />
-              </span>
-              <span className="block bg-black/30 px-2 py-1.5 text-[11px] text-slate-200">{w.name}</span>
-            </button>
-          ))}
-        </div>
-      </Card>
+      <ThemeStudio />
       <Card title="Desktop">
         <GlassSwitch checked={widgets} onChange={(v) => set({ widgets: v })} label="Show desktop widgets (system health, GPU, ZFS, compute)" />
-        <p className="mt-2 text-[11px] text-slate-500">Wallpaper and widgets are stored in this browser; layout settings are also saved on the server.</p>
+        <p className="mt-2 text-[11px] text-slate-500">Widgets are stored in this browser; theme, wallpaper and layout settings are also saved on the server.</p>
       </Card>
       <Card title="Desktop Layout">
         <LayoutControls />

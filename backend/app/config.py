@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     security_file: Path = Path(__file__).resolve().parent.parent / "data" / "security.json"
     # Desktop layout, per-app views and wizard state, so they survive browser clears (GET/PUT /api/system/preferences).
     preferences_file: Path = Path(__file__).resolve().parent.parent / "data" / "user_preferences.json"
+    # Theme Studio: custom_themes.json and uploaded wallpapers/ (GET/POST /api/system/themes).
+    themes_dir: Path = Path(__file__).resolve().parent.parent / "data" / "themes"
     # Self-updater source; a deployment without .git is converted to a checkout of this repo on first update.
     repo_url: str = "https://github.com/Legend-Services/SolarOS.git"
     repo_branch: str = "main"

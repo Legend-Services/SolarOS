@@ -2,3 +2,4 @@
 backend/data/benchmarks.json
 backend/data/local_ai.json
 backend/data/ai_chats.json
+backend/data/themes/

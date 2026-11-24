@@ -182,10 +182,36 @@ class LayoutPrefs(BaseModel):
     desktopMaxColumns: Literal["auto"] | Annotated[int, Field(ge=3, le=8, strict=True)] = "auto"
 
 
+ThemeId = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9-]{1,62}$")]
+# An uploaded wallpaper, an https image, or a two-color gradient made in the Theme Studio.
+CustomWallpaper = Annotated[str, Field(max_length=2048, pattern=r"^(/api/system/themes/wallpapers/[0-9a-f]{32}\.(png|jpe?g|webp|svg)"
+                                       r"|https://[^\s\"'()\\]+|linear-gradient\(\d{1,3}deg, ?#[0-9a-fA-F]{6}, ?#[0-9a-fA-F]{6}\))$")]
+
+
+class WallpaperChoice(BaseModel):
+    index: Annotated[int, Field(ge=0, le=3)] = 0
+    custom: CustomWallpaper | None = None
+
+
+class ThemePrefs(BaseModel):
+    """Active theme block. perThemeWallpapers lets every theme keep its own wallpaper choice."""
+
+    model_config = ConfigDict(extra="ignore")
+    activeThemeId: ThemeId = "solardeck-glass"
+    colorMode: Literal["dark", "light"] = "dark"
+    selectedWallpaperIndex: Annotated[int, Field(ge=0, le=3)] = 0
+    customWallpaperUrl: CustomWallpaper | None = None
+    wallpaperBlurPx: Annotated[int, Field(ge=0, le=24)] = 0
+    wallpaperDimPct: Annotated[int, Field(ge=0, le=60)] = 0
+    perThemeWallpapers: Annotated[dict[ThemeId, WallpaperChoice], Field(max_length=200)] = {}
+
+
 def with_layout_defaults(data: dict) -> dict:
-    """Fill placement defaults into a stored layout. No layout yet stays absent: the frontend then uploads its own."""
+    """Fill placement and theme defaults into stored preferences. No layout yet stays absent: the frontend then uploads its own."""
     if isinstance(data.get("layout"), dict):
         data = {**data, "layout": LayoutPrefs.model_validate(data["layout"]).model_dump()}
+    if "theme" in data:
+        data = {**data, "theme": ThemePrefs.model_validate(data["theme"]).model_dump()}
     return data
 
 
@@ -208,11 +234,11 @@ def get_preferences():
 
 @router.put("/preferences")
 def put_preferences(body: dict = Body(...)):
-    """Replace the stored preferences. The frontend owns the schema (layout, dock, wizard); only layout placement is validated."""
+    """Replace the stored preferences. The frontend owns the schema (layout, dock, wizard, theme); placement and theme are validated."""
     try:
         body = with_layout_defaults(body)
     except ValidationError as e:
-        raise HTTPException(422, f"Invalid layout preference: {e.errors()[0]['loc'][0]}")
+        raise HTTPException(422, f"Invalid preference: {'.'.join(map(str, e.errors()[0]['loc']))}")
     raw = json.dumps(body, indent=2)
     if len(raw) > PREFS_MAX_BYTES:
         raise HTTPException(413, "Preferences are too large")

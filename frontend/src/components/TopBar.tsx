@@ -7,6 +7,7 @@ import { activeWindow, useAuth, useBugReport, useSpotlight, useTelemetry, useWin
 import { useClock, useDismiss } from "../lib/hooks";
 import TaskCenterPopover from "./TaskCenterPopover";
 import NotificationPopover from "./NotificationPopover";
+import { ModeToggle, ThemeSwitcher } from "./ThemeQuickSwitcher";
 import { pct } from "../lib/format";
 import { APPS, APP_IDS } from "../apps/registry";
 import { AppIcon } from "./icons/AppIcons";
@@ -111,6 +112,8 @@ export default function TopBar() {
         </button>
         {viewPanel && <ViewOptionsPanel />}
       </div>
+      <ModeToggle />
+      <ThemeSwitcher />
       <HelpMenu />
       <TaskCenterPopover />
       <NotificationPopover />

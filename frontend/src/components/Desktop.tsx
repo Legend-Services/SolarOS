@@ -93,7 +93,7 @@ export default function Desktop() {
                 title={hint(id)}
                 className={`group flex w-full flex-col items-center gap-1.5 rounded-xl p-2 text-center text-slate-100 hover:bg-white/10 focus:bg-white/10 focus:outline-none ${iconClick === "single" ? "cursor-pointer" : ""}`}
                 // text-shadow, not a CSS drop-shadow filter (see AppIcon: filters bleed through window glass in Chrome).
-                style={{ fontSize: font, lineHeight: 1.25, textShadow: "0 1px 2px rgba(0,0,0,0.6)" }}
+                style={{ fontSize: font, lineHeight: 1.25, textShadow: "0 1px 2px var(--sd-label-shadow)" }}
               >
                 <AppIcon id={id} size={iconSize} className="shrink-0 transition-transform group-hover:scale-105 group-active:scale-95" />
                 <span className="line-clamp-2">{APPS[id].title}</span>

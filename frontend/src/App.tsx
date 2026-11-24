@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useAuth, usePrefs, useTelemetry } from "./lib/stores";
+import { useAuth, useTelemetry } from "./lib/stores";
 import LockScreen from "./components/LockScreen";
 import TopBar from "./components/TopBar";
 import Desktop from "./components/Desktop";
@@ -11,6 +11,8 @@ import GuidedWizardModal from "./components/wizards/GuidedWizardModal";
 import Taskbar from "./components/Taskbar";
 import { startPreferencesSync, useShell } from "./store/layoutStore";
 import { useWizard } from "./store/wizardStore";
+import { useTheme } from "./store/themeStore";
+import { WallpaperLayer } from "./components/ThemeQuickSwitcher";
 
 // The automatic Welcome Tour shows at most once per page load (not again after a lock / unlock).
 let tourShown = false;
@@ -19,7 +21,6 @@ export default function App() {
   const status = useAuth((s) => s.status);
   const init = useAuth((s) => s.init);
   const start = useTelemetry((s) => s.start);
-  const wallpaper = usePrefs((s) => s.wallpaper);
   const shell = useShell();
 
   useEffect(() => {
@@ -27,6 +28,9 @@ export default function App() {
   }, [init]);
 
   useEffect(() => (status === "unlocked" ? start() : undefined), [status, start]);
+  useEffect(() => {
+    if (status === "unlocked") useTheme.getState().loadCustom().catch(() => {}); // custom themes; built-ins work offline
+  }, [status]);
   // Server preferences first, so a "don't show again" saved on another browser is respected.
   useEffect(
     () =>
@@ -40,7 +44,8 @@ export default function App() {
   );
 
   return (
-    <div className={`wallpaper wp-${wallpaper} relative h-full w-full overflow-hidden`}>
+    <div className="relative h-full w-full overflow-hidden">
+      <WallpaperLayer />
       <div
         className={`absolute inset-0 transition-all duration-700 ${
           status === "unlocked" ? "scale-100 opacity-100" : "pointer-events-none scale-105 opacity-0 blur-sm"
