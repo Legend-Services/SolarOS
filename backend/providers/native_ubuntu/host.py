@@ -235,7 +235,10 @@ def disk_key(target: str, bus: str) -> str:
 def domain_xml(*, name: str, vmid: int, cores: int, sockets: int, memory_mb: int, uefi: bool, secure_boot: bool,
                disks: list[dict], cdroms: list[str], bridge: str, ostype: str, hostpci: list[str],
                usb: list[str], tpm: bool) -> str:
-    """Build a KVM domain. disks: [{"path", "type": "file"|"block", "format": "qcow2"|"raw"}] on virtio-scsi."""
+    """Build a KVM domain. disks: [{"path", "type": "file"|"block", "format": "qcow2"|"raw"}] on virtio-scsi.
+    Windows guests get SATA disks and an e1000e NIC instead: Windows Setup has no virtio drivers, so it would not
+    see the disk or the network without an extra driver ISO."""
+    windows = ostype.startswith("win")
     d = ET.Element("domain", type="kvm")
     ET.SubElement(d, "name").text = name
     ET.SubElement(d, "title").text = name
@@ -250,8 +253,6 @@ def domain_xml(*, name: str, vmid: int, cores: int, sockets: int, memory_mb: int
             OVMF["code_sb" if secure_boot else "code"]
         ET.SubElement(os_, "nvram", template=OVMF["vars_sb" if secure_boot else "vars"]).text = \
             str(NVRAM / f"{name}_VARS.fd")
-    ET.SubElement(os_, "boot", dev="hd")
-    ET.SubElement(os_, "boot", dev="cdrom")
     feat = ET.SubElement(d, "features")
     ET.SubElement(feat, "acpi")
     ET.SubElement(feat, "apic")
@@ -274,7 +275,7 @@ def domain_xml(*, name: str, vmid: int, cores: int, sockets: int, memory_mb: int
         el = ET.SubElement(dev, "disk", type=disk["type"], device="disk")
         ET.SubElement(el, "driver", name="qemu", type=disk["format"], cache="none", io="native", discard="unmap")
         ET.SubElement(el, "source", **({"file": disk["path"]} if disk["type"] == "file" else {"dev": disk["path"]}))
-        ET.SubElement(el, "target", dev=f"sd{chr(97 + i)}", bus="scsi")
+        ET.SubElement(el, "target", dev=f"sd{chr(97 + i)}", bus="sata" if windows else "scsi")
     for i, iso in enumerate(cdroms):
         el = ET.SubElement(dev, "disk", type="file", device="cdrom")
         ET.SubElement(el, "driver", name="qemu", type="raw")
@@ -284,7 +285,7 @@ def domain_xml(*, name: str, vmid: int, cores: int, sockets: int, memory_mb: int
     ET.SubElement(dev, "controller", type="scsi", index="0", model="virtio-scsi")
     nic = ET.SubElement(dev, "interface", type="bridge")
     ET.SubElement(nic, "source", bridge=bridge)
-    ET.SubElement(nic, "model", type="virtio")
+    ET.SubElement(nic, "model", type="e1000e" if windows else "virtio")
     serial = ET.SubElement(dev, "serial", type="pty")
     ET.SubElement(serial, "target", port="0")
     ET.SubElement(ET.SubElement(dev, "console", type="pty"), "target", type="serial", port="0")
@@ -301,8 +302,27 @@ def domain_xml(*, name: str, vmid: int, cores: int, sockets: int, memory_mb: int
         dev.append(hostdev_pci(addr))
     for u in usb:
         dev.append(hostdev_usb(u))
+    set_boot_order(d)
     ET.indent(d)
     return ET.tostring(d, encoding="unicode")
+
+
+def set_boot_order(d: ET.Element, seed_suffix: str = "-cloudinit.iso") -> None:
+    """Per-device boot order: first disk, then the first CD-ROM that is not the cloud-init seed. An empty disk falls
+    through to the installer; after the install the disk boots. (<os><boot dev="cdrom"/> would only try the FIRST
+    CD-ROM, which may be the seed, and libvirt forbids mixing it with per-device order, so it is removed.)"""
+    os_ = d.find("os")
+    for b in os_.findall("boot") if os_ is not None else []:
+        os_.remove(b)
+    disks = d.findall("devices/disk")
+    for disk in disks:
+        for b in disk.findall("boot"):
+            disk.remove(b)
+    order = [next((x for x in disks if x.get("device") == "disk"), None),
+             next((x for x in disks if x.get("device") == "cdrom"
+                   and not ((x.find("source").get("file") or "") if x.find("source") is not None else "").endswith(seed_suffix)), None)]
+    for i, disk in enumerate([x for x in order if x is not None], 1):
+        ET.SubElement(disk, "boot", order=str(i))
 
 
 def hostdev_pci(addr: str) -> ET.Element:

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Camera, Pencil, Plus, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
 import { api } from "../lib/api";
-import type { Guest, GuestConfig, SystemInfo } from "../lib/types";
+import type { Guest, GuestConfig, StorageVolume, SystemInfo } from "../lib/types";
 import { bytes } from "../lib/format";
 import { useRunner } from "../lib/hooks";
 import { useTelemetry } from "../lib/stores";
@@ -57,6 +57,7 @@ interface Hardware {
   cloudinit: CloudInit | null;
   options: Record<string, string | number | null>;
   pending: string[];
+  cdrom?: { iso: string | null } | null;
 }
 interface Snapshot {
   name: string;
@@ -170,6 +171,56 @@ function ResourcesTab({ guest, onSaved }: { guest: Guest; onSaved: () => void })
   );
 }
 
+/* ---------------- CD/DVD drive (QEMU) ---------------- */
+
+/** Load an ISO into the VM's install drive or eject it (applies at once on SolarOS, at the next start on Proxmox VE if running). */
+function CdromCard({ guest, hw, reload }: { guest: Guest; hw: Hardware; reload: () => void }) {
+  const targets = useTelemetry((s) => s.storage?.targets ?? []);
+  const stores = targets.filter((t) => t.active && t.content.split(",").includes("iso")).map((t) => t.storage).join(",");
+  const [isos, setIsos] = useState<StorageVolume[]>([]);
+  const current = hw.cdrom?.iso ?? "";
+  const [pick, setPick] = useState(current);
+  const { busy, error, notice, run } = useRunner(reload);
+  useEffect(() => setPick(current), [current]);
+  useEffect(() => {
+    if (!stores) return;
+    Promise.all(stores.split(",").map((s) => api<StorageVolume[]>(`/pve/storage/${s}/content?content=iso`).catch(() => []))).then((l) => setIsos(l.flat()));
+  }, [stores]);
+  const [restart, setRestart] = useState(false);
+  const set = (iso: string | null) =>
+    run(async () => {
+      const r = await api<{ restart_required?: boolean }>(`/pve/guests/qemu/${guest.vmid}/cdrom`, { method: "PUT", json: { iso_volume: iso } });
+      setRestart(!!r.restart_required);
+    }, iso ? "ISO loaded." : "Drive ejected.");
+
+  return (
+    <div className="glass-soft space-y-2 rounded-2xl p-3">
+      <div className="text-xs font-medium text-slate-200">CD/DVD drive</div>
+      <div className="flex flex-wrap items-end gap-2">
+        <Field label="Installation media (ISO)" hint={isos.length ? undefined : "No ISOs yet: add one in ISO & Templates (upload or download)."}>
+          <GlassSelect className="w-72 max-w-full" value={pick} onChange={(e) => setPick(e.target.value)}>
+            <option value="">Empty</option>
+            {isos.map((v) => (
+              <option key={v.volid} value={v.volid}>
+                {v.volid.split("/").pop()}
+              </option>
+            ))}
+            {current && !isos.some((v) => v.volid === current) && <option value={current}>{current}</option>}
+          </GlassSelect>
+        </Field>
+        <GlassButton variant="primary" size="sm" disabled={busy || pick === current || !pick} onClick={() => set(pick)}>
+          Load ISO
+        </GlassButton>
+        <GlassButton size="sm" disabled={busy || !current} onClick={() => set(null)}>
+          Eject
+        </GlassButton>
+      </div>
+      <Notice error={error} notice={notice} />
+      {restart && <p className="text-[11px] text-amber-300">This VM had no CD/DVD drive yet: stop and start it to boot from the ISO.</p>}
+    </div>
+  );
+}
+
 /* ---------------- Hardware & Passthrough (QEMU) ---------------- */
 
 function HardwareTab({ guest, hw, reload }: { guest: Guest; hw: Hardware; reload: () => void }) {
@@ -208,6 +259,7 @@ function HardwareTab({ guest, hw, reload }: { guest: Guest; hw: Hardware; reload
 
   return (
     <div className="space-y-3">
+      {hw.cdrom !== undefined && hw.cdrom !== null && <CdromCard guest={guest} hw={hw} reload={reload} />}
       {guest.type === "qemu" && <GuideBanner guide="compute-passthrough" text="Learn how GPU, USB and audio passthrough work and what to check before you add a device." />}
       <Section
         title="PCI / GPU passthrough"

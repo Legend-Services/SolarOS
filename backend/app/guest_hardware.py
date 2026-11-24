@@ -86,6 +86,24 @@ def cloudinit_view(cfg: dict) -> dict:
             "drive": next((k for k, v in cfg.items() if isinstance(v, str) and "cloudinit" in v), None)}
 
 
+def cdrom_iso(cfg: dict) -> str | None:
+    """ISO volume in the VM's install drive (ide2, the slot the creation wizard uses), or None when empty."""
+    v = parse_props(cfg.get("ide2") or "").get("_", "")
+    return v if v and v != "none" and "cloudinit" not in v else None
+
+
+class CdromBody(BaseModel):
+    iso_volume: str | None = Field(None, max_length=500)  # None ejects
+
+
+@router.put("/qemu/{vmid}/cdrom")
+async def set_cdrom(vmid: VMID, body: CdromBody):
+    if body.iso_volume and not re.fullmatch(r"[a-z][a-z0-9_.-]*:iso/[^,;\s]+", body.iso_volume):
+        raise HTTPException(422, f"Invalid ISO volume {body.iso_volume}")
+    await pve("PUT", _node(f"/qemu/{vmid}/config"), data={"ide2": f"{body.iso_volume or 'none'},media=cdrom"})
+    return {"ok": True}
+
+
 async def _config(guest_type: str, vmid: int) -> dict:
     return await pve("GET", _node(f"/{guest_type}/{vmid}/config")) or {}
 
@@ -97,6 +115,7 @@ async def hardware(guest_type: GuestType, vmid: VMID):
     opts = QEMU_OPTS if guest_type == "qemu" else LXC_OPTS
     return {"devices": list_devices(guest_type, cfg),
             "cloudinit": cloudinit_view(cfg) if guest_type == "qemu" else None,
+            "cdrom": {"iso": cdrom_iso(cfg)} if guest_type == "qemu" else None,
             "options": {k: cfg.get(k) for k in opts},
             "pending": sorted(p["key"] for p in pending if "pending" in p or "delete" in p)}
 

@@ -24,6 +24,28 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
   return res.json();
 }
 
+/** Upload one ISO image to a storage (raw body, streamed to disk by the backend), reporting progress. */
+export function uploadIso(storage: string, file: File, onProgress: (pct: number) => void): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/api/pve/storage/${encodeURIComponent(storage)}/upload?filename=${encodeURIComponent(file.name)}`);
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(Math.round((e.loaded / e.total) * 100));
+    xhr.onload = () => {
+      if (xhr.status < 300) return resolve();
+      if (xhr.status === 401) onUnauthorized();
+      let msg = xhr.statusText;
+      try {
+        msg = JSON.parse(xhr.responseText).detail ?? msg;
+      } catch {
+        /* keep statusText */
+      }
+      reject(new ApiError(xhr.status, String(msg)));
+    };
+    xhr.onerror = () => reject(new ApiError(0, "Network error"));
+    xhr.send(file);
+  });
+}
+
 // XHR instead of fetch so we can report upload progress.
 export function uploadFiles(dir: string, files: File[], onProgress: (pct: number) => void): Promise<void> {
   return new Promise((resolve, reject) => {
