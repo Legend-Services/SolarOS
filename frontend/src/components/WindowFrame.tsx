@@ -17,6 +17,36 @@ const EDGE = 6; // px from a screen edge that triggers snapping
 
 type Snap = "left" | "right" | "top" | null;
 type Phase = "enter" | "open" | "exit";
+type Dir = "n" | "s" | "e" | "w" | "ne" | "nw" | "se" | "sw";
+
+/* Resize grips on every edge and corner. Top corners stay at 14px so they never cover the close button; the frame's
+   16px rounded corners clip hit-testing, so corners are larger than the 6px edges. */
+const HANDLES: { dir: Dir; cls: string }[] = [
+  { dir: "n", cls: "inset-x-4 top-0 h-1.5 cursor-ns-resize" },
+  { dir: "s", cls: "inset-x-5 bottom-0 h-1.5 cursor-ns-resize" },
+  { dir: "e", cls: "inset-y-4 right-0 w-1.5 cursor-ew-resize" },
+  { dir: "w", cls: "inset-y-4 left-0 w-1.5 cursor-ew-resize" },
+  { dir: "nw", cls: "left-0 top-0 h-3.5 w-3.5 cursor-nwse-resize" },
+  { dir: "ne", cls: "right-0 top-0 h-3.5 w-3.5 cursor-nesw-resize" },
+  { dir: "sw", cls: "left-0 bottom-0 h-5 w-5 cursor-nesw-resize" },
+  { dir: "se", cls: "right-0 bottom-0 h-5 w-5 cursor-nwse-resize" },
+];
+
+/** New frame geometry for dragging the `dir` grip by (dx, dy) from the start rect `o`; opposite edges stay put. */
+function resized(o: Rect, dir: Dir, dx: number, dy: number): Rect {
+  const r = { ...o };
+  if (dir.includes("e")) r.w = Math.max(MIN_W, o.w + dx);
+  if (dir.includes("s")) r.h = Math.max(MIN_H, o.h + dy);
+  if (dir.includes("w")) {
+    r.w = Math.max(MIN_W, o.w - dx);
+    r.x = o.x + o.w - r.w;
+  }
+  if (dir.includes("n")) {
+    r.h = Math.max(MIN_H, o.y + o.h - Math.max(TOP, o.y + dy)); // never under the top bar
+    r.y = o.y + o.h - r.h;
+  }
+  return r;
+}
 
 const snapRect = (s: Exclude<Snap, null>): Rect => {
   const vw = window.innerWidth;
@@ -36,7 +66,7 @@ export default function WindowFrame({ win, mobile, Body }: { win: Win; mobile: b
   const { focus, close, minimize, toggleMaximize, update } = useWindows();
   const dockRect = useWindows((s) => s.dockIconRects[win.id]);
   const showGuide = useWizard((s) => s.show); // guide ids match app ids (APP_GUIDES)
-  const drag = useRef<{ mode: "move" | "resize"; sx: number; sy: number; ox: number; oy: number; ow: number; oh: number } | null>(null);
+  const drag = useRef<{ mode: "move" | Dir; sx: number; sy: number; ox: number; oy: number; ow: number; oh: number } | null>(null);
   const [dragging, setDragging] = useState(false);
   const [snap, setSnap] = useState<Snap>(null);
   const [phase, setPhase] = useState<Phase>("enter");
@@ -55,7 +85,7 @@ export default function WindowFrame({ win, mobile, Body }: { win: Win; mobile: b
     setTimeout(() => close(win.key), CLOSE_MS);
   };
 
-  const begin = (mode: "move" | "resize") => (e: RPointerEvent) => {
+  const begin = (mode: "move" | Dir) => (e: RPointerEvent) => {
     if (full || e.button !== 0) return;
     if (mode === "move" && (e.target as HTMLElement).closest("button")) return;
     e.preventDefault();
@@ -78,7 +108,7 @@ export default function WindowFrame({ win, mobile, Body }: { win: Win; mobile: b
         e.clientX <= EDGE ? "left" : e.clientX >= window.innerWidth - EDGE ? "right" : e.clientY <= TOP + EDGE ? "top" : null;
       if (next !== snap) setSnap(next);
     } else {
-      update(win.key, { w: Math.max(MIN_W, d.ow + dx), h: Math.max(MIN_H, d.oh + dy) });
+      update(win.key, resized({ x: d.ox, y: d.oy, w: d.ow, h: d.oh }, d.mode, dx, dy));
     }
   };
   const end = () => {
@@ -154,16 +184,19 @@ export default function WindowFrame({ win, mobile, Body }: { win: Win; mobile: b
             </Suspense>
           </WindowErrorBoundary>
         </div>
-        {!full && (
-          <div
-            onPointerDown={begin("resize")}
-            onPointerMove={onMove}
-            onPointerUp={end}
-            onPointerCancel={end}
-            className="absolute right-0 bottom-0 h-4 w-4 cursor-se-resize"
-            aria-hidden
-          />
-        )}
+        {!full &&
+          HANDLES.map((h) => (
+            <div
+              key={h.dir}
+              data-resize={h.dir}
+              onPointerDown={begin(h.dir)}
+              onPointerMove={onMove}
+              onPointerUp={end}
+              onPointerCancel={end}
+              className={`absolute z-10 touch-none ${h.cls}`}
+              aria-hidden
+            />
+          ))}
       </section>
       {/* Portal: inside the frame, `fixed` would resolve against the frame's transform instead of the screen. */}
       {snap &&
