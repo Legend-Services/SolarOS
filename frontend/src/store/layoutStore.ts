@@ -1,11 +1,13 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { api } from "../lib/api";
-import { useDock, useUsage } from "../lib/stores";
+import { useDock, usePrefs, useUsage } from "../lib/stores";
 import { APP_IDS, type AppId } from "../apps/registry";
 import { useWizard } from "./wizardStore";
 import { sanitizePrefs, themePrefs, useTheme } from "./themeStore";
 import type { ThemePrefs } from "../theme/themeTypes";
+import { NOTES_MAX, sanitizeWidgets, useWidgets, type WidgetCfg } from "./widgetStore";
+import { isLang, useLanguage, type Lang } from "../i18n";
 
 export type ViewMode = "grid" | "list";
 export type Align = "left" | "center";
@@ -186,6 +188,8 @@ interface Preferences {
   dock?: { baseSize?: number; dockAppOrder?: AppId[] };
   wizard?: { welcomeAuto?: boolean };
   theme?: Partial<ThemePrefs>;
+  widgets?: { items?: WidgetCfg[]; notes?: string; visible?: boolean };
+  i18n?: { language?: Lang };
 }
 
 const snapshot = (): Preferences => {
@@ -194,6 +198,8 @@ const snapshot = (): Preferences => {
     dock: { baseSize: useDock.getState().baseSize, dockAppOrder: useDock.getState().pinned },
     wizard: { welcomeAuto: useWizard.getState().welcomeAuto },
     theme: themePrefs(useTheme.getState()),
+    widgets: { items: useWidgets.getState().items, notes: useWidgets.getState().notes, visible: usePrefs.getState().widgets },
+    i18n: { language: useLanguage.getState().language },
   };
 };
 
@@ -217,7 +223,8 @@ export function startPreferencesSync(onReady: () => void): () => void {
       api("/system/preferences", { method: "PUT", json: body }).catch(() => (last = "")); // retry on the next change
     }, 600);
   };
-  const subs = [useLayout.subscribe(push), useDock.subscribe(push), useWizard.subscribe(push), useTheme.subscribe(push)];
+  const subs = [useLayout.subscribe(push), useDock.subscribe(push), useWizard.subscribe(push), useTheme.subscribe(push), useWidgets.subscribe(push),
+    usePrefs.subscribe(push), useLanguage.subscribe(push)];
 
   useUsage.getState().load();
   api<Preferences>("/system/preferences")
@@ -227,6 +234,10 @@ export function startPreferencesSync(onReady: () => void): () => void {
       if (p.dock?.baseSize !== undefined) useDock.getState().set({ baseSize: clamp(p.dock.baseSize, LIMITS.dockSize, useDock.getState().baseSize) });
       if (typeof p.wizard?.welcomeAuto === "boolean") useWizard.getState().setWelcomeAuto(p.wizard.welcomeAuto);
       if (p.theme) useTheme.setState(sanitizePrefs(p.theme));
+      if (p.widgets?.items) useWidgets.setState({ items: sanitizeWidgets(p.widgets.items) });
+      if (typeof p.widgets?.notes === "string") useWidgets.setState({ notes: p.widgets.notes.slice(0, NOTES_MAX) });
+      if (typeof p.widgets?.visible === "boolean") usePrefs.getState().set({ widgets: p.widgets.visible });
+      if (isLang(p.i18n?.language)) useLanguage.getState().setLanguage(p.i18n.language);
       last = p.layout && p.theme ? JSON.stringify(snapshot()) : ""; // nothing stored yet: upload this browser's settings
     })
     .catch(() => {})

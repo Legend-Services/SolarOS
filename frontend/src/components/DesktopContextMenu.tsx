@@ -1,11 +1,15 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { AlignCenter, AlignLeft, Bug, Check, Container, Database, Image, LayoutDashboard, Monitor, RefreshCw, SquareTerminal } from "lucide-react";
+import { AlignCenter, AlignLeft, Bug, Check, Container, Database, Image, LayoutDashboard, Monitor, PencilRuler, RefreshCw, SquareTerminal } from "lucide-react";
+import { useTranslation } from "../i18n";
+import { useWidgets } from "../store/widgetStore";
 import { useLayout } from "../store/layoutStore";
 import { useDismiss } from "../lib/hooks";
 import { useBugReport, useIntent, useTelemetry, useWindows } from "../lib/stores";
 
 /** Frosted context menu for right-clicks on the desktop background. */
 export default function DesktopContextMenu({ at, onClose }: { at: { x: number; y: number } | null; onClose: () => void }) {
+  const { t } = useTranslation();
+  const editWidgets = useWidgets((s) => s.setEditing);
   const ref = useDismiss(!!at, onClose);
   const box = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState(at);
@@ -49,18 +53,19 @@ export default function DesktopContextMenu({ at, onClose }: { at: { x: number; y
       className="glass-panel fixed z-[9400] w-56 rounded-xl p-1 shadow-2xl shadow-black/40"
       style={{ left: pos?.x ?? at.x, top: pos?.y ?? at.y }}
     >
-      {item(<Monitor size={14} />, "New Virtual Machine", () => go("compute", "vm"))}
-      {item(<Container size={14} />, "New Container", () => go("compute", "lxc"))}
-      {item(<Database size={14} />, "Create ZFS Pool", () => go("storage", "pool"))}
+      {item(<Monitor size={14} />, t("menu.newVm"), () => go("compute", "vm"))}
+      {item(<Container size={14} />, t("menu.newCt"), () => go("compute", "lxc"))}
+      {item(<Database size={14} />, t("menu.createPool"), () => go("storage", "pool"))}
       {sep}
-      {item(<SquareTerminal size={14} />, "Open Terminal", () => open("console", { type: "node", vmid: 0, name: node, mode: "shell" }))}
-      {item(<LayoutDashboard size={14} />, "View Options…", () => setLayout({ panel: true }))}
-      {item(align === "left" ? <Check size={14} /> : <AlignLeft size={14} />, "Align Icons: Left", () => setLayout({ desktopAlignment: "left" }))}
-      {item(align === "center" ? <Check size={14} /> : <AlignCenter size={14} />, "Align Icons: Center", () => setLayout({ desktopAlignment: "center" }))}
-      {item(<Image size={14} />, "Change Wallpaper", () => go("controlpanel", "appearance"))}
+      {item(<SquareTerminal size={14} />, t("menu.terminal"), () => open("console", { type: "node", vmid: 0, name: node, mode: "shell" }))}
+      {item(<LayoutDashboard size={14} />, t("menu.viewOptions"), () => setLayout({ panel: true }))}
+      {item(<PencilRuler size={14} />, t("menu.customizeWidgets"), () => editWidgets(true))}
+      {item(align === "left" ? <Check size={14} /> : <AlignLeft size={14} />, t("menu.alignLeft"), () => setLayout({ desktopAlignment: "left" }))}
+      {item(align === "center" ? <Check size={14} /> : <AlignCenter size={14} />, t("menu.alignCenter"), () => setLayout({ desktopAlignment: "center" }))}
+      {item(<Image size={14} />, t("menu.wallpaper"), () => go("controlpanel", "appearance"))}
       {sep}
-      {item(<RefreshCw size={14} />, "Refresh Telemetry", () => refreshStorage())}
-      {item(<Bug size={14} />, "Report a Bug", () => openBugReport(true))}
+      {item(<RefreshCw size={14} />, t("menu.refresh"), () => refreshStorage())}
+      {item(<Bug size={14} />, t("top.reportBug"), () => openBugReport(true))}
     </div>
   );
 }

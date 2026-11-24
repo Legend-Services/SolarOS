@@ -9,8 +9,10 @@ import TaskCenterPopover from "./TaskCenterPopover";
 import NotificationPopover from "./NotificationPopover";
 import { ModeToggle, ThemeSwitcher } from "./ThemeQuickSwitcher";
 import { pct } from "../lib/format";
-import { APPS, APP_IDS } from "../apps/registry";
+import { APP_IDS } from "../apps/registry";
 import { AppIcon } from "./icons/AppIcons";
+import LanguagePill from "./LanguagePill";
+import { useTranslation } from "../i18n";
 
 export function Pill({ icon, label, tone = "text-slate-200" }: { icon: ReactNode; label: string; tone?: string }) {
   return (
@@ -22,6 +24,7 @@ export function Pill({ icon, label, tone = "text-slate-200" }: { icon: ReactNode
 }
 
 export default function TopBar() {
+  const { t, appTitle } = useTranslation();
   const now = useClock();
   const windows = useWindows((s) => s.windows);
   const open = useWindows((s) => s.open);
@@ -49,14 +52,14 @@ export default function TopBar() {
           onClick={() => setLauncher((v) => !v)}
           className="flex items-center gap-1.5 rounded-md px-2 py-1 font-semibold text-white hover:bg-white/10"
           aria-expanded={launcher}
-          aria-label="Open launcher"
+          aria-label={t("top.openLauncher")}
         >
           <LayoutGrid size={15} /> <span className="hidden sm:inline">SolarDeck</span>
         </button>
         {launcher && (
           <div className="glass absolute top-8 left-0 grid w-80 grid-cols-3 gap-1 rounded-2xl p-3">
             {APP_IDS.map((id) => {
-              const { title } = APPS[id];
+              const title = appTitle(id);
               return (
                 <button
                   key={id}
@@ -75,7 +78,7 @@ export default function TopBar() {
         )}
       </div>
 
-      <div className="min-w-0 flex-1 truncate font-medium text-slate-300">{active ? APPS[active.id].title : "Desktop"}</div>
+      <div className="min-w-0 flex-1 truncate font-medium text-slate-300">{active ? appTitle(active.id) : t("top.desktop")}</div>
 
       <Pill icon={<Cpu size={12} />} label={`${overview ? overview.cpu.toFixed(0) : "–"}%`} />
       <Pill icon={<MemoryStick size={12} />} label={`${ram.toFixed(0)}%`} />
@@ -87,16 +90,16 @@ export default function TopBar() {
       <button
         onClick={() => openSpotlight(true)}
         className="flex items-center gap-1 rounded-md px-2 py-1 text-slate-200 hover:bg-white/10"
-        aria-label="Search (Ctrl+K)"
-        title="Search (⌘K / Ctrl+K)"
+        aria-label={t("top.search")}
+        title={t("top.search")}
       >
         <Search size={14} />
       </button>
       <button
         onClick={() => open("terminal")}
         className="flex items-center gap-1 rounded-md px-2 py-1 text-slate-200 hover:bg-white/10"
-        aria-label="Host Shell"
-        title="Host Shell (root on the Proxmox host)"
+        aria-label={t("top.hostShell")}
+        title={t("top.hostShell")}
       >
         <SquareTerminal size={14} />
       </button>
@@ -105,13 +108,14 @@ export default function TopBar() {
           onClick={() => setLayout({ panel: !viewPanel })}
           className={`flex items-center gap-1 rounded-md px-2 py-1 text-slate-200 hover:bg-white/10 ${viewPanel ? "bg-white/10" : ""}`}
           aria-expanded={viewPanel}
-          aria-label="View Settings"
-          title="View Settings: Grid or List, icon size and spacing"
+          aria-label={t("top.viewSettings")}
+          title={t("top.viewSettings")}
         >
           <LayoutDashboard size={14} />
         </button>
         {viewPanel && <ViewOptionsPanel />}
       </div>
+      <LanguagePill className="hidden sm:inline-flex" />
       <ModeToggle />
       <ThemeSwitcher />
       <HelpMenu />
@@ -127,7 +131,7 @@ export default function TopBar() {
           onClick={() => setMenu((v) => !v)}
           className="flex items-center gap-1 rounded-md px-2 py-1 text-slate-200 hover:bg-white/10"
           aria-expanded={menu}
-          aria-label="User menu"
+          aria-label={t("top.userMenu")}
         >
           <User size={14} /> <span className="hidden sm:inline">{username}</span>
         </button>
@@ -137,16 +141,16 @@ export default function TopBar() {
               onClick={() => (open("controlpanel"), setMenu(false))}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10"
             >
-              <SlidersHorizontal size={14} /> Control Panel
+              <SlidersHorizontal size={14} /> {t("top.controlPanel")}
             </button>
             <button onClick={() => (openBugReport(true), setMenu(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
-              <Bug size={14} /> Report a Bug
+              <Bug size={14} /> {t("top.reportBug")}
             </button>
             <button onClick={lock} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
-              <Lock size={14} /> Lock
+              <Lock size={14} /> {t("top.lock")}
             </button>
             <button onClick={logout} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-rose-300 hover:bg-white/10">
-              <LogOut size={14} /> Log out
+              <LogOut size={14} /> {t("top.logout")}
             </button>
           </div>
         )}
@@ -157,6 +161,7 @@ export default function TopBar() {
 
 /** Help: guide for the focused app, Welcome Tour, Help & Support and the bug reporter. `up` opens it above (taskbar). */
 export function HelpMenu({ up = false }: { up?: boolean }) {
+  const { t, appTitle } = useTranslation();
   const [help, setHelp] = useState(false);
   const helpRef = useDismiss(help, () => setHelp(false));
   const showGuide = useWizard((s) => s.show);
@@ -169,7 +174,7 @@ export function HelpMenu({ up = false }: { up?: boolean }) {
         onClick={() => setHelp((v) => !v)}
         className="flex items-center gap-1 rounded-md px-2 py-1 text-slate-200 hover:bg-white/10"
         aria-expanded={help}
-        aria-label="Help menu"
+        aria-label={t("top.help")}
         title="Help: guides, Welcome Tour, tutorials and automatic fixes"
       >
         <CircleHelp size={14} />
@@ -178,17 +183,17 @@ export function HelpMenu({ up = false }: { up?: boolean }) {
         <div className={`glass absolute ${up ? "bottom-full mb-5 bg-slate-950/90" : "top-8"} right-0 w-56 rounded-xl p-1 text-xs`}>
           {active && (
             <button onClick={() => (showGuide(active.id), setHelp(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
-              <BookOpen size={14} /> Guide: {APPS[active.id].title}
+              <BookOpen size={14} /> {t("top.guide", { app: appTitle(active.id) })}
             </button>
           )}
           <button onClick={() => (showGuide("welcome"), setHelp(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
-            <Sparkles size={14} /> Welcome Tour
+            <Sparkles size={14} /> {t("top.welcomeTour")}
           </button>
           <button onClick={() => (open("help"), setHelp(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
-            <LifeBuoy size={14} /> Help &amp; Support
+            <LifeBuoy size={14} /> {t("top.helpSupport")}
           </button>
           <button onClick={() => (openBugReport(true), setHelp(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
-            <Bug size={14} /> Report a Bug
+            <Bug size={14} /> {t("top.reportBug")}
           </button>
         </div>
       )}

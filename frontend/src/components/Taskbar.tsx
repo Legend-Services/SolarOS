@@ -4,7 +4,9 @@ import { activateApp, activeWindow, useDock, useSpotlight, useTelemetry, useWind
 import { useClock, useDismiss, useFlip } from "../lib/hooks";
 import { pct } from "../lib/format";
 import { useLayout } from "../store/layoutStore";
-import { APPS, type AppId } from "../apps/registry";
+import type { AppId } from "../apps/registry";
+import { useTranslation } from "../i18n";
+import LanguagePill from "./LanguagePill";
 import { AppIcon } from "./icons/AppIcons";
 import { ViewOptionsPanel } from "./ViewOptions";
 import { HelpMenu, Pill } from "./TopBar";
@@ -87,6 +89,7 @@ function BarButton({ label, onClick, active, children }: { label: string; onClic
 }
 
 export default function Taskbar() {
+  const { t, appTitle } = useTranslation();
   const now = useClock();
   const windows = useWindows((s) => s.windows);
   const { open, close, minimize, setDockIconRect } = useWindows();
@@ -135,13 +138,13 @@ export default function Taskbar() {
   const onDrop = (e: DragEvent) => (e.preventDefault(), setDrag(null));
 
   return (
-    <footer className="glass fixed inset-x-0 bottom-0 z-[9000] flex h-12 items-center gap-1 border-x-0 border-b-0 bg-slate-900/75 pl-2 text-xs" aria-label="Taskbar">
+    <footer className="glass fixed inset-x-0 bottom-0 z-[9000] flex h-12 items-center gap-1 border-x-0 border-b-0 bg-slate-900/75 pl-2 text-xs" aria-label={t("taskbar.label")}>
       <div ref={flipRef} className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
-        <BarButton label="App Gallery (Start key)" onClick={toggleGallery} active={gallery}>
+        <BarButton label={t("taskbar.start")} onClick={toggleGallery} active={gallery}>
           <LayoutGrid size={20} className="text-sky-300" />
         </BarButton>
         <span className="mx-1 h-6 w-px shrink-0 bg-white/20" aria-hidden />
-        <BarButton label="Search (Ctrl+K)" onClick={() => openSpotlight(true)}>
+        <BarButton label={t("top.search")} onClick={() => openSpotlight(true)}>
           <Search size={18} />
         </BarButton>
         {tasks.map((id) => {
@@ -163,9 +166,9 @@ export default function Taskbar() {
                 onDrop={onDrop}
                 onClick={() => activateApp(id)}
                 onContextMenu={(e) => (e.preventDefault(), setMenu(id))}
-                aria-label={APPS[id].title}
+                aria-label={appTitle(id)}
                 aria-pressed={focused}
-                title={APPS[id].title}
+                title={appTitle(id)}
                 className={`relative flex h-10 w-10 items-center justify-center rounded-md transition hover:bg-white/10 active:scale-95 ${focused ? "bg-white/10" : ""}`}
               >
                 <AppIcon id={id} size={26} />
@@ -175,9 +178,9 @@ export default function Taskbar() {
               </button>
               {menu === id && (
                 <div ref={menuRef} className="glass absolute bottom-full left-1/2 mb-2 w-48 -translate-x-1/2 rounded-xl p-1 text-slate-100" role="menu">
-                  <MenuItem onClick={() => (activateApp(id), setMenu(null))}>{isRunning ? "Show" : "Open"}</MenuItem>
-                  {isRunning && <MenuItem onClick={() => (open(id), setMenu(null))}>New window</MenuItem>}
-                  <MenuItem onClick={() => ((isPinned ? unpin : pin)(id), setMenu(null))}>{isPinned ? "Unpin from taskbar" : "Pin to taskbar"}</MenuItem>
+                  <MenuItem onClick={() => (activateApp(id), setMenu(null))}>{isRunning ? t("dock.show") : t("dock.open")}</MenuItem>
+                  {isRunning && <MenuItem onClick={() => (open(id), setMenu(null))}>{t("taskbar.newWindow")}</MenuItem>}
+                  <MenuItem onClick={() => ((isPinned ? unpin : pin)(id), setMenu(null))}>{isPinned ? t("taskbar.unpin") : t("taskbar.pin")}</MenuItem>
                   {isRunning && (
                     <MenuItem danger onClick={() => (windows.filter((w) => w.id === id).forEach((w) => close(w.key)), setMenu(null))}>
                       Close window
@@ -199,7 +202,7 @@ export default function Taskbar() {
             tone={health === "ONLINE" ? "text-emerald-300" : health === "N/A" || health === "—" ? "text-slate-400" : "text-rose-300"}
           />
         </span>
-        <button onClick={() => open("terminal")} className="rounded-md px-2 py-1 text-slate-200 hover:bg-white/10 max-sm:hidden" aria-label="Host Shell" title="Host Shell (root on the Proxmox host)">
+        <button onClick={() => open("terminal")} className="rounded-md px-2 py-1 text-slate-200 hover:bg-white/10 max-sm:hidden" aria-label={t("top.hostShell")} title={t("top.hostShell")}>
           <SquareTerminal size={14} />
         </button>
         <div ref={viewRef} className="relative max-sm:hidden">
@@ -207,8 +210,8 @@ export default function Taskbar() {
             onClick={() => setLayout({ panel: !viewPanel })}
             className={`rounded-md px-2 py-1 text-slate-200 hover:bg-white/10 ${viewPanel ? "bg-white/10" : ""}`}
             aria-expanded={viewPanel}
-            aria-label="View Settings"
-            title="View Settings: layout, icons and spacing"
+            aria-label={t("top.viewSettings")}
+            title={t("top.viewSettings")}
           >
             <LayoutDashboard size={14} />
           </button>
@@ -217,7 +220,7 @@ export default function Taskbar() {
         <button
           onClick={toggleFullscreen}
           className="rounded-md px-2 py-1 text-slate-200 hover:bg-white/10 max-sm:hidden"
-          aria-label={fullscreen ? "Exit full screen" : "Full screen"}
+          aria-label={fullscreen ? t("taskbar.exitFullScreen") : t("taskbar.fullScreen")}
           title={
             fullscreen
               ? "Exit full screen"
@@ -228,6 +231,7 @@ export default function Taskbar() {
         >
           {fullscreen ? <Shrink size={14} /> : <Expand size={14} />}
         </button>
+        <LanguagePill className="max-sm:hidden" />
         <ModeToggle />
         <ThemeSwitcher up />
         <HelpMenu up />
@@ -238,7 +242,7 @@ export default function Taskbar() {
           <span className="text-[10px] text-slate-400">{now.toLocaleDateString()}</span>
         </span>
         {/* Thin strip at the far right: minimize every window to show the desktop. */}
-        <button onClick={showDesktop} className="h-12 w-2 border-l border-white/15 hover:bg-white/15" aria-label="Show desktop" title="Show desktop" />
+        <button onClick={showDesktop} className="h-12 w-2 border-l border-white/15 hover:bg-white/15" aria-label={t("taskbar.showDesktop")} title={t("taskbar.showDesktop")} />
       </div>
     </footer>
   );

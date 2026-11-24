@@ -16,11 +16,14 @@
 | | |
 |---|---|
 | 🖥️ **Liquid Glass Desktop** | A clean, multi-window desktop with snapping, live CPU/RAM/ZFS widgets and Spotlight search (Ctrl+K). Pick the floating Parabolic Dock or an edge-to-edge bottom taskbar; drag icons on either to reorder them. Optional desktop shortcuts (View Options → Show Desktop Shortcuts) in Grid or List, aligned left or centered. |
+| 🧩 **Widget Studio** | Seven live desktop widgets (System Health, ZFS & Storage Pools, Compute Summary, GPU & Thermal Monitor, Live Network Throughput, Local AI Studio card, Quick Actions & Scratchpad). Switch them on or off, drag them between the left column, right column and middle grid, and pick compact or expanded size. |
+| 🔔 **Automation & Alerts** | No-code rules (GPU or drive temperature, degraded ZFS pool, storage usage, a keep-alive guest that stopped, a daily or weekly time) that send Telegram, Discord, webhook or email alerts, start, stop or restart a guest, or delete expired automatic snapshots, with cooldowns and an execution log. |
+| 🌍 **Five languages** | English, Nederlands, Deutsch, Español and Français, switchable from the login screen, the top bar or taskbar, and the Control Panel. |
 | 🗂️ **App Gallery** | Every app in one frosted-glass overlay: search, category pills, Grid or List, sort by Custom Order, Most Used, Name or Recently Used (real launch counts), drag-and-drop ordering and Pin to Bottom Bar. |
 | 🎨 **Theme Studio** | 11 built-in themes, each with Dark and Light palettes and 4 procedural wallpapers (44 in all), a one-click Light / Dark toggle and Quick Theme Switcher in the top bar, per-theme custom wallpapers (upload, image URL or gradient) with blur and dimming, a Theme Creator, and theme import / export as `.solardeck-theme.json`. |
 | 💽 **SolarDeck Storage Manager** | Create ZFS pools (Mirror, RAID10, RAIDZ1–3), datasets and ZVOLs, snapshots and schedules, SMART health, disk tuning, surface scans, disk replacement and benchmarks. |
 | 📦 **Compute Manager** | Create VMs and containers with wizards, GPU/PCI/USB passthrough, cloud-init, built-in screen console and shell. |
-| 🌐 **Network & Services** | DNS server with ad blocking, DHCP, WireGuard VPN with QR codes, router/NAT and port forwarding, Let's Encrypt certificates. |
+| 🌐 **Network & Services** | Interactive network topology map (Internet → NICs → bridges and VLANs → VMs, containers, WireGuard and port forwards), DNS server with ad blocking, DHCP, WireGuard VPN with QR codes, router/NAT and port forwarding, Let's Encrypt certificates. |
 | 🗂️ **Files, Shares & Backups** | File Station, SMB shares (each with its own ZFS dataset), Network Backup Target, and the SolarDeck Backup Center for VM/container backups and restores. |
 | 🛒 **App Center** | One-click Jellyfin, Docker + Portainer, AdGuard Home, Nginx Proxy Manager, Immich, Local AI Studio and more, each in its own container. |
 | 🧠 **Local AI Studio** | Ollama + Open WebUI with a hardware picker (NVIDIA CUDA such as an RTX 3090, Intel/AMD Vulkan, or CPU), the live ollama.com model library with VRAM fit ratings, one-click downloads, GPU telemetry and a test chat with tokens/sec. |
@@ -53,7 +56,7 @@ You need a Proxmox VE 8 or 9 server with internet access. That's all.
 
    ```
    ╔════════════════════════════════════════════════════════════════════════════╗
-   ║                   SolarDeck for Proxmox VE v1.11.0 is ready                ║
+   ║                   SolarDeck for Proxmox VE v1.12.0 is ready                ║
    ╠════════════════════════════════════════════════════════════════════════════╣
    ║  Web UI URL:      http://192.168.1.230                                     ║
    ║  Username:        admin                                                    ║
@@ -161,6 +164,23 @@ The active theme, color mode, wallpaper choice per theme, blur and dimming are s
 - `GET /api/system/themes` lists custom themes and the active theme preferences; `POST` adds one, `PUT|DELETE /api/system/themes/{id}` changes or removes it. Theme files are validated (colors, ranges, exactly 4 wallpapers; wallpaper images may only come from `data:image/` URIs, uploads or https).
 - `POST /api/system/themes/wallpapers/upload` accepts `.png`, `.jpg`, `.jpeg`, `.webp` or `.svg` up to 15 MB (the content is checked, not only the extension) and returns its URL; `GET /api/system/themes/wallpapers/{file}` serves it with long-lived caching. File names are random 128-bit tokens, so the lock screen can show the wallpaper before sign-in; SVGs are served with a sandboxing Content-Security-Policy.
 
+### Automation & Alerts
+
+Control Panel → **Automation & Alerts** has two tabs:
+
+- **Alert Channels**: Telegram Bot (`bot_token`, `chat_id`), Discord Webhook (rich embeds), Custom Webhook (`POST` or `PUT` JSON, optional bearer token) and SMTP Email (STARTTLS, or implicit TLS on port 465). **Send Test** delivers a test alert and shows the exact result. Secrets are stored in `backend/data/alert_channels.json` (mode 600) and never sent back to the browser.
+- **Automation Rules**: *When* a trigger holds, *then* run an action. Triggers: `gpu_temp_above`, `disk_temp_above`, `zfs_pool_degraded`, `storage_usage_above`, `guest_stopped_unexpectedly`, `scheduled_time`. Actions: `send_external_alert` (all or chosen channels, plus the top bar Notification Center), `restart_guest`, `start_guest`, `stop_guest`, `prune_old_snapshots` (removes `solardeck-auto-*` snapshots older than N days, on the pools over the threshold when the trigger is storage usage). A rule fires at most once per cooldown (default 15 minutes); a scheduled rule once per scheduled slot.
+
+The backend checks the rules every minute. API: `GET|PUT /api/automation/channels`, `POST /api/automation/channels/test` (`{"channel": "telegram"}`), `GET|POST /api/automation/rules`, `PUT|DELETE /api/automation/rules/{id}`, `GET /api/automation/logs` (newest first, up to 300 entries). Rules and the log are stored in `backend/data/automation_rules.json` and `backend/data/automation_logs.json`.
+
+### Network Topology
+
+Network & Services → **Topology** draws `GET /api/pve/network/topology`, a `nodes[]` / `edges[]` graph built from the host's interfaces (`/nodes/{node}/network` plus `ip -j link` for MACs and link state), every VM and container's `net0..netN` bridge bindings and IPs (container interfaces, or the QEMU guest agent), the WireGuard server and its peers, and the router's port forwards. Click a node to highlight its connections and see its IP, MAC and link status, with **Open Console**, **Configure Bridge**, **Edit Port Forward** or **Configure VPN**.
+
+### Widgets and languages
+
+Widgets, their order, slot (left, right, grid) and size, and the Scratchpad notes are saved in the browser and under `widgets` in `/api/system/preferences`; the language is saved under `i18n.language`. Translations live in `frontend/src/i18n/` (`en.ts` is the source; TypeScript rejects a language file with a missing or extra key). They cover the login screen, top bar, Dock, taskbar, App Gallery, View Options, Control Panel, app names, widgets, Automation & Alerts and the Network & Services tabs; deeper app screens are still in English.
+
 ### Local AI Studio
 
 App Center → AI & Compute → **Local AI Studio** creates an unprivileged Debian 12 container with Ollama (and optionally Open WebUI on port 3000). The installer's **Compute Hardware Selector** lists every GPU from `GET /api/ai/hardware`:
@@ -201,7 +221,7 @@ cd frontend && npm ci && npm run dev
 - There is a single admin account from `.env` and no login rate limiting. Keep the UI on a trusted network.
 - The installer doesn't add bind mounts for pools created after the container. Delete the container and re-run the installer to pick them up.
 - Network throughput and ZFS ARC come from Proxmox's 1-minute averages, so those charts update in steps.
-- Schedules and update checks run inside the backend. A run that is due while it is down is skipped, not replayed.
+- Schedules, automation rules and update checks run inside the backend. A run that is due while it is down is skipped, not replayed.
 - 2FA has no recovery codes. If you lose your authenticator, delete `backend/data/security.json` in the container.
 - PCIe passthrough needs IOMMU enabled on the host; Help & Support can check it and walk you through the BIOS.
 - App Center installer logs are kept in memory and are lost when the backend restarts (the containers remain).

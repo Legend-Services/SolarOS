@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     app_usage_file: Path = Path(__file__).resolve().parent.parent / "data" / "app_usage.json"
     # Theme Studio: custom_themes.json and uploaded wallpapers/ (GET/POST /api/system/themes).
     themes_dir: Path = Path(__file__).resolve().parent.parent / "data" / "themes"
+    # Automation & Alerts: notification channels, no-code rules and their execution log (/api/automation).
+    alert_channels_file: Path = Path(__file__).resolve().parent.parent / "data" / "alert_channels.json"
+    automation_rules_file: Path = Path(__file__).resolve().parent.parent / "data" / "automation_rules.json"
+    automation_logs_file: Path = Path(__file__).resolve().parent.parent / "data" / "automation_logs.json"
     # Self-updater source; a deployment without .git is converted to a checkout of this repo on first update.
     repo_url: str = "https://github.com/Legend-Services/SolarOS.git"
     repo_branch: str = "main"

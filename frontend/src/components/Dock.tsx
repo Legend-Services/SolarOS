@@ -1,7 +1,8 @@
 import { useLayoutEffect, useRef, useState, type DragEvent, type MouseEvent as RMouseEvent } from "react";
 import { LayoutGrid } from "lucide-react";
 import { MAGNIFICATION, activateApp, useDock, useWindows } from "../lib/stores";
-import { APPS, type AppId } from "../apps/registry";
+import type { AppId } from "../apps/registry";
+import { useTranslation } from "../i18n";
 import { AppIcon } from "./icons/AppIcons";
 import { useDismiss, useFlip } from "../lib/hooks";
 import { dockSizes } from "../lib/dockMath";
@@ -13,6 +14,7 @@ const GALLERY = "gallery";
 type Slot = AppId | typeof GALLERY;
 
 export default function Dock() {
+  const { t, appTitle } = useTranslation();
   const windows = useWindows((s) => s.windows);
   const { close, setDockIconRect } = useWindows();
   const { pinned, autoHide, baseSize, magnification, gallery, pin, unpin, move, set } = useDock();
@@ -71,7 +73,7 @@ export default function Dock() {
       {autoHide && <div className="fixed inset-x-0 bottom-0 z-[9000] h-2" onMouseEnter={reveal} aria-hidden />}
       <nav
         className={`pointer-events-none fixed inset-x-0 bottom-3 z-[9000] flex justify-center px-2 transition-transform duration-300 ease-out ${shown ? "" : "translate-y-[calc(100%+1rem)]"}`}
-        aria-label="Dock"
+        aria-label={t("dock.label")}
       >
         <div
           ref={flipRef}
@@ -86,8 +88,8 @@ export default function Dock() {
             const ease = mouseX === null ? "transition-[width,height] duration-200 ease-out" : "";
             if (slot === GALLERY)
               return (
-                <button key={slot} onClick={() => set({ gallery: !gallery })} className="group relative flex flex-col items-center" aria-label="App Gallery: all apps" aria-expanded={gallery}>
-                  <Label text="App Gallery" />
+                <button key={slot} onClick={() => set({ gallery: !gallery })} className="group relative flex flex-col items-center" aria-label={t("dock.appGallery")} aria-expanded={gallery}>
+                  <Label text={t("dock.appGallery")} />
                   <span className={`flex items-center justify-center rounded-[28%] bg-gradient-to-br from-slate-200/90 to-slate-500/80 text-slate-900 shadow-lg shadow-black/40 ${ease}`} style={{ width: size, height: size }}>
                     <LayoutGrid size={size * 0.5} />
                   </span>
@@ -110,9 +112,9 @@ export default function Dock() {
                   onClick={() => click(id)}
                   onContextMenu={(e) => (e.preventDefault(), setMenu(id))}
                   className={`group relative flex flex-col items-center ${drag === id ? "opacity-40" : ""}`}
-                  aria-label={APPS[id].title}
+                  aria-label={appTitle(id)}
                 >
-                  {menu !== id && <Label text={APPS[id].title} />}
+                  {menu !== id && <Label text={appTitle(id)} />}
                   <span
                     ref={(el) => {
                       icons.current[id] = el;
@@ -126,8 +128,8 @@ export default function Dock() {
                 </button>
                 {menu === id && (
                   <div ref={menuRef} className="glass absolute bottom-full left-1/2 mb-2 w-44 -translate-x-1/2 rounded-xl p-1 text-xs text-slate-100" role="menu">
-                    <MenuItem onClick={() => (click(id), setMenu(null))}>{isRunning ? "Show" : "Open"}</MenuItem>
-                    <MenuItem onClick={() => ((isPinned ? unpin : pin)(id), setMenu(null))}>{isPinned ? "Remove from Dock" : "Keep in Dock"}</MenuItem>
+                    <MenuItem onClick={() => (click(id), setMenu(null))}>{isRunning ? t("dock.show") : t("dock.open")}</MenuItem>
+                    <MenuItem onClick={() => ((isPinned ? unpin : pin)(id), setMenu(null))}>{isPinned ? t("dock.remove") : t("dock.keep")}</MenuItem>
                     {isRunning && (
                       <MenuItem danger onClick={() => (windows.filter((w) => w.id === id).forEach((w) => close(w.key)), setMenu(null))}>
                         Quit

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { Bug, ChevronLeft, Cpu, CloudDownload, KeyRound, Network, Palette, Power, RefreshCw, RotateCcw, ShieldCheck, Smartphone, SquareTerminal } from "lucide-react";
+import { Bug, ChevronLeft, Cpu, BellRing, PencilRuler, CloudDownload, KeyRound, Network, Palette, Power, RefreshCw, RotateCcw, ShieldCheck, Smartphone, SquareTerminal } from "lucide-react";
 import { api } from "../lib/api";
 import type { SystemInfo, UpdateSettings, UpdateStatus, VersionEntry } from "../lib/types";
 import { copyText, uptime } from "../lib/format";
@@ -11,16 +11,21 @@ import { APPS, APP_IDS } from "./registry";
 import { AppIcon } from "../components/icons/AppIcons";
 import HardwarePanel from "./HardwarePanel";
 import { LayoutControls } from "../components/ViewOptions";
+import AutomationPanel from "./AutomationPanel";
+import LanguagePill from "../components/LanguagePill";
+import { LANGS, isLang, useTranslation, type TKey } from "../i18n";
+import { useWidgets } from "../store/widgetStore";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
 
-type Section = "security" | "network" | "appearance" | "hardware" | "power";
+type Section = "security" | "network" | "appearance" | "automation" | "hardware" | "power";
 
-const SECTIONS: { id: Section; title: string; desc: string; icon: ReactNode; tint: string }[] = [
-  { id: "security", title: "User & Security", desc: "Admin password, API token status", icon: <ShieldCheck size={22} />, tint: "from-indigo-400 to-violet-600" },
-  { id: "network", title: "Network & DNS", desc: "Host interfaces, bridges, resolvers", icon: <Network size={22} />, tint: "from-sky-400 to-cyan-600" },
-  { id: "appearance", title: "Appearance & Themes", desc: "Themes, Light / Dark Mode, wallpapers, layout and Dock", icon: <Palette size={22} />, tint: "from-pink-400 to-rose-600" },
-  { id: "hardware", title: "Hardware & System", desc: "CPU, memory, GPUs, drives, NICs, GPU drivers", icon: <Cpu size={22} />, tint: "from-emerald-400 to-teal-600" },
-  { id: "power", title: "System & Updates", desc: "Version, updates, downgrade, bug reports, reboot", icon: <Power size={22} />, tint: "from-amber-300 to-orange-600" },
+const SECTIONS: { id: Section; title: TKey; desc: TKey; icon: ReactNode; tint: string }[] = [
+  { id: "security", title: "cp.security", desc: "cp.securityDesc", icon: <ShieldCheck size={22} />, tint: "from-indigo-400 to-violet-600" },
+  { id: "network", title: "cp.network", desc: "cp.networkDesc", icon: <Network size={22} />, tint: "from-sky-400 to-cyan-600" },
+  { id: "appearance", title: "cp.appearance", desc: "cp.appearanceDesc", icon: <Palette size={22} />, tint: "from-pink-400 to-rose-600" },
+  { id: "automation", title: "cp.automation", desc: "cp.automationDesc", icon: <BellRing size={22} />, tint: "from-fuchsia-400 to-purple-600" },
+  { id: "hardware", title: "cp.hardware", desc: "cp.hardwareDesc", icon: <Cpu size={22} />, tint: "from-emerald-400 to-teal-600" },
+  { id: "power", title: "cp.power", desc: "cp.powerDesc", icon: <Power size={22} />, tint: "from-amber-300 to-orange-600" },
 ];
 
 export function Card({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
@@ -508,12 +513,18 @@ function NetworkSection({ info }: { info: SystemInfo }) {
 
 function Appearance() {
   const { widgets, set } = usePrefs();
+  const { t, language, setLanguage } = useTranslation();
+  const editWidgets = useWidgets((s) => s.setEditing);
   return (
     <div className="space-y-4">
       <ThemeStudio />
-      <Card title="Desktop">
-        <GlassSwitch checked={widgets} onChange={(v) => set({ widgets: v })} label="Show desktop widgets (system health, GPU, ZFS, compute)" />
-        <p className="mt-2 text-[11px] text-slate-500">Widgets are stored in this browser; theme, wallpaper and layout settings are also saved on the server.</p>
+      <Card title={t("common.language")}>
+        <Segmented value={language} onChange={(v) => isLang(v) && setLanguage(v)} options={LANGS.map((l) => ({ id: l.id, label: l.label }))} />
+        <p className="mt-2 text-[11px] text-slate-500">{t("cp.languageHint")}</p>
+      </Card>
+      <Card title={t("cp.desktop")} action={<GlassButton size="xs" onClick={() => editWidgets(true)}><PencilRuler size={12} /> {t("view.customizeWidgets")}</GlassButton>}>
+        <GlassSwitch checked={widgets} onChange={(v) => set({ widgets: v })} label={t("cp.showWidgets")} />
+        <p className="mt-2 text-[11px] text-slate-500">{t("cp.widgetsHint")}</p>
       </Card>
       <Card title="Desktop Layout">
         <LayoutControls />
@@ -617,6 +628,7 @@ function PowerSection({ info }: { info: SystemInfo }) {
 }
 
 export default function ControlPanelApp() {
+  const { t } = useTranslation();
   const [section, setSection] = useState<Section | null>(null);
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [error, setError] = useState("");
@@ -636,13 +648,14 @@ export default function ControlPanelApp() {
       <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2.5">
         {current ? (
           <GlassButton variant="ghost" size="xs" onClick={() => setSection(null)}>
-            <ChevronLeft size={14} /> All settings
+            <ChevronLeft size={14} /> {t("cp.all")}
           </GlassButton>
         ) : (
-          <h2 className="text-sm font-semibold text-white">Control Panel</h2>
+          <h2 className="text-sm font-semibold text-white">{t("cp.title")}</h2>
         )}
-        {current && <span className="text-sm font-medium text-slate-200">{current.title}</span>}
-        <GlassButton variant="ghost" size="xs" className="ml-auto" onClick={load} aria-label="Refresh">
+        {current && <span className="text-sm font-medium text-slate-200">{t(current.title)}</span>}
+        <LanguagePill className="ml-auto" />
+        <GlassButton variant="ghost" size="xs" onClick={load} aria-label={t("common.refresh")}>
           <RefreshCw size={13} />
         </GlassButton>
       </div>
@@ -658,14 +671,16 @@ export default function ControlPanelApp() {
               >
                 <span className={`flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-lg shadow-black/30 ${s.tint}`}>{s.icon}</span>
                 <span>
-                  <span className="block text-sm font-semibold text-slate-100">{s.title}</span>
-                  <span className="block text-[11px] text-slate-400">{s.desc}</span>
+                  <span className="block text-sm font-semibold text-slate-100">{t(s.title)}</span>
+                  <span className="block text-[11px] text-slate-400">{t(s.desc)}</span>
                 </span>
               </button>
             ))}
           </div>
         ) : section === "appearance" ? (
           <Appearance />
+        ) : section === "automation" ? (
+          <AutomationPanel />
         ) : section === "hardware" ? (
           <HardwarePanel />
         ) : !info ? (
