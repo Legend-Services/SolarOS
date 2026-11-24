@@ -235,7 +235,7 @@ function Host() {
       <dl className="glass-soft grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-xl p-4 text-xs">
         {[
           ["Node", o?.node],
-          ["Proxmox VE", o?.pveversion],
+          ["Platform", o?.pveversion],
           ["Kernel", o?.kernel],
           ["Uptime", o && uptime(o.uptime)],
         ].map(([k, v]) => (

@@ -93,7 +93,7 @@ function Progress({ app, vmid, upid, onClose }: { app: CatalogApp; vmid: number;
         {dep?.phase === "error" && <li className="rounded-full bg-rose-500/15 px-2 py-0.5 text-rose-300">Failed</li>}
       </ol>
       <div>
-        <p className="mb-1 text-[11px] text-slate-400">Proxmox task</p>
+        <p className="mb-1 text-[11px] text-slate-400">Host task</p>
         <TaskLog upid={upid} className="h-28" />
       </div>
       <div>

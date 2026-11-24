@@ -41,8 +41,10 @@ LOCAL = "local"  # directory storage below STORAGE_ROOT: isos/, templates/, back
 IMAGES_STORE = "images"  # Incus image server (container templates)
 CONTENT_DIRS = {"iso": "isos", "vztmpl": "templates", "backup": "backups"}
 # Container templates offered by the "images" storage (Incus image server aliases).
-INCUS_IMAGES = ("debian/12", "debian/13", "ubuntu/24.04", "ubuntu/22.04", "alpine/3.20", "rockylinux/9",
-                "almalinux/9", "fedora/41", "archlinux")
+# shortcut: fixed list (checked against images: on 2026-11-24); the image server drops old releases, so re-check it
+# when a template fails with "image couldn't be found".
+INCUS_IMAGES = ("debian/12", "debian/13", "ubuntu/24.04", "ubuntu/22.04", "alpine/3.22", "rockylinux/9",
+                "almalinux/9", "fedora/43", "archlinux")
 ARCHIVE_RE = re.compile(r"^solardeck-(qemu|lxc)-(\d+)-(\d{4}_\d\d_\d\d-\d\d_\d\d_\d\d)\.tar\.(zst|gz)$")
 SCHEDULES_FILE = host.DATA / "native_backup_jobs.json"
 POWER = {"qemu": {"start": ["virsh", "start"], "shutdown": ["virsh", "shutdown"], "stop": ["virsh", "destroy"],
@@ -303,8 +305,7 @@ class NativeUbuntuProvider(HypervisorProvider):
         if kind == "qemu":
             if body.cores:
                 # vcpu count and topology must change together (libvirt rejects a mismatch), so edit the XML.
-                await run("virsh", "define", "/dev/stdin",
-                          input=host.set_vcpus(await run("virsh", "dumpxml", "--inactive", name), body.cores))
+                await host.define(host.set_vcpus(await run("virsh", "dumpxml", "--inactive", name), body.cores))
             if body.memory:
                 await run("virsh", "setmaxmem", name, f"{body.memory}M", "--config")
                 await run("virsh", "setmem", name, f"{body.memory}M", "--config")
@@ -334,7 +335,8 @@ class NativeUbuntuProvider(HypervisorProvider):
             want = cur + host.size_bytes(body.resize_to) if body.resize_to.startswith("+") else host.size_bytes(body.resize_to)
             size = f"{want // 2**20}MiB"
             # A root disk inherited from a profile must be overridden; a local one is set.
-            if not await ok("incus", "config", "device", "set", name, "root", f"size={size}"):
+            # ok() returns the (empty) output on success, so only None means the set failed.
+            if await ok("incus", "config", "device", "set", name, "root", f"size={size}") is None:
                 await run("incus", "config", "device", "override", name, "root", f"size={size}")
         return {"ok": True, "task": None}
 
@@ -385,6 +387,17 @@ class NativeUbuntuProvider(HypervisorProvider):
         await ok("udevadm", "settle", "--timeout=15")  # udev creates /dev/zvol/... asynchronously
         return {"path": f"/dev/zvol/{vol}", "type": "block", "format": "raw"}
 
+    async def _drop_disk(self, disk: dict, log) -> None:
+        """Remove a disk made by _disk_target (QCOW2 file or ZVOL); never raises."""
+        try:
+            if disk["type"] == "file":
+                Path(disk["path"]).unlink(missing_ok=True)
+            else:
+                await run("zfs", "destroy", disk["path"].removeprefix("/dev/zvol/"), check=False)
+            log(f"removed {disk['path']}")
+        except Exception as e:  # noqa: BLE001 - the original error is what the user needs to see
+            log(f"could not remove {disk['path']}: {e}")
+
     async def create_vm(self, spec: dict) -> TaskInfo:
         body = NativeQemuBody(**spec)
         reg, doms, _ = await self._registry()
@@ -396,6 +409,14 @@ class NativeUbuntuProvider(HypervisorProvider):
 
         async def job(log):
             disk = await self._disk_target(body.storage, body.vmid, 0, body.disk_gb, log)
+            try:
+                await define_vm(disk, log)
+            except BaseException:
+                # Roll back the new disk so a retry with the same VMID does not stop at "already exists".
+                await self._drop_disk(disk, log)
+                raise
+
+        async def define_vm(disk, log):
             if body.cloudinit:
                 cdroms.append(await self._cloudinit_seed(body, log))
             uefi = body.bios == "ovmf"
@@ -407,7 +428,7 @@ class NativeUbuntuProvider(HypervisorProvider):
                 [f"{p.id.rsplit('.', 1)[0]}.1" for p in body.hostpci if p.include_audio and "." in p.id],
                 usb=[u.host for u in body.usb if ":" in u.host])
             host.NVRAM.mkdir(parents=True, exist_ok=True)
-            log(await run("virsh", "define", "/dev/stdin", input=xml))
+            log(await host.define(xml))
             host.register(body.vmid, "qemu", body.name)
             if body.start_on_boot:
                 await run("virsh", "autostart", body.name)
@@ -484,7 +505,7 @@ class NativeUbuntuProvider(HypervisorProvider):
         host.register(vmid, "lxc", name, tags)
         await run("incus", "config", "device", "add", name, "eth0", "nic", "nictype=bridged", f"parent={bridge}",
                   "name=eth0")
-        if not await ok("incus", "config", "device", "set", name, "root", f"size={disk_gb}GiB"):
+        if await ok("incus", "config", "device", "set", name, "root", f"size={disk_gb}GiB") is None:
             await run("incus", "config", "device", "override", name, "root", f"size={disk_gb}GiB")
         if description:
             await run("incus", "query", "-X", "PATCH", f"/1.0/instances/{name}", "--data",
@@ -1126,7 +1147,7 @@ class NativeUbuntuProvider(HypervisorProvider):
                 src.set("file" if kind == "file" else "dev", path)
                 log(f"    disk {disk['target']} -> {path}")
             host.NVRAM.mkdir(parents=True, exist_ok=True)
-            await run("virsh", "define", "/dev/stdin", input=ET.tostring(d, encoding="unicode"))
+            await host.define(ET.tostring(d, encoding="unicode"))
             host.register(body.vmid, "qemu", name)
             log(f"==> VM {body.vmid} ({name}) restored")
         finally:

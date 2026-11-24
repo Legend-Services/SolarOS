@@ -201,8 +201,9 @@ same repository and desktop can manage different platforms. `HYPERVISOR_DRIVER` 
 - `native_ubuntu`: **SolarOS**, the standalone edition on Ubuntu Server LTS, where SolarDeck itself is the
   management layer: QEMU/KVM guests through libvirt, containers through Incus, OpenZFS, smartctl/hdparm/nvme-cli/fio,
   Netplan and a local root helper. Its routes (`backend/providers/native_ubuntu/routes.py`) shadow the Proxmox ones
-  at the same paths, so the desktop is identical. Proxmox-only extras (cluster log, PVE storage backends, API tokens,
-  ACME certificates, per-guest hardware editing) answer HTTP 501 there. See `hypervisor/README.md`.
+  at the same paths, so the desktop is identical. VM and container editing (network, PCI/USB passthrough, cloud-init,
+  options) lives in `backend/providers/native_ubuntu/guest_edit.py`. Proxmox-only extras (cluster log, PVE storage
+  backends, API tokens, ACME certificates) answer HTTP 501 there. See `hypervisor/README.md`.
 
 `GET /api/system/capabilities` (also `/api/v1/system/capabilities`) returns the active driver, its platform label and
 feature flags. The desktop uses them for labels and to show only supported features. Every `/api/pve/...` route is
