@@ -1,0 +1,11 @@
+  pool: rpool
+ state: ONLINE
+config:
+
+	NAME                                                                 STATE     READ WRITE CKSUM
+	rpool                                                                ONLINE       0     0     0
+	  mirror-0                                                           ONLINE       0     0     0
+	    /dev/disk/by-id/nvme-eui.0000000001000000e4d25c1c5cc65201-part3  ONLINE       0     0     0
+	    /dev/disk/by-id/nvme-eui.6479a7b1bac00043-part3                  ONLINE       0     0     0
+
+errors: No known data errors

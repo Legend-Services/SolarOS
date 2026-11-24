@@ -134,7 +134,7 @@ export const activeWindow = (windows: Win[]) =>
 export interface Intents {
   files?: string; // File Station path
   compute?: "vm" | "lxc" | "iso"; // open a wizard or the ISO tab
-  storage?: "pool"; // open the Create Pool dialog
+  storage?: "pool" | "pools" | "disks" | "benchmark"; // "pool" opens the Create Pool dialog, the others open that tab
   controlpanel?: "security" | "network" | "appearance" | "hardware" | "power";
   help?: "ask" | "fix" | "bios" | "tutorials" | "faq";
 }

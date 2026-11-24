@@ -255,11 +255,82 @@ export interface PveDisk {
   size: number;
   type: string;
   bus: "NVMe" | "SATA" | "SAS" | "USB";
-  rpm: number | null;
+  rotational: boolean;
+  rpm: number | null; // known spindle speed of a spinning disk
+  rpm_label: string; // "7200 RPM", "HDD" (speed unknown) or "SSD / NVMe"
   used: string; // empty = unused
   gpt: boolean;
   health: string;
-  wearout: number | null; // % of rated life remaining
+  wearout_pct: number | null; // % of rated life remaining; null for HDDs
+  // ZFS membership (null when the disk is not in a pool)
+  pool_name: string | null;
+  vdev_name: string | null;
+  member_device: string | null;
+  member_state: string | null;
+  read_errors: number | null;
+  write_errors: number | null;
+  cksum_errors: number | null;
+}
+
+export interface Capability {
+  supported: boolean;
+  reason: string | null;
+}
+
+export interface DiskSettings {
+  device: string;
+  bus: string;
+  rotational: boolean;
+  by_id: string | null;
+  persist_supported: boolean;
+  nvme_cli_installed: boolean;
+  values: { apm_level: number | "disabled" | null; spindown_minutes: number | null; write_cache: boolean | null; power_state: number | null; smart_enabled: boolean | null };
+  power_states: { id: number; max_power_w: number; operational: boolean; entry_latency_us: number; exit_latency_us: number }[];
+  capabilities: Record<"apm_level" | "spindown_minutes" | "write_cache" | "power_state" | "smart_enabled", Capability>;
+  persisted?: boolean;
+}
+
+export interface ScanStatus {
+  device: string;
+  smart: {
+    running: boolean;
+    test: string | null;
+    progress_pct: number | null;
+    eta_seconds: number | null;
+    history: { type: string; status: string; passed: boolean; lifetime_hours: number | null; failing_lba: number | null }[];
+  };
+  surface: { running: boolean; progress_pct: number | null; elapsed: string | null; eta_seconds: number | null; errors: number; bad_blocks: number; exit_code: number | null };
+}
+
+export type BenchProfile = "SEQ1M_Q8T1" | "SEQ128K_Q32T1" | "RND4K_Q32T1" | "RND4K_Q1T1";
+export interface BenchMetric {
+  mbps: number;
+  iops: number;
+  lat_us: number;
+}
+export interface BenchStep {
+  profile: BenchProfile;
+  status: string;
+  read: BenchMetric | null;
+  write: BenchMetric | null;
+}
+export interface BenchJob {
+  id: string;
+  label: string;
+  target_type: "disk" | "mountpoint";
+  target: string;
+  mode: "readonly" | "readwrite";
+  test_size_mb: number;
+  passes: number;
+  status?: "running" | "done" | "error" | "cancelled";
+  phase?: string | null;
+  pass?: number;
+  error?: string | null;
+  started_at: number;
+  finished_at: number | null;
+  done_steps?: number;
+  total_steps?: number;
+  steps: BenchStep[];
 }
 
 export interface SmartReport {
