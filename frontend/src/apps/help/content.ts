@@ -36,11 +36,11 @@ export const TUTORIALS: Tutorial[] = [
     title: "Find your way around the desktop",
     category: "Getting started",
     minutes: 2,
-    keywords: "start begin tour dock launchpad spotlight search window desktop how use new beginner",
+    keywords: "start begin tour dock app gallery spotlight search window desktop how use new beginner",
     intro: "SolarDeck gives your server a familiar Liquid Glass Desktop. Every tool is an app in a window.",
     steps: [
       { text: "The bar at the bottom is the Dock. Click an icon to open that app; click it again to hide the window." },
-      { text: "The grid button on the far left of the Dock opens Launchpad: every app, with a search box." },
+      { text: "The grid button on the far left of the Dock opens the App Gallery: every app, with search, categories and sorting." },
       { text: "Press Ctrl+K (or ⌘K) anywhere to search apps, VMs, containers, folders and settings." },
       { text: "Drag a window by its title bar. Drag it to the left/right edge to fill half the screen, or to the top to maximise." },
       { text: "Right-click the desktop for shortcuts such as 'New Virtual Machine' and 'Change Wallpaper'." },

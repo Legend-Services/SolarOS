@@ -173,6 +173,9 @@ def change_password(body: PasswordBody):
 PREFS_MAX_BYTES = 64 * 1024
 
 
+AppIdStr = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9-]{0,31}$")]
+
+
 class LayoutPrefs(BaseModel):
     """Desktop layout block. Only the placement fields are typed; the other keys (icon size, gaps, views) pass through."""
 
@@ -180,6 +183,10 @@ class LayoutPrefs(BaseModel):
     desktopAlignment: Literal["left", "center"] = "left"
     desktopVerticalAlign: Literal["top", "middle"] = "top"
     desktopMaxColumns: Literal["auto"] | Annotated[int, Field(ge=3, le=8, strict=True)] = "auto"
+    # Phase 16: clean desktop (shortcuts off) and the App Gallery / Dock order.
+    showDesktopIcons: bool = False
+    gallerySortMode: Literal["custom", "most-used", "alpha-asc", "alpha-desc", "recent"] = "custom"
+    galleryAppOrder: Annotated[list[AppIdStr], Field(max_length=64)] = []
 
 
 ThemeId = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9-]{1,62}$")]

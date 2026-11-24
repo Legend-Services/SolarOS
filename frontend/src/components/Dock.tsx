@@ -3,19 +3,19 @@ import { LayoutGrid } from "lucide-react";
 import { MAGNIFICATION, activateApp, useDock, useWindows } from "../lib/stores";
 import { APPS, type AppId } from "../apps/registry";
 import { AppIcon } from "./icons/AppIcons";
-import { useDismiss } from "../lib/hooks";
+import { useDismiss, useFlip } from "../lib/hooks";
 import { dockSizes } from "../lib/dockMath";
-import Launchpad from "./Launchpad";
+
 import { useLayout } from "../store/layoutStore";
 
 
-const LAUNCHPAD = "launchpad";
-type Slot = AppId | typeof LAUNCHPAD;
+const GALLERY = "gallery";
+type Slot = AppId | typeof GALLERY;
 
 export default function Dock() {
   const windows = useWindows((s) => s.windows);
   const { close, setDockIconRect } = useWindows();
-  const { pinned, autoHide, baseSize, magnification, launchpad, pin, unpin, move, set } = useDock();
+  const { pinned, autoHide, baseSize, magnification, gallery, pin, unpin, move, set } = useDock();
   const gap = useLayout((s) => s.dockGap);
   const [mouseX, setMouseX] = useState<number | null>(null);
   const [revealed, setRevealed] = useState(false);
@@ -25,11 +25,11 @@ export default function Dock() {
   const hideTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const menuRef = useDismiss(!!menu, () => setMenu(null));
 
-  // Launchpad first, then pinned apps, then running apps that are not pinned (after a divider).
+  // App Gallery first, then pinned apps, then running apps that are not pinned (after a divider).
   const running = [...new Set(windows.map((w) => w.id))].filter((id) => id !== "console" && !pinned.includes(id));
-  const slots: Slot[] = [LAUNCHPAD, ...pinned, ...running];
+  const slots: Slot[] = [GALLERY, ...pinned, ...running];
   const sizes = dockSizes(slots.length, baseSize, gap, MAGNIFICATION[magnification], mouseX);
-  const shown = !autoHide || revealed || launchpad || !!menu;
+  const shown = !autoHide || revealed || gallery || !!menu;
 
   // Register unmagnified icon rects as minimize targets; re-measure when the layout changes.
   const layoutKey = slots.join(",") + baseSize + gap + shown;
@@ -61,11 +61,10 @@ export default function Dock() {
     hideTimer.current = setTimeout(() => setRevealed(false), 400);
   };
   const onMove = (e: RMouseEvent) => setMouseX(drag ? null : e.clientX - window.innerWidth / 2);
-  const onDrop = (e: DragEvent, target: number) => {
-    e.preventDefault();
-    if (drag) move(drag, target);
-    setDrag(null);
-  };
+  // Live reorder: the dragged icon takes the slot it is dragged over, and its neighbours slide aside (FLIP).
+  const onDragEnter = (id: AppId, target: number) => drag && drag !== id && move(drag, target);
+  const onDrop = (e: DragEvent) => (e.preventDefault(), setDrag(null));
+  const flipRef = useFlip<HTMLDivElement>(pinned.join(","));
 
   return (
     <>
@@ -75,6 +74,7 @@ export default function Dock() {
         aria-label="Dock"
       >
         <div
+          ref={flipRef}
           className="glass pointer-events-auto flex items-end rounded-[22px] px-3 pb-1.5"
           style={{ gap, height: baseSize + 22 }}
           onMouseMove={onMove}
@@ -84,10 +84,10 @@ export default function Dock() {
           {slots.map((slot, i) => {
             const size = sizes[i];
             const ease = mouseX === null ? "transition-[width,height] duration-200 ease-out" : "";
-            if (slot === LAUNCHPAD)
+            if (slot === GALLERY)
               return (
-                <button key={slot} onClick={() => set({ launchpad: !launchpad })} className="group relative flex flex-col items-center" aria-label="Launchpad — all apps">
-                  <Label text="Launchpad" />
+                <button key={slot} onClick={() => set({ gallery: !gallery })} className="group relative flex flex-col items-center" aria-label="App Gallery: all apps" aria-expanded={gallery}>
+                  <Label text="App Gallery" />
                   <span className={`flex items-center justify-center rounded-[28%] bg-gradient-to-br from-slate-200/90 to-slate-500/80 text-slate-900 shadow-lg shadow-black/40 ${ease}`} style={{ width: size, height: size }}>
                     <LayoutGrid size={size * 0.5} />
                   </span>
@@ -98,14 +98,15 @@ export default function Dock() {
             const isPinned = i <= pinned.length;
             const isRunning = windows.some((w) => w.id === id);
             return (
-              <div key={id} className="relative flex items-end" style={{ gap }}>
+              <div key={id} data-flip={id} className="relative flex items-end" style={{ gap }}>
                 {i === pinned.length + 1 && <span className="mb-2 h-8 w-px self-end bg-white/20" aria-hidden />}
                 <button
                   draggable={isPinned}
-                  onDragStart={() => setDrag(id)}
+                  onDragStart={(e) => (e.dataTransfer.setData("text/plain", id), (e.dataTransfer.effectAllowed = "move"), setDrag(id))}
                   onDragEnd={() => setDrag(null)}
+                  onDragEnter={() => isPinned && onDragEnter(id, i - 1)}
                   onDragOver={(e) => isPinned && drag && e.preventDefault()}
-                  onDrop={(e) => onDrop(e, i - 1)}
+                  onDrop={onDrop}
                   onClick={() => click(id)}
                   onContextMenu={(e) => (e.preventDefault(), setMenu(id))}
                   className={`group relative flex flex-col items-center ${drag === id ? "opacity-40" : ""}`}
@@ -139,7 +140,6 @@ export default function Dock() {
           })}
         </div>
       </nav>
-      <Launchpad />
     </>
   );
 }

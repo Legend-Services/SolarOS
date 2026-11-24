@@ -1,10 +1,10 @@
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { Cpu, Database, Expand, LayoutDashboard, LayoutGrid, Lock, LogOut, MemoryStick, Search, Shrink, SlidersHorizontal, SquareTerminal, User } from "lucide-react";
-import { activateApp, activeWindow, useAuth, useDock, useSpotlight, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
-import { useClock, useDismiss } from "../lib/hooks";
+import { useEffect, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { Cpu, Database, Expand, LayoutDashboard, LayoutGrid, MemoryStick, Search, Shrink, SquareTerminal } from "lucide-react";
+import { activateApp, activeWindow, useDock, useSpotlight, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
+import { useClock, useDismiss, useFlip } from "../lib/hooks";
 import { pct } from "../lib/format";
 import { useLayout } from "../store/layoutStore";
-import { APPS, APP_IDS, type AppId } from "../apps/registry";
+import { APPS, type AppId } from "../apps/registry";
 import { AppIcon } from "./icons/AppIcons";
 import { ViewOptionsPanel } from "./ViewOptions";
 import { HelpMenu, Pill } from "./TopBar";
@@ -12,8 +12,9 @@ import TaskCenterPopover from "./TaskCenterPopover";
 import NotificationPopover from "./NotificationPopover";
 import { ModeToggle, ThemeSwitcher } from "./ThemeQuickSwitcher";
 
-/* One bar along the bottom (the alternative to top bar + Dock): Start, search and app buttons in the middle,
-   status, help, tasks, notifications and the clock on the right. Popovers open upwards. */
+/* One edge-to-edge bar along the bottom (the alternative to top bar + floating Dock): the App Gallery button in the
+   far left corner, a divider, search and the ordered app buttons; status, help, tasks, notifications and the clock
+   on the right. Popovers open upwards. */
 
 const START_KEYS = new Set(["Meta", "OS"]); // the Start / logo key as browsers report it
 
@@ -55,7 +56,7 @@ type KeyboardLock = { lock?: (codes: string[]) => Promise<void> };
 
 /**
  * Full screen toggle. In full screen the page asks the browser to keep the Start key (Keyboard Lock, Chromium
- * browsers over https only), so it opens SolarDeck's Start menu instead of the computer's.
+ * browsers over https only), so it opens SolarDeck's App Gallery instead of the computer's menu.
  */
 function useFullscreenKeys(): [boolean, () => void] {
   const [full, setFull] = useState(() => !!document.fullscreenElement);
@@ -85,74 +86,20 @@ function BarButton({ label, onClick, active, children }: { label: string; onClic
   );
 }
 
-function StartMenu({ onClose }: { onClose: () => void }) {
-  const [query, setQuery] = useState("");
-  const open = useWindows((s) => s.open);
-  const { username, lock, logout } = useAuth();
-  const q = query.trim().toLowerCase();
-  const apps = APP_IDS.filter((id) => !q || `${APPS[id].title} ${APPS[id].desc}`.toLowerCase().includes(q));
-  const launch = (id: AppId) => (open(id), onClose());
-  return (
-    <div className="glass-panel fixed bottom-14 left-1/2 flex max-h-[calc(100vh-5rem)] w-[min(36rem,calc(100vw-1rem))] -translate-x-1/2 flex-col rounded-2xl text-xs" role="dialog" aria-label="Start">
-      <div className="p-4 pb-2">
-        <label className="relative block">
-          <Search size={14} className="absolute top-1/2 left-3 -translate-y-1/2 text-slate-400" />
-          <input
-            autoFocus
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && apps[0] && launch(apps[0])}
-            placeholder="Search apps"
-            aria-label="Search apps"
-            className="glass-field w-full rounded-full py-2 pl-9 text-sm"
-          />
-        </label>
-      </div>
-      <p className="px-5 pt-1 pb-2 text-[11px] font-semibold text-slate-300">{q ? "Results" : "All apps"}</p>
-      <div className="grid min-h-0 flex-1 grid-cols-3 gap-1 overflow-auto px-3 pb-3 sm:grid-cols-6">
-        {apps.map((id) => (
-          <button key={id} type="button" onClick={() => launch(id)} title={APPS[id].desc} className="flex flex-col items-center gap-1.5 rounded-lg p-2 text-center text-[11px] text-slate-200 transition hover:bg-white/10 active:scale-95">
-            <AppIcon id={id} size={36} />
-            <span className="line-clamp-2">{APPS[id].title}</span>
-          </button>
-        ))}
-        {apps.length === 0 && <p className="col-span-full py-4 text-center text-slate-400">No apps match “{query}”.</p>}
-      </div>
-      <div className="flex items-center gap-1 border-t border-white/10 bg-black/20 px-4 py-2.5">
-        <span className="flex min-w-0 flex-1 items-center gap-2 text-slate-200">
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white/10">
-            <User size={14} />
-          </span>
-          <span className="truncate">{username}</span>
-        </span>
-        <BarButton label="Control Panel" onClick={() => launch("controlpanel")}>
-          <SlidersHorizontal size={15} />
-        </BarButton>
-        <BarButton label="Lock" onClick={lock}>
-          <Lock size={15} />
-        </BarButton>
-        <BarButton label="Log out" onClick={logout}>
-          <LogOut size={15} className="text-rose-300" />
-        </BarButton>
-      </div>
-    </div>
-  );
-}
-
 export default function Taskbar() {
   const now = useClock();
   const windows = useWindows((s) => s.windows);
   const { open, close, minimize, setDockIconRect } = useWindows();
-  const { pinned, pin, unpin } = useDock();
+  const { pinned, pin, unpin, move, gallery, set: setDock } = useDock();
   const overview = useTelemetry((s) => s.overview);
   const storage = useTelemetry((s) => s.storage);
   const openSpotlight = useSpotlight((s) => s.set);
   const viewPanel = useLayout((s) => s.panel);
   const setLayout = useLayout((s) => s.set);
-  const [start, setStart] = useState(false);
   const [menu, setMenu] = useState<AppId | null>(null);
-  const startRef = useDismiss(start, () => setStart(false));
-  useStartKey(() => setStart((v) => !v));
+  const [drag, setDrag] = useState<AppId | null>(null);
+  const toggleGallery = () => setDock({ gallery: !useDock.getState().gallery });
+  useStartKey(toggleGallery);
   const [fullscreen, toggleFullscreen] = useFullscreenKeys();
   const menuRef = useDismiss(!!menu, () => setMenu(null));
   const viewRef = useDismiss(viewPanel, () => setLayout({ panel: false }));
@@ -183,17 +130,17 @@ export default function Taskbar() {
   }, [setDockIconRect, layoutKey]);
 
   const showDesktop = () => windows.filter((w) => !w.minimized).forEach((w) => minimize(w.key));
+  // Live drag-and-drop reorder of pinned buttons; neighbours slide aside (FLIP). Saved via useDock (+ preferences sync).
+  const flipRef = useFlip<HTMLDivElement>(pinned.join(","));
+  const onDrop = (e: DragEvent) => (e.preventDefault(), setDrag(null));
 
   return (
     <footer className="glass fixed inset-x-0 bottom-0 z-[9000] flex h-12 items-center gap-1 border-x-0 border-b-0 bg-slate-900/75 pl-2 text-xs" aria-label="Taskbar">
-      <div className="flex-1 max-md:hidden" />
-      <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
-        <div ref={startRef} className="relative">
-          <BarButton label="Start" onClick={() => setStart((v) => !v)} active={start}>
-            <LayoutGrid size={20} className="text-sky-300" />
-          </BarButton>
-          {start && <StartMenu onClose={() => setStart(false)} />}
-        </div>
+      <div ref={flipRef} className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
+        <BarButton label="App Gallery (Start key)" onClick={toggleGallery} active={gallery}>
+          <LayoutGrid size={20} className="text-sky-300" />
+        </BarButton>
+        <span className="mx-1 h-6 w-px shrink-0 bg-white/20" aria-hidden />
         <BarButton label="Search (Ctrl+K)" onClick={() => openSpotlight(true)}>
           <Search size={18} />
         </BarButton>
@@ -202,12 +149,18 @@ export default function Taskbar() {
           const focused = active?.id === id;
           const isPinned = pinned.includes(id);
           return (
-            <div key={id} className="relative">
+            <div key={id} data-flip={id} className={`relative ${drag === id ? "opacity-40" : ""}`}>
               <button
                 ref={(el) => {
                   icons.current[id] = el;
                 }}
                 type="button"
+                draggable={isPinned}
+                onDragStart={(e) => (e.dataTransfer.setData("text/plain", id), (e.dataTransfer.effectAllowed = "move"), setDrag(id))}
+                onDragEnd={() => setDrag(null)}
+                onDragEnter={() => isPinned && drag && drag !== id && move(drag, pinned.indexOf(id))}
+                onDragOver={(e) => isPinned && drag && e.preventDefault()}
+                onDrop={onDrop}
                 onClick={() => activateApp(id)}
                 onContextMenu={(e) => (e.preventDefault(), setMenu(id))}
                 aria-label={APPS[id].title}
@@ -269,7 +222,7 @@ export default function Taskbar() {
             fullscreen
               ? "Exit full screen"
               : window.isSecureContext
-                ? "Full screen: the Start key then opens only SolarDeck's Start menu (Chrome or Edge)"
+                ? "Full screen: the Start key then opens only SolarDeck's App Gallery (Chrome or Edge)"
                 : `Full screen. To keep the Start key inside SolarDeck, open https://${location.host} (Chrome or Edge)`
           }
         >

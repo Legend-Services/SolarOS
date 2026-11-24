@@ -15,7 +15,8 @@
 
 | | |
 |---|---|
-| 🖥️ **Liquid Glass Desktop** | Multi-window desktop with snapping, Grid or List icons aligned left or centered (View Options or right-click → Align Icons), live CPU/RAM/ZFS widgets, Spotlight search (Ctrl+K) and the Parabolic Dock. |
+| 🖥️ **Liquid Glass Desktop** | A clean, multi-window desktop with snapping, live CPU/RAM/ZFS widgets and Spotlight search (Ctrl+K). Pick the floating Parabolic Dock or an edge-to-edge bottom taskbar; drag icons on either to reorder them. Optional desktop shortcuts (View Options → Show Desktop Shortcuts) in Grid or List, aligned left or centered. |
+| 🗂️ **App Gallery** | Every app in one frosted-glass overlay: search, category pills, Grid or List, sort by Custom Order, Most Used, Name or Recently Used (real launch counts), drag-and-drop ordering and Pin to Bottom Bar. |
 | 🎨 **Theme Studio** | 11 built-in themes, each with Dark and Light palettes and 4 procedural wallpapers (44 in all), a one-click Light / Dark toggle and Quick Theme Switcher in the top bar, per-theme custom wallpapers (upload, image URL or gradient) with blur and dimming, a Theme Creator, and theme import / export as `.solardeck-theme.json`. |
 | 💽 **SolarDeck Storage Manager** | Create ZFS pools (Mirror, RAID10, RAIDZ1–3), datasets and ZVOLs, snapshots and schedules, SMART health, disk tuning, surface scans, disk replacement and benchmarks. |
 | 📦 **Compute Manager** | Create VMs and containers with wizards, GPU/PCI/USB passthrough, cloud-init, built-in screen console and shell. |
@@ -52,7 +53,7 @@ You need a Proxmox VE 8 or 9 server with internet access. That's all.
 
    ```
    ╔════════════════════════════════════════════════════════════════════════════╗
-   ║                   SolarDeck for Proxmox VE v1.10.0 is ready                ║
+   ║                   SolarDeck for Proxmox VE v1.11.0 is ready                ║
    ╠════════════════════════════════════════════════════════════════════════════╣
    ║  Web UI URL:      http://192.168.1.230                                     ║
    ║  Username:        admin                                                    ║
@@ -152,6 +153,8 @@ Every surface reads CSS variables (`--sd-bg-base`, `--sd-surface-glass`, `--sd-t
 | Phosphor Terminal | phosphor green on obsidian / forest ink on e-ink paper, monospace UI |
 | Solarized Amber | ocean teal / parchment, amber-gold |
 | Obsidian Gold | carbon glass with champagne gold / ivory silk with bronze |
+
+App launches are counted for the App Gallery's *Most Used* and *Recently Used* sorting (`GET /api/system/app-usage`, `POST /api/system/app-usage/record`, `DELETE /api/system/app-usage` to reset; stored in `backend/data/app_usage.json`). The gallery order, sort mode, bottom bar order and the *Show Desktop Shortcuts* switch are saved with the other preferences.
 
 The active theme, color mode, wallpaper choice per theme, blur and dimming are saved with the other preferences (`theme` in `GET|PUT /api/system/preferences`). Custom themes and uploaded wallpapers live in `backend/data/themes/`:
 

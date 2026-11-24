@@ -83,7 +83,7 @@ export const WELCOME: Guide = {
       title: "Dock & App Launcher",
       body: "The Dock at the bottom keeps your favourite apps one click away. Icons grow as your mouse passes over them. A dot under an icon means the app is open.",
       bullets: [
-        "Click the four-squares button at the left of the Dock to open Launchpad, which shows every app with a search box.",
+        "Click the four-squares button at the left of the Dock to open the App Gallery: every app, with search, categories, sorting and drag-and-drop ordering.",
         "Right-click a Dock icon to keep it in the Dock or remove it. Drag icons to reorder them.",
         "Change Dock size and spacing in View Options or Control Panel → Appearance & Themes.",
       ],

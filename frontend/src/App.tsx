@@ -4,6 +4,7 @@ import LockScreen from "./components/LockScreen";
 import TopBar from "./components/TopBar";
 import Desktop from "./components/Desktop";
 import Dock from "./components/Dock";
+import AppGallery from "./components/AppGallery";
 import WindowLayer from "./components/WindowLayer";
 import SpotlightSearch from "./components/SpotlightSearch";
 import BugReportModal from "./components/BugReportModal";
@@ -64,6 +65,7 @@ export default function App() {
                 <Dock />
               </>
             )}
+            <AppGallery />
             <SpotlightSearch />
             <BugReportModal />
             <GuidedWizardModal />
