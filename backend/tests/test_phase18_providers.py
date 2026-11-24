@@ -1,6 +1,5 @@
 """Phase 18 self-check: provider contract, registry, capabilities and /api/v1 aliases.
 Run: python -m tests.test_phase18_providers (from backend/)."""
-import asyncio
 import os
 import tempfile
 
@@ -14,7 +13,7 @@ from app.config import settings  # noqa: E402
 from app.main import app  # noqa: E402
 from providers import registry  # noqa: E402
 from providers.base import HypervisorProvider  # noqa: E402
-from providers.native_ubuntu.provider import PLANNED, NativeUbuntuProvider  # noqa: E402
+from providers.native_ubuntu.provider import NativeUbuntuProvider  # noqa: E402
 from providers.proxmox.provider import ProxmoxProvider  # noqa: E402
 
 DATA = {
@@ -56,23 +55,27 @@ assert c.post("/api/v1/guests/lxc/100/action", json={"action": "start"}).json() 
 assert calls[-1] == ("POST", "/nodes/pve/lxc/100/status/start")
 assert c.post("/api/v1/guests/lxc/100/action", json={"action": "explode"}).status_code == 422
 
-# Standalone driver: capabilities live, everything else is a clear 501.
+# Standalone driver: the full contract is implemented (Phase 19; see tests/test_phase19_native.py).
 native = NativeUbuntuProvider()
 caps = native.get_capabilities()
 assert caps.driver == "native_ubuntu" and caps.platform_label == "SolarDeck Hypervisor"
 assert not caps.supports_clustering and not caps.supports_rbac_realms and caps.supports_host_shell
-try:
-    asyncio.run(native.list_guests())
-    raise AssertionError("stub should raise")
-except NotImplementedError as e:
-    assert str(e) == PLANNED
+assert not NativeUbuntuProvider.__abstractmethods__
+assert all(m in NativeUbuntuProvider.__dict__ for m in HypervisorProvider.__abstractmethods__)  # no inherited stubs
+
+# Unified updater: the edition follows the driver; host package upgrades are standalone-only.
+from app import updater  # noqa: E402
+assert updater.edition()["edition"] == "Proxmox VE Deck"
+r = c.post("/api/system/updates/apply", json={"include_system_packages": True})
+assert r.status_code == 400, r.text
 
 registry.get_provider.cache_clear()
 settings.hypervisor_driver = "native_ubuntu"
 try:
     assert c.get("/api/v1/system/capabilities").json()["driver"] == "native_ubuntu"
+    # No libvirt/Incus on the test machine: the native driver reports an empty host instead of failing.
     r = c.get("/api/v1/guests")
-    assert r.status_code == 501 and r.json()["detail"] == PLANNED, r.text
+    assert r.status_code == 200 and r.json() == [], r.text
     settings.hypervisor_driver = "bogus"
     registry.get_provider.cache_clear()
     try:

@@ -23,6 +23,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from . import host_ssh, pci
 from .apps import MODEL_RE, TARGET_RE, DeployBody, StaticIP, deploy
 from .auth import require_user
+from .config import settings
 from .hardware_admin import NVIDIA_CMD, parse_lscpu, parse_meminfo, parse_nvidia, split_sections
 from .pve import _node, _safe, pve
 from .tasks import wait_task
@@ -306,8 +307,18 @@ async def _pct(vmid: int, *args: str) -> str:
     return await host_ssh.run(shlex.join(["pct", "set", str(int(vmid)), *args]))
 
 
+def _native():
+    """The standalone driver runs the AI container on Incus (providers/native_ubuntu) instead of pct."""
+    if settings.hypervisor_driver != "native_ubuntu":
+        return None
+    from providers.registry import get_provider
+    return get_provider()
+
+
 async def _exec(vmid: int, script: str, timeout: float = 120, on_line=None) -> str:
     """Run a bash script as root inside the (running) container."""
+    if p := _native():
+        return await p.container_exec(vmid, script, timeout=timeout, log=on_line)
     return await host_ssh.run(f"pct exec {int(vmid)} -- bash -s", input=script, timeout=timeout, on_line=on_line)
 
 
@@ -398,6 +409,8 @@ def _env_script(dropin: str) -> str:
 
 
 async def _ip(vmid: int) -> str | None:
+    if p := _native():
+        return await p.container_ip(vmid)
     ifaces = await _safe(_node(f"/lxc/{vmid}/interfaces"), []) or []
     return next((i.get("inet", "") for i in ifaces if i.get("name") == "eth0"), "").split("/")[0] or None
 
@@ -668,7 +681,14 @@ async def status():
     if not s.get("vmid"):
         return {"installed": False}
     vmid = s["vmid"]
-    cur = await _safe(_node(f"/lxc/{vmid}/status/current"), None)
+    if p := _native():
+        try:
+            st = await p.container_status(vmid)
+        except HTTPException:  # no longer in the guest registry
+            st = None
+        cur = {"status": st} if st else None
+    else:
+        cur = await _safe(_node(f"/lxc/{vmid}/status/current"), None)
     if not cur:
         return {"installed": False, "missing_vmid": vmid}
     running = cur.get("status") == "running"

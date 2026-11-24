@@ -573,6 +573,10 @@ export interface UpdateStatus {
   branch: string;
   remote: string;
   version: string | null;
+  driver: "proxmox" | "native_ubuntu";
+  edition: string;
+  service: string;
+  supports_system_packages: boolean;
   remote_commit: string | null;
   remote_tag: string | null;
   update_available: boolean;

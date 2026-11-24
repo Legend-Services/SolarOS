@@ -56,7 +56,7 @@ You need a Proxmox VE 8 or 9 server with internet access. That's all.
 
    ```
    ╔════════════════════════════════════════════════════════════════════════════╗
-   ║                   SolarDeck for Proxmox VE v1.13.0 is ready                ║
+   ║                   SolarDeck for Proxmox VE v1.14.0 is ready                ║
    ╠════════════════════════════════════════════════════════════════════════════╣
    ║  Web UI URL:      http://192.168.1.230                                     ║
    ║  Username:        admin                                                    ║
@@ -87,6 +87,20 @@ It finds everything by itself: the node name, the next free container ID, the be
 - installs Python, Node 22, nginx and Samba, builds the app and runs a health check,
 - enables HTTPS on port 443 with a self-signed certificate for the container's IP and hostname (`deploy/selfsigned-cert.sh`, renewed automatically). Your browser warns about it once; get a Let's Encrypt certificate for your own domain in Network & Services → Domains (DNS-01, renewed automatically) or upload one in Certificates, and updates will keep that one. Plain http keeps working,
 - runs a self-test that signs in and calls `/api/pve/bios/status` and `/api/hardware/inventory`, and prints the result in the final box.
+
+## Standalone SolarDeck Hypervisor (no Proxmox VE)
+
+On a clean **Ubuntu Server 24.04 / 26.04 LTS** machine, as root:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/main/hypervisor/install-hypervisor.sh)" -- --with-console-tui
+```
+
+It installs KVM/libvirt, Incus, OpenZFS and the disk/sensor tools, creates the `br0` bridge, deploys SolarDeck to
+`/opt/solardeck` with `HYPERVISOR_DRIVER=native_ubuntu`, and (with `--with-console-tui`) shows a console dashboard on
+the server's monitor. Or build a bootable installer ISO with `hypervisor/build-iso.sh`. Details: [hypervisor/README.md](hypervisor/README.md).
+
+Both editions update from the same `main` branch in Control Panel → System & Updates.
 
 ## Updating & Downgrading Without Losing Settings
 
@@ -146,8 +160,11 @@ The backend talks to the hypervisor through one contract, `HypervisorProvider` i
 same repository and desktop can manage different platforms. `HYPERVISOR_DRIVER` in `backend/.env` picks the driver:
 
 - `proxmox` (default, also when the key is missing): the Proxmox VE REST API plus host tools over the helper/bridge.
-- `native_ubuntu`: the standalone SolarDeck Hypervisor. In this release only its capabilities are live. Every other
-  call answers HTTP 501 until Phase 19 (see `backend/providers/PHASE19_DRIVER_SPEC.md`).
+- `native_ubuntu`: the standalone **SolarDeck Hypervisor** on Ubuntu Server LTS, where SolarDeck itself is the
+  management layer: QEMU/KVM guests through libvirt, containers through Incus, OpenZFS, smartctl/hdparm/nvme-cli/fio,
+  Netplan and a local root helper. Its routes (`backend/providers/native_ubuntu/routes.py`) shadow the Proxmox ones
+  at the same paths, so the desktop is identical. Proxmox-only extras (cluster log, PVE storage backends, API tokens,
+  ACME certificates, per-guest hardware editing) answer HTTP 501 there. See `hypervisor/README.md`.
 
 `GET /api/system/capabilities` (also `/api/v1/system/capabilities`) returns the active driver, its platform label and
 feature flags. The desktop uses them for labels and to show only supported features. Every `/api/pve/...` route is
@@ -236,6 +253,9 @@ cd frontend && npm ci && npm run dev
 - There is a single admin account from `.env` and no login rate limiting. Keep the UI on a trusted network.
 - The installer doesn't add bind mounts for pools created after the container. Delete the container and re-run the installer to pick them up.
 - Network throughput and ZFS ARC come from Proxmox's 1-minute averages, so those charts update in steps.
+- SolarDeck Hypervisor (standalone): task logs live in memory and are lost when the backend restarts; VM snapshots
+  need QCOW2 disks (VMs on ZFS volumes are protected with dataset snapshots and backups instead); static container
+  addresses use the cloud-init image variants.
 - Schedules, automation rules and update checks run inside the backend. A run that is due while it is down is skipped, not replayed.
 - 2FA has no recovery codes. If you lose your authenticator, delete `backend/data/security.json` in the container.
 - PCIe passthrough needs IOMMU enabled on the host; Help & Support can check it and walk you through the BIOS.

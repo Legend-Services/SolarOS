@@ -1,0 +1,75 @@
+name: Release validation
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Frontend build (TypeScript + Vite)
+        working-directory: frontend
+        run: npm ci --no-audit --no-fund && npm run build
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Backend dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Both drivers load and register their routes
+        working-directory: backend
+        env:
+          ADMIN_PASSWORD: ci
+          JWT_SECRET: ci-secret-ci-secret-ci-secret-ci-secret
+          STORAGE_ROOT: /tmp/solardeck-ci
+        run: |
+          python -c "from providers.proxmox.provider import ProxmoxProvider; from providers.native_ubuntu.provider import NativeUbuntuProvider; print(ProxmoxProvider().get_capabilities().driver, NativeUbuntuProvider().get_capabilities().driver)"
+          for driver in proxmox native_ubuntu; do
+            HYPERVISOR_DRIVER=$driver python -c "
+          from fastapi.routing import APIRoute
+          from app.main import app
+          paths = {r.path for r in app.routes if isinstance(r, APIRoute)}
+          assert {'/api/pve/guests', '/api/v1/guests', '/api/system/updates/apply', '/api/v1/system/capabilities'} <= paths
+          print('$driver:', len(paths), 'routes')"
+          done
+      - name: Backend self-checks
+        working-directory: backend
+        run: for t in tests/test_*.py; do python -m "tests.$(basename "$t" .py)"; done
+      - name: Installer and appliance scripts
+        run: |
+          for f in install.sh deploy.sh deploy/*.sh hypervisor/*.sh; do bash -n "$f"; done
+          python3 hypervisor/solardeck-console-tui.py --self-test
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: validate
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish release notes and installer scripts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The CHANGELOG section of this version is the release body.
+          awk -v v="## ${GITHUB_REF_NAME} " 'index($0, v) == 1 {p = 1; print; next} /^## v/ && p {exit} p' CHANGELOG.md > notes.md
+          [ -s notes.md ] || echo "SolarDeck ${GITHUB_REF_NAME}" > notes.md
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
+            && gh release upload "$GITHUB_REF_NAME" --clobber install.sh hypervisor/install-hypervisor.sh hypervisor/build-iso.sh \
+            || gh release create "$GITHUB_REF_NAME" --title "SolarDeck ${GITHUB_REF_NAME}" --notes-file notes.md \
+                 install.sh hypervisor/install-hypervisor.sh hypervisor/build-iso.sh

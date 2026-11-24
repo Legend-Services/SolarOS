@@ -38,8 +38,16 @@ pos_ct() {
 # Drop the container mount point of a dataset (and its children) so it can be destroyed.
 unmap_storage() {
   local ds="$1" ct mnt key src
-  ct="$(pos_ct)"; mnt="$(zfs get -H -o value mountpoint "$ds")"
+  mnt="$(zfs get -H -o value mountpoint "$ds")"
   [[ "$mnt" == /* ]] || return 0
+  if ! command -v pct >/dev/null; then
+    # Standalone SolarDeck Hypervisor: drop the /mnt/storage bind mounts of the dataset (and its children).
+    awk -v m="$mnt" '$1 == m || index($1, m "/") == 1 {print $2}' /etc/fstab | sort -r | while read -r tgt; do
+      umount "$tgt" 2>/dev/null || true; echo "unmapped $tgt"; done
+    awk -v m="$mnt" '!($1 == m || index($1, m "/") == 1) || $3 != "none"' /etc/fstab >/etc/fstab.solardeck && mv /etc/fstab.solardeck /etc/fstab
+    return 0
+  fi
+  ct="$(pos_ct)"
   while IFS=': ' read -r key src; do
     src="${src%%,*}"
     if [[ "$src" == "$mnt" || "$src" == "$mnt"/* ]]; then pct set "$ct" -delete "$key"; echo "unmapped $key"; fi
@@ -107,6 +115,14 @@ case "$CMD" in
     [[ "$(zfs get -H -o value mounted "$ds")" == yes ]] || zfs mount "$ds"
     mnt="$(zfs get -H -o value mountpoint "$ds")"
     [[ "$mnt" == /* ]] || die "dataset has no mountpoint"
+    if ! command -v pct >/dev/null; then
+      # Standalone SolarDeck Hypervisor: the backend runs on this host, so a bind mount (kept in fstab) is enough.
+      tgt="/mnt/storage/${ds}"
+      mkdir -p "$tgt"
+      mountpoint -q "$tgt" || mount --bind "$mnt" "$tgt"
+      grep -q "^${mnt} ${tgt} " /etc/fstab || echo "${mnt} ${tgt} none bind,nofail,x-systemd.requires=zfs-mount.service 0 0" >>/etc/fstab
+      echo "mapped ${tgt}"; exit 0
+    fi
     ct="$(pos_ct)"
     if pct config "$ct" | sed -n 's/^mp[0-9]*: \([^,]*\),.*/\1/p' | grep -Fxq "$mnt"; then echo "already mapped"; exit 0; fi
     i=0; while pct config "$ct" | grep -q "^mp${i}:"; do i=$((i + 1)); done

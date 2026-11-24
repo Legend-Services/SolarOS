@@ -194,7 +194,16 @@ async def job() -> dict:
     return parse_upgrade_status("\n".join([f"state:{state}", *lines]))
 
 
-async def start(target: str, branch: str) -> None:
+def edition() -> dict:
+    """Both editions track the same branch of the same repository; only the driver (backend/.env) differs."""
+    native = settings.hypervisor_driver.strip().lower() == "native_ubuntu"
+    return {"driver": "native_ubuntu" if native else "proxmox",
+            "edition": "SolarDeck Standalone Hypervisor" if native else "Proxmox VE Deck",
+            "service": "solardeck-backend" if native else "proxmox-os-backend",
+            "supports_system_packages": native}
+
+
+async def start(target: str, branch: str, system_packages: bool = False) -> None:
     if (await job())["running"]:
         raise HTTPException(409, "An update is already running")
     # Run a copy: git reset rewrites deploy/self-update.sh while bash is still reading it.
@@ -204,7 +213,8 @@ async def start(target: str, branch: str) -> None:
     # Detached transient unit: the script restarts this backend, which must not kill the update midway.
     rc, out = await _cmd("systemd-run", "--quiet", f"--unit={UNIT}", "--collect",
                          "-p", f"StandardOutput=truncate:{LOG}", "-p", "StandardError=inherit",
-                         "bash", str(script), str(APP_DIR), settings.repo_url, branch, target)
+                         "bash", str(script), str(APP_DIR), settings.repo_url, branch, target,
+                         "1" if system_packages else "0")
     if rc:
         raise HTTPException(500, f"Could not start the updater: {out[-300:]}")
 
@@ -227,7 +237,7 @@ async def status(check_remote: bool = Query(False, alias="check")):
     s = load_settings()
     # A check stored before the last update/rollback may compare against an older commit.
     available = bool(s["latest_remote_commit"]) and s["latest_remote_commit"] != src["commit"]
-    return {**src, "remote_commit": s["latest_remote_commit"], "remote_tag": s["latest_remote_tag"],
+    return {**src, **edition(), "remote_commit": s["latest_remote_commit"], "remote_tag": s["latest_remote_tag"],
             "update_available": available, "incoming": await _incoming(src) if available else [], "settings": s,
             **await job()}
 
@@ -260,15 +270,20 @@ async def versions():
 
 class ApplyBody(BaseModel):
     target_ref: str | None = Field(None, pattern=REF_RE)
+    # Standalone hypervisor only: also run apt-get update && apt-get upgrade -y on the host.
+    include_system_packages: bool = False
 
 
 @router.post("/apply")
 async def apply(body: ApplyBody | None = None):
+    system_packages = bool(body and body.include_system_packages)
+    if system_packages and not edition()["supports_system_packages"]:
+        raise HTTPException(400, "System package upgrades run from Proxmox VE itself on this edition")
     src = await source()
     await ensure_repo(src["branch"])
     target = await resolve((body and body.target_ref) or f"origin/{src['branch']}")
-    await start(target, src["branch"])
-    return {"ok": True, "target": target}
+    await start(target, src["branch"], system_packages)
+    return {"ok": True, "target": target, "include_system_packages": system_packages}
 
 
 @router.post("/rollback")

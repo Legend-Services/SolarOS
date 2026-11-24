@@ -1,0 +1,20 @@
+[Unit]
+Description=SolarDeck Hypervisor console dashboard (tty1)
+After=systemd-user-sessions.service network-online.target
+Conflicts=getty@tty1.service
+Before=getty.target
+
+[Service]
+ExecStart=/usr/bin/python3 /usr/local/bin/solardeck-console
+Environment=TERM=linux
+StandardInput=tty
+StandardOutput=tty
+TTYPath=/dev/tty1
+TTYReset=yes
+TTYVHangup=yes
+TTYVTDisallocate=yes
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

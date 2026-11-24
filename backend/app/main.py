@@ -9,6 +9,9 @@ from . import (apps, auth, automation, backups, bug_report, capabilities, consol
                provisioning, pve, pve_access, pve_datacenter, schedules, shares, storage_admin, system, system_extra, tasks,
                telemetry, themes, updater)
 from .config import settings
+from providers.registry import get_provider
+
+NATIVE = settings.hypervisor_driver.strip().lower() == "native_ubuntu"
 
 
 @asynccontextmanager
@@ -16,6 +19,8 @@ async def lifespan(_: FastAPI):
     host_ssh.public_key_or_none()  # create the bridge key on first start so install.sh / the UI can authorize it
     loops = [asyncio.create_task(schedules.scheduler_loop()), asyncio.create_task(updater.scheduler_loop()),
              asyncio.create_task(automation.scheduler_loop())]
+    if NATIVE:
+        loops.append(asyncio.create_task(get_provider().backup_scheduler_loop()))
     yield
     for t in loops:
         t.cancel()
@@ -27,6 +32,11 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="SolarDeck API", lifespan=lifespan, docs_url="/api/docs", openapi_url="/api/openapi.json")
 app.include_router(auth.router)
+if NATIVE:
+    # The standalone driver's routes shadow the Proxmox ones (first match wins), so they are mounted first.
+    from providers.native_ubuntu import routes as native_routes
+    app.include_router(native_routes.router)
+    app.include_router(native_routes.ws_router)
 app.include_router(pve.router)
 app.include_router(files.router)
 app.include_router(console.router)
@@ -68,7 +78,7 @@ add_v1_aliases(app)
 
 @app.exception_handler(NotImplementedError)
 async def not_implemented(_: Request, exc: NotImplementedError):
-    # A driver that does not implement a contract method yet (native_ubuntu before Phase 19).
+    # A driver that does not implement a contract method.
     return JSONResponse({"detail": str(exc) or "Not implemented by this hypervisor driver"}, status_code=501)
 
 
