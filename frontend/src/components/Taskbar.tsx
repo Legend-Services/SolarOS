@@ -1,5 +1,5 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { Cpu, Database, LayoutDashboard, LayoutGrid, Lock, LogOut, MemoryStick, Search, SlidersHorizontal, SquareTerminal, User } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { Cpu, Database, Expand, LayoutDashboard, LayoutGrid, Lock, LogOut, MemoryStick, Search, Shrink, SlidersHorizontal, SquareTerminal, User } from "lucide-react";
 import { activateApp, activeWindow, useAuth, useDock, useSpotlight, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
 import { useClock, useDismiss } from "../lib/hooks";
 import { pct } from "../lib/format";
@@ -13,6 +13,62 @@ import NotificationPopover from "./NotificationPopover";
 
 /* One bar along the bottom (the alternative to top bar + Dock): Start, search and app buttons in the middle,
    status, help, tasks, notifications and the clock on the right. Popovers open upwards. */
+
+const START_KEYS = new Set(["Meta", "OS"]); // the Start / logo key as browsers report it
+
+/**
+ * Tapping the Start key on its own (no other key or click in between, released within 800 ms) calls `toggle`.
+ * Shortcuts such as Start+E stay with the computer. Outside full screen the computer may also open its own menu:
+ * a web page cannot stop that, which is what useFullscreenKeys is for.
+ */
+function useStartKey(toggle: () => void) {
+  const toggleRef = useRef(toggle);
+  toggleRef.current = toggle;
+  useEffect(() => {
+    let since: number | null = null;
+    const down = (e: KeyboardEvent) => {
+      since = START_KEYS.has(e.key) && !e.repeat ? e.timeStamp : START_KEYS.has(e.key) ? since : null;
+    };
+    const up = (e: KeyboardEvent) => {
+      if (START_KEYS.has(e.key) && since !== null && e.timeStamp - since < 800) {
+        e.preventDefault();
+        toggleRef.current();
+      }
+      since = null;
+    };
+    const cancel = () => (since = null);
+    window.addEventListener("keydown", down, true);
+    window.addEventListener("keyup", up, true);
+    window.addEventListener("pointerdown", cancel, true);
+    window.addEventListener("blur", cancel);
+    return () => {
+      window.removeEventListener("keydown", down, true);
+      window.removeEventListener("keyup", up, true);
+      window.removeEventListener("pointerdown", cancel, true);
+      window.removeEventListener("blur", cancel);
+    };
+  }, []);
+}
+
+type KeyboardLock = { lock?: (codes: string[]) => Promise<void> };
+
+/**
+ * Full screen toggle. In full screen the page asks the browser to keep the Start key (Keyboard Lock, Chromium
+ * browsers over https only), so it opens SolarDeck's Start menu instead of the computer's.
+ */
+function useFullscreenKeys(): [boolean, () => void] {
+  const [full, setFull] = useState(() => !!document.fullscreenElement);
+  useEffect(() => {
+    const onChange = () => {
+      setFull(!!document.fullscreenElement);
+      if (document.fullscreenElement) (navigator as Navigator & { keyboard?: KeyboardLock }).keyboard?.lock?.(["MetaLeft", "MetaRight"]).catch(() => {});
+    };
+    document.addEventListener("fullscreenchange", onChange);
+    return () => document.removeEventListener("fullscreenchange", onChange);
+  }, []);
+  const toggle = () => (document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()).catch(() => {});
+  return [full, toggle];
+}
 
 function BarButton({ label, onClick, active, children }: { label: string; onClick: () => void; active?: boolean; children: ReactNode }) {
   return (
@@ -95,6 +151,8 @@ export default function Taskbar() {
   const [start, setStart] = useState(false);
   const [menu, setMenu] = useState<AppId | null>(null);
   const startRef = useDismiss(start, () => setStart(false));
+  useStartKey(() => setStart((v) => !v));
+  const [fullscreen, toggleFullscreen] = useFullscreenKeys();
   const menuRef = useDismiss(!!menu, () => setMenu(null));
   const viewRef = useDismiss(viewPanel, () => setLayout({ panel: false }));
   const icons = useRef<Partial<Record<AppId, HTMLButtonElement | null>>>({});
@@ -202,6 +260,14 @@ export default function Taskbar() {
           </button>
           {viewPanel && <ViewOptionsPanel up />}
         </div>
+        <button
+          onClick={toggleFullscreen}
+          className="rounded-md px-2 py-1 text-slate-200 hover:bg-white/10 max-sm:hidden"
+          aria-label={fullscreen ? "Exit full screen" : "Full screen"}
+          title={fullscreen ? "Exit full screen" : "Full screen: the Start key then opens SolarDeck's Start menu (Chrome or Edge over https)"}
+        >
+          {fullscreen ? <Shrink size={14} /> : <Expand size={14} />}
+        </button>
         <HelpMenu up />
         <TaskCenterPopover up />
         <NotificationPopover up />
