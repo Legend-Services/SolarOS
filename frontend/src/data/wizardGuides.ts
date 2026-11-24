@@ -72,7 +72,7 @@ export const WELCOME: Guide = {
   steps: [
     {
       title: "Your Desktop & Widgets",
-      body: "This is your server's desktop. Every app has an icon here — click one to open it (prefer double-click? Change it under Control Panel → Appearance & Layout). The glass cards on the right are live widgets showing CPU, memory, storage health and running machines.",
+      body: "This is your server's desktop. Every app has an icon here — click one to open it (prefer double-click? Change it under Control Panel → Appearance & Themes). The glass cards on the right are live widgets showing CPU, memory, storage health and running machines.",
       bullets: [
         "Right-click empty space for quick actions like New Virtual Machine or View Options.",
         "Use View Options (the grid icon in the top bar) to switch between Grid and List, and to change icon size and spacing.",
@@ -85,9 +85,9 @@ export const WELCOME: Guide = {
       bullets: [
         "Click the four-squares button at the left of the Dock to open Launchpad, which shows every app with a search box.",
         "Right-click a Dock icon to keep it in the Dock or remove it. Drag icons to reorder them.",
-        "Change Dock size and spacing in View Options or Control Panel → Appearance & Layout.",
+        "Change Dock size and spacing in View Options or Control Panel → Appearance & Themes.",
       ],
-      action: { label: "Open Appearance & Layout", app: "controlpanel", intent: "appearance" },
+      action: { label: "Open Appearance & Themes", app: "controlpanel", intent: "appearance" },
     },
     {
       title: "Instant Passwordless Host Shell",
@@ -345,11 +345,11 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     how: [
       "User & Security: change the admin password, set up 2FA, check the root bridge. Add more Proxmox users and roles in Datacenter.",
       "Hardware & System → GPU & Drivers: pick your card's vendor and press Install.",
-      "Appearance & Layout: wallpaper, Grid/List view, icon size, spacing and Dock.",
+      "Appearance & Themes: themes, Light / Dark Mode, wallpapers, Grid/List view, icon size, spacing and Dock.",
       "System & Power → SolarDeck Update: check for and install updates. To go back to an older version, redeploy that release with deploy.sh.",
       "To report a bug, use Help & Support → Ask, then open an issue on the project's GitHub page with what you saw.",
     ],
-    action: { label: "Open Appearance & Layout", app: "controlpanel", intent: "appearance" },
+    action: { label: "Open Appearance & Themes", app: "controlpanel", intent: "appearance" },
   }),
   system: guide({
     id: "system",

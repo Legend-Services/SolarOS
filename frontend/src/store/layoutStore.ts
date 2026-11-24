@@ -3,6 +3,8 @@ import { persist } from "zustand/middleware";
 import { api } from "../lib/api";
 import { useDock } from "../lib/stores";
 import { useWizard } from "./wizardStore";
+import { sanitizePrefs, themePrefs, useTheme } from "./themeStore";
+import type { ThemePrefs } from "../theme/themeTypes";
 
 export type ViewMode = "grid" | "list";
 export type Align = "left" | "center";
@@ -159,6 +161,7 @@ interface Preferences {
   layout?: Partial<LayoutState>;
   dock?: { baseSize?: number };
   wizard?: { welcomeAuto?: boolean };
+  theme?: Partial<ThemePrefs>;
 }
 
 const snapshot = (): Preferences => {
@@ -166,6 +169,7 @@ const snapshot = (): Preferences => {
     layout: persisted(useLayout.getState()),
     dock: { baseSize: useDock.getState().baseSize },
     wizard: { welcomeAuto: useWizard.getState().welcomeAuto },
+    theme: themePrefs(useTheme.getState()),
   };
 };
 
@@ -189,14 +193,15 @@ export function startPreferencesSync(onReady: () => void): () => void {
       api("/system/preferences", { method: "PUT", json: body }).catch(() => (last = "")); // retry on the next change
     }, 600);
   };
-  const subs = [useLayout.subscribe(push), useDock.subscribe(push), useWizard.subscribe(push)];
+  const subs = [useLayout.subscribe(push), useDock.subscribe(push), useWizard.subscribe(push), useTheme.subscribe(push)];
 
   api<Preferences>("/system/preferences")
     .then((p) => {
       if (p.layout) useLayout.setState(sanitize(p.layout, useLayout.getState()));
       if (p.dock?.baseSize !== undefined) useDock.getState().set({ baseSize: clamp(p.dock.baseSize, LIMITS.dockSize, useDock.getState().baseSize) });
       if (typeof p.wizard?.welcomeAuto === "boolean") useWizard.getState().setWelcomeAuto(p.wizard.welcomeAuto);
-      last = p.layout ? JSON.stringify(snapshot()) : ""; // nothing stored yet: upload this browser's settings
+      if (p.theme) useTheme.setState(sanitizePrefs(p.theme));
+      last = p.layout && p.theme ? JSON.stringify(snapshot()) : ""; // nothing stored yet: upload this browser's settings
     })
     .catch(() => {})
     .finally(() => {

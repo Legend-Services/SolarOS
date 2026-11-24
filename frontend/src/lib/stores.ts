@@ -190,25 +190,16 @@ export const useBugReport = create<{ open: boolean; set: (open: boolean) => void
 
 /* ---------------- Desktop preferences (per browser) ---------------- */
 
-export const WALLPAPERS = [
-  { id: "aurora", name: "Aurora", swatch: "linear-gradient(135deg,#38bdf8,#a855f7 60%,#10b981)" },
-  { id: "sequoia", name: "Sequoia", swatch: "linear-gradient(135deg,#ea580c,#be185d 60%,#facc15)" },
-  { id: "ocean", name: "Ocean", swatch: "linear-gradient(135deg,#2563eb,#06b6d4 60%,#2dd4bf)" },
-  { id: "emerald", name: "Emerald", swatch: "linear-gradient(135deg,#10b981,#14b8a6 60%,#84cc16)" },
-  { id: "graphite", name: "Graphite", swatch: "linear-gradient(135deg,#94a3b8,#475569 60%,#1e293b)" },
-] as const;
-export type WallpaperId = (typeof WALLPAPERS)[number]["id"];
-
+/* Themes and wallpapers live in store/themeStore.ts. */
 interface PrefsState {
-  wallpaper: WallpaperId;
   widgets: boolean;
-  set: (patch: Partial<Pick<PrefsState, "wallpaper" | "widgets">>) => void;
+  set: (patch: Partial<Pick<PrefsState, "widgets">>) => void;
 }
 
 export const usePrefs = create<PrefsState>()(
-  persist((set) => ({ wallpaper: "aurora", widgets: true, set: (patch) => set(patch) }), {
+  persist((set) => ({ widgets: true, set: (patch) => set(patch) }), {
     name: "solardeck-prefs",
-    partialize: ({ wallpaper, widgets }) => ({ wallpaper, widgets }),
+    partialize: ({ widgets }) => ({ widgets }),
   }),
 );
 

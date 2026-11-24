@@ -375,14 +375,16 @@ export const TUTORIALS: Tutorial[] = [
   },
   {
     id: "dock",
-    title: "Personalise the Dock and wallpaper",
+    title: "Personalise themes, wallpaper and the Dock",
     category: "Getting started",
-    minutes: 1,
-    keywords: "dock icons size magnification auto hide pin unpin wallpaper appearance theme personalise",
+    minutes: 2,
+    keywords: "dock icons size magnification auto hide pin unpin wallpaper appearance theme personalise light dark mode import export custom upload",
     intro: "Make the desktop yours.",
     steps: [
-      { text: "Right-click a Dock icon → 'Remove from Dock' or 'Keep in Dock'. Drag icons to reorder them." },
-      { text: "Control Panel → Appearance & Dock: icon size, magnification, auto-hide and wallpaper.", link: { app: "controlpanel", intent: "appearance" } },
+      { text: "The sun / moon button in the top bar (or taskbar) switches Light and Dark Mode; the palette button next to it changes theme and wallpaper." },
+      { text: "Control Panel → Appearance & Themes: 11 built-in themes, 4 wallpapers each, your own wallpaper (upload, image URL or gradient), blur and dimming. Each theme keeps its own wallpaper.", link: { app: "controlpanel", intent: "appearance" } },
+      { text: "Create Theme or the copy button on any theme opens the Theme Creator. The download button exports a .solardeck-theme.json file; Import adds one." },
+      { text: "Right-click a Dock icon → 'Remove from Dock' or 'Keep in Dock'. Drag icons to reorder them. Icon size, magnification and auto-hide are further down in Appearance & Themes." },
     ],
   },
   {

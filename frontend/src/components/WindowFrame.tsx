@@ -4,6 +4,7 @@ import { CircleHelp, Copy, Maximize2, Minimize2, Minus, Square, X } from "lucide
 import { useWindows, type Rect, type Win } from "../lib/stores";
 import { deviceControls, useInsets, useLayout } from "../store/layoutStore";
 import { useWizard } from "../store/wizardStore";
+import { useActiveTheme } from "../store/themeStore";
 import { APPS } from "../apps/registry";
 import WindowErrorBoundary from "./WindowErrorBoundary";
 import type { ConsoleTarget } from "../lib/types";
@@ -83,7 +84,9 @@ export default function WindowFrame({ win, mobile, Body }: { win: Win; mobile: b
   const [phase, setPhase] = useState<Phase>("enter");
   const full = mobile || win.maximized;
   const controls = useLayout((s) => s.windowControls);
-  const left = (controls === "auto" ? deviceControls() : controls) === "left";
+  const chrome = useActiveTheme().style.windowChrome;
+  // Traffic Dots themes always use the circles; the others follow the user's Window buttons setting.
+  const left = chrome === "traffic-dots" || (chrome === "standard" && (controls === "auto" ? deviceControls() : controls) === "left");
   const { top, bottom } = useInsets(); // space taken by the top bar (Dock layout) or the taskbar
   const { icon: Icon } = APPS[win.id];
   const p = win.params;
@@ -159,7 +162,7 @@ export default function WindowFrame({ win, mobile, Body }: { win: Win; mobile: b
         aria-hidden={win.minimized}
         style={style}
         onPointerDown={() => focus(win.key)}
-        className={`glass absolute flex flex-col overflow-hidden shadow-2xl shadow-black/50 ${full ? "rounded-none" : "rounded-2xl"}`}
+        className={`glass sd-window absolute flex flex-col overflow-hidden shadow-2xl shadow-black/50 ${full ? "is-full rounded-none" : "rounded-2xl"}`}
       >
         <header
           onPointerDown={begin("move")}

@@ -1,23 +1,27 @@
 @import "tailwindcss";
+@import "./theme/palette.css";
 
 @layer components {
   /* Window / dock / top bar surface: frosted fill, 1px light rim on top, soft ambient shadow. */
   .glass {
-    @apply border border-white/10 bg-slate-900/70 backdrop-blur-2xl backdrop-saturate-150;
+    border: 1px solid var(--sd-border-glass);
+    background-color: var(--sd-surface-glass);
+    backdrop-filter: blur(var(--sd-glass-blur)) saturate(150%);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.1),
-      0 24px 60px -20px rgba(0, 0, 0, 0.6);
+      inset 0 1px 0 var(--sd-specular-highlight),
+      0 24px 60px -20px var(--sd-shadow);
   }
   .glass-soft {
     @apply border border-white/10 bg-white/[0.045] backdrop-blur-xl;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    box-shadow: inset 0 1px 0 var(--sd-specular-highlight);
   }
   /* Modal surface: crisp 1px gradient border via a masked pseudo-element. */
   .glass-panel {
-    @apply bg-slate-900/85 backdrop-blur-2xl backdrop-saturate-150;
+    background-color: var(--sd-surface-elevated);
+    backdrop-filter: blur(var(--sd-glass-blur)) saturate(150%);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.14),
-      0 30px 80px -24px rgba(0, 0, 0, 0.75);
+      inset 0 1px 0 var(--sd-specular-highlight),
+      0 30px 80px -24px var(--sd-shadow);
   }
   .glass-panel::before {
     content: "";
@@ -25,7 +29,7 @@
     inset: 0;
     border-radius: inherit;
     padding: 1px;
-    background: linear-gradient(160deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0.04) 40%, rgba(255, 255, 255, 0.12));
+    background: linear-gradient(160deg, var(--sd-border-glass), transparent 40%, var(--sd-border-subtle));
     mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
     pointer-events: none;
   }
@@ -33,28 +37,32 @@
   .glass-btn {
     @apply border border-white/15 bg-gradient-to-b from-white/[0.14] to-white/[0.04] hover:brightness-125;
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      inset 0 1px 0 var(--sd-specular-highlight),
       0 1px 2px rgba(0, 0, 0, 0.25),
       0 4px 14px -6px rgba(0, 0, 0, 0.4);
   }
   .glass-btn-primary {
     @apply border-sky-200/35 from-sky-400/60 to-blue-600/50;
+    --color-white: var(--sd-on-accent); /* black or white, whichever reads best on this accent */
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.3),
-      0 6px 18px -6px rgba(56, 189, 248, 0.55);
+      0 6px 18px -6px var(--sd-accent-glow);
   }
   .glass-btn-danger {
     @apply border-rose-200/30 from-rose-500/55 to-rose-700/45;
+    --color-white: #fff;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.25),
       0 6px 18px -6px rgba(244, 63, 94, 0.5);
   }
 
   .glass-field {
-    @apply rounded-lg border border-white/10 bg-black/25 px-2.5 py-1.5 text-xs text-slate-100 outline-none placeholder:text-slate-500 focus:border-sky-300/50 focus:ring-2 focus:ring-sky-400/20;
+    @apply rounded-lg border px-2.5 py-1.5 text-xs text-slate-100 outline-none placeholder:text-slate-500 focus:border-sky-300/50 focus:ring-2 focus:ring-sky-400/20;
+    border-color: var(--sd-border-glass);
+    background-color: var(--sd-surface-input);
     box-shadow:
-      inset 0 1px 2px rgba(0, 0, 0, 0.35),
-      0 1px 0 rgba(255, 255, 255, 0.05);
+      inset 0 1px 2px rgba(0, 0, 0, 0.25),
+      0 1px 0 var(--sd-border-subtle);
   }
   select.glass-field {
     appearance: none;
@@ -63,7 +71,8 @@
     background-position: right 0.6rem center;
   }
   select.glass-field option {
-    background: #0f172a;
+    background: var(--sd-bg-base);
+    color: var(--sd-text-primary);
   }
 
   .glass-switch {
@@ -74,10 +83,11 @@
     @apply border-sky-200/40 bg-sky-500/70;
     box-shadow:
       inset 0 1px 2px rgba(0, 0, 0, 0.2),
-      0 0 12px rgba(56, 189, 248, 0.55);
+      0 0 12px var(--sd-accent-glow);
   }
   .glass-switch-thumb {
-    @apply absolute left-0.5 h-4 w-4 rounded-full bg-gradient-to-b from-white to-slate-200;
+    @apply absolute left-0.5 h-4 w-4 rounded-full;
+    background: linear-gradient(to bottom, #fff, #e2e8f0);
     box-shadow:
       inset 0 1px 0 #fff,
       0 1px 3px rgba(0, 0, 0, 0.45);
@@ -88,17 +98,17 @@
     transform: translateX(16px);
   }
 
-  /* Range slider: recessed glass track, sky fill up to --fill, raised glass thumb that swells while dragged. */
+  /* Range slider: recessed glass track, accent fill up to --fill, raised glass thumb that swells while dragged. */
   .glass-slider {
     appearance: none;
     height: 6px;
     border-radius: 9999px;
     cursor: pointer;
-    background: linear-gradient(90deg, rgba(56, 189, 248, 0.85), rgba(99, 102, 241, 0.85)) 0 / var(--fill, 50%) 100% no-repeat, rgba(0, 0, 0, 0.35);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.06);
+    background: linear-gradient(90deg, var(--sd-accent-primary), var(--sd-accent-secondary)) 0 / var(--fill, 50%) 100% no-repeat, rgba(0, 0, 0, 0.3);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45), 0 1px 0 var(--sd-border-subtle);
   }
   .glass-slider:focus-visible {
-    outline: 2px solid rgba(56, 189, 248, 0.5);
+    outline: 2px solid var(--sd-accent-glow);
     outline-offset: 4px;
   }
   .glass-slider::-webkit-slider-thumb {
@@ -126,11 +136,41 @@
   /* Legacy helpers kept for apps not yet on GlassKit; restyled to match. */
   .btn {
     @apply inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-gradient-to-b from-white/[0.12] to-white/[0.04] px-2.5 py-1.5 text-xs font-medium text-slate-200 transition hover:brightness-125 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+    box-shadow: inset 0 1px 0 var(--sd-specular-highlight);
   }
   .input {
-    @apply rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-sky-400/60 focus:ring-2 focus:ring-sky-400/20;
+    @apply rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-sky-400/60 focus:ring-2 focus:ring-sky-400/20;
+    background-color: var(--sd-surface-input);
   }
+}
+
+/* Light Mode: plain glass buttons read as raised white glass instead of a grey tint. */
+:root[data-color-mode="light"] .glass-btn:not(.glass-btn-primary, .glass-btn-danger),
+:root[data-color-mode="light"] .btn {
+  background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.6));
+}
+:root[data-color-mode="light"] .glass-btn:not(.glass-btn-primary, .glass-btn-danger) {
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 1px 2px rgba(15, 23, 42, 0.12),
+    0 4px 12px -6px rgba(15, 23, 42, 0.2);
+}
+
+:root[data-color-mode="light"] .glass-btn-primary {
+  border-color: color-mix(in oklab, var(--sd-accent-primary) 70%, black);
+  background-image: linear-gradient(to bottom, color-mix(in oklab, var(--sd-accent-primary) 85%, white), var(--sd-accent-primary));
+}
+
+/* Angular HUD window chrome: chamfered corners and an accent rim. */
+:root[data-window-chrome="angular-hud"] .sd-window:not(.is-full) {
+  border-radius: 0;
+  border-color: color-mix(in oklab, var(--sd-accent-primary) 45%, transparent);
+  clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+}
+:root[data-window-chrome="angular-hud"] .sd-window > header {
+  border-bottom-color: color-mix(in oklab, var(--sd-accent-primary) 40%, transparent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
 
 html,
@@ -142,17 +182,17 @@ body,
 body {
   margin: 0;
   overflow: hidden;
-  background: #070b16;
-  color: #e2e8f0;
-  font-family: Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  background: var(--sd-bg-base);
+  color: var(--sd-text-primary);
+  font-family: var(--sd-font-ui);
   -webkit-font-smoothing: antialiased;
+  transition:
+    background-color 400ms ease,
+    color 400ms ease;
 }
 
-/* ---------------- Wallpapers (picked in Control Panel → Appearance) ---------------- */
+/* ---------------- Wallpaper (Control Panel → Appearance & Themes) ---------------- */
 
-.wallpaper {
-  transition: background 600ms ease;
-}
 .wallpaper::after {
   /* Ambient top light that the glass surfaces pick up. */
   content: "";
@@ -161,39 +201,12 @@ body {
   pointer-events: none;
   background: radial-gradient(70rem 22rem at 50% -6rem, rgba(255, 255, 255, 0.09), transparent 70%);
 }
-.wp-aurora {
-  background:
-    radial-gradient(60rem 40rem at 10% 10%, rgba(56, 189, 248, 0.26), transparent 60%),
-    radial-gradient(50rem 40rem at 90% 20%, rgba(168, 85, 247, 0.26), transparent 60%),
-    radial-gradient(60rem 50rem at 50% 110%, rgba(16, 185, 129, 0.2), transparent 60%),
-    linear-gradient(160deg, #0b1020 0%, #070b16 100%);
+.sd-scanlines {
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px);
 }
-.wp-sequoia {
-  background:
-    radial-gradient(55rem 40rem at 15% 85%, rgba(234, 88, 12, 0.32), transparent 60%),
-    radial-gradient(50rem 38rem at 85% 15%, rgba(190, 24, 93, 0.3), transparent 60%),
-    radial-gradient(40rem 30rem at 55% 50%, rgba(250, 204, 21, 0.1), transparent 60%),
-    linear-gradient(160deg, #1a0c14 0%, #0b0710 100%);
-}
-.wp-ocean {
-  background:
-    radial-gradient(60rem 45rem at 80% 90%, rgba(6, 182, 212, 0.3), transparent 60%),
-    radial-gradient(55rem 40rem at 10% 20%, rgba(37, 99, 235, 0.32), transparent 60%),
-    radial-gradient(35rem 25rem at 50% 40%, rgba(45, 212, 191, 0.12), transparent 60%),
-    linear-gradient(170deg, #06142a 0%, #030a16 100%);
-}
-.wp-emerald {
-  background:
-    radial-gradient(55rem 40rem at 20% 20%, rgba(16, 185, 129, 0.3), transparent 60%),
-    radial-gradient(50rem 40rem at 85% 80%, rgba(132, 204, 22, 0.18), transparent 60%),
-    radial-gradient(40rem 30rem at 70% 10%, rgba(20, 184, 166, 0.18), transparent 60%),
-    linear-gradient(160deg, #04130f 0%, #030a08 100%);
-}
-.wp-graphite {
-  background:
-    radial-gradient(60rem 40rem at 30% 0%, rgba(148, 163, 184, 0.18), transparent 60%),
-    radial-gradient(50rem 40rem at 90% 100%, rgba(100, 116, 139, 0.2), transparent 60%),
-    linear-gradient(160deg, #15171c 0%, #0a0b0e 100%);
+:root[data-color-mode="light"] .sd-scanlines {
+  background: repeating-linear-gradient(0deg, rgba(15, 23, 42, 0.05) 0 1px, transparent 1px 3px);
 }
 
 /* Window edge-snap preview. */
@@ -201,11 +214,11 @@ body {
   position: fixed;
   z-index: 8900;
   pointer-events: none;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  background: rgba(125, 211, 252, 0.12);
+  border-radius: var(--sd-radius-window);
+  border: 1px solid var(--sd-border-glass);
+  background: color-mix(in oklab, var(--sd-accent-primary) 14%, transparent);
   backdrop-filter: blur(6px);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 40px rgba(56, 189, 248, 0.25);
+  box-shadow: inset 0 1px 0 var(--sd-specular-highlight), 0 0 40px var(--sd-accent-glow);
   transition: all 200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
@@ -214,7 +227,7 @@ body {
   height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: color-mix(in oklab, var(--sd-text-primary) 18%, transparent);
   border-radius: 8px;
 }
 
