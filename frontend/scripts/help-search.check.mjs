@@ -16,7 +16,7 @@ for (const [q, want] of [
   ["block ads on my network", "adblock"],
   ["connect from my phone when I'm away", "vpn"],
   ["make a new virtual machine", "create-vm"],
-  ["share a folder with my mac", "share"],
+  ["share a folder with my laptop", "share"],
   ["install plex", "apps"],
   ["turn on 2fa", "2fa"],
 ]) ok(top(q) === want, `"${q}" -> ${top(q)} (want ${want})`);

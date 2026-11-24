@@ -37,11 +37,11 @@ export const TUTORIALS: Tutorial[] = [
     category: "Getting started",
     minutes: 2,
     keywords: "start begin tour dock launchpad spotlight search window desktop how use new beginner",
-    intro: "ProxmoxOS works like a Mac or Windows desktop for your server. Every tool is an app in a window.",
+    intro: "ProxmoxOS gives your server a familiar Liquid Glass Desktop. Every tool is an app in a window.",
     steps: [
       { text: "The bar at the bottom is the Dock. Click an icon to open that app; click it again to hide the window." },
       { text: "The grid button on the far left of the Dock opens Launchpad: every app, with a search box." },
-      { text: "Press ⌘K (Mac) or Ctrl+K (Windows/Linux) anywhere to search apps, VMs, containers, folders and settings." },
+      { text: "Press Ctrl+K (or ⌘K) anywhere to search apps, VMs, containers, folders and settings." },
       { text: "Drag a window by its title bar. Drag it to the left/right edge to fill half the screen, or to the top to maximise." },
       { text: "Right-click the desktop for shortcuts such as 'New Virtual Machine' and 'Change Wallpaper'." },
       { text: "Open Resource Monitor to see CPU, memory, network and storage at a glance.", link: { app: "monitor" } },
@@ -132,15 +132,15 @@ export const TUTORIALS: Tutorial[] = [
   },
   {
     id: "share",
-    title: "Share a folder with your PC, Mac or TV (SMB)",
+    title: "Share a folder with your computers or TV (SMB)",
     category: "Storage & files",
     minutes: 3,
-    keywords: "share folder network smb samba windows mac tv nas time machine drive map",
+    keywords: "share folder network smb samba windows linux laptop computer tv nas backup target drive map",
     intro: "Network Shares makes a folder appear on other computers like a network drive.",
     steps: [
       { text: "Open Network Shares and press 'New share'. Let it create its own dataset.", link: { app: "shares" } },
       { text: "Add a share user with a password (the 'Users' section)." },
-      { text: "On Windows open \\\\<ProxmoxOS-IP>\\<share>, on a Mac use Finder → Go → Connect to Server → smb://<ProxmoxOS-IP>/<share>." },
+      { text: "On Windows open \\\\<ProxmoxOS-IP>\\<share>, on other systems connect to smb://<ProxmoxOS-IP>/<share> from the file manager." },
     ],
   },
   {

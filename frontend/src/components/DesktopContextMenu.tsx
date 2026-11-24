@@ -1,8 +1,8 @@
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
-import { Container, Database, Image, LayoutDashboard, Monitor, RefreshCw, SquareTerminal } from "lucide-react";
+import { Bug, Container, Database, Image, LayoutDashboard, Monitor, RefreshCw, SquareTerminal } from "lucide-react";
 import { useLayout } from "../store/layoutStore";
 import { useDismiss } from "../lib/hooks";
-import { useIntent, useTelemetry, useWindows } from "../lib/stores";
+import { useBugReport, useIntent, useTelemetry, useWindows } from "../lib/stores";
 
 /** Frosted context menu for right-clicks on the desktop background. */
 export default function DesktopContextMenu({ at, onClose }: { at: { x: number; y: number } | null; onClose: () => void }) {
@@ -13,6 +13,7 @@ export default function DesktopContextMenu({ at, onClose }: { at: { x: number; y
   const setLayout = useLayout((s) => s.set);
   const open = useWindows((s) => s.open);
   const refreshStorage = useTelemetry((s) => s.refreshStorage);
+  const openBugReport = useBugReport((s) => s.set);
   const node = useTelemetry((s) => s.overview?.node ?? "host");
 
   // Keep the menu inside the viewport.
@@ -56,6 +57,7 @@ export default function DesktopContextMenu({ at, onClose }: { at: { x: number; y
       {item(<Image size={14} />, "Change Wallpaper", () => go("controlpanel", "appearance"))}
       {sep}
       {item(<RefreshCw size={14} />, "Refresh Telemetry", () => refreshStorage())}
+      {item(<Bug size={14} />, "Report a Bug", () => openBugReport(true))}
     </div>
   );
 }

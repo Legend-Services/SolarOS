@@ -600,8 +600,8 @@ assert [r["title"] for r in c.get("/api/search", params={"q": "2fa"}).json()["re
 assert c.get("/api/search", params={"q": ""}).status_code == 422
 
 # Self-update status works without a git checkout or systemd (dev machine / CI).
-st = c.get("/api/system/update/status").json()
-assert {"commit", "branch", "remote", "running", "update_available"} <= st.keys() and not st["running"], st
+st = c.get("/api/system/updates/status").json()
+assert {"commit", "tag", "branch", "remote", "running", "update_available", "incoming", "settings"} <= st.keys() and not st["running"], st
 
 # TOTP 2FA: setup -> enable -> login requires a code -> disable.
 settings.security_file = __import__("pathlib").Path(tmp).parent / f"security-{os.getpid()}.json"

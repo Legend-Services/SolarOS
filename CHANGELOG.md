@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.3.0 - Phase 7: Clean Brand Identity, Safe Installer Upgrades, Git Updater/Rollback & Bug Reporter — 2026-11-24
+
+### Added
+- **Git updater** (`backend/app/updater.py`, replaces `/api/system/update/*`): `GET /api/system/updates/status[?check=true]` (current version, tag, commit, branch, latest remote commit/tag, incoming commits, settings, live job log), `PUT /api/system/updates/settings`, `GET /api/system/updates/versions` (all tags + last 25 commits), `POST /api/system/updates/apply` (optional `target_ref`, defaults to `origin/main`) and `POST /api/system/updates/rollback` (`target_ref` required). A deployment without `.git` is converted into a full checkout with tags on first use, so version history is always populated.
+- **Update preferences** in `backend/data/update_settings.json`: `mode` `manual` | `notify` (default) | `auto`, `schedule_frequency` `6h` | `daily` | `weekly`, `schedule_time` (`HH:MM`), `schedule_day` (0 = Sunday). A lifespan scheduler checks on that schedule; `notify` adds a top bar notification, `auto` installs the update. A rollback switches `auto` to `notify` so the next run does not undo it.
+- **State preservation** in `deploy/self-update.sh`: `.env`, `data/`, `.ssh/` and the Samba share config are snapshotted to `/tmp/proxmox-os-state-backup` before `git reset --hard <target>` and restored afterwards. New optional `.env` keys come from `deploy/env-defaults` via `deploy/merge-env.sh`; existing values are never changed.
+- **Control Panel → System & Updates**: version card with Check for Updates / Install Update Now and a what's-new preview, Automatic Update Preferences, and Version History with "Downgrade to This Version".
+- **Bug reporter** (`backend/app/bug_report.py`, `components/BugReportModal.tsx`): `GET /api/system/bug-report/diagnostics` (version, Proxmox VE, kernel, CPU/RAM, last 30 backend log lines) with IPs, MAC addresses, e-mails, passwords, tokens, JWTs and SSH keys redacted; `POST /api/system/bug-report` returns a pre-filled GitHub issue link and the Markdown body, and creates the issue directly when `GITHUB_TOKEN` is set or a token is entered. Open it from the top bar Help menu, the user menu, Control Panel or the desktop right-click menu.
+- `docs/screenshots/` and a rewritten, beginner-friendly README.
+
+### Changed
+- **install.sh Upgrade Mode**: an existing `proxmox-os` (or `proxmos-os`) container with a configured `.env` keeps its `.env`, `data/`, `.ssh/` and shares. The API token is no longer rotated and `JWT_SECRET` no longer regenerated (no forced logouts). `.env` and `data/` are backed up to `/var/backups/proxmox-os-preupgrade-<timestamp>/` inside the container first. Running install.sh inside the ProxmoxOS container upgrades it in place.
+- **install.sh** fresh installs print a framed summary with Web UI URL, username, generated password, container ID, Proxmox host and storage mount. Installs from GitHub now fetch full history and tags.
+- Brand cleanup: third-party product names removed from UI, help content and docs. The SMB "Time Machine backup target" switch is now **Network Backup Target**.
+
+### Fixed
+- install.sh no longer deletes `/opt/proxmox-os` (including `.env` and `data/`) when re-run from GitHub on a container that was deployed without `.git`.
+- Updater git commands work on trees owned by another uid (`safe.directory`), which broke the first in-app update after a `deploy.sh` deployment.
+
 ## v1.2.0 - Phase 9: Storage Asset List/Grid Modes, Disk Tuning, ZFS Member Offline/Replace, SMART Scans & Storage Benchmark — 2026-11-24
 
 ### Added
@@ -28,7 +47,7 @@
 
 ### Changed
 - Control Panel's "Appearance & Dock" section is now **Appearance & Layout**; the Dock size slider moved into the layout controls.
-- The Dock's "macOS" magnification preset is renamed **Strong** (same strength). Saved settings with the old name fall back to it.
+- The Dock's strongest-but-one magnification preset is renamed **Strong** (same strength). Saved settings with the old name fall back to it.
 - Neutral wording in the README, Network Shares labels and code comments.
 
 ## v0.6.1 — 2026-11-24
@@ -41,7 +60,7 @@
 ### Added
 - **Root SSH bridge** (`backend/app/host_ssh.py`, `asyncssh`): one persistent root connection to the PVE host with the backend's own key `backend/.ssh/id_ed25519` (generated if missing). `install.sh` authorizes it in `/root/.ssh/authorized_keys` and pins the host key in `backend/.ssh/known_hosts`; `deploy.sh` verifies the bridge after installing. Long operations run as detached host jobs (`systemd-run`), followed with `GET /api/host/jobs/{name}`. `GET /api/host/bridge` shows key and connectivity status.
 - **Passwordless shells**: `WS /api/pve/ws/host-shell` opens a root PTY on the host (Host Shell app, TopBar button, Control Panel). LXC terminals use `pct enter <vmid>` over the bridge, so containers don't ask for a login. QEMU still uses the termproxy serial console.
-- **Dock & Launchpad**: cosine-curve magnification that resizes icon layout boxes (neighbours move aside, no overlap), pin/unpin from the right-click menu, drag to reorder, auto-hide, base size 36–64 px, and magnification Off/Subtle/macOS/Large. Settings are stored per browser (`useDock`) and editable in Control Panel → Appearance & Dock. The Launchpad button opens a full-screen grid of all apps with search.
+- **Dock & Launchpad**: cosine-curve magnification that resizes icon layout boxes (neighbours move aside, no overlap), pin/unpin from the right-click menu, drag to reorder, auto-hide, base size 36–64 px, and magnification Off/Subtle/Strong/Large. Settings are stored per browser (`useDock`) and editable in Control Panel → Appearance & Dock. The Launchpad button opens a full-screen grid of all apps with search.
 - **Datacenter app** (`pve_access.py`, `pve_datacenter.py`): users (passwords set through `pvesh` over the bridge), groups, roles with a privilege grid, ACLs, resource pools with members, API tokens, realms; cluster/host/guest firewall rules, options, aliases and IP sets; syslog, journal and cluster log viewers. The ProxmoxOS service user and token are protected. Storage Manager gets a **Storage backends** tab: Directory, LVM, LVM-Thin, ZFS, NFS and CIFS/SMB, with scan-backed selects.
 - **Guest hardware** (`guest_hardware.py`, `provisioning.py`): `GET /api/pve/hardware/gpus|usb|pci` with driver, IOMMU group, paired HDMI audio and isolation warnings (`app/pci.py`). Per-guest PCI/GPU passthrough (`pcie`, `rombar`, `x-vga`, whole slot with audio), USB passthrough, NICs `net0..7`, cloud-init, snapshots and options, all applied with `qm set` over the bridge. The Create VM wizard has a passthrough picker; Compute Manager has a tabbed guest drawer.
 - **Network & Services app** (`net_services.py`): dnsmasq DNS server with local records and upstream presets, plus a DNS AdBlocker (StevenBlack, OISD, Hagezi, whitelist/blacklist, query metrics); DHCP server with reservations and live leases; WireGuard server (peers, `.conf` download, QR code) and client (`wg-quick`, imported profiles without script hooks); router/NAT (IP forwarding, masquerade, port forwards and static routes in an nftables table `ip proxmox_os`, persisted by `proxmox-os-router.service`); certificate manager (ACME accounts, DNS plugins, domains and ordering; custom certificates for the Proxmox node and ProxmoxOS nginx on port 443).

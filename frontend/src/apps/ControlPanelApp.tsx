@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { ChevronLeft, Cpu, CloudDownload, KeyRound, Network, Palette, Power, RefreshCw, RotateCcw, ShieldCheck, Smartphone, SquareTerminal } from "lucide-react";
+import { Bug, ChevronLeft, Cpu, CloudDownload, KeyRound, Network, Palette, Power, RefreshCw, RotateCcw, ShieldCheck, Smartphone, SquareTerminal } from "lucide-react";
 import { api } from "../lib/api";
-import type { SystemInfo, UpdateStatus } from "../lib/types";
+import type { SystemInfo, UpdateSettings, UpdateStatus, VersionEntry } from "../lib/types";
 import { uptime } from "../lib/format";
 import { usePoll, useRunner } from "../lib/hooks";
-import { MAGNIFICATION, useDock, useIntent, usePrefs, useWindows, WALLPAPERS, type Magnification } from "../lib/stores";
+import { MAGNIFICATION, useBugReport, useDock, useIntent, usePrefs, useWindows, WALLPAPERS, type Magnification } from "../lib/stores";
 import { APPS, APP_IDS } from "./registry";
 import { AppIcon } from "../components/icons/AppIcons";
 import HardwarePanel from "./HardwarePanel";
 import { LayoutControls } from "../components/ViewOptions";
-import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
+import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
 
 type Section = "security" | "network" | "appearance" | "hardware" | "power";
 
@@ -18,7 +18,7 @@ const SECTIONS: { id: Section; title: string; desc: string; icon: ReactNode; tin
   { id: "network", title: "Network & DNS", desc: "Host interfaces, bridges, resolvers", icon: <Network size={22} />, tint: "from-sky-400 to-cyan-600" },
   { id: "appearance", title: "Appearance & Layout", desc: "Wallpaper, Grid/List view, icon size, spacing and Dock", icon: <Palette size={22} />, tint: "from-pink-400 to-rose-600" },
   { id: "hardware", title: "Hardware & System", desc: "CPU, memory, GPUs, drives, NICs, GPU drivers", icon: <Cpu size={22} />, tint: "from-emerald-400 to-teal-600" },
-  { id: "power", title: "System & Power", desc: "Proxmox VE version, reboot, shut down", icon: <Power size={22} />, tint: "from-amber-300 to-orange-600" },
+  { id: "power", title: "System & Updates", desc: "Version, updates, downgrade, bug reports, reboot", icon: <Power size={22} />, tint: "from-amber-300 to-orange-600" },
 ];
 
 function Card({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
@@ -200,12 +200,27 @@ function TwoFactorCard() {
   );
 }
 
-function UpdateCard() {
+const MODES: { id: UpdateSettings["mode"]; label: string }[] = [
+  { id: "manual", label: "Manual Only" },
+  { id: "notify", label: "Notify Me When Available" },
+  { id: "auto", label: "Automatic Updates" },
+];
+const FREQUENCIES: { id: UpdateSettings["schedule_frequency"]; label: string }[] = [
+  { id: "6h", label: "Every 6 Hours" },
+  { id: "daily", label: "Daily" },
+  { id: "weekly", label: "Weekly" },
+];
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const short = (c?: string | null) => (c ? c.slice(0, 10) : "unknown");
+const when = (iso?: string | null) => (iso ? new Date(iso).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "Never");
+type Start = (path: "apply" | "rollback", targetRef?: string) => Promise<unknown>;
+
+/** Control Panel → System & Updates: version check, update preferences and version history share one job state. */
+function UpdatesSection() {
   const [st, setSt] = useState<UpdateStatus | null>(null);
-  const [ask, setAsk] = useState(false);
   const [started, setStarted] = useState(false);
-  const { busy, error, notice, run, setError } = useRunner();
-  const load = useCallback((check = false) => api<UpdateStatus>(`/system/update/status${check ? "?check=true" : ""}`).then((s) => (setSt(s), s)), []);
+  const [error, setError] = useState("");
+  const load = useCallback((check = false) => api<UpdateStatus>(`/system/updates/status${check ? "?check=true" : ""}`).then((s) => (setSt(s), s)), []);
   // While an update runs, poll; the backend restarts near the end, so failed polls are expected and ignored.
   const poll = useCallback(() => {
     if (started) load().catch(() => {});
@@ -213,48 +228,81 @@ function UpdateCard() {
   usePoll(poll, 3000);
   useEffect(() => {
     load().catch((e) => setError(e.message));
-  }, [load, setError]);
+  }, [load]);
   useEffect(() => {
     if (started && st && !st.running && st.exit_code !== null) setStarted(false);
   }, [started, st]);
-
-  const check = () =>
-    run(async () => {
-      const s = await load(true);
-      if (s.check_error) throw new Error(`Update check failed: ${s.check_error}`);
-      if (s.update_available) setAsk(true);
-    });
-  const apply = () => run(() => api("/system/update/apply", { method: "POST" }).then(() => (setAsk(false), setStarted(true))));
-  const short = (c?: string | null) => (c ? c.slice(0, 10) : "unknown");
-  const done = st && !st.running && st.exit_code !== null && st.log.length > 0;
+  const start: Start = (path, targetRef) =>
+    api(`/system/updates/${path}`, { method: "POST", json: targetRef ? { target_ref: targetRef } : {} }).then(() => setStarted(true));
+  const running = !!st?.running || started;
 
   return (
-    <Card title="System Update" action={st?.update_available && !st.running && <GlassBadge tone="info">UPDATE AVAILABLE</GlassBadge>}>
+    <>
+      <Notice error={error} />
+      <UpdateCard st={st} running={running} load={load} start={start} />
+      {st && <UpdatePreferences initial={st.settings} onSaved={() => load()} />}
+      <VersionHistory st={st} running={running} start={start} />
+    </>
+  );
+}
+
+function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; running: boolean; load: (check?: boolean) => Promise<UpdateStatus>; start: Start }) {
+  const [ask, setAsk] = useState(false);
+  const { busy, error, notice, run } = useRunner();
+  const check = () => run(() => load(true));
+  const apply = () => run(() => start("apply").then(() => setAsk(false)));
+  const done = st && !st.running && st.exit_code !== null && st.log.length > 0;
+  const latest = st?.remote_tag && st.remote_tag !== st.tag ? st.remote_tag : short(st?.remote_commit);
+
+  return (
+    <Card title="ProxmoxOS Version" action={st?.update_available && !running && <GlassBadge tone="info">UPDATE AVAILABLE</GlassBadge>}>
       <Rows
         rows={[
-          ["ProxmoxOS version", st?.version ? `v${st.version}` : "—"],
+          ["Version", st ? `${st.version ? `v${st.version}` : "—"}${st.tag ? ` (${st.tag})` : ""}` : "—"],
           ["Commit", <span className="font-mono">{short(st?.commit)}</span>],
           ["Branch", <span className="font-mono">{st?.branch}</span>],
           ["Source", <span className="font-mono">{st?.remote}</span>],
-          ...(st?.remote_commit ? ([["Latest on remote", <span className="font-mono">{short(st.remote_commit)}</span>]] as [string, ReactNode][]) : []),
+          ["Last checked", when(st?.settings.last_checked_at)],
+          ...(st?.update_available ? ([["Latest version", <span className="font-mono">{latest}</span>]] as [string, ReactNode][]) : []),
         ]}
       />
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <GlassButton variant="primary" disabled={busy || !!st?.running || started} onClick={check}>
-          <CloudDownload size={13} /> {st?.running || started ? "Updating…" : "Check & Install Updates"}
+        <GlassButton variant={st?.update_available ? "secondary" : "primary"} disabled={busy || running} onClick={check}>
+          <RefreshCw size={13} className={busy ? "animate-spin" : ""} /> Check for Updates
         </GlassButton>
-        {st && !st.update_available && st.remote_commit && !st.running && <span className="text-xs text-emerald-300">ProxmoxOS is up to date.</span>}
+        {st?.update_available && (
+          <GlassButton variant="primary" disabled={busy || running} onClick={() => setAsk(true)}>
+            <CloudDownload size={13} /> {running ? "Updating…" : "Install Update Now"}
+          </GlassButton>
+        )}
+        {st && !st.update_available && st.settings.last_checked_at && !running && <span className="text-xs text-emerald-300">ProxmoxOS is up to date.</span>}
         {done && st.exit_code === 0 && (
           <GlassButton onClick={() => window.location.reload()}>
             <RefreshCw size={13} /> Reload ProxmoxOS
           </GlassButton>
         )}
       </div>
-      {(st?.running || started || done) && (
+      {st?.update_available && st.incoming.length > 0 && !running && (
+        <div className="mt-3">
+          <p className="mb-1 text-[11px] font-medium text-slate-400">What's new ({st.incoming.length} change{st.incoming.length === 1 ? "" : "s"})</p>
+          <ul className="max-h-36 space-y-1 overflow-auto rounded-lg bg-black/25 p-2 text-[11px] text-slate-300">
+            {st.incoming.map((c) => (
+              <li key={c.hash} className="flex gap-2">
+                <span className="font-mono text-slate-500">{c.short_hash}</span>
+                <span className="min-w-0 flex-1">{c.subject}</span>
+                {c.tag && <GlassBadge tone="info">{c.tag}</GlassBadge>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {(running || done) && (
         <pre className="mt-3 max-h-48 overflow-auto rounded-lg bg-black/40 p-2 font-mono text-[10px] whitespace-pre-wrap text-slate-300">{st?.log.join("\n") || "Starting…"}</pre>
       )}
-      {done && st.exit_code !== 0 && <Notice error={`Update failed (exit code ${st.exit_code}); see the log above.`} />}
-      <p className="mt-2 text-[11px] text-slate-500">Pulls the latest code, syncs backend dependencies, rebuilds the frontend and restarts the services. Your settings and data are kept. Host helper changes still need install.sh on the Proxmox host.</p>
+      {done && st.exit_code !== 0 && <Notice error={`Update failed (exit code ${st.exit_code}); see the log above. Your previous settings are saved in /tmp/proxmox-os-state-backup.`} />}
+      <p className="mt-2 text-[11px] text-slate-500">
+        Updates pull the new code, sync dependencies, rebuild the desktop and restart the services. Settings, users, 2FA, schedules, shares and ZFS pools are kept. Host helper changes still need install.sh on the Proxmox host.
+      </p>
       <div className="mt-2">
         <Notice error={error} notice={notice} />
       </div>
@@ -265,8 +313,132 @@ function UpdateCard() {
         busy={busy}
         error={error}
         title="Install update"
-        confirmLabel="Install now"
-        message={`Update ProxmoxOS from ${short(st?.commit)} to ${short(st?.remote_commit)}? The desktop is briefly unavailable while services restart.`}
+        confirmLabel="Install Update Now"
+        message={`Update ProxmoxOS from ${st?.tag ?? short(st?.commit)} to ${latest}? Your settings and data are kept. The desktop is briefly unavailable while services restart.`}
+      />
+    </Card>
+  );
+}
+
+function UpdatePreferences({ initial, onSaved }: { initial: UpdateSettings; onSaved: () => void }) {
+  const [f, setF] = useState(initial);
+  const { busy, error, notice, run } = useRunner(onSaved);
+  const save = () =>
+    run(
+      () => api("/system/updates/settings", { method: "PUT", json: { mode: f.mode, schedule_frequency: f.schedule_frequency, schedule_time: f.schedule_time, schedule_day: f.schedule_day } }),
+      "Update preferences saved.",
+    );
+  return (
+    <Card title="Automatic Update Preferences">
+      <div className="grid gap-3">
+        <Field label="When a new version is released">
+          <Segmented value={f.mode} onChange={(mode) => setF({ ...f, mode })} options={MODES} />
+        </Field>
+        {f.mode !== "manual" && (
+          <div className="flex flex-wrap items-end gap-3">
+            <Field label="Check for updates">
+              <Segmented value={f.schedule_frequency} onChange={(schedule_frequency) => setF({ ...f, schedule_frequency })} options={FREQUENCIES} />
+            </Field>
+            {f.schedule_frequency === "weekly" && (
+              <Field label="Day">
+                <GlassSelect value={f.schedule_day} onChange={(e) => setF({ ...f, schedule_day: Number(e.target.value) })}>
+                  {DAYS.map((d, i) => (
+                    <option key={d} value={i}>
+                      {d}
+                    </option>
+                  ))}
+                </GlassSelect>
+              </Field>
+            )}
+            {f.schedule_frequency !== "6h" && (
+              <Field label="Time">
+                <GlassInput type="time" required value={f.schedule_time} onChange={(e) => setF({ ...f, schedule_time: e.target.value })} />
+              </Field>
+            )}
+          </div>
+        )}
+        <p className="text-[11px] text-slate-500">
+          {f.mode === "manual"
+            ? "ProxmoxOS never checks on its own. Use Check for Updates above."
+            : f.mode === "notify"
+              ? "ProxmoxOS checks on this schedule and shows a notification in the top bar when an update is ready."
+              : "ProxmoxOS checks on this schedule and installs updates by itself. Settings and data are always kept."}
+        </p>
+        <div className="flex items-center gap-2">
+          <GlassButton variant="primary" disabled={busy} onClick={save}>
+            Save Preferences
+          </GlassButton>
+        </div>
+        <Notice error={error} notice={notice} />
+      </div>
+    </Card>
+  );
+}
+
+function VersionHistory({ st, running, start }: { st: UpdateStatus | null; running: boolean; start: Start }) {
+  const [versions, setVersions] = useState<VersionEntry[] | null>(null);
+  const [pick, setPick] = useState<VersionEntry | null>(null);
+  const { busy, error, notice, run, setError } = useRunner();
+  const checked = st?.settings.last_checked_at;
+  useEffect(() => {
+    api<{ versions: VersionEntry[] }>("/system/updates/versions").then((r) => setVersions(r.versions), (e) => setError(e.message));
+  }, [checked, setError]);
+  const currentIdx = versions?.findIndex((v) => v.is_current) ?? -1;
+  const older = (i: number) => currentIdx >= 0 && i > currentIdx;
+  const go = () => {
+    if (!pick || !versions) return;
+    const i = versions.indexOf(pick);
+    run(() => start(older(i) ? "rollback" : "apply", pick.hash).then(() => setPick(null)));
+  };
+
+  return (
+    <Card title="Version History & Downgrade">
+      {!versions ? (
+        <p className="text-xs text-slate-400">{error ? "" : "Loading version history…"}</p>
+      ) : (
+        <ul className="max-h-80 divide-y divide-white/5 overflow-auto rounded-lg bg-black/20">
+          {versions.map((v, i) => (
+            <li key={v.hash} className={`flex items-center gap-3 px-3 py-2 text-xs ${v.is_current ? "bg-sky-400/10" : ""}`}>
+              <div className="w-16 shrink-0">{v.tag ? <GlassBadge tone="info">{v.tag}</GlassBadge> : <span className="font-mono text-slate-500">{v.short_hash}</span>}</div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-slate-100" title={v.subject}>
+                  {v.subject}
+                </p>
+                <p className="text-[10px] text-slate-500">
+                  {when(v.date)} · <span className="font-mono">{v.short_hash}</span>
+                </p>
+              </div>
+              {v.is_current ? (
+                <GlassBadge tone="success">CURRENT</GlassBadge>
+              ) : (
+                <GlassButton size="xs" variant={older(i) ? "secondary" : "ghost"} disabled={busy || running} onClick={() => setPick(v)}>
+                  <RotateCcw size={12} /> {older(i) ? "Downgrade to This Version" : "Install This Version"}
+                </GlassButton>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="mt-2">
+        <Notice error={error} notice={notice} />
+      </div>
+      <ConfirmModal
+        open={!!pick}
+        onClose={() => setPick(null)}
+        onConfirm={go}
+        busy={busy}
+        error={error}
+        title={pick && versions && older(versions.indexOf(pick)) ? "Downgrade ProxmoxOS" : "Switch ProxmoxOS version"}
+        confirmLabel="Switch Version"
+        message={
+          <>
+            Switch ProxmoxOS to <b>{pick?.tag ?? pick?.short_hash}</b> ({pick?.subject})?
+            <br />
+            <br />
+            Only the ProxmoxOS program files change. All settings, users, passwords, 2FA, ZFS pools and datasets, schedules and network shares remain untouched, and you can switch back from
+            this list at any time. {st?.settings.mode === "auto" && "Automatic updates are switched to Notify so they do not undo the downgrade."}
+          </>
+        }
       />
     </Card>
   );
@@ -382,6 +554,7 @@ function DockCard() {
 }
 
 function PowerSection({ info }: { info: SystemInfo }) {
+  const openBugReport = useBugReport((s) => s.set);
   const [ask, setAsk] = useState<"reboot" | "shutdown" | null>(null);
   const { busy, error, notice, run } = useRunner();
   const send = async () => {
@@ -404,7 +577,13 @@ function PowerSection({ info }: { info: SystemInfo }) {
           ]}
         />
       </Card>
-      <UpdateCard />
+      <UpdatesSection />
+      <Card title="Report a Bug">
+        <p className="mb-3 text-xs text-slate-400">Something not working? Send a report to the ProxmoxOS developers on GitHub, with anonymized diagnostics if you like.</p>
+        <GlassButton onClick={() => openBugReport(true)}>
+          <Bug size={13} /> Report a Bug
+        </GlassButton>
+      </Card>
       <Card title="Power">
         <p className="mb-3 text-xs text-slate-400">All VMs and containers on the host stop, and ProxmoxOS goes offline until the host is back.</p>
         <div className="flex flex-wrap gap-2">

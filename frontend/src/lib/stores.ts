@@ -177,6 +177,7 @@ export const useIntent = create<IntentState>((set) => ({
 }));
 
 export const useSpotlight = create<{ open: boolean; set: (open: boolean) => void }>((set) => ({ open: false, set: (open) => set({ open }) }));
+export const useBugReport = create<{ open: boolean; set: (open: boolean) => void }>((set) => ({ open: false, set: (open) => set({ open }) }));
 
 /* ---------------- Desktop preferences (per browser) ---------------- */
 

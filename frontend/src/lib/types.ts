@@ -461,15 +461,38 @@ export interface SearchResult {
   target: { type?: "qemu" | "lxc"; vmid?: number; name?: string; status?: string; path?: string; pool?: string; app_id?: string; section?: string };
 }
 
+export interface UpdateSettings {
+  mode: "manual" | "notify" | "auto";
+  schedule_frequency: "6h" | "daily" | "weekly";
+  schedule_time: string;
+  schedule_day: number;
+  last_checked_at: string | null;
+  latest_remote_commit: string | null;
+  latest_remote_tag: string | null;
+  update_available: boolean;
+}
+
+export interface VersionEntry {
+  hash: string;
+  short_hash: string;
+  tag: string | null;
+  date: string;
+  subject: string;
+  is_current: boolean;
+}
+
 export interface UpdateStatus {
   git: boolean;
   commit: string | null;
+  tag: string | null;
   branch: string;
   remote: string;
   version: string | null;
   remote_commit: string | null;
-  check_error: string | null;
+  remote_tag: string | null;
   update_available: boolean;
+  incoming: VersionEntry[];
+  settings: UpdateSettings;
   running: boolean;
   exit_code: number | null;
   log: string[];

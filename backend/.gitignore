@@ -6,3 +6,6 @@ data/schedules.tmp
 data/security.json
 data/security.tmp
 .ssh/
+data/user_preferences.json
+data/update_settings.json
+data/update_settings.tmp
