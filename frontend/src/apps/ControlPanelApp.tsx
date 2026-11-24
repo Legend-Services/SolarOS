@@ -275,7 +275,7 @@ function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; run
             <CloudDownload size={13} /> {running ? "Updating…" : "Install Update Now"}
           </GlassButton>
         )}
-        {st && !st.update_available && st.settings.last_checked_at && !running && <span className="text-xs text-emerald-300">ProxmoxOS is up to date.</span>}
+        {st && !st.update_available && st.settings.last_checked_at && !st.settings.last_check_error && !running && <span className="text-xs text-emerald-300">ProxmoxOS is up to date.</span>}
         {done && st.exit_code === 0 && (
           <GlassButton onClick={() => window.location.reload()}>
             <RefreshCw size={13} /> Reload ProxmoxOS
@@ -294,6 +294,11 @@ function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; run
               </li>
             ))}
           </ul>
+        </div>
+      )}
+      {st?.settings.last_check_error && !error && (
+        <div className="mt-3">
+          <Notice error={`Last update check failed: ${st.settings.last_check_error}`} />
         </div>
       )}
       {(running || done) && (

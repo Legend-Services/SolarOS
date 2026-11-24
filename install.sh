@@ -401,7 +401,7 @@ if [[ -n "$UPGRADE" ]]; then
   row "Status:" "Healthy (backend and nginx restarted)"
   row "Login:" "unchanged (your existing admin password)"
   row "Container ID:" "${CTID}"
-  row "Settings backup:" "${BACKUP} (in the container)"
+  row "Backup (in CT):" "${BACKUP}"
 else
   row "" "ProxmoxOS v${VERSION} is ready"
   edge ╠ ╣

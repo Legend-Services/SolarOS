@@ -3,9 +3,11 @@
 The actual code swap runs in deploy/self-update.sh as a detached systemd unit, because it restarts this backend.
 """
 import asyncio
+import base64
 import json
 import logging
 import shutil
+from contextlib import suppress
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Literal
@@ -26,7 +28,8 @@ LOG = Path("/var/log/proxmox-os-self-update.log")
 REF_RE = r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$"
 SEP = "\x1f"
 DEFAULTS = {"mode": "notify", "schedule_frequency": "daily", "schedule_time": "03:00", "schedule_day": 0,
-            "last_checked_at": None, "latest_remote_commit": None, "latest_remote_tag": None, "update_available": False}
+            "last_checked_at": None, "latest_remote_commit": None, "latest_remote_tag": None, "update_available": False,
+            "last_check_error": None}
 
 
 # ---------------------------------------------------------------- Settings
@@ -85,7 +88,12 @@ async def _cmd(*args: str, timeout: float = 30) -> tuple[int, str]:
 
 def git(*args: str, timeout: float = 30):
     # The tree can be owned by another uid (deploy.sh tarball), which git otherwise refuses as "dubious ownership".
-    return _cmd("git", "-c", "safe.directory=*", *args, timeout=timeout)
+    auth = []
+    if settings.github_token:
+        # Private repositories: GitHub accepts a token as Basic auth with any user name.
+        b64 = base64.b64encode(f"x-access-token:{settings.github_token}".encode()).decode()
+        auth = ["-c", f"http.https://github.com/.extraheader=Authorization: Basic {b64}"]
+    return _cmd("git", "-c", "safe.directory=*", *auth, *args, timeout=timeout)
 
 
 async def _out(*args: str) -> str | None:
@@ -127,6 +135,9 @@ async def ensure_repo(branch: str) -> None:
     unshallow = ["--unshallow"] if (APP_DIR / ".git/shallow").exists() else []
     rc, out = await git("fetch", "-q", "--tags", "--force", *unshallow, "origin",
                         f"+refs/heads/{branch}:refs/remotes/origin/{branch}", timeout=120)
+    if rc and ("could not read Username" in out or "Authentication failed" in out):
+        raise HTTPException(502, "GitHub refused access to the update source (private repository or invalid token). "
+                                 "Set GITHUB_TOKEN in backend/.env or make the repository public.")
     if rc:
         raise HTTPException(502, f"git fetch failed: {out[-300:]}")
     if not await _out("rev-parse", "--verify", "-q", "HEAD"):
@@ -152,13 +163,19 @@ FMT = f"--format=%H{SEP}%h{SEP}%cI{SEP}%s{SEP}%D"
 
 async def check() -> dict:
     src = await source()
-    await ensure_repo(src["branch"])
+    try:
+        await ensure_repo(src["branch"])
+    except HTTPException as e:
+        save_settings({**load_settings(), "last_checked_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+                       "last_check_error": e.detail})
+        raise
     remote_ref = f"origin/{src['branch']}"
     remote_commit = await _out("rev-parse", remote_ref)
     remote_tag = await _out("describe", "--tags", "--abbrev=0", remote_ref)
     s = load_settings()
     s.update(last_checked_at=datetime.now().astimezone().isoformat(timespec="seconds"), latest_remote_commit=remote_commit,
-             latest_remote_tag=remote_tag, update_available=bool(remote_commit) and remote_commit != src["commit"])
+             latest_remote_tag=remote_tag, update_available=bool(remote_commit) and remote_commit != src["commit"],
+             last_check_error=None)
     return save_settings(s)
 
 
@@ -230,8 +247,9 @@ def put_settings(body: UpdateSettings):
 @router.get("/versions")
 async def versions():
     src = await source()
-    if (APP_DIR / ".git").is_dir() and not await _out("rev-parse", "--verify", "-q", f"origin/{src['branch']}"):
-        await ensure_repo(src["branch"])
+    if not await _out("rev-parse", "--verify", "-q", f"origin/{src['branch']}"):
+        with suppress(HTTPException):  # offline or no access: show the local history only
+            await ensure_repo(src["branch"])
     head = f"origin/{src['branch']}" if await _out("rev-parse", "--verify", "-q", f"origin/{src['branch']}") else "HEAD"
     commits = _parse_log(await _out("log", "-25", FMT, head), src["commit"])
     tagged = _parse_log(await _out("log", "--no-walk=sorted", "--tags", FMT), src["commit"])
@@ -288,7 +306,6 @@ async def scheduler_loop() -> None:
         except asyncio.CancelledError:
             raise
         except Exception as e:  # noqa: BLE001 - a failed check must not stop future checks
+            # check() already recorded the attempt, so a broken network does not retry every minute.
             log.warning("Update check failed: %s", getattr(e, "detail", e))
-            # Record the attempt so a broken network does not retry every minute.
-            save_settings({**load_settings(), "last_checked_at": datetime.now().astimezone().isoformat(timespec="seconds")})
         await asyncio.sleep(60)

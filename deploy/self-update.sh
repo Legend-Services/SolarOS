@@ -12,9 +12,12 @@ APP_DIR="${1:?app dir}"; REPO_URL="${2:?repo url}"; BRANCH="${3:?branch}"; TARGE
 [[ "$BRANCH" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "invalid branch"; echo "proxmox-os: exit 2"; exit 2; }
 [[ -z "$TARGET" || "$TARGET" =~ ^[0-9a-f]{7,40}$ ]] || { echo "invalid target"; echo "proxmox-os: exit 2"; exit 2; }
 export DEBIAN_FRONTEND=noninteractive
-# The tree may be owned by another uid (deploy.sh tarball); git refuses that without safe.directory.
-git() { command git -c safe.directory='*' "$@"; }
 cd "$APP_DIR"
+# Private repositories: authenticate with GITHUB_TOKEN from backend/.env when it is set.
+TOKEN="$(sed -n 's/^GITHUB_TOKEN=//p' backend/.env 2>/dev/null | head -n1 || true)"
+AUTH=(); [[ -n "$TOKEN" ]] && AUTH=(-c "http.https://github.com/.extraheader=Authorization: Basic $(printf 'x-access-token:%s' "$TOKEN" | base64 -w0)")
+# The tree may be owned by another uid (deploy.sh tarball); git refuses that without safe.directory.
+git() { command git -c safe.directory='*' "${AUTH[@]}" "$@"; }
 
 STATE=/tmp/proxmox-os-state-backup
 echo "==> Saving settings and data to ${STATE}"

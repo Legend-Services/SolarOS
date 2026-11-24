@@ -470,6 +470,7 @@ export interface UpdateSettings {
   latest_remote_commit: string | null;
   latest_remote_tag: string | null;
   update_available: boolean;
+  last_check_error: string | null;
 }
 
 export interface VersionEntry {
