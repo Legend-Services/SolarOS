@@ -364,7 +364,7 @@ function HardwarePerf({ status, reload }: { status: AiStatus; reload: () => void
 
 /* ---------------- Playground Chat ---------------- */
 
-type Msg = { role: "user" | "assistant"; content: string; tps?: number | null; tokens?: number };
+type Msg = { role: "user" | "assistant"; content: string; thinking?: string; tps?: number | null; tokens?: number };
 
 function Playground({ initial }: { initial: string }) {
   const [models, setModels] = useState<LocalModel[]>([]);
@@ -374,13 +374,17 @@ function Playground({ initial }: { initial: string }) {
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const end = useRef<HTMLDivElement>(null);
+  const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     api<LocalModel[]>("/ai/models/local")
       .then((m) => (setModels(m), setModel((cur) => cur || m[0]?.name || "")))
       .catch((e) => setError(e.message));
   }, []);
-  useEffect(() => end.current?.scrollIntoView({ block: "end" }), [msgs.length, busy]);
+  // Scroll only the chat pane: scrollIntoView also scrolls the desktop's overflow-hidden ancestors, and an
+  // expression-bodied effect would hand React the Promise newer Chrome returns from scroll methods as a "cleanup".
+  useEffect(() => {
+    if (box.current) box.current.scrollTop = box.current.scrollHeight;
+  }, [msgs, busy]);
 
   const send = async (e: FormEvent) => {
     e.preventDefault();
@@ -390,12 +394,41 @@ function Playground({ initial }: { initial: string }) {
     setInput("");
     setBusy(true);
     setError("");
+    let content = "";
+    let thinking = "";
     try {
-      const r = await api<{ text: string; tokens_per_sec: number | null; eval_count: number }>("/ai/chat", {
+      const res = await fetch("/api/ai/chat", {
         method: "POST",
-        json: { model, system: system || null, messages: next.map(({ role, content }) => ({ role, content })) },
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model, system: system || null, stream: true, messages: next.map(({ role, content }) => ({ role, content })) }),
       });
-      setMsgs([...next, { role: "assistant", content: r.text, tps: r.tokens_per_sec, tokens: r.eval_count }]);
+      if (!res.ok || !res.body) {
+        const detail = (await res.json().catch(() => null))?.detail;
+        throw new Error(typeof detail === "string" ? detail : res.statusText || "Chat failed");
+      }
+      // NDJSON from the backend: {delta, thinking} chunks, then {done, tokens_per_sec, eval_count} or {error}.
+      const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+      let buf = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buf += value;
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const ev = JSON.parse(line);
+          if (ev.error) throw new Error(ev.error);
+          if (ev.done) {
+            setMsgs([...next, { role: "assistant", content, thinking, tps: ev.tokens_per_sec, tokens: ev.eval_count }]);
+          } else {
+            content += ev.delta ?? "";
+            thinking += ev.thinking ?? "";
+            setMsgs([...next, { role: "assistant", content, thinking }]);
+          }
+        }
+      }
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -419,10 +452,16 @@ function Playground({ initial }: { initial: string }) {
           Clear
         </GlassButton>
       </div>
-      <div className="min-h-0 flex-1 space-y-2 overflow-auto p-3">
+      <div ref={box} className="min-h-0 flex-1 space-y-2 overflow-auto p-3">
         {msgs.length === 0 && <p className="text-sm text-slate-400">Ask anything to test the model. The first reply also loads it into memory.</p>}
         {msgs.map((m, i) => (
           <div key={i} className={`max-w-[85%] rounded-xl px-3 py-2 text-xs whitespace-pre-wrap ${m.role === "user" ? "ml-auto bg-violet-500/25 text-white" : "glass-soft text-slate-100"}`}>
+            {m.thinking && (
+              <details open={!m.content} className="mb-1.5 rounded-lg bg-black/25 px-2 py-1 text-[11px] text-slate-400">
+                <summary className="cursor-pointer select-none">{m.content ? "Thought process" : "Thinking…"}</summary>
+                {m.thinking}
+              </details>
+            )}
             {m.content}
             {m.role === "assistant" && m.tps != null && (
               <div className="mt-1.5">
@@ -433,9 +472,10 @@ function Playground({ initial }: { initial: string }) {
             )}
           </div>
         ))}
-        {busy && <p className="text-[11px] text-slate-400">Generating…</p>}
+        {busy && msgs[msgs.length - 1]?.role === "user" && (
+          <p className="text-[11px] text-slate-400">Loading the model and generating… (a large model can take up to a minute the first time)</p>
+        )}
         <Notice error={error} />
-        <div ref={end} />
       </div>
       <form onSubmit={send} className="flex gap-2 border-t border-white/10 p-3">
         <GlassInput className="flex-1 py-2 text-xs" placeholder="Message" value={input} onChange={(e) => setInput(e.target.value)} aria-label="Message" disabled={busy} />

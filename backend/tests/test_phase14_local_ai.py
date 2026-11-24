@@ -53,6 +53,9 @@ assert ai.dri_devs(conf) == {0: "/dev/dri/renderD128"}
 
 # Ollama environment drop-in per target.
 assert 'CUDA_VISIBLE_DEVICES=-1' in ai.ollama_env("cpu", True, False)
+assert f"OLLAMA_CONTEXT_LENGTH={ai.CONTEXT_LENGTH}" in ai.ollama_env("nvidia:0", True, False)
+assert ai.speed({"eval_count": 100, "eval_duration": 2e9, "total_duration": 3e9}) == \
+    {"tokens_per_sec": 50.0, "eval_count": 100, "total_duration_ms": 3000}
 gpu = ai.ollama_env("nvidia:01:00.0", True, True)
 assert "OLLAMA_FLASH_ATTENTION=1" in gpu and "OLLAMA_KV_CACHE_TYPE=q8_0" in gpu and "CUDA_VISIBLE" not in gpu
 assert "KV_CACHE" not in ai.ollama_env("nvidia:0", False, True)  # q8 KV cache needs flash attention
