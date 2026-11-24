@@ -36,7 +36,7 @@ assert drives["/dev/nvme0n1"]["temp_c"] == 34 and drives["/dev/sdb"]["temp_c"] i
 nics = {n["name"]: n for n in inv["network"]}
 assert nics["nic0"]["physical"] and nics["nic0"]["driver"] == "r8169" and nics["nic0"]["speed_mbps"] == 1000
 assert "lo" not in nics and nics["vmbr0"]["addresses"], nics["vmbr0"]
-assert inv["packages"]["firmware-amd-graphics"] is None and inv["packages"]["lm-sensors"] is None
+assert inv["packages"]["pve-firmware"] is None and inv["packages"]["lm-sensors"] is None
 
 # Parsers with outputs not present on this host.
 nv = h.parse_nvidia("00000000:01:00.0, NVIDIA GeForce RTX 3090, 570.153.02, 24576, 512, 7, 41, 23.45\nbad")
@@ -64,4 +64,7 @@ assert all(a.split("-")[0] in ("nvidia", "intel", "amd") for a in h.SCRIPTS)
 assert "__PROBE_PKG__" not in h.SCRIPTS["intel-install"]
 # `apt-cache show` exits 0 for a package with no candidate, which skipped enabling non-free (trixie hosts).
 assert "apt-cache show" not in h.NONFREE and "apt-cache madison" in h.NONFREE
+# Debian firmware-* packages conflict with pve-firmware: installing one removes proxmox-ve.
+installs = [ln for s in h.SCRIPTS.values() for ln in s.splitlines() if "apt-get install" in ln]
+assert installs and not any("firmware-" in ln for ln in installs), "a GPU script installs a Debian firmware-* package"
 print("hardware_admin self-check OK")
