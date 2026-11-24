@@ -13,12 +13,12 @@ import shlex
 import time
 import uuid
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Path as PathParam, Query
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from . import host_ssh, pci
 from .apps import MODEL_RE, TARGET_RE, DeployBody, StaticIP, deploy
@@ -582,12 +582,34 @@ class ChatDoc(BaseModel):
     messages: list[StoredMessage] = Field(min_length=1, max_length=500)
 
 
+def snippet(text: str, needle: str, width: int = 70) -> str:
+    """About `width` characters of `text` around the first case-insensitive match of `needle`, on one line."""
+    i = text.lower().find(needle)
+    start = max(0, i - width // 3)
+    if start and (sp := text.find(" ", start, i)) != -1:
+        start = sp + 1  # begin at a word boundary, never past the match
+    s = " ".join(text[start:start + width].split())
+    return ("…" if start else "") + s + ("…" if start + width < len(text) else "")
+
+
+def chat_match(chat: dict, needle: str) -> tuple[bool, str | None]:
+    """(matches, snippet): a title match needs no snippet; otherwise the first message that contains the text."""
+    if not needle or needle in chat.get("title", "").lower():
+        return True, None
+    m = next((m["content"] for m in chat.get("messages", []) if needle in m.get("content", "").lower()), None)
+    return (m is not None), (snippet(m, needle) if m is not None else None)
+
+
 @router.get("/chats")
-async def list_chats():
-    """Conversation summaries, newest first."""
-    return sorted(({"id": k, "title": v.get("title", ""), "model": v.get("model", ""), "updated": v.get("updated", 0),
-                    "messages": len(v.get("messages", []))} for k, v in load_chats().items()),
-                  key=lambda c: c["updated"], reverse=True)
+async def list_chats(q: Annotated[str, Query(max_length=100)] = ""):
+    """Conversation summaries, newest first; `q` searches titles and message text (case-insensitive)."""
+    needle, out = q.strip().lower(), []
+    for k, v in load_chats().items():
+        ok, snip = chat_match(v, needle)
+        if ok:
+            out.append({"id": k, "title": v.get("title", ""), "model": v.get("model", ""), "updated": v.get("updated", 0),
+                        "messages": len(v.get("messages", [])), "snippet": snip})
+    return sorted(out, key=lambda c: c["updated"], reverse=True)
 
 
 @router.get("/chats/{chat_id}")
@@ -603,10 +625,28 @@ async def put_chat(body: ChatDoc, chat_id: str = PathParam(pattern=CHAT_ID_RE)):
     async with _chats_lock:
         chats = load_chats()
         now = int(time.time())
-        chats[chat_id] = {**body.model_dump(exclude_none=True), "created": chats.get(chat_id, {}).get("created", now),
-                          "updated": now}
+        old = chats.get(chat_id, {})
+        chats[chat_id] = {**body.model_dump(exclude_none=True), "created": old.get("created", now), "updated": now}
+        if old.get("renamed"):  # autosave sends the first question as title; a name the user chose wins
+            chats[chat_id].update(title=old["title"], renamed=True)
         save_chats(chats)
     return {"id": chat_id, "updated": now}
+
+
+class RenameBody(BaseModel):
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
+
+
+@router.patch("/chats/{chat_id}")
+async def rename_chat(body: RenameBody, chat_id: str = PathParam(pattern=CHAT_ID_RE)):
+    """Rename without touching `updated`, so the conversation keeps its place in the list."""
+    async with _chats_lock:
+        chats = load_chats()
+        if chat_id not in chats:
+            raise HTTPException(404, "Conversation not found")
+        chats[chat_id].update(title=body.title, renamed=True)
+        save_chats(chats)
+    return {"id": chat_id, "title": body.title}
 
 
 @router.delete("/chats/{chat_id}")

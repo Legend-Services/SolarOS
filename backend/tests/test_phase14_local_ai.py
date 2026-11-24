@@ -120,4 +120,26 @@ for bad in ({"title": "", "model": "m", "messages": msg}, {"title": "t", "model"
     except ValidationError:
         pass
 assert re.fullmatch(ai.CHAT_ID_RE, "0123456789ab") and not re.fullmatch(ai.CHAT_ID_RE, "../../etc/pw")
+
+# Rename survives autosave and keeps the list order; search covers titles and message text.
+ai.MAX_CHATS = 200
+order = [c["id"] for c in asyncio.run(ai.list_chats())]
+asyncio.run(ai.rename_chat(ai.RenameBody(title="  PowerShell tips  "), "c" * 12))
+assert asyncio.run(ai.get_chat("c" * 12))["title"] == "PowerShell tips" and [c["id"] for c in asyncio.run(ai.list_chats())] == order
+asyncio.run(ai.put_chat(doc("first question as title"), "c" * 12))  # autosave after the next reply
+assert asyncio.run(ai.get_chat("c" * 12))["title"] == "PowerShell tips", "autosave overwrote a user-chosen name"
+for blank in ("", "   "):
+    try:
+        ai.RenameBody(title=blank)
+        raise AssertionError("blank title accepted")
+    except ValidationError:
+        pass
+long = [{"role": "user", "content": "x " * 100 + "Get-ChildItem lists files " + "y " * 100}]
+asyncio.run(ai.put_chat(ai.ChatDoc(title="files", model="m", messages=long), "e" * 12))
+hits = {c["title"]: c["snippet"] for c in asyncio.run(ai.list_chats(q="get-childitem"))}
+assert list(hits) == ["files"] and "Get-ChildItem lists files" in hits["files"] and hits["files"].startswith("…"), hits
+assert [c["title"] for c in asyncio.run(ai.list_chats(q="powershell"))] == ["PowerShell tips"]  # title match: no snippet
+assert asyncio.run(ai.list_chats(q="powershell"))[0]["snippet"] is None and asyncio.run(ai.list_chats(q="no-such-text")) == []
+s = ai.snippet("Once upon a time an old lighthouse keeper watched the stormy sea every night.", "stormy sea")
+assert s.startswith("…") and s[1:].split()[0] in "Once upon a time an old lighthouse keeper".split() and "stormy sea" in s, s
 print("phase14 local ai: ok")
