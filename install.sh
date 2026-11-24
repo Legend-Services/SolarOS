@@ -6,6 +6,10 @@
 # Samba shares; only the code, dependencies and frontend build are refreshed. Running it inside the SolarDeck
 # container upgrades that container in place.
 set -Eeuo pipefail
+# pct exec passes the SSH session's locale (e.g. en_US.UTF-8) into the container, where it is not generated and every
+# perl-based apt/dpkg step warns "Setting locale failed". C.UTF-8 is built into Debian and Proxmox VE.
+export LANG=C.UTF-8 LC_ALL=C.UTF-8
+unset LANGUAGE
 
 REPO_URL="${REPO_URL:-https://github.com/Legend-Services/SolarOS.git}"
 REPO_BRANCH="${REPO_BRANCH:-main}"
