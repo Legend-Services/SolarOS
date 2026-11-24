@@ -81,7 +81,7 @@ for mode in manual ${AUTO_DISK:+auto}; do
   sed -e "s|@@INTERACTIVE@@|${inter}|" -e "s|@@DISK_MATCH@@|${match}|" -e "s|@@HOSTNAME@@|${HOSTNAME_}|" -e "s|@@PASSWORD_HASH@@|${HASH}|" \
     "${ROOT}/hypervisor/autoinstall/user-data.template" >"$WORK/iso/nocloud/$mode/user-data"
   cp "${ROOT}/hypervisor/autoinstall/meta-data" "$WORK/iso/nocloud/$mode/meta-data"
-  grep -q '@@' "$WORK/iso/nocloud/$mode/user-data" && die "unfilled placeholder in user-data"
+  grep -qE '@@[A-Z_]+@@' "$WORK/iso/nocloud/$mode/user-data" && die "unfilled placeholder in user-data"
 done
 
 # ---------------------------------------------------------------- Embedded SolarDeck bundle (source + desktop + wheels)
@@ -136,7 +136,7 @@ menuentry "Install SolarDeck Hypervisor (Interactive Disk Selection)" {
 }
 EOF
 [[ -n "$AUTO_DISK" ]] && cat >>"$ENTRIES" <<EOF
-menuentry "SolarDeck Hypervisor — Automated VM Test Install (erases ${AUTO_DISK})" {
+menuentry "SolarDeck Hypervisor - Automated VM Test Install (erases ${AUTO_DISK})" {
 	set gfxpayload=keep
 	linux	${KERNEL} autoinstall ds=nocloud\\;s=/cdrom/nocloud/auto/ ---
 	initrd	${INITRD}

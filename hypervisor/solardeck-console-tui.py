@@ -184,7 +184,10 @@ def probe_readiness() -> dict:
     virt = sh("systemd-detect-virt").strip()
     return {"cpu_flag": "vmx" if re.search(r"\bvmx\b", flags) else "svm" if re.search(r"\bsvm\b", flags) else "",
             "kvm": Path("/dev/kvm").exists(), "nested": nested,
-            "libvirtd": sh("systemctl", "is-active", "libvirtd").strip(), "incus": sh("systemctl", "is-active", "incus").strip(),
+            # Ubuntu starts libvirtd on demand: an active socket is ready.
+            "libvirtd": "active" if "active" in sh("systemctl", "is-active", "libvirtd", "libvirtd.socket").split() else
+                        sh("systemctl", "is-active", "libvirtd").strip(),
+            "incus": sh("systemctl", "is-active", "incus").strip(),
             "zfs": f"zfs {zfs.read_text().strip()}" if zfs.exists() else "", "br0": br0,
             "virt": f"virtual machine ({virt})" if virt and virt != "none" else ""}
 
@@ -218,7 +221,8 @@ class Console:
 
     def dashboard(self) -> None:
         f = facts()
-        self.scr.erase()
+        # clear(), not erase(): a full repaint wipes kernel/journal lines written to tty1 behind curses' back.
+        self.scr.clear()
         y = 0
         for line in BANNER.strip("\n").splitlines():
             self.put(y, 2, line, curses.color_pair(1) | curses.A_BOLD)

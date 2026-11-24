@@ -122,7 +122,9 @@ if [[ -n "$SRC" && "$(realpath "$SRC")" != "$(realpath -m "$APP_DIR")" ]]; then
   cp "${SRC%/}/backend/data/app_catalog.json" "${APP_DIR}/backend/data/app_catalog.json"
   [[ -n "$PREBUILT" ]] && rsync -a --delete "${SRC%/}/frontend/dist/" "${APP_DIR}/frontend/dist/"
   [[ -f "${SRC%/}/.build-commit" ]] && cp "${SRC%/}/.build-commit" "${APP_DIR}/.build-commit"
-  git -C "$SRC" rev-parse HEAD >"${APP_DIR}/.build-commit" 2>/dev/null || true
+  # A bundle has no .git: keep the .build-commit copied above instead of truncating it.
+  COMMIT="$(git -C "$SRC" rev-parse HEAD 2>/dev/null || true)"
+  if [[ -n "$COMMIT" ]]; then echo "$COMMIT" >"${APP_DIR}/.build-commit"; fi
 elif [[ -d "${APP_DIR}/.git" ]]; then
   # Re-run on a git checkout: move to the tip of the branch (untracked state files are untouched).
   git -C "$APP_DIR" -c safe.directory='*' fetch -q --tags origin "+refs/heads/${REPO_BRANCH}:refs/remotes/origin/${REPO_BRANCH}"

@@ -4,7 +4,7 @@
 
 ### Added
 - **Self-contained ISO bundle**: `hypervisor/build-iso.sh` now builds the desktop (`npm ci && npm run build`) and downloads the backend's Python wheels for Ubuntu's CPython (`pip download --only-binary`) into the embedded SolarDeck bundle, so first boot needs no Node.js build and no PyPI. Missing build tools fall back to fetching that part on first boot. The default output is `./dist/SolarDeck-Hypervisor-v<version>-amd64.iso`, and the SHA-256 is printed.
-- `build-iso.sh --auto-disk <device>` adds a **SolarDeck Hypervisor — Automated VM Test Install** boot entry that installs to that disk unattended. `--deploy-to-pve` copies the ISO to `/var/lib/vz/template/iso/` on a Proxmox VE host.
+- `build-iso.sh --auto-disk <device>` adds a **SolarDeck Hypervisor - Automated VM Test Install** boot entry that installs to that disk unattended. `--deploy-to-pve` copies the ISO to `/var/lib/vz/template/iso/` on a Proxmox VE host.
 - **`hypervisor/firstboot-setup.sh`** (run once by `solardeck-firstboot.service`):
   - bridges the primary Ethernet port into `br0` with DHCP (`/etc/netplan/60-solardeck-bridge.yaml`). The installer's Netplan files are parked, and put back if the bridge gets no address.
   - runs `install-hypervisor.sh --bundle`.
@@ -17,7 +17,7 @@
 - **`hypervisor/test-in-proxmox-vm.sh`**: one command on a Proxmox VE host creates and starts a nested test VM:
   - q35, OVMF + EFI disk, host CPU, 4 cores, 8 GiB.
   - a 32 GB OS disk and two 32 GB data disks for ZFS mirror/RAIDZ1, SMART and benchmark tests.
-  - virtio NIC on `vmbr0`, the ISO on `ide2`, boot order `ide2;scsi0`.
+  - virtio NIC on `vmbr0`, the ISO on `ide2`, boot order `scsi0;ide2` (QEMU's boot order beats the installer's UEFI entry, so CD-first would reinstall on every reboot; the blank disk falls through to the ISO once).
   - it checks nested virtualization (`--enable-nested` turns it on when no VM runs), picks the next free VMID from 900 and `local-zfs`/`local-lvm`, never touches an existing VMID, and supports `--dry-run`.
 - **Control Panel → System & Updates → Standalone Hypervisor ISO**: the build and test commands with copy buttons, and every built `SolarDeck-Hypervisor-*.iso` in `/mnt/storage/isos/` or `/var/lib/vz/template/iso/` with its size and SHA-256 (`GET /api/system/updates/iso`; each ISO is hashed once).
 - README: **Testing SolarDeck Hypervisor ISO inside a Proxmox VE VM**.

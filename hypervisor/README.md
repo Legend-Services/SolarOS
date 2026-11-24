@@ -71,7 +71,7 @@ sudo bash hypervisor/build-iso.sh                 # -> ./dist/SolarDeck-Hypervis
 
 Without `--source-iso` the latest official live-server ISO of the release is downloaded and checked against
 `SHA256SUMS`. The default boot entry, **Install SolarDeck Hypervisor (Interactive Disk Selection)**, asks for the
-target disk, so it is safe on servers with data disks. `--auto-disk <device>` adds **SolarDeck Hypervisor — Automated
+target disk, so it is safe on servers with data disks. `--auto-disk <device>` adds **SolarDeck Hypervisor - Automated
 VM Test Install**, which erases that disk without asking. `--deploy-to-pve` copies the ISO to
 `/var/lib/vz/template/iso/` on a Proxmox VE host.
 
@@ -110,7 +110,7 @@ next free VMID from 900, `local-zfs` or `local-lvm` and `vmbr0` unless you pass 
 
 Then open **Datacenter → your node → the VM → Console** (noVNC):
 
-1. Choose **SolarDeck Hypervisor — Automated VM Test Install** in the boot menu. The default entry,
+1. Choose **SolarDeck Hypervisor - Automated VM Test Install** in the boot menu. The default entry,
    **Install SolarDeck Hypervisor (Interactive Disk Selection)**, asks for the disk and is the one to use on real servers.
 2. After the reboot, the first-boot setup bridges the NIC into `br0`, installs KVM/libvirt, Incus, OpenZFS and
    SolarDeck, and starts the tty1 console. It shows the web URL and the initial `admin` password.
