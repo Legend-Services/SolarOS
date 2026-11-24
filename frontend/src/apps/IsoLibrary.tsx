@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Disc3, Download, Package, RefreshCw, Trash2 } from "lucide-react";
-import { api } from "../lib/api";
+import { Disc3, Download, Package, RefreshCw, Trash2, Upload } from "lucide-react";
+import { api, uploadIso } from "../lib/api";
+import { useDriver } from "../store/capabilitiesStore";
 import type { StorageVolume } from "../lib/types";
 import { bytes } from "../lib/format";
 import { useRunner } from "../lib/hooks";
@@ -21,6 +22,9 @@ export default function IsoLibrary() {
   const [task, setTask] = useState<string | null>(null);
   const [del, setDel] = useState<StorageVolume | null>(null);
   const { busy, error, notice, run } = useRunner();
+  const [progress, setProgress] = useState<number | null>(null);
+  // SolarOS streams uploads into its own storage; on Proxmox VE the Proxmox web UI handles uploads.
+  const canUpload = useDriver() === "native_ubuntu" && content === "iso";
   const stores = targets.filter((t) => t.active && t.content.split(",").includes(content)).map((t) => t.storage);
   const storeKey = stores.join(",");
 
@@ -43,6 +47,17 @@ export default function IsoLibrary() {
       setFilename("");
     });
   };
+  const upload = (file: File | undefined) =>
+    file &&
+    run(async () => {
+      setProgress(0);
+      try {
+        await uploadIso(store, file, setProgress);
+      } finally {
+        setProgress(null);
+      }
+      load();
+    }, `${file.name} uploaded.`);
   const remove = () =>
     del &&
     run(() => api(`/pve/storage/${del.storage}/content?volume=${encodeURIComponent(del.volid)}`, { method: "DELETE" }).then(() => (setDel(null), setTimeout(load, 1500))), "Volume deleted.");
@@ -82,6 +97,23 @@ export default function IsoLibrary() {
           <Download size={13} /> Download
         </GlassButton>
       </form>
+      {canUpload && (
+        <div className="glass-soft flex flex-wrap items-center gap-3 rounded-2xl p-3">
+          <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-sky-500/80 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-500 ${busy || !store ? "pointer-events-none opacity-50" : ""}`}>
+            <Upload size={13} /> Upload ISO from this computer
+            <input type="file" accept=".iso,.img" className="sr-only" disabled={busy || !store} onChange={(e) => (upload(e.target.files?.[0]), (e.target.value = ""))} />
+          </label>
+          <span className="text-[11px] text-slate-400">For installers you cannot download by URL, such as Windows. The file goes to {store || "local"}.</span>
+          {progress !== null && (
+            <div className="flex w-full items-center gap-2" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+                <div className="h-full bg-sky-400 transition-[width]" style={{ width: `${progress}%` }} />
+              </div>
+              <span className="w-10 text-right text-[11px] text-slate-300">{progress}%</span>
+            </div>
+          )}
+        </div>
+      )}
       {task && <TaskLog upid={task} className="h-28" onDone={(s) => s !== "running" && load()} />}
       <Notice error={error} notice={notice} />
 

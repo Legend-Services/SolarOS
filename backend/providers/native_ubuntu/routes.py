@@ -9,7 +9,7 @@ import re
 from pathlib import Path as FsPath
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, WebSocket
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, WebSocket
 
 from app import apps, backups, console, local_ai, provisioning, pve_access, pve_datacenter, storage_admin, system
 from app import pve as api
@@ -140,6 +140,14 @@ async def storage_content(storage: str = Path(pattern=storage_admin.STORAGE_RE),
 @router.post("/api/pve/storage/{storage}/download-url")
 async def download_url(body: provisioning.DownloadBody, storage: str = Path(pattern=storage_admin.STORAGE_RE)):
     return _upid(await P().download_url_to_storage(storage, body.model_dump()))
+
+
+@router.post("/api/pve/storage/{storage}/upload")
+async def upload(request: Request, storage: str = Path(pattern=storage_admin.STORAGE_RE),
+                 filename: str = Query(pattern=provisioning.FILENAME_RE), content: Literal["iso"] = "iso"):
+    """Raw request body = the file (streamed; nginx passes it through unbuffered)."""
+    size = int(request.headers.get("content-length") or 0) or None
+    return await P().upload_to_storage(storage, content, filename, request.stream(), size)
 
 
 @router.delete("/api/pve/storage/{storage}/content")

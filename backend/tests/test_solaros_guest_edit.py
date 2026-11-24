@@ -71,6 +71,58 @@ assert ge.lxc_nets(inst) == [{"key": "net0", "index": 0, "raw": "", "name": "eth
 assert ge.lxc_nic_args(1, NetBody(bridge="vmbr0", tag=7, rate=2)) == [
     "eth1", "nic", "nictype=bridged", "parent=br0", "name=eth1", "vlan=7", "limits.max=16Mbit"]
 
+# ---- install CD-ROM: load, swap, eject; seed drive is never the install drive; Windows gets SATA + e1000e
+iso = "/mnt/storage/isos/win11.iso"
+assert ge.install_cdrom(XML) == (None, None)
+x = ge.set_cdrom(ge.attach_cdrom(XML, seed), iso)
+assert ge.install_cdrom(x)[1] == iso and ge.has_file(x, seed)
+x2 = ge.set_cdrom(x, "/mnt/storage/isos/other.iso")
+assert ge.install_cdrom(x2)[1] == "/mnt/storage/isos/other.iso" and ge.install_cdrom(ge.set_cdrom(x2, None))[1] is None
+assert ge.set_cdrom(XML, None) == XML
+import xml.etree.ElementTree as ET  # noqa: E402
+boots = lambda x: [(dk.get("device"), (dk.find("source").get("file") if dk.find("source") is not None else None))  # noqa: E731
+                   for dk in sorted((dk for dk in ET.fromstring(x).findall("devices/disk") if dk.find("boot") is not None),
+                                    key=lambda dk: int(dk.find("boot").get("order")))]
+assert boots(x2) == [("disk", "/x/vm-100-disk-0.qcow2"), ("cdrom", "/mnt/storage/isos/other.iso")], boots(x2)
+assert ET.fromstring(x2).find("os/boot") is None  # libvirt rejects os/boot mixed with per-device order
+assert boots(ge.set_cdrom(XML, iso))[1] == ("cdrom", iso)
+win = host.domain_xml(name="w", vmid=101, cores=2, sockets=1, memory_mb=4096, uefi=True, secure_boot=True,
+                      disks=[{"path": "/x/d.qcow2", "type": "file", "format": "qcow2"}], cdroms=[iso], bridge="br0",
+                      ostype="win11", hostpci=[], usb=[], tpm=True)
+assert 'bus="sata"' in win and 'bus="scsi"' not in win.split("<controller")[0] and 'type="e1000e"' in win
+assert 'bus="scsi"' in XML and 'type="virtio"' in XML  # Linux guests keep virtio
+from app.guest_hardware import cdrom_iso  # noqa: E402
+assert cdrom_iso({"ide2": "local:iso/win11.iso,media=cdrom,size=5G"}) == "local:iso/win11.iso"
+assert cdrom_iso({"ide2": "none,media=cdrom"}) is None and cdrom_iso({"ide2": "local:cloudinit,media=cdrom"}) is None
+assert cdrom_iso({}) is None
+
+# ---- ISO upload streams into /mnt/storage/isos, refuses duplicates and leaves no partial file on errors
+import asyncio, tempfile  # noqa: E401,E402
+from pathlib import Path  # noqa: E402
+from app.config import settings  # noqa: E402
+from providers.native_ubuntu.provider import NativeUbuntuProvider  # noqa: E402
+async def chunks(*parts, fail=False):
+    for c in parts:
+        yield c
+    if fail:
+        raise RuntimeError("client went away")
+with tempfile.TemporaryDirectory() as d:
+    settings.storage_root = Path(d)
+    prov = NativeUbuntuProvider()
+    r = asyncio.run(prov.upload_to_storage("local", "iso", "win11.iso", chunks(b"ab", b"cd"), 4))
+    assert r["volid"] == "local:iso/win11.iso" and (Path(d) / "isos" / "win11.iso").read_bytes() == b"abcd"
+    for name, kw, code in (("win11.iso", {}, 409), ("x.iso", {"storage": "zfs"}, 400), ("x.tar.gz", {}, 400)):
+        try:
+            asyncio.run(prov.upload_to_storage(kw.get("storage", "local"), "iso", name, chunks(b"x"), 1))
+            raise AssertionError(name)
+        except HTTPException as e:
+            assert e.status_code == code, (name, e.status_code)
+    try:
+        asyncio.run(prov.upload_to_storage("local", "iso", "broken.iso", chunks(b"x", fail=True), 2))
+    except RuntimeError:
+        pass
+    assert sorted(p.name for p in (Path(d) / "isos").iterdir()) == ["win11.iso"], "partial upload left behind"
+
 # ---- the SolarOS routes come before the Proxmox-only ones
 from app.main import app  # noqa: E402
 order = [(r.path, r.endpoint.__module__) for r in app.routes if isinstance(r, APIRoute)]
@@ -79,6 +131,6 @@ for path, mod in order:
     first.setdefault(path, mod)
 for p in ("/api/pve/guests/{guest_type}/{vmid}/hardware", "/api/pve/guests/{guest_type}/{vmid}/net/{idx}",
           "/api/pve/guests/qemu/{vmid}/cloudinit", "/api/pve/guests/{guest_type}/{vmid}/options",
-          "/api/pve/guests/qemu/{vmid}/hostpci/{idx}"):
+          "/api/pve/guests/qemu/{vmid}/hostpci/{idx}", "/api/pve/guests/qemu/{vmid}/cdrom"):
     assert first[p] == "providers.native_ubuntu.guest_edit", (p, first[p])
 print("SolarOS guest editing self-check OK")

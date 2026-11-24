@@ -970,6 +970,31 @@ class NativeUbuntuProvider(HypervisorProvider):
                 part.unlink(missing_ok=True)
         return _task(start_job("download", p["filename"], job))
 
+    async def upload_to_storage(self, storage: str, content: str, filename: str, chunks, size: int | None) -> dict:
+        """Stream an uploaded file (ISO image) into the storage; the partial file is removed on any error."""
+        if storage != LOCAL:
+            raise HTTPException(400, f"Uploads go to the '{LOCAL}' storage")
+        if content == "iso" and not filename.lower().endswith((".iso", ".img")):
+            raise HTTPException(400, "ISO uploads must be .iso or .img files")
+        folder = _store_dir(content)
+        folder.mkdir(parents=True, exist_ok=True)
+        dest = folder / filename
+        if dest.exists():
+            raise HTTPException(409, f"{dest.name} already exists")
+        if size and size > shutil.disk_usage(folder).free - 2**30:
+            raise HTTPException(507, f"Not enough free space in {folder} for {size / 2**30:.1f} GiB")
+        part = dest.with_name(f".{dest.name}.part")
+        try:
+            with part.open("wb") as f:
+                async for chunk in chunks:
+                    await asyncio.to_thread(f.write, chunk)
+            if not part.stat().st_size:
+                raise HTTPException(400, "The uploaded file is empty")
+            part.replace(dest)
+        finally:
+            part.unlink(missing_ok=True)
+        return {"ok": True, "volid": f"{LOCAL}:{content}/{filename}", "size": dest.stat().st_size}
+
     async def delete_storage_content(self, storage: str, volume: str) -> TaskInfo:
         if volume.split(":", 1)[0] != storage:
             raise HTTPException(400, "Volume does not belong to this storage")

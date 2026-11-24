@@ -12,6 +12,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path as FsPath
 
 from fastapi import APIRouter, Depends, HTTPException, Path
+from pydantic import BaseModel, Field
 
 from app.auth import require_user
 from app.guest_hardware import VMID, CloudInitBody, GuestType, NetBody, OptionsBody
@@ -19,7 +20,7 @@ from app.provisioning import PciPassthrough, UsbPassthrough
 
 from . import host
 from .host import run, run_json
-from .provider import _bridge
+from .provider import LOCAL, _bridge, _store_dir, _volume_file
 
 router = APIRouter(prefix="/api/pve/guests", dependencies=[Depends(require_user)], tags=["native_ubuntu"])
 AGENT = "org.qemu.guest_agent.0"
@@ -148,6 +149,44 @@ def attach_cdrom(xml: str, path: str) -> str:
     ET.SubElement(el, "target", dev=dev, bus="sata")
     ET.SubElement(el, "readonly")
     return ET.tostring(d, encoding="unicode")
+
+
+def install_cdrom(xml: str, seed_suffix: str = "-cloudinit.iso") -> tuple[str | None, str | None]:
+    """(target dev, ISO path or None) of the first CD-ROM that is not the cloud-init seed; (None, None) if none."""
+    for disk in ET.fromstring(xml).findall("devices/disk"):
+        src, tgt = disk.find("source"), disk.find("target")
+        path = src.get("file") if src is not None else None
+        if disk.get("device") == "cdrom" and tgt is not None and not (path or "").endswith(seed_suffix):
+            return tgt.get("dev"), path
+    return None, None
+
+
+def set_cdrom(xml: str, path: str | None) -> str:
+    """Domain XML with the install CD-ROM loaded with `path` (added if missing) or ejected (path=None)."""
+    dev, _ = install_cdrom(xml)
+    if dev is None:
+        if not path:
+            return xml
+        d = ET.fromstring(attach_cdrom(xml, path))
+        host.set_boot_order(d)
+        return ET.tostring(d, encoding="unicode")
+    d = ET.fromstring(xml)
+    disk = next(x for x in d.findall("devices/disk") if x.find("target") is not None and x.find("target").get("dev") == dev)
+    src = disk.find("source")
+    if path is None:
+        if src is not None:
+            disk.remove(src)
+    elif src is None:
+        disk.insert(1, ET.Element("source", file=path))
+    else:
+        src.set("file", path)
+    host.set_boot_order(d)
+    return ET.tostring(d, encoding="unicode")
+
+
+def iso_volid(path: str | None) -> str | None:
+    p = FsPath(path) if path else None
+    return f"{LOCAL}:iso/{p.name}" if p and p.parent == _store_dir("iso") else path
 
 
 def has_file(xml: str, path: str) -> bool:
@@ -303,7 +342,30 @@ async def hardware(guest_type: GuestType, vmid: VMID):
     meta = _meta(vmid)
     seed = str(host.IMAGES / f"vm-{vmid}-cloudinit.iso")
     return {"devices": vm_devices(xml), "options": vm_options(xml, autostart, meta), "pending": [],
-            "cloudinit": ci_view(meta.get("cloudinit") or {}, "sata" if has_file(xml, seed) else None)}
+            "cloudinit": ci_view(meta.get("cloudinit") or {}, "sata" if has_file(xml, seed) else None),
+            "cdrom": {"iso": iso_volid(install_cdrom(xml)[1])}}
+
+
+class CdromBody(BaseModel):
+    iso_volume: str | None = Field(None, max_length=500)  # None ejects
+
+
+@router.put("/qemu/{vmid}/cdrom")
+async def set_cdrom_route(vmid: VMID, body: CdromBody):
+    name = host.name_of(vmid, "qemu")
+    path = str(_volume_file(body.iso_volume)) if body.iso_volume else None
+    if path and not FsPath(path).is_file():
+        raise HTTPException(404, f"{body.iso_volume} not found")
+    xml = await _xml(name)
+    dev, _ = install_cdrom(xml)
+    await host.define(set_cdrom(xml, path))
+    running = "running" in await run("virsh", "domstate", name)
+    if dev and running:
+        # Swap the disc in the running VM too; the persistent definition above already has it for the next start.
+        await run("virsh", "change-media", name, dev, *(["--update", path] if path else ["--eject"]), "--live",
+                  check=False)
+    # A new SATA drive cannot be hot-plugged: it appears at the next start.
+    return {"ok": True, "restart_required": bool(running and not dev and path)}
 
 
 @router.put("/qemu/{vmid}/hostpci/{idx}")
