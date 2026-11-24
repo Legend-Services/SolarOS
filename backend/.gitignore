@@ -9,3 +9,5 @@ data/security.tmp
 data/user_preferences.json
 data/update_settings.json
 data/update_settings.tmp
+data/app_usage.json
+data/app_usage.tmp

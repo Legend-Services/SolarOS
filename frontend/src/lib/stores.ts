@@ -87,6 +87,7 @@ export const useWindows = create<WindowState>((set, get) => ({
   dockIconRects: {},
   setDockIconRect: (id, r) => set((s) => ({ dockIconRects: { ...s.dockIconRects, [id]: r } })),
   open: (id, params) => {
+    if (id !== "console") useUsage.getState().record(id); // every launcher ends here, so "Most Used" counts them all
     const key = params ? `${id}:${params.type}:${params.vmid}:${params.mode}` : id;
     if (get().windows.some((w) => w.key === key)) return get().focus(key);
     const { w, h } = APPS[id].size;
@@ -214,11 +215,11 @@ interface DockState {
   autoHide: boolean;
   baseSize: number; // px, 36–64
   magnification: Magnification;
-  launchpad: boolean; // not persisted
+  gallery: boolean; // App Gallery overlay open (not persisted)
   pin: (id: AppId) => void;
   unpin: (id: AppId) => void;
   move: (id: AppId, to: number) => void;
-  set: (patch: Partial<Pick<DockState, "autoHide" | "baseSize" | "magnification" | "launchpad">>) => void;
+  set: (patch: Partial<Pick<DockState, "autoHide" | "baseSize" | "magnification" | "gallery">>) => void;
 }
 
 export const useDock = create<DockState>()(
@@ -228,7 +229,7 @@ export const useDock = create<DockState>()(
       autoHide: false,
       baseSize: 46,
       magnification: "strong",
-      launchpad: false,
+      gallery: false,
       pin: (id) => set((s) => (s.pinned.includes(id) ? s : { pinned: [...s.pinned, id] })),
       unpin: (id) => set((s) => ({ pinned: s.pinned.filter((x) => x !== id) })),
       move: (id, to) =>
@@ -254,6 +255,38 @@ export const useDock = create<DockState>()(
         };
       },
     },
+  ),
+);
+
+/* ---------------- App usage (App Gallery "Most Used" / "Recently Used") ---------------- */
+
+export interface AppUsage {
+  launch_count: number;
+  last_opened_at: string; // ISO 8601 UTC
+}
+
+interface UsageState {
+  usage: Partial<Record<AppId, AppUsage>>;
+  /** Count a launch here at once and on the server in the background. */
+  record: (id: AppId) => void;
+  /** Replace the local copy with the server's counts (which survive browser clears). */
+  load: () => Promise<void>;
+}
+
+export const useUsage = create<UsageState>()(
+  persist(
+    (set) => ({
+      usage: {},
+      record: (id) => {
+        set((s) => ({ usage: { ...s.usage, [id]: { launch_count: (s.usage[id]?.launch_count ?? 0) + 1, last_opened_at: new Date().toISOString() } } }));
+        api("/system/app-usage/record", { method: "POST", json: { app_id: id } }).catch(() => {});
+      },
+      load: async () => {
+        const u = await api<Record<string, AppUsage>>("/system/app-usage").catch(() => null);
+        if (u) set({ usage: Object.fromEntries(Object.entries(u).filter(([k]) => (APP_IDS as string[]).includes(k))) });
+      },
+    }),
+    { name: "solardeck-usage", partialize: ({ usage }) => ({ usage }) },
   ),
 );
 

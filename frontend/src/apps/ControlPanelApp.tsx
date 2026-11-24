@@ -537,7 +537,7 @@ function DockCard() {
       <div className="mt-4">
         <GlassSwitch checked={autoHide} onChange={(v) => set({ autoHide: v })} label="Automatically hide and show the Dock" />
       </div>
-      <p className="mt-4 mb-2 text-[11px] text-slate-400">Apps in the Dock (drag icons in the Dock to reorder; right-click an icon to keep or remove it). Every app stays available in Launchpad.</p>
+      <p className="mt-4 mb-2 text-[11px] text-slate-400">Apps in the Dock (drag icons in the Dock to reorder; right-click an icon to keep or remove it). Every app stays available in the App Gallery.</p>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         {APP_IDS.map((id) => (
           <label key={id} className="glass-soft flex cursor-pointer items-center gap-2 rounded-xl px-2 py-1.5 text-xs text-slate-200">

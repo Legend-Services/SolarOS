@@ -267,11 +267,12 @@ msg "Deploying application to ${APP_DIR}"
 if [[ -n "$SRC_DIR" ]]; then
   TARBALL="$(mktemp --suffix=.tar.gz)"
   tar -C "$SRC_DIR" --exclude=node_modules --exclude=dist --exclude=.venv --exclude=.git \
-    --exclude=backend/.env --exclude=__pycache__ --exclude=.claude --exclude=backend/data/schedules.json --exclude=backend/data/security.json --exclude=backend/data/user_preferences.json --exclude=backend/data/benchmarks.json --exclude=backend/data/update_settings.json --exclude=backend/data/local_ai.json --exclude=backend/data/ai_chats.json --exclude=backend/data/themes --exclude=backend/.ssh \
+    --exclude=backend/.env --exclude=__pycache__ --exclude=.claude --exclude=backend/data/schedules.json --exclude=backend/data/security.json --exclude=backend/data/user_preferences.json --exclude=backend/data/benchmarks.json --exclude=backend/data/update_settings.json --exclude=backend/data/local_ai.json --exclude=backend/data/ai_chats.json --exclude=backend/data/app_usage.json --exclude=backend/data/themes --exclude=backend/.ssh \
     -czf "$TARBALL" .
   pct push "$CTID" "$TARBALL" /tmp/proxmox-os.tar.gz
   rm -f "$TARBALL"
-  ct "mkdir -p ${APP_DIR} && tar -xzf /tmp/proxmox-os.tar.gz -C ${APP_DIR} && rm /tmp/proxmox-os.tar.gz"
+  # Source-only folders are replaced, not overlaid, so files deleted or renamed upstream do not linger and break the build.
+  ct "mkdir -p ${APP_DIR} && rm -rf ${APP_DIR}/frontend/src ${APP_DIR}/backend/app ${APP_DIR}/backend/tests && tar -xzf /tmp/proxmox-os.tar.gz -C ${APP_DIR} && rm /tmp/proxmox-os.tar.gz"
   ok "Copied local checkout ${SRC_DIR}"
 else
   # Full history + tags so the in-app Version History can offer downgrades. Untracked files (.env, data/*.json,

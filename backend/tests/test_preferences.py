@@ -11,7 +11,8 @@ with tempfile.TemporaryDirectory() as d:
     settings.preferences_file = Path(d) / "sub" / "user_preferences.json"
     assert system.get_preferences() == {}
     prefs = {"layout": {"desktopView": "list", "iconSize": 64}, "wizard": {"welcomeAuto": False}}
-    placement = {"desktopAlignment": "left", "desktopVerticalAlign": "top", "desktopMaxColumns": "auto"}
+    placement = {"desktopAlignment": "left", "desktopVerticalAlign": "top", "desktopMaxColumns": "auto",
+                 "showDesktopIcons": False, "gallerySortMode": "custom", "galleryAppOrder": []}
     stored = {**prefs, "layout": {**prefs["layout"], **placement}}  # older clients omit placement: defaults filled in
     assert system.put_preferences(prefs) == stored
     assert system.get_preferences() == stored

@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.11.0 - Phase 16: Clean Desktop, Adaptive Dock/Taskbar App Gallery Button, Drag-and-Drop Icon Reordering & Real Usage Sorting — 2026-11-24
+
+### Added
+- **App Gallery** (replaces the old all-apps grid): a full-screen frosted-glass overlay with every app.
+  - Instant **Search apps...** filter and category pills: All, System & Hardware, Storage & Backups, Compute & AI, Network & Shares.
+  - **Sort**: Custom Order, Most Used, Name (A–Z), Name (Z–A), Recently Used. **Grid | List** toggle, remembered per browser and on the server.
+  - **Drag-and-drop** any tile to a new slot; neighbours slide aside live. Dragging while another sort is active switches to Custom Order. **Reset Order** restores the default order.
+  - **Real usage badges** (`14 opens`, `Top Used`): always shown under Most Used, on hover otherwise.
+  - Right-click or the **…** badge on a tile: Open, **Pin to Bottom Bar** / **Unpin from Bottom Bar**, **Open App Guide**.
+- **App usage tracking**: every app launch (Dock, taskbar, App Gallery, Spotlight, widgets, deep links) is counted right away in the browser and on the server.
+  - API: `GET /api/system/app-usage`, `POST /api/system/app-usage/record` (`{"app_id": "<id>"}`), `DELETE /api/system/app-usage` (reset). Stored atomically in `backend/data/app_usage.json` as `launch_count` and `last_opened_at` (ISO 8601 UTC) per app.
+- **Live drag-and-drop reordering** on the floating Dock and the bottom taskbar, with spring-like FLIP slide animations (switched off under *reduce motion*).
+
+### Changed
+- **Clean desktop by default**: app shortcuts no longer cover the wallpaper; the desktop shows the wallpaper, the widgets and your windows. Turn shortcuts back on with **Show Desktop Shortcuts** in View Options or Control Panel → Appearance.
+- **Bottom bar styles**: *Floating Dock* (the App Gallery squircle leads the Dock and magnifies like its neighbours) or *Bottom Taskbar* (edge-to-edge; the App Gallery button sits in the far bottom-left corner, then a divider and your app buttons). With Desktop layout set to *Automatic*, the Redmond Mica theme picks the bottom taskbar.
+- The taskbar's Start button and Start key now open the App Gallery. The old Start menu is gone; its account row (Control Panel, Lock, Log out) is at the bottom of the App Gallery in the taskbar layout.
+- New preferences in `/api/system/preferences`: `layout.showDesktopIcons` (default `false`), `layout.galleryAppOrder`, `layout.gallerySortMode` (default `custom`) and `dock.dockAppOrder` (the bottom bar order, now kept on the server too). The bar style is the existing `layout.shellLayout` (`auto`, `dock`, `taskbar`).
+
 ## v1.10.0 - Phase 15: Multi-Theme Engine, Global Light/Dark Mode, 44 Built-in Wallpapers & Custom Theme Studio with Import/Export — 2026-11-24
 
 ### Added
@@ -104,7 +123,7 @@
 ## v1.6.3 - Hotfix: Desktop Icons Flickering Through Windows — 2026-11-24
 
 ### Fixed
-- **Desktop icons sometimes showed sharp through open windows** in Chrome. Each icon had a CSS `drop-shadow` filter (on the icon and on its button), which puts it on its own GPU layer; Chrome's compositor intermittently painted those layers over the windows' `backdrop-filter` glass. The icon shadow is now an SVG filter inside the icon and the labels use `text-shadow`, so no CSS filters sit behind the windows. Same look, also in the Dock and Launchpad.
+- **Desktop icons sometimes showed sharp through open windows** in Chrome. Each icon had a CSS `drop-shadow` filter (on the icon and on its button), which puts it on its own GPU layer; Chrome's compositor intermittently painted those layers over the windows' `backdrop-filter` glass. The icon shadow is now an SVG filter inside the icon and the labels use `text-shadow`, so no CSS filters sit behind the windows. Same look, also in the Dock and App Launcher.
 
 ## v1.6.2 - Playground Stop Button & Per-Window Crash Protection — 2026-11-24
 
@@ -237,7 +256,7 @@ ProxmoxOS is now **SolarDeck** (*SolarDeck for Proxmox VE*), so the project name
 ### Added
 - **Layout store** (`frontend/src/store/layoutStore.ts`): desktop view mode, icon size (36–96 px, default 56), horizontal app distance (8–64 px, default 20), vertical app distance (8–56 px, default 16), Dock icon spacing (4–20 px) and per-app Grid/List choices. Values are clamped on load, kept in `localStorage`, and synced to the server.
 - **Preferences API**: `GET|PUT /api/system/preferences` stores the UI preferences (layout, Dock size, Welcome Tour setting) in `backend/data/user_preferences.json` with an atomic write and a 64 KB limit. The server copy wins on login; changes are uploaded with a short debounce. `deploy.sh` and `install.sh` never overwrite the file. Self-check: `python -m tests.test_preferences`.
-- **Desktop Grid View** fills columns from top to bottom and wraps into a new column based on the space between the 36 px top bar and the Dock, so no icon is clipped at the bottom edge. **List View** shows frosted rows with icon, title, a plain-English description (new `desc` field in `apps/registry.ts`) and a launch arrow; Launchpad follows the same mode.
+- **Desktop Grid View** fills columns from top to bottom and wraps into a new column based on the space between the 36 px top bar and the Dock, so no icon is clipped at the bottom edge. **List View** shows frosted rows with icon, title, a plain-English description (new `desc` field in `apps/registry.ts`) and a launch arrow; the App Launcher follows the same mode.
 - **View Options** popover (top-bar layout button, desktop right-click **View Options…**, and Control Panel → **Appearance & Layout**) with the new `GlassSlider` primitive, live numeric readouts, Dock icon size and spacing sliders, and **Reset to Defaults**.
 - **Grid | List switches** (persisted per app) in Compute Manager, Storage → Disks & SMART, App Center and Network Shares.
 - **Guided wizard system**: `components/wizards/GuidedWizardModal.tsx`, `data/wizardGuides.ts`, `store/wizardStore.ts`. A **? Guide** pill in every window title bar opens that app's guide (step pills, Back / Next / Finish, What It Does, When To Use It, How To Use It, **Show Me** deep link). Ten sub-guides cover VMs vs. containers, creating a VM or container, GPU/USB/audio passthrough, ZFS RAID levels, pools and datasets, SMART and snapshot schedules, DNS ad blocking, DHCP and port forwarding, WireGuard with a phone QR code, and Let's Encrypt or custom certificates.
@@ -260,7 +279,7 @@ ProxmoxOS is now **SolarDeck** (*SolarDeck for Proxmox VE*), so the project name
 ### Added
 - **Root SSH bridge** (`backend/app/host_ssh.py`, `asyncssh`): one persistent root connection to the PVE host with the backend's own key `backend/.ssh/id_ed25519` (generated if missing). `install.sh` authorizes it in `/root/.ssh/authorized_keys` and pins the host key in `backend/.ssh/known_hosts`; `deploy.sh` verifies the bridge after installing. Long operations run as detached host jobs (`systemd-run`), followed with `GET /api/host/jobs/{name}`. `GET /api/host/bridge` shows key and connectivity status.
 - **Passwordless shells**: `WS /api/pve/ws/host-shell` opens a root PTY on the host (Host Shell app, TopBar button, Control Panel). LXC terminals use `pct enter <vmid>` over the bridge, so containers don't ask for a login. QEMU still uses the termproxy serial console.
-- **Dock & Launchpad**: cosine-curve magnification that resizes icon layout boxes (neighbours move aside, no overlap), pin/unpin from the right-click menu, drag to reorder, auto-hide, base size 36–64 px, and magnification Off/Subtle/Strong/Large. Settings are stored per browser (`useDock`) and editable in Control Panel → Appearance & Dock. The Launchpad button opens a full-screen grid of all apps with search.
+- **Dock & App Launcher**: cosine-curve magnification that resizes icon layout boxes (neighbours move aside, no overlap), pin/unpin from the right-click menu, drag to reorder, auto-hide, base size 36–64 px, and magnification Off/Subtle/Strong/Large. Settings are stored per browser (`useDock`) and editable in Control Panel → Appearance & Dock. The App Launcher button opens a full-screen grid of all apps with search.
 - **Datacenter app** (`pve_access.py`, `pve_datacenter.py`): users (passwords set through `pvesh` over the bridge), groups, roles with a privilege grid, ACLs, resource pools with members, API tokens, realms; cluster/host/guest firewall rules, options, aliases and IP sets; syslog, journal and cluster log viewers. The ProxmoxOS service user and token are protected. Storage Manager gets a **Storage backends** tab: Directory, LVM, LVM-Thin, ZFS, NFS and CIFS/SMB, with scan-backed selects.
 - **Guest hardware** (`guest_hardware.py`, `provisioning.py`): `GET /api/pve/hardware/gpus|usb|pci` with driver, IOMMU group, paired HDMI audio and isolation warnings (`app/pci.py`). Per-guest PCI/GPU passthrough (`pcie`, `rombar`, `x-vga`, whole slot with audio), USB passthrough, NICs `net0..7`, cloud-init, snapshots and options, all applied with `qm set` over the bridge. The Create VM wizard has a passthrough picker; Compute Manager has a tabbed guest drawer.
 - **Network & Services app** (`net_services.py`): dnsmasq DNS server with local records and upstream presets, plus a DNS AdBlocker (StevenBlack, OISD, Hagezi, whitelist/blacklist, query metrics); DHCP server with reservations and live leases; WireGuard server (peers, `.conf` download, QR code) and client (`wg-quick`, imported profiles without script hooks); router/NAT (IP forwarding, masquerade, port forwards and static routes in an nftables table `ip proxmox_os`, persisted by `proxmox-os-router.service`); certificate manager (ACME accounts, DNS plugins, domains and ordering; custom certificates for the Proxmox node and ProxmoxOS nginx on port 443).

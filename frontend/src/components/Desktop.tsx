@@ -27,7 +27,7 @@ export default function Desktop() {
   const gpu = hardware?.gpu;
   const widgets = usePrefs((s) => s.widgets);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
-  const { desktopView, iconSize, colGap, rowGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, iconClick } = useLayout();
+  const { desktopView, iconSize, colGap, rowGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, iconClick, showDesktopIcons } = useLayout();
   const dockSize = useDock((s) => s.baseSize);
   const { top, bottom } = useInsets();
   // Dock layout: clear the floating Dock; taskbar layout: clear the taskbar.
@@ -80,8 +80,9 @@ export default function Desktop() {
       onContextMenu={(e) => (e.preventDefault(), setMenu({ x: e.clientX, y: e.clientY }))}
     >
       <DesktopContextMenu at={menu} onClose={() => setMenu(null)} />
-      {/* Shortcuts */}
+      {/* Shortcuts: off by default (clean desktop); every app is in the App Gallery. The empty flex item keeps widgets on the right. */}
       <div className="h-full min-w-0 flex-1 overflow-auto">
+        {showDesktopIcons && (
         <div className="grid h-full transition-all duration-200 ease-out" style={gridStyle}>
           {APP_IDS.map((id) =>
             list ? (
@@ -101,6 +102,7 @@ export default function Desktop() {
             ),
           )}
         </div>
+        )}
       </div>
 
       {/* Widgets */}
