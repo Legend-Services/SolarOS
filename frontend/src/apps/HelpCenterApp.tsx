@@ -6,6 +6,7 @@ import { openLink, useIntent, type Intents } from "../lib/stores";
 import type { AppId } from "./registry";
 import { APPS } from "./registry";
 import { Field, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, Notice, Segmented } from "../components/ui/GlassKit";
+import { useCapabilities } from "../store/capabilitiesStore";
 import { JobLog } from "../components/JobLog";
 import { CATEGORIES, FAQS, TUTORIALS, type Category, type Faq, type HelpLink, type Tutorial } from "./help/content";
 import { rank } from "./help/search";
@@ -63,6 +64,7 @@ const diagFields = (d: Diag): [string, number][] => [[d.title, 3], [`${d.id} ${d
 
 export default function HelpCenterApp() {
   const [tab, setTab] = useState<Tab>("ask");
+  const caps = useCapabilities((s) => s.capabilities);
   const [diags, setDiags] = useState<Diag[] | null>(null);
   const [diagError, setDiagError] = useState("");
   const [wizard, setWizard] = useState<Diag | null>(null);
@@ -96,7 +98,7 @@ export default function HelpCenterApp() {
   return (
     <div className="flex h-full">
       <nav className="w-48 shrink-0 space-y-1 border-r border-white/10 bg-black/20 p-2 max-sm:w-14">
-        {TABS.map((t) => (
+        {TABS.filter((t) => t.id !== "bios" || caps.supports_bios_manager).map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}

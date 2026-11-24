@@ -9,6 +9,7 @@ import { useDismiss, usePoll } from "../lib/hooks";
 import { useWindows } from "../lib/stores";
 import type { AiHardware, AiStatus, LocalModel, OnlineModel, PullJob, VramFit } from "../lib/types";
 import { ConfirmModal, GlassBadge, GlassButton, GlassInput, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
+import { useCapabilities } from "../store/capabilitiesStore";
 
 const CATEGORIES = ["All", "Coding", "General", "Reasoning", "Vision", "Embeddings"] as const;
 const FIT_TONE: Record<VramFit, "success" | "warning" | "danger" | "neutral"> = { optimal_gpu: "success", tight_gpu: "warning", cpu_offload: "danger", cpu_only: "neutral" };
@@ -252,6 +253,7 @@ function InstalledModels({ jobs, refreshKey, onChat }: { jobs: PullJob[]; refres
 /* ---------------- Hardware & Performance ---------------- */
 
 function HardwarePerf({ status, reload }: { status: AiStatus; reload: () => void }) {
+  const gpuOk = useCapabilities((s) => s.capabilities.supports_gpu_passthrough);
   const [hw, setHw] = useState<AiHardware | null>(null);
   const [target, setTarget] = useState(status.compute_target ?? "cpu");
   const [flash, setFlash] = useState(status.flash_attention ?? true);
@@ -317,7 +319,7 @@ function HardwarePerf({ status, reload }: { status: AiStatus; reload: () => void
         <h3 className="text-xs font-semibold text-white">Active hardware</h3>
         {!hw && <p className="text-[11px] text-slate-400">Detecting hardware…</p>}
         <div className="grid gap-2 sm:grid-cols-2">
-          {hw?.targets.map((t) => (
+          {hw?.targets.filter((t) => gpuOk || t.kind === "cpu").map((t) => (
             <button
               key={t.id}
               disabled={!t.driver_ready}

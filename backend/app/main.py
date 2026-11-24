@@ -1,9 +1,11 @@
 import asyncio
 from contextlib import asynccontextmanager, suppress
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from fastapi.routing import APIRoute
 
-from . import (apps, auth, automation, backups, bug_report, console, disk_benchmark, domains, files, guest_hardware, hardware_admin, help_center, host_ssh, local_ai, net_services, notifications,
+from . import (apps, auth, automation, backups, bug_report, capabilities, console, disk_benchmark, domains, files, guest_hardware, hardware_admin, help_center, host_ssh, local_ai, net_services, notifications,
                provisioning, pve, pve_access, pve_datacenter, schedules, shares, storage_admin, system, system_extra, tasks,
                telemetry, themes, updater)
 from .config import settings
@@ -44,8 +46,32 @@ for module in (host_ssh, pve_access, pve_datacenter, net_services, hardware_admi
     app.include_router(module.router)
 app.include_router(themes.public)
 app.include_router(automation.topology_router)
+app.include_router(capabilities.router, prefix="/api/system")
+app.include_router(capabilities.router, prefix="/api/v1/system")
+
+
+def add_v1_aliases(api: FastAPI) -> int:
+    """Mirror every /api/pve/* HTTP route at the driver-neutral /api/v1/* path (same handler, auth and validation)."""
+    added = 0
+    for r in list(api.routes):
+        if isinstance(r, APIRoute) and r.path.startswith("/api/pve/"):
+            api.router.add_api_route(
+                "/api/v1/" + r.path.removeprefix("/api/pve/"), r.endpoint, methods=list(r.methods),
+                dependencies=r.dependencies, response_model=r.response_model, response_class=r.response_class,
+                status_code=r.status_code, name=f"v1_{r.name}", include_in_schema=False)
+            added += 1
+    return added
+
+
+add_v1_aliases(app)
+
+
+@app.exception_handler(NotImplementedError)
+async def not_implemented(_: Request, exc: NotImplementedError):
+    # A driver that does not implement a contract method yet (native_ubuntu before Phase 19).
+    return JSONResponse({"detail": str(exc) or "Not implemented by this hypervisor driver"}, status_code=501)
 
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "app": "SolarDeck", "node": settings.pve_node}
+    return {"status": "ok", "app": "SolarDeck", "node": settings.pve_node, "driver": settings.hypervisor_driver}

@@ -21,7 +21,7 @@ export const nl: Dict = {
   "common.moveDown": "Omlaag",
 
   // Login screen
-  "login.subtitle": "SolarDeck voor Proxmox VE · Log in om door te gaan",
+  "login.subtitle": "SolarDeck voor {platform} · Log in om door te gaan",
   "login.username": "Gebruikersnaam",
   "login.password": "Wachtwoord",
   "login.signIn": "Inloggen",
@@ -31,7 +31,13 @@ export const nl: Dict = {
   "top.openLauncher": "Launcher openen",
   "top.desktop": "Bureaublad",
   "top.search": "Zoeken (Ctrl+K)",
-  "top.hostShell": "Host-shell (root op de Proxmox-host)",
+  "top.hostShell": "Host-shell (root op de {platform}-host)",
+  "driver.proxmox": "Proxmox VE",
+  "driver.standalone": "Zelfstandige hypervisor",
+  "about.title": "Over SolarDeck",
+  "about.driver": "Hypervisor-driver",
+  "about.platform": "Platform",
+  "about.desc": "SolarDeck draait op een uitwisselbare hypervisor-driver; hetzelfde bureaublad beheert beide platforms.",
   "top.viewSettings": "Weergave-instellingen",
   "top.userMenu": "Gebruikersmenu",
   "top.controlPanel": "Configuratiescherm",

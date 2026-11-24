@@ -2,7 +2,8 @@
 # SolarDeck self-updater. Started by the backend (POST /api/system/updates/apply|rollback) inside the SolarDeck
 # container as a transient systemd unit:  self-update.sh <app dir> <repo url> <branch> [<target commit>]
 # Without a target it updates to the tip of <branch>; with one it checks out that commit (update or downgrade).
-# User state is snapshotted first and restored after the checkout: backend/.env, backend/data/, backend/.ssh/ and
+# User state is snapshotted first and restored after the checkout: backend/.env (PVE_*, ADMIN_PASSWORD, JWT_SECRET,
+# GITHUB_TOKEN, HYPERVISOR_DRIVER, ...), backend/data/, backend/.ssh/ and
 # the Samba share config. New .env keys from deploy/env-defaults are appended; existing values are never changed.
 # The PVE host helper is NOT updated here; re-run install.sh on the host when deploy/proxmox-os-helper.sh changes.
 set -Eeuo pipefail

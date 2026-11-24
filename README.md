@@ -56,7 +56,7 @@ You need a Proxmox VE 8 or 9 server with internet access. That's all.
 
    ```
    ╔════════════════════════════════════════════════════════════════════════════╗
-   ║                   SolarDeck for Proxmox VE v1.12.0 is ready                ║
+   ║                   SolarDeck for Proxmox VE v1.13.0 is ready                ║
    ╠════════════════════════════════════════════════════════════════════════════╣
    ║  Web UI URL:      http://192.168.1.230                                     ║
    ║  Username:        admin                                                    ║
@@ -129,6 +129,7 @@ Found a problem? Click **Report a Bug**. It's in the **?** Help menu and the use
 install.sh                 zero-touch installer and upgrader (runs on the PVE host)
 deploy.sh                  push a local checkout to a PVE host over SSH and run install.sh there
 deploy/                    systemd unit, nginx site, self-update.sh, merge-env.sh + env-defaults, proxmox-os-helper.sh
+backend/providers/         hypervisor driver layer: base.py (contract + domain models), registry.py, proxmox/, native_ubuntu/
 backend/app/               one FastAPI router per area: pve, files, console, apps, shares, storage_admin, provisioning,
                            backups, net_services, hardware_admin, guest_hardware, pve_access, updater, bug_report,
                            local_ai, ...
@@ -138,6 +139,20 @@ frontend/src/theme/        theme engine: built-in themes, procedural wallpaper a
 frontend/src/components/   desktop, top bar, dock, windows, wizards, BugReportModal, Liquid Glass UI kit
 docs/screenshots/          README screenshots
 ```
+
+### Hypervisor drivers
+
+The backend talks to the hypervisor through one contract, `HypervisorProvider` in `backend/providers/base.py`, so the
+same repository and desktop can manage different platforms. `HYPERVISOR_DRIVER` in `backend/.env` picks the driver:
+
+- `proxmox` (default, also when the key is missing): the Proxmox VE REST API plus host tools over the helper/bridge.
+- `native_ubuntu`: the standalone SolarDeck Hypervisor. In this release only its capabilities are live. Every other
+  call answers HTTP 501 until Phase 19 (see `backend/providers/PHASE19_DRIVER_SPEC.md`).
+
+`GET /api/system/capabilities` (also `/api/v1/system/capabilities`) returns the active driver, its platform label and
+feature flags. The desktop uses them for labels and to show only supported features. Every `/api/pve/...` route is
+also available at the driver-neutral `/api/v1/...` path, with the same handler, sign-in and validation. Updates,
+downgrades and re-installs keep `HYPERVISOR_DRIVER` like every other `.env` value.
 
 ### Themes and Light / Dark Mode
 

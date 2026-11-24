@@ -4,6 +4,7 @@ import { api } from "../lib/api";
 import { usePoll, useRunner } from "../lib/hooks";
 import type { Guest } from "../lib/types";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
+import { useCapabilities } from "../store/capabilitiesStore";
 
 /* ---------------- Types (local to this app) ---------------- */
 
@@ -1073,6 +1074,7 @@ function AliasesAndIpsets() {
 /* ---------------- Logs ---------------- */
 
 function LogsTab() {
+  const clustering = useCapabilities((s) => s.capabilities.supports_clustering);
   const [src, setSrc] = useState<"syslog" | "journal" | "cluster">("syslog");
   const [lines, setLines] = useState<string[]>([]);
   const [filter, setFilter] = useState("");
@@ -1103,7 +1105,7 @@ function LogsTab() {
           options={[
             { id: "syslog", label: "Syslog" },
             { id: "journal", label: "Journal" },
-            { id: "cluster", label: "Tasks & access" },
+            ...(clustering ? [{ id: "cluster" as const, label: "Tasks & access" }] : []),
           ]}
         />
         <GlassInput className="w-48" placeholder="Filter…" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filter log lines" />
@@ -1122,6 +1124,7 @@ function LogsTab() {
 
 export default function DatacenterApp() {
   const [tab, setTab] = useState<Tab>("users");
+  const caps = useCapabilities((s) => s.capabilities);
   const tokens = useLoad<Token[]>("/pve/access/tokens");
   const service = tokens.data?.find((t) => t.service)?.userid ?? "pve-desktop@pve";
   return (
@@ -1130,7 +1133,7 @@ export default function DatacenterApp() {
         <p className="flex items-center gap-1.5 px-3 pb-1 text-[10px] font-semibold tracking-wide text-slate-500 uppercase max-sm:hidden">
           <Shield size={11} /> Datacenter
         </p>
-        {TABS.map((t) => (
+        {TABS.filter((t) => t.id !== "realms" || caps.supports_rbac_realms).map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}

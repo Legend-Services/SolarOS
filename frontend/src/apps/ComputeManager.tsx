@@ -5,6 +5,7 @@ import type { Guest } from "../lib/types";
 import { bytes, pct, uptime } from "../lib/format";
 import { usePoll } from "../lib/hooks";
 import { GlassBadge, GlassButton, Segmented } from "../components/ui/GlassKit";
+import { useCapabilities } from "../store/capabilitiesStore";
 import { ViewToggle } from "../components/ViewOptions";
 import { GuideBanner } from "../components/wizards/GuidedWizardModal";
 import { useAppView } from "../store/layoutStore";
@@ -24,6 +25,7 @@ const FILTERS: { id: Filter; label: string }[] = [
 ];
 
 export default function ComputeManager() {
+  const caps = useCapabilities((s) => s.capabilities);
   const [guests, setGuests] = useState<Guest[] | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
@@ -122,12 +124,16 @@ export default function ComputeManager() {
           ]}
         />
         <div className="ml-auto flex gap-2">
-          <GlassButton variant="primary" onClick={() => setWizard("qemu")}>
-            <Plus size={13} /> Create VM
-          </GlassButton>
-          <GlassButton onClick={() => setWizard("lxc")}>
-            <Plus size={13} /> Create Container
-          </GlassButton>
+          {caps.supports_qemu && (
+            <GlassButton variant="primary" onClick={() => setWizard("qemu")}>
+              <Plus size={13} /> Create VM
+            </GlassButton>
+          )}
+          {caps.supports_lxc && (
+            <GlassButton onClick={() => setWizard("lxc")}>
+              <Plus size={13} /> Create Container
+            </GlassButton>
+          )}
         </div>
       </div>
       {view === "iso" ? (
@@ -138,7 +144,7 @@ export default function ComputeManager() {
         <>
       <div className="flex flex-wrap items-center gap-2 border-b border-white/10 p-3">
         <div className="flex rounded-lg bg-black/30 p-0.5" role="tablist">
-          {FILTERS.map((f) => (
+          {FILTERS.filter((f) => (f.id !== "qemu" || caps.supports_qemu) && (f.id !== "lxc" || caps.supports_lxc)).map((f) => (
             <button
               key={f.id}
               role="tab"

@@ -4,10 +4,12 @@ import { useAuth } from "../lib/stores";
 import { useClock } from "../lib/hooks";
 import { TRADEMARK_NOTICE } from "../lib/brand";
 import { useTranslation } from "../i18n";
+import { usePlatformLabel } from "../store/capabilitiesStore";
 import LanguagePill from "./LanguagePill";
 
 export default function LockScreen({ visible, checking }: { visible: boolean; checking: boolean }) {
   const { t, language } = useTranslation();
+  const platform = usePlatformLabel();
   const now = useClock();
   const login = useAuth((s) => s.login);
   const lockedUser = useAuth((s) => s.username);
@@ -84,7 +86,7 @@ export default function LockScreen({ visible, checking }: { visible: boolean; ch
               </div>
               <div>
                 <div className="font-medium text-white">SolarDeck</div>
-                <div className="text-xs text-slate-400">{t("login.subtitle")}</div>
+                <div className="text-xs text-slate-400">{t("login.subtitle", { platform })}</div>
               </div>
             </div>
             <label className="mb-1 block text-xs text-slate-400" htmlFor="u">

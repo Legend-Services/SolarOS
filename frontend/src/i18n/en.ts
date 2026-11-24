@@ -20,7 +20,7 @@ export const en = {
   "common.moveDown": "Move down",
 
   // Login screen
-  "login.subtitle": "SolarDeck for Proxmox VE · Sign in to continue",
+  "login.subtitle": "SolarDeck for {platform} · Sign in to continue",
   "login.username": "Username",
   "login.password": "Password",
   "login.signIn": "Sign in",
@@ -30,7 +30,13 @@ export const en = {
   "top.openLauncher": "Open launcher",
   "top.desktop": "Desktop",
   "top.search": "Search (Ctrl+K)",
-  "top.hostShell": "Host Shell (root on the Proxmox host)",
+  "top.hostShell": "Host Shell (root on the {platform} host)",
+  "driver.proxmox": "Proxmox VE",
+  "driver.standalone": "Standalone Hypervisor",
+  "about.title": "About SolarDeck",
+  "about.driver": "Hypervisor driver",
+  "about.platform": "Platform",
+  "about.desc": "SolarDeck runs on top of a pluggable hypervisor driver; the same desktop manages either platform.",
   "top.viewSettings": "View Settings",
   "top.userMenu": "User menu",
   "top.controlPanel": "Control Panel",

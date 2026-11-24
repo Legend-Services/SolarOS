@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCapabilities } from "../store/capabilitiesStore";
 import { ArrowUpCircle, Download, PackageCheck, Plus, Power, RefreshCw, RotateCcw, Server, SquareTerminal, TriangleAlert } from "lucide-react";
 import { api } from "../lib/api";
 import { useTelemetry, useWindows } from "../lib/stores";
@@ -271,11 +272,12 @@ function Host() {
 }
 
 export default function SystemApp() {
-  const [tab, setTab] = useState<Tab>("repos");
+  const caps = useCapabilities((s) => s.capabilities);
+  const [tab, setTab] = useState<Tab>(caps.supports_apt_repos ? "repos" : "updates");
   return (
     <div className="flex h-full">
       <nav className="w-44 shrink-0 space-y-1 border-r border-white/10 bg-black/20 p-2 max-sm:w-14">
-        {TABS.map((t) => (
+        {TABS.filter((t) => t.id !== "repos" || caps.supports_apt_repos).map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}

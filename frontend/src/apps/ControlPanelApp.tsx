@@ -15,6 +15,7 @@ import AutomationPanel from "./AutomationPanel";
 import LanguagePill from "../components/LanguagePill";
 import { LANGS, isLang, useTranslation, type TKey } from "../i18n";
 import { useWidgets } from "../store/widgetStore";
+import { driverBadgeKey, useCapabilities } from "../store/capabilitiesStore";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
 
 type Section = "security" | "network" | "appearance" | "automation" | "hardware" | "power";
@@ -54,6 +55,7 @@ function Rows({ rows }: { rows: [string, ReactNode][] }) {
 }
 
 function Security({ info }: { info: SystemInfo }) {
+  const platform = useCapabilities((s) => s.capabilities.platform_label);
   const [f, setF] = useState({ current: "", next: "", confirm: "" });
   const { busy, error, notice, run, setError } = useRunner();
   const submit = (e: FormEvent) => {
@@ -87,7 +89,7 @@ function Security({ info }: { info: SystemInfo }) {
       </Card>
       <TwoFactorCard />
       <BridgeCard />
-      <Card title="Proxmox API connection" action={<GlassBadge tone={info.api.connected ? "success" : "danger"}>{info.api.connected ? "CONNECTED" : "UNREACHABLE"}</GlassBadge>}>
+      <Card title={`${platform} API connection`} action={<GlassBadge tone={info.api.connected ? "success" : "danger"}>{info.api.connected ? "CONNECTED" : "UNREACHABLE"}</GlassBadge>}>
         <Rows
           rows={[
             ["API endpoint", <span className="font-mono">{info.api.host}</span>],
@@ -562,7 +564,31 @@ function DockCard() {
   );
 }
 
+/** Hypervisor driver badge: "Proxmox VE" or "Standalone Hypervisor". */
+function DriverBadge() {
+  const { t } = useTranslation();
+  const driver = useCapabilities((s) => s.capabilities.driver);
+  return <GlassBadge tone={driver === "proxmox" ? "info" : "success"}>{t(driverBadgeKey(driver))}</GlassBadge>;
+}
+
+function AboutCard() {
+  const { t } = useTranslation();
+  const caps = useCapabilities((s) => s.capabilities);
+  return (
+    <Card title={t("about.title")} action={<DriverBadge />}>
+      <p className="mb-3 text-xs text-slate-400">{t("about.desc")}</p>
+      <Rows
+        rows={[
+          [t("about.driver"), <span className="font-mono">{caps.driver}</span>],
+          [t("about.platform"), caps.platform_label],
+        ]}
+      />
+    </Card>
+  );
+}
+
 function PowerSection({ info }: { info: SystemInfo }) {
+  const platform = useCapabilities((s) => s.capabilities.platform_label);
   const openBugReport = useBugReport((s) => s.set);
   const [ask, setAsk] = useState<"reboot" | "shutdown" | null>(null);
   const { busy, error, notice, run } = useRunner();
@@ -572,7 +598,7 @@ function PowerSection({ info }: { info: SystemInfo }) {
   };
   return (
     <div className="space-y-4">
-      <Card title="Proxmox VE">
+      <Card title={platform} action={<DriverBadge />}>
         <Rows
           rows={[
             ["Node", info.node],
@@ -613,7 +639,7 @@ function PowerSection({ info }: { info: SystemInfo }) {
         onConfirm={send}
         busy={busy}
         error={error}
-        title={ask === "reboot" ? "Reboot Proxmox host" : "Shut down Proxmox host"}
+        title={ask === "reboot" ? `Reboot ${platform} host` : `Shut down ${platform} host`}
         confirmLabel={ask === "reboot" ? "Reboot now" : "Shut down now"}
         expect={info.node}
         message={
@@ -622,6 +648,7 @@ function PowerSection({ info }: { info: SystemInfo }) {
             : "The server restarts. SolarDeck will be unavailable for a few minutes."
         }
       />
+      <AboutCard />
       <p className="px-1 text-[11px] leading-snug text-slate-500">{TRADEMARK_NOTICE}</p>
     </div>
   );
