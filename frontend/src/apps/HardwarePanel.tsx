@@ -78,12 +78,12 @@ const ACTIONS: Record<Action, { label: string; job: string; message: string }> =
   "intel-install": {
     label: "Install Intel media / Quick Sync + GuC/HuC",
     job: "gpu-intel-install",
-    message: "Installs intel-media-va-driver-non-free, intel-gpu-tools, vainfo and firmware (enabling Debian non-free if needed) and sets i915.enable_guc=3. Reboot to load the firmware.",
+    message: "Installs intel-media-va-driver-non-free (enabling Debian non-free if needed), intel-gpu-tools and vainfo, and sets i915.enable_guc=3. The GuC/HuC firmware comes with Proxmox (pve-firmware). Reboot afterwards.",
   },
   "amd-install": {
-    label: "Install AMD firmware / ROCm tools",
+    label: "Install AMD tools / ROCm",
     job: "gpu-amd-install",
-    message: "Installs firmware-amd-graphics and radeontop, plus rocminfo / rocm-smi when available. Reboot to load the new firmware.",
+    message: "Installs radeontop, plus rocminfo / rocm-smi when available. The amdgpu firmware comes with Proxmox (pve-firmware).",
   },
   "mode-passthrough": {
     label: "Switch to VM Passthrough Mode (vfio-pci)",
@@ -313,12 +313,12 @@ function DriversCard({ inv, onChanged }: { inv: Inventory; onChanged: () => void
                 <>
                   <span>Media driver {pkg("intel-media-va-driver-non-free")}</span>
                   <span>intel-gpu-tools {pkg("intel-gpu-tools")}</span>
-                  <span>Firmware {pkg("firmware-misc-nonfree")}</span>
+                  <span>Firmware {pkg("pve-firmware")}</span>
                 </>
               )}
               {g.vendor === "amd" && (
                 <>
-                  <span>Firmware {pkg("firmware-amd-graphics")}</span>
+                  <span>Firmware {pkg("pve-firmware")}</span>
                   <span>radeontop {pkg("radeontop")}</span>
                   <span>ROCm {pkg("rocminfo")}</span>
                 </>

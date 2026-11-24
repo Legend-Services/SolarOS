@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { api, setUnauthorizedHandler } from "./api";
@@ -134,9 +135,32 @@ export const activeWindow = (windows: Win[]) =>
 export interface Intents {
   files?: string; // File Station path
   compute?: "vm" | "lxc" | "iso"; // open a wizard or the ISO tab
-  storage?: "pool" | "pools" | "disks" | "benchmark"; // "pool" opens the Create Pool dialog, the others open that tab
+  storage?: "pool" | "dataset" | "pools" | "disks" | "benchmark" | "snapshots"; // a dialog or a tab
   controlpanel?: "security" | "network" | "appearance" | "hardware" | "power";
   help?: "ask" | "fix" | "bios" | "tutorials" | "faq";
+  netservices?: "dns" | "dhcp" | "wg" | "wgc" | "router" | "certs";
+  backup?: "backups" | "schedules" | "now"; // a tab, or the Back Up Now dialog
+  shares?: "create" | "users";
+}
+
+/** Apps that read an intent; the others are just opened. */
+export const INTENT_APPS: AppId[] = ["files", "compute", "storage", "controlpanel", "help", "netservices", "backup", "shares"];
+
+/** Open an app, deep-linking into a tab or dialog when it supports one. */
+export function openLink(app: AppId, intent?: Intents[keyof Intents]) {
+  if (intent !== undefined && INTENT_APPS.includes(app)) useIntent.getState().go(app as keyof Intents & AppId, intent as never);
+  else useWindows.getState().open(app);
+}
+
+/** Apply this app's pending intent once (on mount or when a new one arrives), then clear it. */
+export function useIntentFor<K extends keyof Intents>(app: K, apply: (v: NonNullable<Intents[K]>) => void) {
+  const v = useIntent((s) => s[app]);
+  const take = useIntent((s) => s.take);
+  useEffect(() => {
+    if (v === undefined) return;
+    apply(v as NonNullable<Intents[K]>);
+    take(app);
+  }, [v]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 interface IntentState extends Intents {
@@ -181,7 +205,7 @@ export const usePrefs = create<PrefsState>()(
 /* ---------------- Dock (per browser) ---------------- */
 
 /** Peak icon scale under the cursor for each Magnification Strength setting. */
-export const MAGNIFICATION = { off: 1, subtle: 1.35, macos: 1.75, large: 2.2 } as const;
+export const MAGNIFICATION = { off: 1, subtle: 1.35, strong: 1.75, large: 2.2 } as const;
 export type Magnification = keyof typeof MAGNIFICATION;
 
 interface DockState {
@@ -202,7 +226,7 @@ export const useDock = create<DockState>()(
       pinned: [...APP_IDS],
       autoHide: false,
       baseSize: 46,
-      magnification: "macos",
+      magnification: "strong",
       launchpad: false,
       pin: (id) => set((s) => (s.pinned.includes(id) ? s : { pinned: [...s.pinned, id] })),
       unpin: (id) => set((s) => ({ pinned: s.pinned.filter((x) => x !== id) })),

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Gauge, Play, ShieldCheck, Square } from "lucide-react";
+import { BookOpen, Gauge, Play, ShieldCheck, Square } from "lucide-react";
 import { api } from "../../lib/api";
 import type { BenchJob, BenchMetric, BenchProfile, PveDisk, ZfsDatasetInfo } from "../../lib/types";
 import { usePoll, useRunner } from "../../lib/hooks";
+import { useWizard } from "../../store/wizardStore";
 import { Bar } from "../../components/charts";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassSelect, Notice, Segmented } from "../../components/ui/GlassKit";
 
@@ -47,6 +48,7 @@ export default function Benchmark({ disks }: { disks: PveDisk[] | null }) {
   const [history, setHistory] = useState<BenchJob[]>([]);
   const [confirmRaw, setConfirmRaw] = useState<BenchProfile[] | null>(null);
   const { busy, error, run, setError } = useRunner();
+  const showGuide = useWizard((s) => s.show);
 
   const loadHistory = useCallback(() => {
     api<BenchJob[]>("/pve/disks/benchmark/history").then((h) => setHistory([...h].reverse()), () => {});
@@ -113,6 +115,9 @@ export default function Benchmark({ disks }: { disks: PveDisk[] | null }) {
       <div className="flex items-center gap-2">
         <Gauge size={16} className="text-sky-300" />
         <h3 className="mr-auto text-sm font-semibold text-slate-100">Storage benchmark</h3>
+        <GlassButton size="xs" variant="ghost" onClick={() => showGuide("storage-benchmark")}>
+          <BookOpen size={12} /> How do I read the results?
+        </GlassButton>
         <Segmented value={unit} onChange={setUnit} options={(Object.keys(UNIT_LABEL) as Unit[]).map((u) => ({ id: u, label: UNIT_LABEL[u] }))} />
       </div>
 

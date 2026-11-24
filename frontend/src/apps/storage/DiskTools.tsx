@@ -1,49 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Activity, LayoutGrid, List, OctagonX, ScanLine, Timer } from "lucide-react";
+import { Activity, BookOpen, OctagonX, ScanLine, Timer } from "lucide-react";
 import { api } from "../../lib/api";
 import type { DiskSettings, PveDisk, ScanStatus } from "../../lib/types";
 import { usePoll, useRunner } from "../../lib/hooks";
+import { useWizard } from "../../store/wizardStore";
 import { Bar } from "../../components/charts";
-import { Field, GlassBadge, GlassButton, GlassModal, GlassSelect, GlassSlider, GlassSwitch, Notice, Segmented } from "../../components/ui/GlassKit";
-
-/* ---------------- Grid | List view mode (remembered per browser) ---------------- */
-
-export type ViewMode = "grid" | "list";
-
-export function useViewMode(key: string) {
-  const [mode, setMode] = useState<ViewMode>(() => {
-    try {
-      return localStorage.getItem(key) === "list" ? "list" : "grid";
-    } catch {
-      return "grid";
-    }
-  });
-  const set = useCallback(
-    (m: ViewMode) => {
-      setMode(m);
-      try {
-        localStorage.setItem(key, m);
-      } catch {
-        /* private mode: keep it for this session only */
-      }
-    },
-    [key],
-  );
-  return [mode, set] as const;
-}
-
-export function ViewToggle({ mode, onChange }: { mode: ViewMode; onChange: (m: ViewMode) => void }) {
-  return (
-    <Segmented
-      value={mode}
-      onChange={onChange}
-      options={[
-        { id: "grid", label: <span className="inline-flex items-center gap-1"><LayoutGrid size={12} /> Grid</span> },
-        { id: "list", label: <span className="inline-flex items-center gap-1"><List size={12} /> List</span> },
-      ]}
-    />
-  );
-}
+import { Field, GlassBadge, GlassButton, GlassModal, GlassSelect, GlassSlider, GlassSwitch, Notice } from "../../components/ui/GlassKit";
 
 export const diskUrl = (d: PveDisk) => `/pve/disks/${encodeURIComponent(d.devpath)}`;
 
@@ -218,6 +180,7 @@ export function ScanModal({ disk, onClose }: { disk: PveDisk | null; onClose: ()
   const start = (kind: "short" | "long" | "surface", label: string) =>
     run(() => api(`${diskUrl(disk!)}/scan`, { method: "POST", json: { kind } }), `${label} started. You can close this window; it keeps running on the server.`);
   const running = !!st && (st.smart.running || st.surface.running);
+  const showGuide = useWizard((s) => s.show);
 
   return (
     <GlassModal
@@ -254,6 +217,9 @@ export function ScanModal({ disk, onClose }: { disk: PveDisk | null; onClose: ()
             </button>
           ))}
         </div>
+        <GlassButton size="xs" variant="ghost" onClick={() => showGuide("storage-disk-tests")}>
+          <BookOpen size={12} /> Short test, extended test or surface scan: which one?
+        </GlassButton>
         <Notice error={error || loadError} notice={notice} />
         {!st && !loadError && <p className="text-slate-400">Reading drive status…</p>}
 

@@ -18,8 +18,8 @@ from .pve import _node, _safe
 
 router = APIRouter(tags=["hardware_admin"], dependencies=[Depends(require_user)])
 
-PKGS = ("nvidia-container-toolkit", "intel-media-va-driver-non-free", "intel-gpu-tools", "vainfo", "firmware-misc-nonfree",
-        "firmware-amd-graphics", "radeontop", "rocminfo", "rocm-smi", "lm-sensors")
+PKGS = ("nvidia-container-toolkit", "intel-media-va-driver-non-free", "intel-gpu-tools", "vainfo", "pve-firmware",
+        "radeontop", "rocminfo", "rocm-smi", "lm-sensors")
 VFIO_CONF = "/etc/modprobe.d/proxmox-os-vfio.conf"
 NVIDIA_Q = "pci.bus_id,name,driver_version,memory.total,memory.used,utilization.gpu,temperature.gpu,power.draw"
 NVIDIA_CMD = f"command -v nvidia-smi >/dev/null && nvidia-smi --query-gpu={NVIDIA_Q} --format=csv,noheader,nounits 2>/dev/null"
@@ -295,14 +295,15 @@ async def gpu_metrics():
 # ---------------------------------------------------------------- GPU drivers & modes
 
 APT_UPDATE = 'apt-get update || echo "!! apt-get update reported errors (an unlicensed enterprise repo?); continuing"\n'
-NONFREE = APT_UPDATE + """if ! apt-cache show __PROBE_PKG__ >/dev/null 2>&1; then
+# `apt-cache show` exits 0 for a package that is only referenced (no candidate); madison prints only real versions.
+NONFREE = APT_UPDATE + """if [ -z "$(apt-cache madison __PROBE_PKG__ 2>/dev/null)" ]; then
   CODENAME=$(. /etc/os-release; echo $VERSION_CODENAME)
-  echo "==> Enabling Debian non-free / non-free-firmware components for $CODENAME"
+  echo "==> Enabling the Debian non-free component for $CODENAME"
   cat > /etc/apt/sources.list.d/proxmox-os-nonfree.sources <<EOF
 Types: deb
 URIs: http://deb.debian.org/debian
 Suites: $CODENAME $CODENAME-updates
-Components: non-free non-free-firmware
+Components: non-free
 Signed-By: /usr/share/keyrings/debian-archive-keyring.gpg
 EOF
   apt-get update || true
@@ -338,16 +339,19 @@ apt-get install -y nvidia-container-toolkit
 echo '==> Done. Reboot the host if nvidia-smi above did not list the GPU.'
 """,
     "intel-install": "set -e\n" + NONFREE.replace("__PROBE_PKG__", "intel-media-va-driver-non-free") + """
-apt-get install -y intel-media-va-driver-non-free intel-gpu-tools vainfo firmware-misc-nonfree
+apt-get install -y intel-media-va-driver-non-free \\
+  || { echo '!! intel-media-va-driver-non-free is unavailable; installing the free intel-media-va-driver (no low-power encode)'; apt-get install -y intel-media-va-driver; }
+# GuC/HuC firmware ships in pve-firmware; Debian firmware-* packages conflict with it and would remove proxmox-ve.
+apt-get install -y intel-gpu-tools vainfo
 echo 'options i915 enable_guc=3' > /etc/modprobe.d/i915.conf
 update-initramfs -u
 echo '==> Done. Reboot the host to load the GuC/HuC firmware (Quick Sync low-power encoding).'
 """,
-    "amd-install": "set -e\n" + NONFREE.replace("__PROBE_PKG__", "firmware-amd-graphics") + """
-apt-get install -y firmware-amd-graphics radeontop
+    # amdgpu firmware ships in pve-firmware (firmware-amd-graphics conflicts with it and would remove proxmox-ve).
+    "amd-install": "set -e\n" + APT_UPDATE + """apt-get install -y radeontop
 apt-get install -y rocminfo rocm-smi || echo '!! ROCm tools are not available in the configured repositories; skipped.'
 update-initramfs -u
-echo '==> Done. Reboot the host to load the new firmware.'
+echo '==> Done.'
 """,
 }
 

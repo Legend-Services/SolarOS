@@ -8,11 +8,28 @@
 - **ZFS member control** (`POST /api/pve/zfs/pools/{pool}/members/offline|online|replace|detach`): devices are checked against `zpool status -P` (full path, short name or kernel device). Offline refuses when the vdev would lose its last redundancy (mirror: all but one; RAIDZ1/2/3: parity). Replace requires `confirm_device`, refuses disks that belong to a pool, and with `partition_match` copies the old disk's GPT (`sgdisk -R`, `-G`) and replaces partition-for-partition. Detach is limited to mirror, replacing and spare members.
 - **Disk scans** (`POST|GET|DELETE /api/pve/disks/{disk}/scan`): SMART short/long self-tests (`smartctl -t`) and a read-only `badblocks -sv -b 4096` surface scan as a detached host job. Status returns progress, ETA, read errors, the bad-block count and the self-test history parsed from `smartctl -j` (ATA and NVMe). DELETE stops the scan and runs `smartctl -X`.
 - **Storage benchmark** (`backend/app/disk_benchmark.py`): `POST /api/pve/disks/benchmark`, `GET /api/pve/disks/benchmark/{id}` (live step progress), `DELETE /api/pve/disks/benchmark/{id}` (stop), `GET /api/pve/disks/benchmark/history`. fio with libaio and `direct=1`, 5 s per pass, best of N passes. Raw disks open with `--readonly` unless unused and confirmed; mountpoints use a temporary `.proxmoxos-bench.tmp` that is always removed. Only one run at a time. Finished runs are stored in `backend/data/benchmarks.json` (last 200).
-- **Storage Manager UI**: Grid | List toggle for disks and datasets, Tune and Scan Drive dialogs, member actions with offline and replace dialogs and a resilver progress bar in ZFS Pools, a new **Benchmark** tab, and a `GlassSlider` primitive. Storage deep links (`pools`, `disks`, `benchmark`) for Help Center "Show me" buttons.
-- **Help Center**: three new tutorials: replacing a failing RAID disk, SMART short vs. extended test vs. surface scan, and reading SEQ1M vs. RND4K benchmark results.
+- **Storage Manager UI**: Grid | List toggle for disks and datasets (Phase 8 `useAppView`, new `datasets` view), Tune and Scan Drive dialogs, member actions with offline and replace dialogs and a resilver progress bar in ZFS Pools, a new **Benchmark** tab. `GlassSlider` gains optional `display` and `disabled` props. Storage deep links (`pools`, `disks`, `benchmark`) for Help Center "Show me" buttons.
+- **Guided wizards** (`data/wizardGuides.ts`: `storage-replace-disk`, `storage-disk-tests`, `storage-benchmark`, opened from the matching screens) and **Help Center** tutorials: replacing a failing RAID disk, SMART short vs. extended test vs. surface scan, and reading SEQ1M vs. RND4K benchmark results.
 
 ### Changed
 - `GET /api/pve/disks`: `wearout` is renamed to `wearout_pct`. Hard disks that Proxmox reports with `rpm: -1` no longer show "-1 rpm".
+## v1.1.0 - Phase 8: Desktop Grid/List Layout Controls, Icon Size/Spacing Sliders & Interactive Feature Wizards — 2026-11-24
+
+### Added
+- **Layout store** (`frontend/src/store/layoutStore.ts`): desktop view mode, icon size (36–96 px, default 56), horizontal app distance (8–64 px, default 20), vertical app distance (8–56 px, default 16), Dock icon spacing (4–20 px) and per-app Grid/List choices. Values are clamped on load, kept in `localStorage`, and synced to the server.
+- **Preferences API**: `GET|PUT /api/system/preferences` stores the UI preferences (layout, Dock size, Welcome Tour setting) in `backend/data/user_preferences.json` with an atomic write and a 64 KB limit. The server copy wins on login; changes are uploaded with a short debounce. `deploy.sh` and `install.sh` never overwrite the file. Self-check: `python -m tests.test_preferences`.
+- **Desktop Grid View** fills columns from top to bottom and wraps into a new column based on the space between the 36 px top bar and the Dock, so no icon is clipped at the bottom edge. **List View** shows frosted rows with icon, title, a plain-English description (new `desc` field in `apps/registry.ts`) and a launch arrow; Launchpad follows the same mode.
+- **View Options** popover (top-bar layout button, desktop right-click **View Options…**, and Control Panel → **Appearance & Layout**) with the new `GlassSlider` primitive, live numeric readouts, Dock icon size and spacing sliders, and **Reset to Defaults**.
+- **Grid | List switches** (persisted per app) in Compute Manager, Storage → Disks & SMART, App Center and Network Shares.
+- **Guided wizard system**: `components/wizards/GuidedWizardModal.tsx`, `data/wizardGuides.ts`, `store/wizardStore.ts`. A **? Guide** pill in every window title bar opens that app's guide (step pills, Back / Next / Finish, What It Does, When To Use It, How To Use It, **Show Me** deep link). Ten sub-guides cover VMs vs. containers, creating a VM or container, GPU/USB/audio passthrough, ZFS RAID levels, pools and datasets, SMART and snapshot schedules, DNS ad blocking, DHCP and port forwarding, WireGuard with a phone QR code, and Let's Encrypt or custom certificates.
+- **Welcome Tour**: five steps shown on first login, with a "Don't show automatically again" switch; replay it from the new **?** Help menu in the top bar, which also opens the guide for the active app.
+- **"Need help? Launch Step-by-Step Guide" banners** in empty states and in the Create ZFS Pool, device passthrough (VM wizard and guest Hardware tab), WireGuard Server, DNS AdBlocker and Restore Backup screens.
+- **Deep links** (`openLink`, `useIntentFor` in `lib/stores.ts`): Storage tabs and Create Dataset, Network & Services tabs, Backup Center tabs and Back Up Now, Network Shares Create share and Users. Help Center uses the shared helper.
+
+### Changed
+- Control Panel's "Appearance & Dock" section is now **Appearance & Layout**; the Dock size slider moved into the layout controls.
+- The Dock's "macOS" magnification preset is renamed **Strong** (same strength). Saved settings with the old name fall back to it.
+- Neutral wording in the README, Network Shares labels and code comments.
 
 ## v0.6.1 — 2026-11-24
 

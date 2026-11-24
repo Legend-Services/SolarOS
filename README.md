@@ -1,6 +1,6 @@
 # ProxmoxOS
 
-A web desktop for Proxmox VE. It runs in its own unprivileged LXC container and talks to the host through the Proxmox API.
+A friendly web desktop for Proxmox VE: windows, a Dock, live widgets and point-and-click apps for every part of your server. It runs in its own unprivileged LXC container and talks to the host through the Proxmox API.
 
 **Phase 1 (MVP):** lock screen, multi-window desktop, live widgets, Resource Monitor, Compute Manager (VMs + LXC), Storage & ZFS Manager, File Station.
 
@@ -24,7 +24,7 @@ A web desktop for Proxmox VE. It runs in its own unprivileged LXC container and 
 **Phase 4 (v0.4.0): full control and the Liquid Glass UI**
 
 - **Storage & ZFS.** The app is rebuilt around six workflows. **Create ZFS Pool** is a wizard: choose the RAID topology (Single, Mirror, RAID10, RAIDZ1–3), pick unused disks, set compression and ashift, and optionally register the pool as Proxmox storage. You can also scrub or destroy a pool. **Volumes & Datasets** creates datasets and ZVOLs, edits compression and quota inline, has switches for `atime` and auto-share (SMB), and deletes datasets. **Disks & SMART** shows a card per drive with its temperature and remaining life. From there you can open a full SMART attribute drawer, initialize GPT, wipe a disk (you must type the device path), or format it as Directory/LVM/LVM-Thin storage.
-- **Network Shares.** One click creates a share together with its own ZFS dataset. Switches cover read-only, guest access, recycle bin, macOS Time Machine and visibility.
+- **Network Shares.** One click creates a share together with its own ZFS dataset. Switches cover read-only, guest access, recycle bin, Time Machine backup target and visibility.
 - **Compute Manager.** An **Edit** dialog changes CPU cores, memory, swap, start at boot, tags and notes, and grows disks.
 - **Control Panel.** A new app with four sections: change the admin password (saved to `.env`, and kept by later `install.sh`/`deploy.sh` runs), view API token status, view host network interfaces and DNS, pick a wallpaper and toggle widgets, see Proxmox VE/kernel info, and reboot or shut down the host.
 - **Liquid Glass UI.** Translucent buttons, switches, inputs and modals; new multi-layer icons for every app; windows animate when they open and close, minimize into their Dock icon, and snap to the left, right or top edge.
@@ -42,21 +42,30 @@ A web desktop for Proxmox VE. It runs in its own unprivileged LXC container and 
 **Phase 6 (v0.6.0): root shell, Dock, Datacenter, network services and GPUs**
 
 - **Host Shell** (Dock, TopBar, Control Panel) drops you into `root@pve:~#` with no second login, and container shells go straight into `pct enter`. Both run over a root SSH key bridge that `install.sh` sets up. Anyone signed in to ProxmoxOS is root on the host, so keep 2FA on.
-- **Dock** with true macOS magnification, pin/unpin, drag to reorder, auto-hide, size and magnification settings, plus **Launchpad**.
+- **Dock** with smooth parabolic magnification, pin/unpin, drag to reorder, auto-hide, size and magnification settings, plus **Launchpad**.
 - **Datacenter** app: users, groups, roles, ACLs, pools, API tokens, realms, firewall and logs. Storage Manager adds Directory/LVM/LVM-Thin/ZFS/NFS/CIFS storages.
 - **Compute Manager**: GPU/PCI/USB passthrough in the VM wizard and in a new guest drawer (hardware, network, cloud-init, snapshots, options).
 - **Network & Services** app: DNS server + AdBlocker, DHCP, WireGuard server/client with QR codes, router/NAT with port forwarding, Let's Encrypt and custom certificates.
 - **Help & Support** app: ask questions in plain words, run a health check with one-click **Fix it for me** wizards (each ends with do-it-yourself steps), 27 tutorials that link straight to the right settings, an FAQ, and BIOS instructions for your exact motherboard. The BIOS instructions come with QR codes that carry the text itself, so you can read them on your phone while the server is offline.
 - **Control Panel → Hardware & System**: full hardware inventory and one-click NVIDIA/Intel/AMD driver installs or VFIO passthrough mode. GPU passthrough needs IOMMU (VT-d) enabled in the BIOS and kernel.
 
+**Phase 8 (v1.1.0): layout controls and guided wizards**
+
+- **Grid or List desktop.** In Grid View, desktop icons fill columns from top to bottom and start a new column before they would reach the Dock, so every app stays visible. List View shows each app as a frosted row with its icon, name, a one-line description and a launch arrow. Launchpad follows the same setting.
+- **View Options** (the layout icon in the top bar, **View Options…** in the desktop right-click menu, or Control Panel → **Appearance & Layout**): sliders for desktop icon size (36–96 px), horizontal and vertical app spacing, and Dock icon size and spacing, all updating live, plus **Reset to Defaults**. Settings are kept in the browser and on the server (`GET|PUT /api/system/preferences`, stored in `backend/data/user_preferences.json`), so they survive a browser reset or an update.
+- **Grid | List switches** in Compute Manager (cards or detailed table), Storage → Disks & SMART (drive cards or a compact table), App Center (storefront or compact list) and Network Shares (cards or table). Each app remembers its choice.
+- **Guided wizards.** Every app window has a **? Guide** button in its title bar. It opens a plain-English walkthrough: What It Does → When To Use It → How To Use It → Try It Now, with a **Show Me** button that opens the right tab or creation dialog. Ten step-by-step sub-guides cover VMs vs. containers, creating a VM, GPU/USB passthrough, ZFS RAID levels, pools and datasets, disk health and snapshots, DNS ad blocking, DHCP and port forwarding, WireGuard and certificates.
+- **Welcome Tour** on first login (five steps, with a "Don't show automatically again" switch). Replay it from the **?** Help menu in the top bar.
+- **"Need help?" banners** in empty lists and in the Create ZFS Pool, device passthrough, WireGuard, DNS AdBlocker and backup restore screens launch the matching guide.
+
 **Phase 9 (v1.2.0): disk tuning, RAID member control, SMART scans and benchmarks**
 
-- **Grid | List views** in Disks & SMART and Volumes & Datasets (remembered per browser). Grid shows large drive cards with bus, SMART health, temperature, remaining life (or `N/A (HDD)` plus an RPM badge for hard disks) and the ZFS pool the drive belongs to. List is a sortable table with every attribute in columns.
+- **Grid | List views** in Disks & SMART and Volumes & Datasets, using the Phase 8 view switches. Grid shows large drive cards with bus, SMART health, temperature, remaining life (or `N/A (HDD)` plus an RPM badge for hard disks) and the ZFS pool the drive belongs to. List is a sortable table with every attribute in columns.
 - **Tune** a drive: APM level, spindown timeout and write cache for SATA disks (`hdparm`), the power state of NVMe drives (`nvme-cli`, installed on first use) and SMART monitoring. Controls a drive or its USB bridge doesn't support are disabled with the reason. Settings are re-applied at every boot through `/etc/udev/rules.d/69-proxmoxos-disk-tuning.rules`, keyed by `/dev/disk/by-id`.
 - **Scan Drive**: SMART Short and Extended self-tests, and a read-only `badblocks` surface scan that runs in the background on the host. Shows progress, ETA, bad-block count, an Abort button and the drive's self-test history.
 - **ZFS member control** in ZFS Pools: every disk of a mirror, RAID10 or RAIDZ pool has its state, Read/Write/Cksum error counters, and **Set Offline** (refused when it would fault the pool), **Bring Online**, **Replace Disk** (pick an unused drive, optionally copy the partition layout for boot mirrors, live resilver progress) and **Detach**.
 - **Benchmark** tab: the four classic profiles SEQ1M Q8T1, SEQ128K Q32T1, RND4K Q32T1 and RND4K Q1T1, with read and write results in MB/s, IOPS or latency. Test sizes are 256 MiB, 1 GiB or 4 GiB, with 1, 3 or 5 passes (best one kept). **Safe Read-Only** never writes, so it is fine on disks in use. **Read + Write** on a pool or folder uses a temporary `.proxmoxos-bench.tmp` file and deletes it afterwards. Raw disks can only be write-tested when they are unused and you type the device path. `fio` is installed on the host on first use. Results are saved in `backend/data/benchmarks.json` for side-by-side comparison.
-- **Help guides** for replacing a failing RAID disk, choosing between the three disk tests, and reading benchmark results.
+- **Guided wizards and Help tutorials** for replacing a failing RAID disk, choosing between the three disk tests, and reading benchmark results. The guides open from buttons in ZFS Pools, Disks & SMART, Scan Drive and Benchmark.
 
 ## Deploy from a checkout (`deploy.sh`)
 
@@ -120,7 +129,7 @@ backend/                   FastAPI + httpx + PyJWT
   app/telemetry.py         /api/pve/telemetry/hardware (disk SMART/temps, Intel iGPU, NVIDIA GPU)
   app/notifications.py     /api/notifications (health alerts)
   app/schedules.py         /api/schedules + the background snapshot/scrub scheduler
-  app/system.py            /api/system/repositories|updates|upgrade|power (host administration)
+  app/system.py            /api/system/repositories|updates|upgrade|power|preferences (host administration, UI preferences)
   app/provisioning.py      /api/pve/storage/{s}/content|download-url, hardware/pci, nextid, guests/qemu|lxc
   app/backups.py           /api/pve/backups, backups/run|restore|schedules
   app/system_extra.py      /api/search, /api/system/update/status|apply (runs deploy/self-update.sh)
@@ -128,7 +137,10 @@ backend/                   FastAPI + httpx + PyJWT
   tests/test_selfcheck.py  auth, sandbox, mocked-PVE, shares, ZFS, App Center, console auth, telemetry,
                            alert and scheduler checks
 frontend/                  React 19 + TypeScript + Vite + Tailwind 4 + Zustand + lucide-react
-  src/lib/stores.ts        auth, window manager, telemetry (60-sample rolling history)
+  src/lib/stores.ts        auth, window manager, telemetry (60-sample rolling history), deep-link intents
+  src/store/               layoutStore (Grid/List, icon size, spacing, server sync), wizardStore
+  src/data/wizardGuides.ts plain-English guides for every app plus the Welcome Tour
+  src/components/wizards/  GuidedWizardModal and the "Need help?" GuideBanner
   src/components/          lock screen, top bar, desktop + widgets, dock, window frame, charts
   src/apps/                Resource Monitor, Compute Manager, Storage & ZFS, File Station,
                            App Center, Network Shares, Console (noVNC / xterm.js, lazy-loaded)

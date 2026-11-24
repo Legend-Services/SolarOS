@@ -8,6 +8,7 @@ import { MAGNIFICATION, useDock, useIntent, usePrefs, useWindows, WALLPAPERS, ty
 import { APPS, APP_IDS } from "./registry";
 import { AppIcon } from "../components/icons/AppIcons";
 import HardwarePanel from "./HardwarePanel";
+import { LayoutControls } from "../components/ViewOptions";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
 
 type Section = "security" | "network" | "appearance" | "hardware" | "power";
@@ -15,7 +16,7 @@ type Section = "security" | "network" | "appearance" | "hardware" | "power";
 const SECTIONS: { id: Section; title: string; desc: string; icon: ReactNode; tint: string }[] = [
   { id: "security", title: "User & Security", desc: "Admin password, API token status", icon: <ShieldCheck size={22} />, tint: "from-indigo-400 to-violet-600" },
   { id: "network", title: "Network & DNS", desc: "Host interfaces, bridges, resolvers", icon: <Network size={22} />, tint: "from-sky-400 to-cyan-600" },
-  { id: "appearance", title: "Appearance & Dock", desc: "Wallpaper, widgets, Dock size and magnification", icon: <Palette size={22} />, tint: "from-pink-400 to-rose-600" },
+  { id: "appearance", title: "Appearance & Layout", desc: "Wallpaper, Grid/List view, icon size, spacing and Dock", icon: <Palette size={22} />, tint: "from-pink-400 to-rose-600" },
   { id: "hardware", title: "Hardware & System", desc: "CPU, memory, GPUs, drives, NICs, GPU drivers", icon: <Cpu size={22} />, tint: "from-emerald-400 to-teal-600" },
   { id: "power", title: "System & Power", desc: "Proxmox VE version, reboot, shut down", icon: <Power size={22} />, tint: "from-amber-300 to-orange-600" },
 ];
@@ -342,24 +343,24 @@ function Appearance() {
       </Card>
       <Card title="Desktop">
         <GlassSwitch checked={widgets} onChange={(v) => set({ widgets: v })} label="Show desktop widgets (system health, GPU, ZFS, compute)" />
-        <p className="mt-2 text-[11px] text-slate-500">Appearance settings are stored in this browser.</p>
+        <p className="mt-2 text-[11px] text-slate-500">Wallpaper and widgets are stored in this browser; layout settings are also saved on the server.</p>
+      </Card>
+      <Card title="Desktop Layout">
+        <LayoutControls />
       </Card>
       <DockCard />
     </div>
   );
 }
 
-const MAG_LABELS: Record<Magnification, string> = { off: "Off", subtle: "Subtle", macos: "macOS", large: "Large" };
+const MAG_LABELS: Record<Magnification, string> = { off: "Off", subtle: "Subtle", strong: "Strong", large: "Large" };
 
 function DockCard() {
-  const { pinned, autoHide, baseSize, magnification, pin, unpin, set } = useDock();
+  const { pinned, autoHide, magnification, pin, unpin, set } = useDock();
   return (
     <Card title="Dock">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label={`Base icon size: ${baseSize}px`}>
-          <input type="range" min={36} max={64} step={1} value={baseSize} onChange={(e) => set({ baseSize: Number(e.target.value) })} className="w-full accent-sky-400" aria-label="Base icon size" />
-        </Field>
-        <Field label="Magnification strength">
+        <Field label="Magnification strength" hint="Dock icon size and spacing are under Desktop Layout above.">
           <Segmented value={magnification} onChange={(v) => set({ magnification: v })} options={(Object.keys(MAGNIFICATION) as Magnification[]).map((id) => ({ id, label: MAG_LABELS[id] }))} />
         </Field>
       </div>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import {
+  BookOpen,
   CalendarClock,
   Camera,
   ChevronDown,
@@ -23,14 +24,18 @@ import {
   Trash2,
   Wrench,
 } from "lucide-react";
-import { useIntent, useTelemetry } from "../lib/stores";
+import { useIntentFor, useTelemetry } from "../lib/stores";
+import { useAppView } from "../store/layoutStore";
+import { useWizard } from "../store/wizardStore";
+import { ViewToggle } from "../components/ViewOptions";
+import { GuideBanner } from "../components/wizards/GuidedWizardModal";
 import { api } from "../lib/api";
 import type { PveDisk, Schedule, Share, SmartReport, StorageInfo, ZfsDataset, ZfsDatasetInfo, ZfsSnapshot, ZfsVdev } from "../lib/types";
 import { bytes, healthColor, pct, tempColor } from "../lib/format";
 import { useRunner } from "../lib/hooks";
 import { Bar } from "../components/charts";
 import Benchmark from "./storage/Benchmark";
-import { DiskSettingsModal, ScanModal, useViewMode, ViewToggle } from "./storage/DiskTools";
+import { DiskSettingsModal, ScanModal } from "./storage/DiskTools";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, healthTone, Notice, Segmented } from "../components/ui/GlassKit";
 
 type Tab = "overview" | "pools" | "datasets" | "disks" | "benchmark" | "snapshots" | "backends";
@@ -109,6 +114,7 @@ function CreatePoolModal({ open, onClose, disks, onDone }: { open: boolean; onCl
       }
     >
       <div className="space-y-4">
+        <GuideBanner guide="storage-raid" text="Not sure which RAID level to pick? See Single, Mirror, RAIDZ1 and RAIDZ2 explained in plain language." />
         <div className="grid gap-3 sm:grid-cols-3">
           <Field label="Pool name">
             <GlassInput className="w-full" value={name} onChange={(e) => setName(e.target.value)} pattern="[A-Za-z][A-Za-z0-9_.:\-]{0,63}" required />
@@ -574,7 +580,15 @@ function Pools({ storage, disks, onCreate, onChanged, refresh }: { storage: Stor
         </GlassButton>
       </div>
       <Notice error={destroy || action?.kind === "offline" ? undefined : error} notice={notice} />
-      {storage.pools.length === 0 && <p className="text-sm text-slate-400">No ZFS pools yet.</p>}
+      {storage.pools.length === 0 && (
+        <>
+          <p className="text-sm text-slate-400">No ZFS pools yet.</p>
+          <GuideBanner guide="storage-pool" text="Learn how to turn empty drives into a protected pool and organize it with datasets." />
+        </>
+      )}
+      {storage.pools.some((p) => p.health !== "ONLINE") && (
+        <GuideBanner guide="storage-replace-disk" text="A pool is not healthy. Follow the step-by-step guide to take the failing drive offline and replace it." />
+      )}
       {storage.pools.map((p) => {
         const rs = resilverPct(p.detail.scan);
         return (
@@ -713,7 +727,7 @@ function Datasets({ version, onCreate }: { version: number; onCreate: () => void
   const [guests, setGuests] = useState(false);
   const [destroy, setDestroy] = useState<ZfsDatasetInfo | null>(null);
   const [recursive, setRecursive] = useState(false);
-  const [view, setView] = useViewMode("proxmoxos.storage.datasets.view");
+  const [view] = useAppView("datasets");
   const load = useCallback(() => {
     api<ZfsDatasetInfo[]>("/pve/zfs/datasets").then(setItems, () => setItems([]));
     api<Share[]>("/shares").then(setShares, () => {});
@@ -741,7 +755,7 @@ function Datasets({ version, onCreate }: { version: number; onCreate: () => void
       <div className="flex flex-wrap items-center gap-3">
         <h3 className="mr-auto text-sm font-semibold text-slate-100">Volumes & datasets</h3>
         <GlassSwitch checked={guests} onChange={setGuests} label="Show guest disks" />
-        <ViewToggle mode={view} onChange={setView} />
+        <ViewToggle app="datasets" />
         <GlassButton variant="primary" onClick={onCreate}>
           <FolderPlus size={13} /> Create
         </GlassButton>
@@ -1043,7 +1057,8 @@ function PoolBadge({ d }: { d: PveDisk }) {
 
 function Disks({ disks, onChanged }: { disks: PveDisk[] | null; onChanged: () => void }) {
   const temps = useTelemetry((s) => s.hardware?.disks);
-  const [view, setView] = useViewMode("proxmoxos.storage.disks.view");
+  const [view] = useAppView("disks");
+  const showGuide = useWizard((s) => s.show);
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "devpath", dir: 1 });
   const [smart, setSmart] = useState<PveDisk | null>(null);
   const [tune, setTune] = useState<PveDisk | null>(null);
@@ -1117,7 +1132,13 @@ function Disks({ disks, onChanged }: { disks: PveDisk[] | null; onChanged: () =>
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <h3 className="mr-auto text-sm font-semibold text-slate-100">Disks & SMART</h3>
-        <ViewToggle mode={view} onChange={setView} />
+        <GlassButton size="xs" variant="ghost" onClick={() => showGuide("storage-smart")}>
+          <BookOpen size={12} /> How do I read disk health?
+        </GlassButton>
+        <GlassButton size="xs" variant="ghost" onClick={() => showGuide("storage-disk-tests")}>
+          <BookOpen size={12} /> Which test should I run?
+        </GlassButton>
+        <ViewToggle app="disks" />
       </div>
       <Notice error={wipe ? undefined : error} notice={notice} />
       {view === "grid" ? (
@@ -1777,14 +1798,12 @@ export default function StorageManager() {
   }, [refreshAll]);
 
   useEffect(refreshAll, [refreshAll]);
-  const intent = useIntent((s) => s.storage);
-  const takeIntent = useIntent((s) => s.take);
-  useEffect(() => {
-    if (!intent) return;
-    if (intent === "pool") setModal("pool");
-    else setTab(intent);
-    takeIntent("storage");
-  }, [intent, takeIntent]);
+  useIntentFor("storage", (v) => {
+    if (v === "pool" || v === "dataset") {
+      if (v === "pool") loadDisks();
+      setModal(v);
+    } else setTab(v);
+  });
   useEffect(() => {
     if (modal === "dataset")
       api<ZfsDatasetInfo[]>("/pve/zfs/datasets").then(

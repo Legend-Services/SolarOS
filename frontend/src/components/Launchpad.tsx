@@ -3,6 +3,8 @@ import { Pin, Search } from "lucide-react";
 import { useDock, useWindows } from "../lib/stores";
 import { APPS, APP_IDS } from "../apps/registry";
 import { AppIcon } from "./icons/AppIcons";
+import { useLayout } from "../store/layoutStore";
+import { AppListRow } from "./ViewOptions";
 
 /** Full-screen frosted-glass grid of every app, so apps removed from the Dock stay one click away. */
 export default function Launchpad() {
@@ -10,6 +12,7 @@ export default function Launchpad() {
   const openApp = useWindows((s) => s.open);
   const [query, setQuery] = useState("");
   const [shown, setShown] = useState(false);
+  const list = useLayout((s) => s.desktopView === "list");
 
   useEffect(() => {
     if (!open) return setShown(false);
@@ -50,6 +53,14 @@ export default function Launchpad() {
           aria-label="Search apps"
         />
       </label>
+      {list ? (
+        <div className="grid w-full max-w-3xl gap-2 overflow-auto sm:grid-cols-2">
+          {apps.map((id) => (
+            <AppListRow key={id} id={id} iconSize={40} onClick={(e) => (e.stopPropagation(), launch(id))} />
+          ))}
+          {apps.length === 0 && <p className="col-span-full text-center text-sm text-slate-300">No apps match “{query}”.</p>}
+        </div>
+      ) : (
       <div className="grid w-full max-w-4xl grid-cols-3 gap-x-4 gap-y-8 overflow-auto sm:grid-cols-4 md:grid-cols-6">
         {apps.map((id) => (
           <button
@@ -66,6 +77,7 @@ export default function Launchpad() {
         ))}
         {apps.length === 0 && <p className="col-span-full text-center text-sm text-slate-300">No apps match “{query}”.</p>}
       </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
+import { useEffect, useId, useState, type ButtonHTMLAttributes, type CSSProperties, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
 import { X } from "lucide-react";
 
 /* Liquid Glass primitives. Surfaces, rims and press physics live in index.css (.glass-btn, .glass-field, …). */
@@ -78,31 +78,37 @@ export function GlassSelect({ className = "", children, ...rest }: SelectHTMLAtt
   );
 }
 
-/** Range slider with a label and the current value (or `display`) on the right. */
+/** Liquid Glass range slider with a live numeric readout; the filled part of the track follows the value. */
 export function GlassSlider({
+  label,
   value,
-  onChange,
   min,
   max,
   step = 1,
-  label,
+  unit = "px",
+  onChange,
   display,
   disabled,
 }: {
+  label: ReactNode;
   value: number;
-  onChange: (v: number) => void;
   min: number;
   max: number;
   step?: number;
-  label: ReactNode;
+  unit?: string;
+  onChange: (v: number) => void;
+  /** Readout text instead of `value + unit` (e.g. a slider over named steps); also hides the min/max row. */
   display?: ReactNode;
   disabled?: boolean;
 }) {
+  const fill = `${((value - min) / (max - min)) * 100}%`;
   return (
-    <label className={`block text-[11px] text-slate-400 ${disabled ? "opacity-40" : ""}`}>
-      <span className="mb-1 flex justify-between gap-2">
+    <label className={`block select-none ${disabled ? "opacity-40" : ""}`}>
+      <span className="mb-1.5 flex items-center justify-between text-[11px] text-slate-300">
         <span>{label}</span>
-        <span className="text-slate-100 tabular-nums">{display ?? value}</span>
+        <span className="rounded-md bg-white/10 px-1.5 py-0.5 font-medium text-white tabular-nums ring-1 ring-white/10 ring-inset">
+          {display ?? `${value}${unit}`}
+        </span>
       </span>
       <input
         type="range"
@@ -112,9 +118,22 @@ export function GlassSlider({
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="h-1.5 w-full cursor-pointer accent-sky-400 disabled:cursor-not-allowed"
-        aria-label={typeof label === "string" ? label : undefined}
+        className="glass-slider w-full disabled:cursor-not-allowed"
+        style={{ "--fill": fill } as CSSProperties}
+        aria-valuetext={typeof display === "string" ? display : `${value}${unit}`}
       />
+      {display === undefined && (
+      <span className="mt-0.5 flex justify-between text-[10px] text-slate-500 tabular-nums">
+        <span>
+          {min}
+          {unit}
+        </span>
+        <span>
+          {max}
+          {unit}
+        </span>
+      </span>
+      )}
     </label>
   );
 }

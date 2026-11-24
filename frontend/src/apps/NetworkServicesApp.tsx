@@ -4,6 +4,8 @@ import { api } from "../lib/api";
 import { bytes } from "../lib/format";
 import { usePoll, useRunner } from "../lib/hooks";
 import { JobLog } from "../components/JobLog";
+import { GuideBanner } from "../components/wizards/GuidedWizardModal";
+import { useIntentFor } from "../lib/stores";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, Notice } from "../components/ui/GlassKit";
 
 /* ---------------- Types (local to this app) ---------------- */
@@ -365,6 +367,7 @@ function DnsTab({ status, reload }: { status: NetStatus; reload: () => void }) {
         </div>
       </Card>
       <Card title="AdBlocker" action={<span className="text-[11px] text-slate-400">{d.adblock.domains.toLocaleString()} domains blocked{d.adblock.updated && ` · updated ${new Date(d.adblock.updated * 1000).toLocaleString()}`}</span>}>
+        <GuideBanner className="mb-3" guide="net-dns" text="Point your router at this server to block ads on every device. We'll walk you through it." />
         <div className="space-y-3">
           <div className="flex flex-wrap gap-4">
             {Object.entries(d.blocklists).map(([id, l]) => (
@@ -552,6 +555,7 @@ function WgServerTab({ status, reload }: { status: NetStatus; reload: () => void
   return (
     <div className="space-y-4">
       <PackageBar pkg="wireguard" label="WireGuard tools" installed={installed} onChanged={reload} />
+      <GuideBanner guide="net-wireguard" text="Set up the VPN server and connect your phone by scanning a QR code, step by step." />
       <Card title="Server" action={<GlassBadge tone={w.running ? "success" : "neutral"}>{w.running ? "RUNNING" : "STOPPED"}</GlassBadge>}>
         <div className="space-y-3">
           <GlassSwitch checked={w.enabled} onChange={(v) => setW({ ...w, enabled: v })} label="Enable WireGuard server (wg0)" disabled={!installed} />
@@ -1056,6 +1060,7 @@ function CertsTab() {
 
 export default function NetworkServicesApp() {
   const [tab, setTab] = useState<Tab>("dns");
+  useIntentFor("netservices", setTab);
   const [status, setStatus] = useState<NetStatus | null>(null);
   const [error, setError] = useState("");
   const reload = useCallback(() => {
