@@ -177,6 +177,16 @@ html,
 body,
 #root {
   height: 100%;
+  /* A compositor tile evicted on a large display shows the theme base color, never a white or black flash. */
+  background-color: var(--sd-bg-base);
+}
+
+/* A glass surface inside another one samples an already blurred backdrop: a second blur only costs GPU memory. */
+.glass .glass-soft,
+.glass-panel .glass-soft,
+.glass .glass,
+.glass-panel .glass {
+  backdrop-filter: none;
 }
 
 body {

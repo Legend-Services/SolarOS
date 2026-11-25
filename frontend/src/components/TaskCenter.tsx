@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { api } from "../lib/api";
-import type { HostTask, TaskState } from "../lib/types";
+import { usePoll } from "../lib/hooks";
+import type { HostTask, JobProgress, TaskState } from "../lib/types";
 import { useTranslation } from "../i18n";
+import { OperationProgressCard } from "./ui/OperationProgressCard";
 
 export const TASK_BADGE: Record<TaskState, { label: string; tone: string }> = {
   running: { label: "Running", tone: "bg-sky-400/15 text-sky-300" },
@@ -78,13 +80,42 @@ export function TaskLog({ upid, onDone, className = "h-48" }: { upid: string; on
   );
 }
 
-/** Task Center tab of the notifications popover: recent host tasks, each expandable into its live log. */
-export function TaskCenterPanel({ tasks, reload }: { tasks: HostTask[]; reload: () => void }) {
+/** Progress of a running backup task, read from the `INFO:  45% (…)` lines its log prints (when it prints them). */
+function BackupPercent({ upid }: { upid: string }) {
+  const [pct, setPct] = useState<number | null>(null);
+  const poll = useCallback(() => {
+    api<{ lines: string[] }>(`/v1/tasks/${encodeURIComponent(upid)}/log`).then((l) => {
+      const m = l.lines.map((x) => /^INFO:\s+(\d{1,3})% \(/.exec(x)).filter(Boolean).pop();
+      if (m) setPct(Math.min(100, +m[1]));
+    }, () => {});
+  }, [upid]);
+  usePoll(poll, 3000);
+  if (pct === null) return null;
+  return (
+    <span className="flex items-center gap-2 px-2 pb-1.5" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
+      <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-black/30">
+        <span className="block h-full rounded-full bg-gradient-to-r from-sky-400 to-blue-500 transition-[width] duration-700" style={{ width: `${pct}%` }} />
+      </span>
+      <span className="w-8 text-right text-[10px] font-bold text-white tabular-nums">{pct}%</span>
+    </span>
+  );
+}
+
+/**
+ * Task Center tab of the notifications popover: live progress cards for GPU, App Center, OS update and AI model jobs
+ * (GET /api/system/tasks), then recent host tasks, each expandable into its live log (backups with their percentage).
+ */
+export function TaskCenterPanel({ tasks, jobs, reload }: { tasks: HostTask[]; jobs: JobProgress[]; reload: () => void }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState<string | null>(null);
   return (
     <ul className="max-h-[60vh] space-y-1 overflow-auto">
-      {tasks.length === 0 && <li className="px-2 py-4 text-center text-slate-400">{t("notif.noTasks")}</li>}
+      {jobs.map((j) => (
+        <li key={j.job_id}>
+          <OperationProgressCard compact title={j.subject ? `${t(`progress.kind.${j.kind}`)} · ${j.subject}` : t(`progress.kind.${j.kind}`)} progress={j} />
+        </li>
+      ))}
+      {tasks.length === 0 && jobs.length === 0 && <li className="px-2 py-4 text-center text-slate-400">{t("notif.noTasks")}</li>}
       {tasks.map((task) => {
         const b = TASK_BADGE[task.state];
         const isOpen = expanded === task.upid;
@@ -105,6 +136,7 @@ export function TaskCenterPanel({ tasks, reload }: { tasks: HostTask[]; reload: 
                 {b.label}
               </span>
             </button>
+            {task.type === "vzdump" && task.state === "running" && <BackupPercent upid={task.upid} />}
             {isOpen && (
               <div className="px-2 pb-2">
                 <p className="mb-1 truncate font-mono text-[10px] text-slate-500" title={task.upid}>

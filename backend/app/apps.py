@@ -8,6 +8,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
+from . import task_progress
 from .auth import require_user
 from .config import settings
 
@@ -83,4 +84,10 @@ async def deployment(vmid: int):
     job = _jobs.get(vmid)
     if not job:
         raise HTTPException(404, "No deployment job for this container (backend restarted?)")
-    return {**job, "log": job["log"][-500:]}
+    return {**job, "log": job["log"][-500:], "progress": task_progress.from_app(job)}
+
+
+@router.get("/jobs/{vmid}")
+async def deployment_progress(vmid: int):
+    """The deployment as a unified stage-progress view (same shape as /api/tasks/{job_id})."""
+    return (await deployment(vmid))["progress"]
