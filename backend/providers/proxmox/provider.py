@@ -332,6 +332,19 @@ class ProxmoxProvider(HypervisorProvider):
     def host_address(self) -> str:
         return api.pve_settings.hostname
 
+    async def host_firewall(self) -> dict:
+        """Proxmox VE's own firewall (datacenter + node options); ufw must never be added next to it."""
+        dc = await api._safe("/cluster/firewall/options")
+        node = await api._safe(api._node("/firewall/options"), {})
+        node = node if isinstance(node, dict) else {}
+        if not isinstance(dc, dict):
+            return {"active": False, "detail": "Could not read the datacenter firewall (the API token needs Sys.Audit)"}
+        on = bool(dc.get("enable")) and node.get("enable", 1) != 0
+        deny = str(dc.get("policy_in", "DROP")).upper() in ("DROP", "REJECT")
+        return {"active": on and deny,
+                "detail": "Datacenter firewall on, incoming denied by default" if on and deny else
+                "Turn on the firewall in Datacenter -> Firewall -> Options (input policy DROP)"}
+
     async def host_status(self) -> dict:
         st = await api._safe(api._node("/status"), {}) or {}
         return {**st, "platform_version": st.get("pveversion", "")} if st else {}

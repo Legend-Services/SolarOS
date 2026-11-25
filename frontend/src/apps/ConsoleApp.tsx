@@ -4,7 +4,7 @@ import RFB from "@novnc/novnc";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
-import { api } from "../lib/api";
+import { api, ensureStepUp } from "../lib/api";
 import type { ConsoleTarget } from "../lib/types";
 import { useTelemetry } from "../lib/stores";
 
@@ -56,9 +56,12 @@ export default function ConsoleApp({ params }: { params?: ConsoleTarget }) {
           };
         } else {
           // Host shells open a root PTY over the SSH bridge directly; guests get a single-use session first.
+          // A root host shell needs a fresh confirmation (step-up token in the query: WebSockets carry no headers).
+          const stepUp = t.type === "node" ? await ensureStepUp() : null;
+          if (t.type === "node" && !stepUp) throw new Error("Cancelled: confirm your identity to open the host shell");
           const url =
             t.type === "node"
-              ? `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/v1/ws/host-shell`
+              ? `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/v1/ws/host-shell?step_up=${encodeURIComponent(stepUp!)}`
               : wsUrl("terminal", t, (await api<{ session: string }>(`/v1/guests/${t.type}/${t.vmid}/terminal`, { method: "POST" })).session);
           if (cancelled) return;
           const term = new Terminal({

@@ -6,7 +6,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, Field
 
-from app.auth import require_user
+from app.auth import require_step_up_auth, require_user
 from app.storage_admin import STORAGE_RE
 
 from ..api import _node, pve
@@ -78,19 +78,19 @@ async def fw_rules(scope: Scope, vmid: int | None = None):
     return await pve("GET", f"{fw_base(scope, vmid)}/rules") or []
 
 
-@router.post("/api/v1/firewall/{scope}/rules")
+@router.post("/api/v1/firewall/{scope}/rules", dependencies=[Depends(require_step_up_auth)])
 async def fw_add_rule(scope: Scope, body: RuleBody, vmid: int | None = None):
     await pve("POST", f"{fw_base(scope, vmid)}/rules", data=rule_params(body))
     return {"ok": True}
 
 
-@router.put("/api/v1/firewall/{scope}/rules/{pos}")
+@router.put("/api/v1/firewall/{scope}/rules/{pos}", dependencies=[Depends(require_step_up_auth)])
 async def fw_update_rule(scope: Scope, body: RuleBody, pos: int = Path(ge=0, le=9999), vmid: int | None = None):
     await pve("PUT", f"{fw_base(scope, vmid)}/rules/{pos}", data=rule_params(body, update=True))
     return {"ok": True}
 
 
-@router.delete("/api/v1/firewall/{scope}/rules/{pos}")
+@router.delete("/api/v1/firewall/{scope}/rules/{pos}", dependencies=[Depends(require_step_up_auth)])
 async def fw_delete_rule(scope: Scope, pos: int = Path(ge=0, le=9999), vmid: int | None = None):
     await pve("DELETE", f"{fw_base(scope, vmid)}/rules/{pos}")
     return {"ok": True}
@@ -101,7 +101,7 @@ async def fw_options(scope: Scope, vmid: int | None = None):
     return await pve("GET", f"{fw_base(scope, vmid)}/options") or {}
 
 
-@router.put("/api/v1/firewall/{scope}/options")
+@router.put("/api/v1/firewall/{scope}/options", dependencies=[Depends(require_step_up_auth)])
 async def fw_set_options(scope: Scope, body: FwOptions, vmid: int | None = None):
     data = {k: int(v) if isinstance(v, bool) else v for k, v in body.model_dump(exclude_none=True).items()}
     if data:

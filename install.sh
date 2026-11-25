@@ -267,7 +267,7 @@ msg "Deploying application to ${APP_DIR}"
 if [[ -n "$SRC_DIR" ]]; then
   TARBALL="$(mktemp --suffix=.tar.gz)"
   tar -C "$SRC_DIR" --exclude=node_modules --exclude=dist --exclude=.venv --exclude=.git \
-    --exclude=backend/.env --exclude=__pycache__ --exclude=.claude --exclude=backend/data/schedules.json --exclude=backend/data/security.json --exclude=backend/data/user_preferences.json --exclude=backend/data/benchmarks.json --exclude=backend/data/update_settings.json --exclude=backend/data/local_ai.json --exclude=backend/data/ai_chats.json --exclude=backend/data/app_usage.json --exclude=backend/data/themes --exclude=backend/data/alert_channels.json --exclude=backend/data/automation_rules.json --exclude=backend/data/automation_logs.json --exclude=backend/.ssh \
+    --exclude=backend/.env --exclude=__pycache__ --exclude=.claude --exclude=backend/data/schedules.json --exclude=backend/data/security.json --exclude=backend/data/user_preferences.json --exclude=backend/data/benchmarks.json --exclude=backend/data/update_settings.json --exclude=backend/data/local_ai.json --exclude=backend/data/ai_chats.json --exclude=backend/data/app_usage.json --exclude=backend/data/themes --exclude=backend/data/alert_channels.json --exclude=backend/data/automation_rules.json --exclude=backend/data/automation_logs.json --exclude=backend/data/sessions.json --exclude=backend/data/login_failures.json --exclude=backend/data/audit_log.jsonl --exclude=backend/data/.vault.key --exclude=backend/.ssh \
     -czf "$TARBALL" .
   pct push "$CTID" "$TARBALL" /tmp/proxmox-os.tar.gz
   rm -f "$TARBALL"

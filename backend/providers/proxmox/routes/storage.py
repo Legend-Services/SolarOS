@@ -7,7 +7,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from app.auth import require_user
+from app.auth import require_step_up_auth, require_user
 from app.storage_admin import (POOL_RE, STORAGE_RE, DeviceBody, DeviceConfirm, PoolBody, _dev, normalize_disk,
                                parse_smart, probe_host_disks, validate_pool)
 
@@ -30,7 +30,7 @@ async def disk_smart(disk: str):
     return parse_smart(await pve("GET", _node(f"/disks/smart?disk={quote(_dev(path), safe='')}")) or {})
 
 
-@router.post("/disks/wipe")
+@router.post("/disks/wipe", dependencies=[Depends(require_step_up_auth)])
 async def disk_wipe(body: DeviceConfirm):
     if body.confirm_device != body.disk:
         raise HTTPException(400, "Confirmation does not match the device path")
@@ -77,7 +77,7 @@ async def pool_create(body: PoolBody):
     return {"task": await pve("POST", _node("/disks/zfs"), data=data)}
 
 
-@router.delete("/zfs/pools/{name}")
+@router.delete("/zfs/pools/{name}", dependencies=[Depends(require_step_up_auth)])
 async def pool_destroy(name: str, confirm: str = Query(max_length=64)):
     if not re.fullmatch(POOL_RE, name):
         raise HTTPException(422, "Invalid pool name")

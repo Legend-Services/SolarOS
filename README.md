@@ -120,6 +120,43 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/
 | 🎨 **Make it yours** | 11 themes in dark and light, custom wallpapers, and a theme creator. |
 | 🌍 **Five languages** | English, Nederlands, Deutsch, Español and Français. |
 | 🛟 **Help built in** | Guided wizards, health checks with "Fix it for me", BIOS guides and a bug reporter. |
+| 🔐 **Secure by design** | Two-factor sign-in, confirmation before destructive actions, encrypted secrets, a tamper-evident audit log and a security score with 1-click host hardening. |
+
+## Security by Design & Hardening
+
+The same security layer runs in both editions (SolarDeck for Proxmox VE and SolarOS). Open **Control Panel →
+Security & Hardening** to see it all in one place.
+
+- **Two-factor sign-in (TOTP).** Scan a QR code with any authenticator app. You also get 8 single-use recovery codes.
+  With 2FA on, the password step returns a short-lived challenge and the sign-in finishes only with a valid code.
+- **Sessions you can end.** Every sign-in is tracked (device, address, last seen). Revoke one device or all others; the
+  token stops working immediately. Changing the password signs out every other device.
+- **Brute-force protection.** After 5 failed sign-ins within 10 minutes an address is locked out for 1 minute, then 2,
+  4, 8 … (at most an hour), with a `Retry-After` header.
+- **Step-up confirmation.** Wiping a disk, destroying a pool or dataset, taking a mirror disk offline, deleting a VM or
+  container, switching a GPU to passthrough, editing firewall rules, applying host hardening and opening a root host
+  shell all ask for the password (or a 2FA code) again. The confirmation lasts 5 minutes and only for that sign-in.
+- **Encrypted secrets.** Alert tokens, webhook URLs, the SMTP password and the TOTP secret are stored encrypted
+  (Fernet) with a machine-local key in `backend/data/.vault.key` (`0600`). Older plaintext files keep working and are
+  encrypted on the next save.
+- **Tamper-evident audit log.** Sign-ins, 2FA changes, session revocations, step-up confirmations, guest and ZFS
+  changes, disk wipes, firewall edits, updates and host shells go to `backend/data/audit_log.jsonl`. Each entry stores
+  `sha256(previous hash + entry)`, so **Verify Hash Chain** spots any edited, removed or reordered line. Export as
+  JSON or CSV.
+- **Security score (0–100).** Eight weighted checks: strong admin password, 2FA, HTTPS, key-only SSH, default-deny
+  firewall, kernel hardening, automatic security updates and audit log integrity. Host fixes are one click.
+- **Host hardening** (`deploy/host-hardening.sh`, applied by the SolarOS installer and from the security score):
+  `/etc/sysctl.d/99-solardeck-hardening.conf` (ASLR, symlink/hardlink protection, `kptr_restrict`, `dmesg_restrict`,
+  SYN cookies, no ICMP redirects); SSH via `/etc/ssh/sshd_config.d/10-solardeck-hardening.conf` (key-only once a
+  person's key is authorized, so you are never locked out; root by key only); `ufw` default-deny incoming with
+  80/443 tcp, 51820 udp, rate-limited 22 tcp, shares and guest networks allowed; AppArmor; `unattended-upgrades`.
+  On Proxmox VE the platform's own firewall is checked instead of adding ufw.
+- **Web server and service.** nginx sends `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`,
+  `Permissions-Policy` and a Content-Security-Policy, and hides its version. The container edition's backend runs
+  with `NoNewPrivileges`, a private `/tmp` and read-only `/usr`, `/boot` and home directories; `.env` and the SSH key
+  are kept at `0600`.
+- **On the server's own screen** (SolarOS console): **[7] Security & SSH Lock-Down** blocks or allows SSH from the
+  network, shows the firewall and lists recent failed SSH and web sign-ins.
 
 ## Screenshots
 
@@ -137,7 +174,7 @@ are never touched, and you can roll back to an earlier version from the same scr
 ## Good to know
 
 - Anyone who can sign in to SolarDeck can control the whole server. Keep it on your home network and turn on
-  **2FA** in Control Panel → User & Security.
+  **2FA** in Control Panel → Security & Hardening.
 - Found a bug? Click **Report a Bug** in the **?** menu. It opens a pre-filled GitHub issue with anonymized details.
 - Want to know how it works, run it from source or see the known limits? Read [docs/TECHNICAL.md](docs/TECHNICAL.md),
   [hypervisor/README.md](hypervisor/README.md) and the [CHANGELOG](CHANGELOG.md).

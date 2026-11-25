@@ -90,7 +90,7 @@ def check_twofa(enabled: bool) -> dict:
                 "Anyone who learns your password gets full control of the server (SolarDeck includes a root shell). "
                 "Turn on 2FA so a code from your phone is also needed.",
                 manual=["Install an authenticator app on your phone (Google Authenticator, Microsoft Authenticator, 1Password…).",
-                        "Open Control Panel → User & Security → Two-Factor Authentication → 'Set up 2FA'.",
+                        "Open Control Panel → Security & Hardening → Two-Factor Authentication → 'Set up 2FA'.",
                         "Scan the QR code with the app and type the 6-digit code to confirm."],
                 link={"app": "controlpanel", "intent": "security"})
 

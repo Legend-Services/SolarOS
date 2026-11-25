@@ -23,6 +23,7 @@ def handler(req: httpx.Request) -> httpx.Response:
 pve._client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="https://pve/api2/json")
 c = TestClient(app)
 assert c.post("/api/auth/login", json={"username": "admin", "password": "pw"}).status_code == 200
+__import__("tests").step_up(c)
 
 # Storage params per type.
 sp = dc.storage_params(dc.StorageBody(storage="nas", type="nfs", content=["backup", "iso", "backup"], server="10.0.0.5",

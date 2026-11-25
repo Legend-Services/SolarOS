@@ -345,13 +345,14 @@ export const APP_GUIDES: Record<AppId, Guide> = {
       "Updating SolarDeck to the newest version.",
     ],
     how: [
-      "User & Security: change the admin password, set up 2FA, check the root bridge. Add more {platform} users and roles in Datacenter.",
+      "Security & Hardening: check the security score, change the admin password, set up 2FA, sign out other devices and read the audit log. Add more {platform} users and roles in Datacenter.",
       "Hardware & System → GPU & Drivers: pick your card's vendor and press Install.",
       "Appearance & Themes: themes, Light / Dark Mode, wallpapers, Grid/List view, icon size, spacing and Dock.",
       "System & Power → SolarDeck Update: check for and install updates. To go back to an older version, redeploy that release with deploy.sh.",
       "To report a bug, use Help & Support → Ask, then open an issue on the project's GitHub page with what you saw.",
     ],
     action: { label: "Open Appearance & Themes", app: "controlpanel", intent: "appearance" },
+    related: ["security-hardening"],
   }),
   system: guide({
     id: "system",
@@ -678,6 +679,29 @@ const SUB_GUIDES: Guide[] = [
       "Reload the page using the domain name; the padlock should appear.",
     ],
     action: { label: "Open Certificates", app: "netservices", intent: "certs" },
+  }),
+  guide({
+    id: "security-hardening",
+    app: "controlpanel",
+    title: "Security Hardening & Two-Factor Sign-In",
+    blurb: "Raise your security score and lock the front door.",
+    what: "Anyone signed in to SolarDeck controls the whole server, so the sign-in deserves the strongest protection. Security & Hardening gives you a score from 0 to 100, fixes host settings with one click and keeps a tamper-evident record of every sign-in and destructive action.",
+    cards: [
+      { title: "Two-factor sign-in", body: "A 6-digit code from your phone is needed besides the password. Eight recovery codes get you in if the phone is lost." },
+      { title: "Confirm before destroying", body: "Wiping a disk, destroying a pool, deleting a VM or opening a root shell asks for your password again (valid for 5 minutes)." },
+      { title: "Host hardening", body: "Kernel protections, key-only SSH, a default-deny firewall and automatic security updates." },
+      { title: "Audit log", body: "Every entry is linked to the one before it by a fingerprint, so any edit or deletion shows up when you press Verify Hash Chain." },
+    ],
+    when: ["Right after installing, before the server is reachable from other networks.", "When the score shows Action Recommended.", "After a phone, laptop or password may have been exposed."],
+    how: [
+      "Control Panel → Security & Hardening: look at the score and the checklist.",
+      "Press Apply Recommended Hardening; follow the live log until it finishes.",
+      "Two-Factor Authentication → Set Up 2FA: scan the QR code, enter the code, then download the recovery codes and keep them somewhere safe.",
+      "Active Sessions: revoke devices you don't recognise, or Revoke All Other Sessions.",
+      "Audit Log: filter by event, press Verify Hash Chain and export JSON or CSV for your records.",
+    ],
+    tip: "SSH passwords stay on until someone has an SSH key on the server, so the hardening never locks you out. Lost your phone and recovery codes? Use [2] Reset Administrator on the server's own screen.",
+    action: { label: "Open Security & Hardening", app: "controlpanel", intent: "security" },
   }),
 ];
 

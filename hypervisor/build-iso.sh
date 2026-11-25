@@ -102,8 +102,8 @@ else
   # An installed copy without .git (ISO or deploy.sh install): embed the tree itself, minus state and build output.
   echo "==> Embedding SolarDeck from ${ROOT}"
   tar -C "$ROOT" --exclude=.git --exclude=node_modules --exclude=.venv --exclude=dist --exclude=__pycache__ \
-    --exclude=hypervisor/.cache --exclude=backend/.env --exclude=backend/.ssh --exclude='backend/data/*.json' \
-    --exclude=backend/data/themes --exclude='*.iso' -cf - . | tar -x -C "$WORK/src"
+    --exclude=hypervisor/.cache --exclude=backend/.env --exclude=backend/.ssh --exclude='backend/data/*.json' --exclude='backend/data/*.jsonl' \
+    --exclude=backend/data/.vault.key --exclude=backend/data/themes --exclude='*.iso' -cf - . | tar -x -C "$WORK/src"
   cp "${ROOT}/backend/data/app_catalog.json" "$WORK/src/backend/data/"
   cp "${ROOT}/.build-commit" "$WORK/src/.build-commit" 2>/dev/null || true
 fi

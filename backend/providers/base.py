@@ -195,6 +195,11 @@ class HypervisorProvider(ABC):
         host account is touched."""
         return None
 
+    async def host_firewall(self) -> dict | None:
+        """Status of a firewall the platform manages itself: {"active": bool, "detail": str}. None (default): the
+        host is checked and hardened with ufw / nftables (deploy/host-hardening.sh)."""
+        return None
+
     @abstractmethod
     async def get_node_metrics(self) -> NodeMetrics: ...
     @abstractmethod

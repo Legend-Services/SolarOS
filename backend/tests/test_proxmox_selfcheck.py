@@ -382,6 +382,8 @@ assert c.get("/api/v1/disks/sda/smart").json()["temperature_c"] == 40
 assert p4[-1][2] == "disk=%2Fdev%2Fsda", p4[-1]
 assert c.get("/api/v1/disks/%2Fdev%2Fnvme0n1/smart").status_code == 200 and p4[-1][2] == "disk=%2Fdev%2Fnvme0n1", p4[-1]
 assert c.get("/api/v1/disks/..%2Fetc/smart").status_code == 422
+assert c.post("/api/v1/disks/wipe", json={"disk": "/dev/sda", "confirm_device": "/dev/sda"}).status_code == 403  # step-up first
+__import__("tests").step_up(c)
 assert c.post("/api/v1/disks/wipe", json={"disk": "/dev/sda", "confirm_device": "/dev/sdb"}).status_code == 400
 assert c.post("/api/v1/disks/wipe", json={"disk": "/dev/sda;x", "confirm_device": "/dev/sda;x"}).status_code == 422
 assert c.post("/api/v1/disks/wipe", json={"disk": "/dev/sda", "confirm_device": "/dev/sda"}).json() == {"task": "UPID:x"}
@@ -436,6 +438,7 @@ assert new_pw not in config.ENV_FILE.read_text()
 assert (config.ENV_FILE.stat().st_mode & 0o777) == 0o600
 assert c.post("/api/auth/login", json={"username": "admin", "password": new_pw}).status_code == 200
 assert c.post("/api/auth/login", json={"username": "admin", "password": "pw"}).status_code == 401
+__import__("tests").step_up(c, new_pw)  # the new sign-in is a new session
 config.ENV_FILE.unlink()
 
 # ZFS datasets through the helper (mocked).
@@ -606,30 +609,107 @@ kinds = {r["kind"] for r in res}
 assert {"qemu", "dataset", "app", "section"} <= kinds, kinds
 assert next(r for r in res if r["kind"] == "qemu")["target"] == {"type": "qemu", "vmid": 101, "name": "web", "status": "running"}
 assert next(r for r in res if r["kind"] == "dataset")["target"] == {"path": "/tank/media"}
-assert [r["title"] for r in c.get("/api/search", params={"q": "2fa"}).json()["results"]] == ["User & Security"]
+assert [r["title"] for r in c.get("/api/search", params={"q": "2fa"}).json()["results"]] == ["Security & Hardening"]
 assert c.get("/api/search", params={"q": ""}).status_code == 422
 
 # Self-update status works without a git checkout or systemd (dev machine / CI).
 st = c.get("/api/system/updates/status").json()
 assert {"commit", "tag", "branch", "remote", "running", "update_available", "incoming", "settings"} <= st.keys() and not st["running"], st
 
-# TOTP 2FA: setup -> enable -> login requires a code -> disable.
+# TOTP 2FA: setup -> verify-setup -> login returns a challenge -> code or recovery code -> disable (password + code).
+from app import audit_log, secrets_vault, sessions  # noqa: E402
+
 settings.security_file = __import__("pathlib").Path(tmp).parent / f"security-{os.getpid()}.json"
+sessions._failures = {}  # earlier wrong passwords of this run count toward the limiter
 totp = lambda: pyotp.TOTP(setup["secret"]).now()  # noqa: E731
-assert c.get("/api/auth/2fa/status").json() == {"enabled": False}
+assert c.get("/api/auth/2fa/status").json() == {"enabled": False, "recovery_codes_left": 0}
 setup = c.post("/api/auth/2fa/setup").json()
 assert setup["qr_svg"].lstrip().startswith("<") and setup["otpauth_uri"].startswith("otpauth://totp/"), setup
-assert c.post("/api/auth/2fa/enable", json={"code": "000000"}).status_code == 400
-assert c.post("/api/auth/2fa/enable", json={"code": totp()}).json() == {"enabled": True}
+assert len(setup["recovery_codes"]) == 8 and len(set(setup["recovery_codes"])) == 8
+assert c.post("/api/auth/2fa/verify-setup", json={"code": "000000"}).status_code == 400
+assert c.post("/api/auth/2fa/verify-setup", json={"code": totp()}).json() == {"enabled": True}
 assert oct(settings.security_file.stat().st_mode & 0o777) == "0o600"
+raw = settings.security_file.read_text()  # the TOTP secret is encrypted at rest, recovery codes are hashed
+assert setup["secret"] not in raw and secrets_vault.PREFIX in raw and setup["recovery_codes"][0] not in raw
+assert c.get("/api/auth/2fa/status").json() == {"enabled": True, "recovery_codes_left": 8}
 assert c.post("/api/auth/2fa/setup").status_code == 409
-r = anon.post("/api/auth/login", json={"username": "admin", "password": new_pw})
-assert r.status_code == 401 and r.json()["detail"] == auth.OTP_REQUIRED, r.text
-assert anon.post("/api/auth/login", json={"username": "admin", "password": new_pw, "otp": "123456"}).status_code == 401
-assert anon.post("/api/auth/login", json={"username": "admin", "password": "nope", "otp": totp()}).status_code == 401
+r = anon.post("/api/auth/login", json={"username": "admin", "password": new_pw}).json()
+assert r["requires_2fa"] is True and "token" not in r and anon.get("/api/auth/me").status_code == 401, r
+assert anon.post("/api/auth/login/2fa", json={"challenge_token": r["challenge_token"], "code": "123456"}).status_code == 401
+assert anon.post("/api/auth/login/2fa", json={"challenge_token": "x" * 20, "code": totp()}).status_code == 401
+assert anon.post("/api/auth/login/2fa", json={"challenge_token": r["challenge_token"], "code": totp()}).status_code == 200
+assert anon.get("/api/auth/me").json() == {"username": "admin"}
+rc = setup["recovery_codes"][0]
+assert anon.post("/api/auth/login/2fa", json={"challenge_token": r["challenge_token"], "code": rc.lower()}).status_code == 200
+assert anon.post("/api/auth/login/2fa", json={"challenge_token": r["challenge_token"], "code": rc}).status_code == 401  # single use
+assert c.get("/api/auth/2fa/status").json()["recovery_codes_left"] == 7
 assert anon.post("/api/auth/login", json={"username": "admin", "password": new_pw, "otp": totp()}).status_code == 200
-assert c.post("/api/auth/2fa/disable", json={"code": "000000"}).status_code == 400
-assert c.post("/api/auth/2fa/disable", json={"code": totp()}).json() == {"enabled": False}
-assert anon.post("/api/auth/login", json={"username": "admin", "password": new_pw}).status_code == 200
+assert c.post("/api/auth/2fa/disable", json={"password": new_pw, "code": "000000"}).status_code == 400
+assert c.post("/api/auth/2fa/disable", json={"password": "wrong", "code": totp()}).status_code == 400
+sessions._failures = {}
+assert c.post("/api/auth/2fa/disable", json={"password": new_pw, "code": totp()}).json() == {"enabled": False}
+assert anon.post("/api/auth/login", json={"username": "admin", "password": new_pw}).json()["username"] == "admin"
+
+# Sessions: listed with the current one marked; revoking one ends it at once.
+mine = [x for x in c.get("/api/auth/sessions").json() if x["current"]]
+assert len(mine) == 1 and mine[0]["device"], mine
+other = next(x for x in c.get("/api/auth/sessions").json() if not x["current"])
+assert c.delete(f"/api/auth/sessions/{other['id']}").json() == {"ok": True}
+assert c.delete(f"/api/auth/sessions/{other['id']}").status_code == 404
+extra = TestClient(app)
+assert extra.post("/api/auth/login", json={"username": "admin", "password": new_pw}).status_code == 200
+n_before = len(c.get("/api/auth/sessions").json())
+extra.post("/api/auth/login", json={"username": "admin", "password": new_pw})  # signing in again replaces, not adds
+assert len(c.get("/api/auth/sessions").json()) == n_before
+assert c.post("/api/auth/sessions/revoke-all").json()["revoked"] >= 1
+assert extra.get("/api/auth/me").status_code == 401 and c.get("/api/auth/me").status_code == 200
+assert sessions.device_summary("Mozilla/5.0 (Windows NT 10.0) AppleWebKit Chrome/120 Safari/537") == "Chrome on Windows"
+assert sessions.device_summary("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0) Safari/604") == "Safari on iOS"
+
+# Step-up: wrong password refused, token bound to the session that asked for it.
+assert c.post("/api/auth/step-up", json={"password": "nope"}).status_code == 403
+sessions._failures = {}
+assert c.post("/api/auth/step-up", json={}).status_code == 403
+sessions._failures = {}
+__import__("tests").step_up(c, new_pw)
+assert anon.delete("/api/v1/guests/qemu/101", headers={"X-Step-Up-Token": c.headers["X-Step-Up-Token"]}).status_code == 401
+
+# Rate limiter: the 5th failure within 10 minutes locks the address out with Retry-After.
+sessions._failures = {}
+codes = [anon.post("/api/auth/login", json={"username": "admin", "password": "bad"}).status_code for _ in range(6)]
+assert codes == [401, 401, 401, 401, 429, 429], codes
+r = anon.post("/api/auth/login", json={"username": "admin", "password": new_pw})
+assert r.status_code == 429 and 0 < int(r.headers["Retry-After"]) <= 60, r.headers
+assert sessions.lock_seconds([1000.0] * 4, 1001) == 0 and sessions.lock_seconds([1000.0] * 5, 1001) == 59
+assert sessions.lock_seconds([1000.0] * 7, 1001) == 239 and sessions.lock_seconds([1000.0] * 5, 1700) == 0
+sessions._failures = {}
+
+# Hash-chained audit log: sign-ins and destructive calls are recorded; any edit breaks the chain.
+events = [e["event"] for e in c.get("/api/security/audit-log", params={"limit": 5000}).json()]
+assert {"login.success", "login.failure", "login.locked", "2fa.enable", "2fa.disable", "session.revoke", "stepup.success",
+        "disk.wipe"} <= set(events), set(events)
+assert c.get("/api/security/audit-log/verify").json()["ok"] is True
+log_lines = settings.audit_log_file.read_text().splitlines()
+tampered = [__import__("json").loads(x) for x in log_lines]
+tampered[1]["user"] = "mallory"
+assert audit_log.verify(tampered) == {"ok": False, "entries": len(tampered), "first_bad_line": 2, "reason": "Entry was modified"}
+assert audit_log.verify(tampered[:1] + tampered[2:])["first_bad_line"] == 2  # a removed line
+assert audit_log.http_event("DELETE", "/api/v1/guests/qemu/101") == "guest.delete" and audit_log.http_event("GET", "/api/v1/guests") is None
+
+# Vault: plaintext from older files passes through; encrypted values round-trip.
+assert secrets_vault.decrypt("plain") == "plain" and secrets_vault.decrypt(secrets_vault.encrypt("s3cr3t")) == "s3cr3t"
+assert secrets_vault.encrypt("") == "" and oct(settings.vault_key_file.stat().st_mode & 0o777) == "0o600"
+
+# Security posture: weighted score over the checks (pure evaluation).
+from app import security  # noqa: E402
+
+facts = {"sysctl_active": "1", "ssh_installed": "1", "ssh_active": "active", "ssh_password": "yes", "ssh_user_keys": "0",
+         "firewall": "active", "firewall_kind": "ufw", "auto_updates": "0"}
+pst = security.evaluate({"totp_enabled": True}, facts, None, True, True, False)
+assert pst["score"] == 15 + 15 + 10 + 15 + 10 + 10, pst
+assert {i["id"]: i["fix"] for i in pst["items"] if i["status"] == "warn"} == {"ssh": "ssh", "updates": "updates"}
+assert security.evaluate({}, None, {"active": True, "detail": "x"}, True, False, True)["score"] == 15 + 10
+assert c.get("/api/security/posture").json()["host_reachable"] is False  # no host in CI: host checks are "unknown"
+assert c.post("/api/security/harden", json={"parts": ["sysctl"]}, headers={"X-Step-Up-Token": ""}).status_code == 403
 settings.security_file.unlink()
 print("selfcheck OK")

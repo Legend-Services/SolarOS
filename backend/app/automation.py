@@ -18,7 +18,7 @@ import httpx
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, Field, ValidationError, model_validator
 
-from . import host, net_services, telemetry
+from . import host, net_services, secrets_vault, telemetry
 from .auth import require_user
 from .config import settings
 from .hypervisor import parse_zfs_list
@@ -111,7 +111,9 @@ class Channels(BaseModel):
 
 def load_channels() -> dict:
     try:
-        return Channels.model_validate(_read(settings.alert_channels_file, {})).model_dump()
+        raw = _read(settings.alert_channels_file, {})
+        raw = {n: secrets_vault.decrypt_fields(c, SECRETS.get(n, ())) if isinstance(c, dict) else c for n, c in raw.items()}
+        return Channels.model_validate(raw).model_dump()
     except ValidationError:  # hand-edited file: start from defaults rather than crash the scheduler
         return Channels().model_dump()
 
@@ -211,7 +213,8 @@ async def put_channels(body: dict = Body(...)):
         except ValidationError as e:
             err = e.errors()[0]
             raise HTTPException(422, f"{'.'.join(map(str, err['loc'])) or 'channels'}: {err['msg']}")
-        _write(settings.alert_channels_file, ch)
+        # Tokens, webhook URLs and the SMTP password are encrypted at rest (secrets_vault).
+        _write(settings.alert_channels_file, {n: secrets_vault.encrypt_fields(c, SECRETS[n]) for n, c in ch.items()})
     return masked(ch)
 
 

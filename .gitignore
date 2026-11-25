@@ -8,3 +8,4 @@ backend/data/local_rbac.json
 backend/data/native_backup_jobs.json
 hypervisor/.cache/
 *.iso
+__pycache__/

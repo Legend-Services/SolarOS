@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, Web
 
 from app import access, apps, backups, console, local_ai, provisioning, storage_admin, system
 from app import hypervisor as api
-from app.auth import require_user
+from app.auth import require_step_up_auth, require_user
 from app.config import settings
 from app.guest_hardware import SNAP_RE, VMID, SnapshotBody
 from providers.registry import get_provider
@@ -50,7 +50,7 @@ async def disk_smart(disk: str):
     return await P().get_disk_smart(disk)
 
 
-@router.post("/api/v1/disks/wipe")
+@router.post("/api/v1/disks/wipe", dependencies=[Depends(require_step_up_auth)])
 async def disk_wipe(body: storage_admin.DeviceConfirm):
     if body.confirm_device != body.disk:
         raise HTTPException(400, "Confirmation does not match the device path")
@@ -67,7 +67,7 @@ async def pool_create(body: storage_admin.PoolBody):
     return {"task": (await P().create_zfs_pool(body.model_dump())).task}
 
 
-@router.delete("/api/v1/zfs/pools/{name}")
+@router.delete("/api/v1/zfs/pools/{name}", dependencies=[Depends(require_step_up_auth)])
 async def pool_destroy(name: str, confirm: str = Query(max_length=64)):
     return {"task": (await P().destroy_zfs_pool(name, confirm)).task}
 

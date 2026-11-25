@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     samba_conf: Path | None = None  # default: /etc/samba/<prefix>-shares.conf
     schedules_file: Path = Path(__file__).resolve().parent.parent / "data" / "schedules.json"
     security_file: Path = Path(__file__).resolve().parent.parent / "data" / "security.json"
+    # Security by Design: signed-in sessions, sign-in rate limiter, hash-chained audit log and the at-rest secrets key.
+    sessions_file: Path = Path(__file__).resolve().parent.parent / "data" / "sessions.json"
+    login_failures_file: Path = Path(__file__).resolve().parent.parent / "data" / "login_failures.json"
+    audit_log_file: Path = Path(__file__).resolve().parent.parent / "data" / "audit_log.jsonl"
+    vault_key_file: Path = Path(__file__).resolve().parent.parent / "data" / ".vault.key"
     # Desktop layout, per-app views and wizard state, so they survive browser clears (GET/PUT /api/system/preferences).
     preferences_file: Path = Path(__file__).resolve().parent.parent / "data" / "user_preferences.json"
     # App Gallery "Most Used" / "Recently Used" sorting: launch counts per app (GET/POST /api/system/app-usage).
