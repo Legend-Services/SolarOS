@@ -4,8 +4,8 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from . import (apps, auth, automation, bug_report, capabilities, console, disk_benchmark, domains, files, hardware_admin, help_center, host_ssh, hypervisor, local_ai, net_services, notifications,
-               provisioning, schedules, shares, storage_admin, system, system_extra,
+from . import (apps, audit_log, auth, automation, bug_report, capabilities, console, disk_benchmark, domains, files, hardware_admin, help_center, host_ssh, hypervisor, local_ai, net_services, notifications,
+               provisioning, schedules, security, shares, storage_admin, system, system_extra,
                telemetry, themes, updater)
 from .config import settings
 from providers import registry
@@ -45,11 +45,22 @@ app.include_router(storage_admin.router)
 app.include_router(provisioning.router)
 app.include_router(system_extra.router)
 for module in (host_ssh, net_services, hardware_admin, help_center, disk_benchmark, updater, bug_report, local_ai, domains,
-               themes, automation):
+               themes, automation, security):
     app.include_router(module.router)
 app.include_router(themes.public)
 app.include_router(capabilities.router, prefix="/api/system")
 app.include_router(capabilities.router, prefix="/api/v1/system")
+
+
+@app.middleware("http")
+async def audit_requests(request: Request, call_next):
+    """Security-relevant changes (audit_log.HTTP_EVENTS) go to the hash-chained audit log with their outcome."""
+    response = await call_next(request)
+    if event := audit_log.http_event(request.method, request.url.path):
+        if response.status_code != 403 or request.headers.get(auth.STEP_UP_HEADER):  # not the step-up prompt itself
+            audit_log.record(event, user=auth.user_or_none(request), ip=auth.client_ip(request),
+                             ok=response.status_code < 400, status=response.status_code, path=request.url.path)
+    return response
 
 
 @app.exception_handler(NotImplementedError)

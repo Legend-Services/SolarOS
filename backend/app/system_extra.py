@@ -21,7 +21,7 @@ PER_KIND = 8
 
 # Control Panel sections, matched on title + keywords.
 SECTIONS = [
-    ("security", "User & Security", "password two-factor 2fa totp authenticator api token login"),
+    ("security", "Security & Hardening", "password two-factor 2fa totp authenticator recovery sessions audit log hardening firewall ssh posture api token login"),
     ("network", "Network & DNS", "interfaces bridge br dns resolver ip gateway"),
     ("appearance", "Appearance & Layout", "wallpaper widgets theme background layout grid list view icon size spacing dock"),
     ("power", "System & Updates", "reboot shutdown version update upgrade downgrade rollback kernel bug report"),

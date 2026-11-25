@@ -57,7 +57,7 @@ PKGS=(qemu-kvm qemu-utils libvirt-daemon-system libvirt-daemon-driver-qemu libvi
   zfsutils-linux zfs-zed bridge-utils smartmontools hdparm nvme-cli lm-sensors fio websockify samba
   samba-common-bin nginx python3-venv python3-pip git curl ca-certificates gnupg openssl rsync gdisk cloud-image-utils
   zstd acl pciutils usbutils dmidecode openssh-server jq iproute2 kmod less dnsmasq-base ipxe-qemu-256k-compat-efi-roms
-  qemu-block-extra parted netcat-openbsd libxml2-utils samba-vfs-modules cpu-checker)
+  qemu-block-extra parted netcat-openbsd libxml2-utils samba-vfs-modules cpu-checker ufw unattended-upgrades apparmor)
 # Incus from Zabbly (current upstream) when its repository serves this release; else the distribution's package.
 ZABBLY="$(dirname "$(readlink -f "${BASH_SOURCE[0]:-$0}")")/zabbly-incus.sh"
 if [[ -f "$ZABBLY" ]]; then read -ra INCUS_PKGS <<<"$(bash "$ZABBLY")"; else INCUS_PKGS=(incus); fi
@@ -121,7 +121,8 @@ if [[ -n "$SRC" && "$(realpath "$SRC")" != "$(realpath -m "$APP_DIR")" ]]; then
   mkdir -p "$APP_DIR"
   # User state is never overwritten; files shipped by the release are.
   rsync -a --exclude .git --exclude node_modules --exclude .venv --exclude dist --exclude __pycache__ --exclude .claude \
-    --exclude backend/.env --exclude backend/.ssh --exclude 'backend/data/*.json' --exclude backend/data/themes \
+    --exclude backend/.env --exclude backend/.ssh --exclude 'backend/data/*.json' --exclude 'backend/data/*.jsonl' \
+    --exclude backend/data/.vault.key --exclude backend/data/themes \
     "${SRC%/}/" "${APP_DIR}/"
   cp "${SRC%/}/backend/data/app_catalog.json" "${APP_DIR}/backend/data/app_catalog.json"
   [[ -n "$PREBUILT" ]] && rsync -a --delete "${SRC%/}/frontend/dist/" "${APP_DIR}/frontend/dist/"
@@ -245,6 +246,13 @@ if [[ -n "$WITH_TUI" ]]; then
   systemctl restart solardeck-console
   ok "Console dashboard on tty1"
 fi
+
+# ---------------------------------------------------------------- 9b. Host hardening
+# Kernel sysctl hardening, key-only SSH once a person's key is authorized (PermitRootLogin prohibit-password),
+# ufw default-deny incoming (80/443 tcp, 51820 udp, rate-limited 22 tcp, shares and guest networks), AppArmor and
+# automatic security updates. Control Panel -> Security & Hardening shows the result and re-applies single parts.
+msg "Hardening the host"
+bash "${APP_DIR}/deploy/host-hardening.sh" apply solardeck all | sed 's/^/    /' || warn "Some hardening steps failed (see above)"
 
 msg "Health check http://127.0.0.1/api/health"
 for _ in $(seq 1 30); do

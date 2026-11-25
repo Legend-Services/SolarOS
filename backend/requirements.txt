@@ -9,3 +9,4 @@ websockets==17.4
 pyotp==2.9.0
 qrcode==8.0
 asyncssh==2.21.1
+cryptography>=44  # also required by asyncssh; Fernet for the secrets vault

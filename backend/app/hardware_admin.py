@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from . import host_ssh, pci
 from .config import settings
-from .auth import require_user
+from .auth import require_step_up_auth, require_user
 from providers.registry import driver_package, get_provider
 
 router = APIRouter(tags=["hardware_admin"], dependencies=[Depends(require_user)])
@@ -478,7 +478,7 @@ async def gpu_drivers():
             "vfio_ids": parse_vfio_ids(s.get("vfio", "")), "iommu": probe["iommu_enabled"]}
 
 
-@router.post("/api/hardware/gpu-drivers/{action}")
+@router.post("/api/hardware/gpu-drivers/{action}", dependencies=[Depends(require_step_up_auth)])
 async def gpu_driver_action(action: Action, body: GpuBody):
     probe = await pci.probe()
     gpu = next((d for d in probe["devices"] if d["gpu"] and d["id"] == body.gpu), None)

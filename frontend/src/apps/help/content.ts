@@ -323,7 +323,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     keywords: "2fa two factor totp authenticator security password login protect",
     intro: "With 2FA, a stolen password alone is not enough to sign in.",
     steps: [
-      { text: "Open Control Panel → User & Security.", link: { app: "controlpanel", intent: "security" } },
+      { text: "Open Control Panel → Security & Hardening.", link: { app: "controlpanel", intent: "security" } },
       { text: "Press 'Set up 2FA', scan the QR code with an authenticator app and enter the 6-digit code." },
     ],
   },

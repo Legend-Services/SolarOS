@@ -6,9 +6,20 @@ Wants=network-online.target
 [Service]
 # Runs as container root, which maps to unprivileged uid 100000 on the host (the uid granted on /mnt/storage).
 WorkingDirectory=/opt/proxmox-os/backend
+ExecStartPre=-/bin/chmod 600 /opt/proxmox-os/backend/.env /opt/proxmox-os/backend/.ssh/id_ed25519
 ExecStart=/opt/proxmox-os/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --proxy-headers
 Restart=always
 RestartSec=3
+# Sandbox: no privilege gain, private /tmp, read-only /usr, /boot and home directories (acme.sh keeps its home in
+# /root/.acme.sh, created outside the sandbox by the "+" step below). /etc stays writable (ProtectSystem=true, not
+# "full"): Network Shares create Samba users and smb.conf entries in this container, and certificates go to /etc/nginx.
+# Updates run in their own transient unit (systemd-run), outside this sandbox.
+ExecStartPre=-+/bin/mkdir -p /root/.acme.sh
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=true
+ProtectHome=read-only
+ReadWritePaths=-/root/.acme.sh
 
 [Install]
 WantedBy=multi-user.target

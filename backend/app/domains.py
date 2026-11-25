@@ -232,7 +232,7 @@ async def _issue(body: CertBody) -> None:
             job["step"] = "Installing acme.sh"
             src = f"/opt/acme.sh-{ACME_VERSION}"
             script = (f"rm -rf {src} && git clone -q --depth 1 --branch {ACME_VERSION} https://github.com/acmesh-official/acme.sh.git {src} "
-                      f"&& cd {src} && ./acme.sh --install --home {ACME_HOME} --accountemail {shlex.quote(body.email)}")
+                      f"&& cd {src} && ./acme.sh --install --noprofile --home {ACME_HOME} --accountemail {shlex.quote(body.email)}")
             if await _run(["bash", "-c", script], {}, log, secrets):
                 raise RuntimeError("acme.sh could not be installed")
         job["step"] = "Requesting the certificate (DNS check, about a minute)"

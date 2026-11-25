@@ -6,9 +6,14 @@ Wants=network-online.target
 [Service]
 # Runs as root on the hypervisor host itself: SolarDeck is the management layer (HYPERVISOR_DRIVER=native_ubuntu).
 WorkingDirectory=/opt/solardeck/backend
+ExecStartPre=-/bin/chmod 600 /opt/solardeck/backend/.env /opt/solardeck/backend/.ssh/id_ed25519
 ExecStart=/opt/solardeck/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --proxy-headers
 Restart=always
 RestartSec=3
+# Private /tmp. The other sandbox options of the container edition (NoNewPrivileges, ProtectSystem, ProtectHome) do not
+# fit here: this backend IS the host's management layer and writes /etc (Netplan, users, Samba, modprobe), installs
+# packages and runs AppArmor-confined tools, which NoNewPrivileges would block.
+PrivateTmp=yes
 
 [Install]
 WantedBy=multi-user.target

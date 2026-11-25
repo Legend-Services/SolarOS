@@ -3,7 +3,7 @@
 
 Shows the host summary, LAN addresses with the web management URL and ZFS pool health, plus a numbered menu:
 network setup (Netplan), admin password reset / initial-password dismissal, update from Git, root shell,
-reboot / shut down, and a nested virtualization & hardware readiness check.
+reboot / shut down, a nested virtualization & hardware readiness check and security & SSH lock-down.
 Installed as /usr/local/bin/solardeck-console and run by solardeck-console.service.
   solardeck-console --self-test   checks the pure helpers (CI).
 """
@@ -43,7 +43,10 @@ MENU = [
     ("4", "Open Root Diagnostic Shell"),
     ("5", "Reboot or Shut Down Server"),
     ("6", "Show Nested Virtualization & Hardware Readiness"),
+    ("7", "Security & SSH Lock-Down"),
 ]
+AUDIT_LOG = APP_DIR / "backend/data/audit_log.jsonl"
+SESSIONS_FILE = APP_DIR / "backend/data/sessions.json"
 
 
 # ---------------------------------------------------------------- Pure helpers (self-tested)
@@ -136,6 +139,23 @@ def new_password(n: int = 14) -> str:
 def initial_password(text: str) -> str:
     m = re.search(r"^Password:\s*(\S+)", text, re.M)
     return m.group(1) if m else ""
+
+
+def remote_ssh_open(ufw_status: str) -> bool:
+    """Whether ufw lets SSH (22/tcp) in from the network (loopback is always allowed, so the local bridge keeps working)."""
+    return any(re.match(r"^22(/tcp)?\s+(ALLOW|LIMIT)\b", line) for line in ufw_status.splitlines())
+
+
+def failed_web_logins(lines: list[str], n: int = 5) -> list[str]:
+    out = []
+    for line in lines:
+        try:
+            e = json.loads(line)
+        except ValueError:
+            continue
+        if e.get("event") in ("login.failure", "login.2fa_failure", "login.locked"):
+            out.append(f"{e.get('ts', '')[:19]}  {e.get('ip') or '?':<15} {e.get('user') or '-':<12} {e['event']}")
+    return out[-n:]
 
 
 def readiness(f: dict) -> list[tuple[str, bool, str]]:
@@ -381,10 +401,11 @@ class Console:
         sec_file = APP_DIR / "backend/data/security.json"
         try:
             sec = json.loads(sec_file.read_text())
-            sec.update(totp_enabled=False, totp_secret=None)
+            sec.update(totp_enabled=False, totp_secret=None, recovery_codes=[])
             sec_file.write_text(json.dumps(sec))
         except (OSError, ValueError):
             pass
+        SESSIONS_FILE.unlink(missing_ok=True)  # every signed-in browser of the previous administrator is signed out
         subprocess.run(["systemctl", "restart", "solardeck-backend"], capture_output=True)
         self.message([f"Setup code:  {code}", "",
                       "Open the Web UI, choose a user name and password and enter this code.",
@@ -445,9 +466,41 @@ class Console:
         lines += ["", "Ready to host VMs and containers." if ready else "Not fully ready: fix the FAIL rows above."]
         self.message(lines, "Nested Virtualization & Hardware Readiness")
 
+    # [7]
+    def security(self) -> None:
+        """Remote SSH on/off through the firewall, firewall status and recent failed sign-ins (SSH and Web UI)."""
+        ufw = sh("ufw", "status", "verbose")
+        active = ufw.startswith("Status: active")
+        ssh_svc = sh("systemctl", "is-active", "ssh").strip() or "unknown"
+        remote = remote_ssh_open(ufw)
+        failed_ssh = [x for x in sh("journalctl", "-t", "sshd", "-t", "sshd-session", "--since", "-7d", "--no-pager",
+                                     "-o", "short-iso", timeout=20).splitlines()
+                      if re.search(r"Failed password|Invalid user|authentication failure", x)][-5:]
+        web = failed_web_logins(AUDIT_LOG.read_text(errors="replace").splitlines()) if AUDIT_LOG.exists() else []
+        lines = [f"SSH service:     {ssh_svc}",
+                 f"Firewall (ufw):  {'active' if active else 'INACTIVE: apply hardening in Control Panel -> Security & Hardening'}",
+                 f"Remote SSH:      {'allowed (rate limited)' if remote else 'blocked (local bridge only)'}" if active else "",
+                 *[f"  {x}" for x in ufw.splitlines()[1:4]],
+                 "", "Recent failed SSH sign-ins (7 days):", *([f"  {x[:100]}" for x in failed_ssh] or ["  none"]),
+                 "", "Recent failed Web UI sign-ins:", *([f"  {x}" for x in web] or ["  none"])]
+        self.message([x for x in lines if x is not None], "Security & SSH Lock-Down")
+        if not active:
+            return
+        verb = "Block" if remote else "Allow"
+        if self.ask(f"{verb} SSH from the network? The Web UI Host Shell keeps working (yes/no)", "no").lower() != "yes":
+            self.status = "Cancelled"
+            return
+        if remote:
+            for rule in (["limit", "22/tcp"], ["allow", "22/tcp"], ["allow", "22"]):
+                subprocess.run(["ufw", "delete", *rule], capture_output=True)
+        else:
+            subprocess.run(["ufw", "limit", "22/tcp", "comment", "SSH (rate limited)"], capture_output=True)
+        self.status = f"Remote SSH {'blocked' if remote else 'allowed'}" if remote_ssh_open(sh("ufw", "status")) != remote \
+            else "Could not change the firewall rule"
+
     def loop(self) -> None:
         actions = {"1": self.network, "2": self.reset_password, "3": self.update, "4": self.shell, "5": self.power,
-                   "6": self.hardware}
+                   "6": self.hardware, "7": self.security}
         while True:
             self.dashboard()
             self.scr.timeout(5000)  # refresh the dashboard every 5 s
@@ -486,6 +539,11 @@ def self_test() -> None:
                       "zfs": "zfs 2.2.2", "br0": "10.0.0.5/24", "virt": ""})
     assert [ok for _, ok, _ in rows] == [True, True, True, True, False, True, True, True]
     assert rows[-1][2] == "bare metal" and not readiness({})[0][1]
+    assert remote_ssh_open("Status: active\n22/tcp                     LIMIT IN    Anywhere\n") \
+        and not remote_ssh_open("Status: active\n80/tcp ALLOW IN Anywhere\n2222/tcp ALLOW IN Anywhere\n")
+    log = [json.dumps({"ts": "2026-11-25T10:00:00+00:00", "event": "login.failure", "ip": "10.0.0.9", "user": "admin"}),
+           json.dumps({"event": "login.success"}), "broken"]
+    assert failed_web_logins(log) == ["2026-11-25T10:00:00  10.0.0.9        admin        login.failure"]
     print("solardeck-console self-test OK")
 
 

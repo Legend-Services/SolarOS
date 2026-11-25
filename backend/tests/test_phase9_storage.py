@@ -159,6 +159,8 @@ for p in ("/api/v1/disks/{disk:path}/settings", "/api/v1/disks/{disk:path}/scan"
 cl = TestClient(app)
 assert cl.get("/api/v1/disks/benchmark/history").status_code == 401
 cl.post("/api/auth/login", json={"username": "admin", "password": "pw"})
+assert cl.post("/api/v1/zfs/pools/tank/members/offline", json={"device": "sda"}).json()["detail"] == "step_up_required"
+__import__("tests").step_up(cl)
 b.history_file = Path(tempfile.mkdtemp()) / "benchmarks.json"
 assert cl.get("/api/v1/disks/benchmark/history").json() == []
 b.save_result({"id": "a"})

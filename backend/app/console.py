@@ -12,7 +12,8 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, HTTPException, WebSocket
 
 from . import host_ssh
-from .auth import COOKIE, decode_token
+from . import audit_log
+from .auth import COOKIE, STEP_UP_REQUIRED, session_claims, step_up_ok
 from providers.registry import get_provider
 
 router = APIRouter(prefix="/api/v1", tags=["console"])
@@ -46,13 +47,13 @@ def _take_session(sid: str, kind: str, guest_type: str, vmid: int) -> dict | Non
     return s
 
 
-async def _authed(ws: WebSocket) -> bool:
+async def _authed(ws: WebSocket) -> dict | None:
+    """The session's claims, or None after closing the socket."""
     try:
-        decode_token(ws.query_params.get("token") or ws.cookies.get(COOKIE))
+        return session_claims(ws.query_params.get("token") or ws.cookies.get(COOKIE))
     except HTTPException:
         await ws.close(code=4401, reason="Not authenticated")
-        return False
-    return True
+        return None
 
 
 async def _accept(ws: WebSocket) -> None:
@@ -139,6 +140,15 @@ async def host_shell_ws(ws: WebSocket):
     if origin and origin != (ws.headers.get("host") or "").split(":")[0]:
         await ws.close(code=4403, reason="Cross-origin shell refused")
         return
-    if await _authed(ws):
-        await _accept(ws)
-        await ssh_relay(ws, None)
+    claims = await _authed(ws)
+    if not claims:
+        return
+    # Browsers cannot set headers on a WebSocket, so the step-up token rides in the query string.
+    ip = ws.client.host if ws.client else None
+    if not step_up_ok(ws.query_params.get("step_up"), claims):
+        audit_log.record("host_shell.denied", user=claims["sub"], ip=ip, ok=False)
+        await ws.close(code=4403, reason=STEP_UP_REQUIRED)
+        return
+    audit_log.record("host_shell.open", user=claims["sub"], ip=ip)
+    await _accept(ws)
+    await ssh_relay(ws, None)

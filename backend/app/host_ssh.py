@@ -102,12 +102,12 @@ async def run(cmd: str, *, input: str | None = None, timeout: float = 120, check
     return "\n".join(out)
 
 
-async def run_host_cmd(cmd: str, timeout: int = 10) -> tuple[bool, str, str]:
+async def run_host_cmd(cmd: str, timeout: int = 10, input: str | None = None) -> tuple[bool, str, str]:
     """Run a host command without raising: (exit status 0, stdout, stderr or the connection error)."""
     proc = None
     try:
         proc = await _open(cmd, encoding="utf-8", errors="replace")
-        out, err = await asyncio.wait_for(proc.communicate(), timeout)
+        out, err = await asyncio.wait_for(proc.communicate(input), timeout)
         return proc.exit_status == 0, out or "", err or ""
     except HTTPException as e:
         return False, "", str(e.detail)

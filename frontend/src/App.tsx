@@ -9,6 +9,7 @@ import WindowLayer from "./components/WindowLayer";
 import SpotlightSearch from "./components/SpotlightSearch";
 import BugReportModal from "./components/BugReportModal";
 import GuidedWizardModal from "./components/wizards/GuidedWizardModal";
+import StepUpAuthModal from "./components/security/StepUpAuthModal";
 import Taskbar from "./components/Taskbar";
 import { startPreferencesSync, useShell } from "./store/layoutStore";
 import { useWizard } from "./store/wizardStore";
@@ -69,6 +70,7 @@ export default function App() {
             <SpotlightSearch />
             <BugReportModal />
             <GuidedWizardModal />
+            <StepUpAuthModal />
           </>
         )}
       </div>

@@ -1,5 +1,30 @@
 # Changelog
 
+## v2.5.0 - Phase 21: Security by Design — TOTP 2FA, Step-Up Auth, Encrypted Vault, Hash-Chained Audit Log, Security Posture Center & SolarOS Host Hardening — 2026-11-25
+
+### Added
+- **Two-factor sign-in, done properly:** enrollment shows a QR code plus 8 single-use recovery codes (stored hashed). With 2FA on, `POST /api/auth/login` returns `{"requires_2fa": true, "challenge_token": …}` and `POST /api/auth/login/2fa` finishes the sign-in with a 6-digit code or a recovery code. The sign-in screen switches to a code field with a "Use a recovery code" option. Turning 2FA off needs the password and a code.
+- **Active sessions:** every sign-in gets a session id (device, address, signed-in and last-seen time) in `backend/data/sessions.json`. Control Panel lists them with **Revoke** and **Revoke All Other Sessions**; a revoked token stops working at once. Unlocking the screen replaces the session instead of adding one, and a password change signs out every other device.
+- **Brute-force protection:** 5 failed sign-ins (or 2FA codes) within 10 minutes lock the address out for 1 minute, doubling up to an hour, with HTTP 429 and `Retry-After`. Survives restarts.
+- **Step-up confirmation** (`POST /api/auth/step-up`, header `X-Step-Up-Token`, 5 minutes, bound to the session) for disk wipes, pool and dataset destruction, mirror member offline/detach, VM and container deletion, GPU driver and passthrough switching, firewall rule and option changes, host hardening and opening a root host shell. A dialog asks for the password or a 2FA code and the action continues by itself.
+- **Encrypted secrets at rest:** Telegram bot token, Discord webhook URL, webhook bearer token, SMTP password and the TOTP secret are encrypted with a machine-local Fernet key (`backend/data/.vault.key`, `0600`). Existing plaintext files keep working and are encrypted on their next save.
+- **Tamper-evident audit log** (`backend/data/audit_log.jsonl`): sign-ins and failures, lockouts, 2FA changes, session revocations, step-up confirmations, guest create/delete, ZFS pool/dataset/member changes, disk wipes, firewall edits, updates, GPU driver changes, password changes, host hardening and host shells. Each entry is hash-chained; `GET /api/security/audit-log/verify` and the **Verify Hash Chain** button report the first broken line. Filter, search and export as JSON or CSV.
+- **Security Posture Center** (`GET /api/security/posture`, `POST /api/security/harden`): a 0–100 score over 8 weighted checks (strong password, 2FA, HTTPS, key-only SSH, default-deny firewall, kernel hardening, automatic security updates, audit chain) with **Apply Recommended Hardening** and per-check fixes that run as a host job with a live log.
+- **Host hardening script** `deploy/host-hardening.sh` (check / apply): sysctl hardening, SSH hardening (key-only only once a person's key is authorized; root by key only), ufw default-deny incoming (80/443 tcp, 51820 udp, rate-limited 22 tcp, shares, DNS/DHCP when in use, guest NAT bridges), AppArmor and `unattended-upgrades`. The SolarOS installer and first boot apply it. On Proxmox VE the platform's own firewall is checked instead, and ufw is never added.
+- **SolarOS console [7] Security & SSH Lock-Down:** block or allow SSH from the network (the local bridge for the Host Shell keeps working), firewall status and recent failed SSH and web sign-ins.
+- A **Security Hardening & Two-Factor Sign-In** guide, and the new texts in all five languages.
+
+### Changed
+- Control Panel → User & Security is now **Security & Hardening**.
+- nginx sends `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` and a Content-Security-Policy on every response (including assets), and `server_tokens off`.
+- The container edition's backend service runs with `NoNewPrivileges=yes`, `PrivateTmp=yes`, `ProtectSystem=true` and `ProtectHome=read-only` (only `/root/.acme.sh` stays writable, for certificates; acme.sh is installed without editing `~/.bashrc`); `/etc` stays writable because Network Shares create Samba users there. The SolarOS backend gets `PrivateTmp=yes`: it is the host's management layer (Netplan, users, packages), which the stricter options would block. Both keep `.env` and the SSH key at `0600` on every start.
+- The updater copies itself to `/run` instead of `/tmp` (the backend's `/tmp` is now private).
+- Installers, `deploy.sh` and the ISO builder never copy the vault key, sessions, sign-in limiter or audit log.
+
+### Upgrade notes
+- Everyone is signed out once after this update (sessions are tracked now).
+- SSH password sign-in on SolarOS stays on until someone authorizes an SSH key; then apply the SSH fix from the security score.
+
 ## v2.4.4 - Updates Follow the Configured Branch — 2026-11-25
 
 ### Fixed
