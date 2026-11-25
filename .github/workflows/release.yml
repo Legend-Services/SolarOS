@@ -78,11 +78,16 @@ jobs:
             && gh release upload "$GITHUB_REF_NAME" --clobber install.sh hypervisor/install-hypervisor.sh hypervisor/build-iso.sh \
             || gh release create "$GITHUB_REF_NAME" --title "SolarDeck ${GITHUB_REF_NAME}" --notes-file "$RUNNER_TEMP/notes.md" \
                  install.sh hypervisor/install-hypervisor.sh hypervisor/build-iso.sh
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Publish the SolarOS release branch
         # SolarOS installs update from the "solaros" branch: the SolarOS edition tree only (deploy/make-edition-tree.sh
         # removes every other edition and fails if a trace is left), one commit per release, tagged solaros-<version>.
         run: |
           bash deploy/make-edition-tree.sh solaros . "$RUNNER_TEMP/solaros"
+          # SolarOS ships the built desktop, so its hosts need no Node.js toolchain.
+          (cd "$RUNNER_TEMP/solaros/frontend" && npm ci --no-audit --no-fund && VITE_EDITION=solaros npm run build && rm -rf node_modules)
           git config user.name "SolarDeck release" && git config user.email "release@users.noreply.github.com"
           git fetch -q --no-tags origin solaros:refs/remotes/origin/solaros || true
           git worktree add -q --detach "$RUNNER_TEMP/branch"
@@ -91,7 +96,7 @@ jobs:
           git rm -rq --cached . >/dev/null 2>&1 || true
           find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           cp -a "$RUNNER_TEMP/solaros/." .
-          git add -A
+          git add -A && git add -f frontend/dist
           git commit -q -m "SolarOS ${GITHUB_REF_NAME}" || echo "no changes"
           git tag -f "solaros-${GITHUB_REF_NAME}"
           git push -q origin solaros "refs/tags/solaros-${GITHUB_REF_NAME}" --force-with-lease=solaros

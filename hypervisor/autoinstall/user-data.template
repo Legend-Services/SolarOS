@@ -19,7 +19,13 @@ autoinstall:
         match:
           name: "eth*"
         dhcp4: true
+  # The minimal Ubuntu Server base: SolarOS installs exactly the packages it needs on first boot.
+  source:
+    id: ubuntu-server-minimal
   storage:
+    # A hypervisor wants RAM for guests, not a 4 GiB swap file (the Ubuntu default): 1 GiB as a safety margin.
+    swap:
+      size: 1073741824
     layout:
       name: lvm
       sizing-policy: all

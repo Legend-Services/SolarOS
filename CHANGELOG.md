@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.3.1 - Slimmer SolarOS — 2026-11-25
+
+### Changed
+- **SolarOS installs the minimal Ubuntu Server base** with a 1 GiB swap file instead of Ubuntu's 4 GiB default.
+- **Packages:** SolarOS installs only the packages it uses (no recommended extras such as desktop graphics stacks, no compilers), removes snapd when no snap is in use, and empties the APT cache after installing.
+- **The solaros release branch ships the built desktop,** so SolarOS hosts need neither Node.js nor npm for installs or updates. SolarDeck for Proxmox VE keeps building it during updates.
+
+### Fixed
+- The release workflow publishes the solaros branch again (v2.3.0's job stopped on generated release notes inside the checkout). Edition trees are made from tracked files only.
+
 ## v2.3.0 - Separate Editions: SolarOS Without Any Proxmox VE Code, Neutral API and System Names — 2026-11-25
 
 ### Changed
