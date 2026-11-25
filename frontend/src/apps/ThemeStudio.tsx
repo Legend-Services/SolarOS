@@ -5,7 +5,9 @@ import { useAuth } from "../lib/stores";
 import { allThemes, useActiveTheme, useTheme } from "../store/themeStore";
 import { BUILT_IN_IDS, BUILT_IN_THEMES, WALLPAPER_LIBRARY } from "../theme/builtInThemes";
 import { CUSTOM_WALLPAPER, customBackground, themeError, type ColorMode, type Palette, type Theme, type ThemeStyle, type Wallpaper } from "../theme/themeTypes";
-import { ThemePreview, WallpaperThumb } from "../components/ThemeQuickSwitcher";
+import { BrandBadge, ThemePreview, WallpaperThumb } from "../components/ThemeQuickSwitcher";
+import { useProduct } from "../store/capabilitiesStore";
+import { useTranslation } from "../i18n";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSlider, Notice, Segmented } from "../components/ui/GlassKit";
 import { Card } from "./ControlPanelApp";
 
@@ -100,7 +102,7 @@ export default function ThemeStudio() {
             const on = t.id === active.id;
             const custom = !BUILT_IN_IDS.has(t.id);
             return (
-              <div key={t.id} className={`glass-soft overflow-hidden rounded-xl ring-2 transition ${on ? "ring-sky-400" : "ring-transparent hover:ring-white/20"}`}>
+              <div key={t.id} className={`glass-soft overflow-hidden rounded-xl ring-2 transition-[background-color,border-color,box-shadow,transform,scale,opacity] ${on ? "ring-sky-400" : "ring-transparent hover:ring-white/20"}`}>
                 <button onClick={() => s.setTheme(t.id)} className="grid w-full grid-cols-2 active:scale-[0.99]" aria-label={`Use ${t.name}`} aria-pressed={on}>
                   <ThemePreview theme={t} mode="dark" className="h-20" />
                   <ThemePreview theme={t} mode="light" className="h-20" />
@@ -141,6 +143,7 @@ export default function ThemeStudio() {
         </div>
       </Card>
       <WallpaperCard />
+      <WallpaperStudioCard />
       {editing && (
         <ThemeEditor
           initial={editing.theme}
@@ -251,6 +254,86 @@ function WallpaperCard() {
           <Notice error={error} />
         </div>
       )}
+    </Card>
+  );
+}
+
+/* ---------------- Wallpaper Studio: brand watermark ---------------- */
+
+function WallpaperStudioCard() {
+  const s = useTheme();
+  const t = useActiveTheme();
+  const product = useProduct();
+  const { t: tr } = useTranslation();
+  const [error, setError] = useState("");
+  const background = s.customWallpaperUrl ? customBackground(s.customWallpaperUrl) : t.wallpapers[s.selectedWallpaperIndex][s.colorMode];
+
+  // Server-side export: the same wallpaper family in the theme's colors with the badge drawn in (vector, 1920×1080).
+  const download = async () => {
+    setError("");
+    const json = { theme_id: t.id, wallpaper_index: s.selectedWallpaperIndex, color_mode: s.colorMode, show_overlay: s.brandOverlay, position: s.brandPosition,
+      opacity: s.brandOpacityPct / 100, size: s.brandSizePct / 100, blur: s.wallpaperBlurPx };
+    const r = await fetch("/api/system/themes/wallpapers/generate", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(json) }).catch(() => null);
+    if (!r?.ok) return setError(tr("wps.downloadFailed"));
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(await r.blob());
+    a.download = `${t.id}-${s.selectedWallpaperIndex + 1}.svg`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  return (
+    <Card title={tr("wps.title")}>
+      <p className="-mt-1 mb-3 text-[11px] text-slate-400">{tr("wps.intro", { product: product.short })}</p>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+        <div>
+          <div className="relative aspect-video overflow-hidden rounded-xl ring-1 ring-white/15" style={{ background }} aria-label={tr("wps.preview")} role="img">
+            <BrandBadge overlay={s.brandOverlay} position={s.brandPosition} opacityPct={s.brandOpacityPct} sizePct={s.brandSizePct} scale={0.4} />
+          </div>
+          <div className="mt-2 grid grid-cols-4 gap-1.5">
+            {t.wallpapers.map((w, i) => (
+              <WallpaperThumb key={i} className="h-10" background={w[s.colorMode]} label={w.name} active={!s.customWallpaperUrl && s.selectedWallpaperIndex === i} onClick={() => s.setWallpaper(i)} />
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-3">
+          <Field label={tr("wps.theme")}>
+            <GlassSelect className="w-full" value={t.id} onChange={(e) => s.setTheme(e.target.value)}>
+              {allThemes(s.customThemes).map((x) => (
+                <option key={x.id} value={x.id}>{x.name}</option>
+              ))}
+            </GlassSelect>
+          </Field>
+          <Field label={tr("wps.overlay")}>
+            <Segmented
+              value={s.brandOverlay}
+              onChange={(v) => s.set({ brandOverlay: v })}
+              options={[
+                { id: "none", label: tr("wps.overlay.none") },
+                { id: "brand_only", label: tr("wps.overlay.brand", { product: product.short }) },
+                { id: "full_personalized", label: tr("wps.overlay.full") },
+              ]}
+            />
+          </Field>
+          <Field label={tr("wps.position")}>
+            <Segmented
+              value={s.brandPosition}
+              onChange={(v) => s.set({ brandPosition: v })}
+              options={[
+                { id: "center", label: tr("wps.pos.center") },
+                { id: "bottom-right", label: tr("wps.pos.bottomRight") },
+                { id: "bottom-center", label: tr("wps.pos.bottomCenter") },
+              ]}
+            />
+          </Field>
+          <GlassSlider label={tr("wps.opacity")} value={s.brandOpacityPct} min={10} max={100} unit="%" disabled={s.brandOverlay === "none"} onChange={(v) => s.set({ brandOpacityPct: v })} />
+          <GlassSlider label={tr("wps.size")} value={s.brandSizePct} min={50} max={200} unit="%" disabled={s.brandOverlay === "none"} onChange={(v) => s.set({ brandSizePct: v })} />
+          <GlassButton onClick={download} className="self-start">
+            <Download size={13} /> {tr("wps.download")}
+          </GlassButton>
+          {error && <Notice error={error} />}
+        </div>
+      </div>
     </Card>
   );
 }

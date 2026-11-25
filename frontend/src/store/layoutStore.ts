@@ -72,7 +72,7 @@ type Tray = "trayItemOrder" | "hiddenTrayItems" | "maxVisibleTrayItems" | "taskb
 
 type Numeric = "iconSize" | "colGap" | "rowGap" | "dockGap";
 type Placement = "desktopAlignment" | "desktopVerticalAlign" | "desktopMaxColumns" | "iconClick" | "windowControls" | "shellLayout"
-  | "showDesktopIcons" | "gallerySortMode" | "galleryAppOrder";
+  | "showDesktopIcons" | "gallerySortMode" | "galleryAppOrder" | "desktopIconOrder";
 
 interface LayoutState {
   desktopView: ViewMode;
@@ -91,6 +91,8 @@ interface LayoutState {
   gallerySortMode: GallerySort;
   /** Drag-and-drop order of the App Gallery; apps missing from it follow in registry order. */
   galleryAppOrder: AppId[];
+  /** Drag-and-drop order of the desktop shortcuts; apps missing from it follow in registry order. */
+  desktopIconOrder: AppId[];
   appViews: Partial<Record<ViewApp, ViewMode>>;
   trayItemOrder: TrayItem[];
   /** Left out of both the bar and the overflow menu. */
@@ -137,6 +139,7 @@ function sanitize(saved: Partial<LayoutState> | undefined, cur: LayoutState): Pa
     showDesktopIcons: typeof p.showDesktopIcons === "boolean" ? p.showDesktopIcons : cur.showDesktopIcons,
     gallerySortMode: SORTS.includes(p.gallerySortMode as GallerySort) ? (p.gallerySortMode as GallerySort) : cur.gallerySortMode,
     galleryAppOrder: p.galleryAppOrder === undefined ? cur.galleryAppOrder : appOrder(p.galleryAppOrder),
+    desktopIconOrder: p.desktopIconOrder === undefined ? cur.desktopIconOrder : appOrder(p.desktopIconOrder),
     trayItemOrder: p.trayItemOrder === undefined ? cur.trayItemOrder : trayOrder(p.trayItemOrder),
     hiddenTrayItems: Array.isArray(p.hiddenTrayItems) ? [...new Set(p.hiddenTrayItems.filter(isTray))] : cur.hiddenTrayItems,
     maxVisibleTrayItems: clamp(p.maxVisibleTrayItems, LIMITS.trayItems, cur.maxVisibleTrayItems),
@@ -148,9 +151,9 @@ function sanitize(saved: Partial<LayoutState> | undefined, cur: LayoutState): Pa
 
 /** The fields saved to localStorage and /api/system/preferences. */
 const persisted = ({ desktopView, iconSize, colGap, rowGap, dockGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, iconClick, windowControls, shellLayout,
-  showDesktopIcons, gallerySortMode, galleryAppOrder, appViews, trayItemOrder, hiddenTrayItems, maxVisibleTrayItems, taskbarClockSide, hideSearchIntroBalloon }: LayoutState) =>
+  showDesktopIcons, gallerySortMode, galleryAppOrder, desktopIconOrder, appViews, trayItemOrder, hiddenTrayItems, maxVisibleTrayItems, taskbarClockSide, hideSearchIntroBalloon }: LayoutState) =>
   ({ desktopView, iconSize, colGap, rowGap, dockGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, iconClick, windowControls, shellLayout,
-    showDesktopIcons, gallerySortMode, galleryAppOrder, appViews, trayItemOrder, hiddenTrayItems, maxVisibleTrayItems, taskbarClockSide, hideSearchIntroBalloon });
+    showDesktopIcons, gallerySortMode, galleryAppOrder, desktopIconOrder, appViews, trayItemOrder, hiddenTrayItems, maxVisibleTrayItems, taskbarClockSide, hideSearchIntroBalloon });
 
 export const useLayout = create<LayoutState>()(
   persist(
@@ -169,6 +172,7 @@ export const useLayout = create<LayoutState>()(
       showDesktopIcons: DEFAULTS.showDesktopIcons,
       gallerySortMode: "custom",
       galleryAppOrder: [],
+      desktopIconOrder: [],
       appViews: {},
       trayItemOrder: DEFAULTS.trayItemOrder,
       hiddenTrayItems: DEFAULTS.hiddenTrayItems,

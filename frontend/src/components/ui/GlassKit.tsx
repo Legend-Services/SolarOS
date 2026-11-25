@@ -223,7 +223,7 @@ export function GlassModal({
       <div
         role="dialog"
         aria-modal="true"
-        className={`glass-panel relative flex max-h-full w-full flex-col overflow-hidden transition-all duration-300 ${width} ${
+        className={`glass-panel relative flex max-h-full w-full flex-col overflow-hidden transition-[opacity,translate,scale] duration-300 ${width} ${
           side ? `h-full rounded-none rounded-l-2xl ${shown ? "translate-x-0" : "translate-x-8 opacity-0"}` : `rounded-2xl ${shown ? "scale-100 opacity-100" : "scale-95 opacity-0"}`
         }`}
         style={{ transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)" }}

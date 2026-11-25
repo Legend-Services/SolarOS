@@ -1,4 +1,4 @@
-import { useState, type DragEvent, type MouseEvent, type ReactNode } from "react";
+import { useState, type MouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   ArrowUpCircle,
@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { activeWindow, openLink, useBugReport, useDock, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
 import { useDismiss, useFlip } from "../lib/hooks";
+import { mergeVisible, useSmoothReorder } from "../hooks/useSmoothReorder";
 import { percent } from "../lib/format";
 import { useWizard } from "../store/wizardStore";
 import { useCapabilities } from "../store/capabilitiesStore";
@@ -157,25 +158,15 @@ function TrayItemView({ id, up }: { id: TrayItem; up: boolean }) {
   }
 }
 
-/** The tray items on the bar. Drag one onto another to reorder (neighbours slide aside); saved with the layout. */
+/** The tray items on the bar. Drag one sideways to reorder (neighbours glide aside); saved with the layout on release. */
 export function TrayItems({ ids, up = false }: { ids: TrayItem[]; up?: boolean }) {
   const set = useLayout((s) => s.set);
-  const [drag, setDrag] = useState<TrayItem | null>(null);
-  const flipRef = useFlip<HTMLDivElement>(ids.join(","));
+  const reorder = useSmoothReorder(ids, (next) => set({ trayItemOrder: mergeVisible(useLayout.getState().trayItemOrder, ids, next) }), { axis: "x" });
+  const flipRef = useFlip<HTMLDivElement>(reorder.order.join(","), reorder.settling);
   return (
     <div ref={flipRef} className="flex items-center gap-1">
-      {ids.map((id) => (
-        <div
-          key={id}
-          data-flip={id}
-          draggable
-          onDragStart={(e) => (e.dataTransfer.setData("text/plain", id), (e.dataTransfer.effectAllowed = "move"), setDrag(id))}
-          onDragEnd={() => setDrag(null)}
-          onDragEnter={() => drag && drag !== id && set({ trayItemOrder: moveItem(useLayout.getState().trayItemOrder, drag, id) })}
-          onDragOver={(e) => drag && e.preventDefault()}
-          onDrop={(e: DragEvent) => (e.preventDefault(), setDrag(null))}
-          className={`flex items-center ${drag === id ? "opacity-40" : ""}`}
-        >
+      {reorder.order.map((id) => (
+        <div key={id} data-flip={id} {...reorder.bind(id)} className="flex touch-none items-center">
           <TrayItemView id={id} up={up} />
         </div>
       ))}
@@ -295,9 +286,10 @@ export function TrayControls() {
   const { trayItemOrder, hiddenTrayItems, maxVisibleTrayItems, taskbarClockSide, shellLayout, set } = useLayout();
   const shell = useShell();
   const ok = useAvailable();
-  const [drag, setDrag] = useState<TrayItem | null>(null);
   const [tipReset, setTipReset] = useState(false);
-  const flipRef = useFlip<HTMLUListElement>(trayItemOrder.join(","));
+  // Vertical pointer reorder (Move Up / Move Down stay as the keyboard and precision fallback).
+  const reorder = useSmoothReorder(trayItemOrder, (next) => set({ trayItemOrder: next }), { axis: "y" });
+  const flipRef = useFlip<HTMLUListElement>(reorder.order.join(","), reorder.settling);
   const shown = trayItemOrder.filter((id) => !hiddenTrayItems.includes(id) && ok(id));
   const chevron = shell === "taskbar" ? "▴" : "▾";
   const toggle = (id: TrayItem, on: boolean) => set({ hiddenTrayItems: on ? hiddenTrayItems.filter((x) => x !== id) : [...hiddenTrayItems, id] });
@@ -352,20 +344,15 @@ export function TrayControls() {
       <div>
         <p className="mb-2 text-[11px] text-slate-400">{t("tray.dragHint")}</p>
         <ul ref={flipRef} className="space-y-1">
-          {trayItemOrder.map((id, i) => {
+          {reorder.order.map((id, i) => {
             const Icon = TRAY_META[id].icon;
             const visible = !hiddenTrayItems.includes(id);
             return (
               <li
                 key={id}
                 data-flip={id}
-                draggable
-                onDragStart={(e) => (e.dataTransfer.setData("text/plain", id), (e.dataTransfer.effectAllowed = "move"), setDrag(id))}
-                onDragEnd={() => setDrag(null)}
-                onDragEnter={() => drag && drag !== id && set({ trayItemOrder: moveItem(useLayout.getState().trayItemOrder, drag, id) })}
-                onDragOver={(e) => drag && e.preventDefault()}
-                onDrop={(e) => (e.preventDefault(), setDrag(null))}
-                className={`glass-soft flex items-center gap-2 rounded-xl px-2 py-1.5 text-xs ${drag === id ? "opacity-40" : ""} ${visible ? "text-slate-100" : "text-slate-500"}`}
+                {...reorder.bind(id)}
+                className={`glass-soft flex cursor-grab items-center gap-2 rounded-xl px-2 py-1.5 text-xs ${reorder.dragging === id ? "cursor-grabbing shadow-lg shadow-black/30" : ""} ${visible ? "text-slate-100" : "text-slate-500"}`}
               >
                 <GripVertical size={14} className="shrink-0 cursor-grab text-slate-500" aria-hidden />
                 <Icon size={14} className="shrink-0" />
@@ -373,6 +360,7 @@ export function TrayControls() {
                   {t(TRAY_META[id].label)}
                   {!ok(id) && <span className="ml-2 text-[10px] text-slate-500">{t(id === "updates" ? "tray.whenUpdate" : "tray.unavailable")}</span>}
                 </span>
+                <span data-no-drag className="contents">
                 <GlassButton variant="ghost" size="xs" disabled={i === 0} onClick={() => step(id, -1)} aria-label={`${t("common.moveUp")}: ${t(TRAY_META[id].label)}`}>
                   <ChevronUp size={12} />
                 </GlassButton>
@@ -380,6 +368,7 @@ export function TrayControls() {
                   <ChevronDown size={12} />
                 </GlassButton>
                 <GlassSwitch checked={visible} onChange={(v) => toggle(id, v)} label={<span className="sr-only">{`${t("common.show")}: ${t(TRAY_META[id].label)}`}</span>} />
+                </span>
               </li>
             );
           })}

@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { api } from "../lib/api";
 import { BUILT_IN_THEMES, DEFAULT_THEME_ID } from "../theme/builtInThemes";
-import { CUSTOM_WALLPAPER, THEME_ID, type ColorMode, type FontStyle, type Theme, type ThemePrefs, type WallpaperChoice } from "../theme/themeTypes";
+import { CUSTOM_WALLPAPER, THEME_ID, type BrandOverlay, type BrandPosition, type ColorMode, type FontStyle, type Theme, type ThemePrefs, type WallpaperChoice } from "../theme/themeTypes";
 import { al } from "../theme/wallpaperArt";
 
 const FONTS: Record<FontStyle, string> = {
@@ -21,13 +21,14 @@ interface ThemeState extends ThemePrefs {
   setWallpaper: (index: number) => void;
   /** Use an uploaded / https image or a gradient for the active theme; null goes back to the built-in pick. */
   setCustomWallpaper: (v: string | null) => void;
-  set: (patch: Partial<Pick<ThemePrefs, "wallpaperBlurPx" | "wallpaperDimPct">>) => void;
+  set: (patch: Partial<Pick<ThemePrefs, "wallpaperBlurPx" | "wallpaperDimPct" | "brandOverlay" | "brandPosition" | "brandOpacityPct" | "brandSizePct">>) => void;
   loadCustom: () => Promise<void>;
   saveTheme: (t: Theme, isNew: boolean) => Promise<void>;
   deleteTheme: (id: string) => Promise<void>;
 }
 
 const int = (v: unknown, lo: number, hi: number, d: number) => (typeof v === "number" && Number.isFinite(v) ? Math.max(lo, Math.min(hi, Math.round(v))) : d);
+const oneOf = <T extends string>(v: unknown, all: readonly T[], d: T): T => (all.includes(v as T) ? (v as T) : d);
 const choice = (c: unknown): WallpaperChoice => {
   const o = (c && typeof c === "object" ? c : {}) as Record<string, unknown>;
   return { index: int(o.index, 0, 3, 0), custom: typeof o.custom === "string" && CUSTOM_WALLPAPER.test(o.custom) ? o.custom : null };
@@ -45,6 +46,10 @@ export function sanitizePrefs(p: unknown): ThemePrefs {
     wallpaperBlurPx: int(o.wallpaperBlurPx, 0, 24, 0),
     wallpaperDimPct: int(o.wallpaperDimPct, 0, 60, 0),
     perThemeWallpapers: Object.fromEntries(per.filter(([k]) => THEME_ID.test(k)).slice(0, 200).map(([k, v]) => [k, choice(v)])),
+    brandOverlay: oneOf<BrandOverlay>(o.brandOverlay, ["none", "brand_only", "full_personalized"], "none"),
+    brandPosition: oneOf<BrandPosition>(o.brandPosition, ["center", "bottom-right", "bottom-center"], "bottom-right"),
+    brandOpacityPct: int(o.brandOpacityPct, 10, 100, 85),
+    brandSizePct: int(o.brandSizePct, 50, 200, 100),
   };
 }
 
@@ -57,6 +62,10 @@ export const themePrefs = (s: ThemePrefs): ThemePrefs => ({
   wallpaperBlurPx: s.wallpaperBlurPx,
   wallpaperDimPct: s.wallpaperDimPct,
   perThemeWallpapers: s.perThemeWallpapers,
+  brandOverlay: s.brandOverlay,
+  brandPosition: s.brandPosition,
+  brandOpacityPct: s.brandOpacityPct,
+  brandSizePct: s.brandSizePct,
 });
 
 const withChoice = (s: ThemeState, c: WallpaperChoice) => ({
@@ -152,14 +161,17 @@ export function themeVars(t: Theme, mode: ColorMode): Record<string, string> {
   };
 }
 
-/** Write the active theme onto <html>: CSS variables, data-color-mode and data-window-chrome. */
+/**
+ * Write the active theme onto <html>: CSS variables, data-color-mode and data-window-chrome. Only values that changed
+ * are written: re-setting an identical token still invalidates styles and every glass blur on the page (flicker).
+ */
 function apply(s: ThemeState) {
   const t = findTheme(s.activeThemeId, s.customThemes);
   const root = document.documentElement;
-  for (const [k, v] of Object.entries(themeVars(t, s.colorMode))) root.style.setProperty(k, v);
-  root.dataset.colorMode = s.colorMode;
-  root.dataset.windowChrome = t.style.windowChrome;
-  root.style.colorScheme = s.colorMode; // native scrollbars, date pickers and form controls follow the mode
+  for (const [k, v] of Object.entries(themeVars(t, s.colorMode))) if (root.style.getPropertyValue(k) !== v) root.style.setProperty(k, v);
+  if (root.dataset.colorMode !== s.colorMode) root.dataset.colorMode = s.colorMode;
+  if (root.dataset.windowChrome !== t.style.windowChrome) root.dataset.windowChrome = t.style.windowChrome;
+  if (root.style.colorScheme !== s.colorMode) root.style.colorScheme = s.colorMode; // native scrollbars, date pickers and form controls follow the mode
 }
 apply(useTheme.getState());
 useTheme.subscribe(apply);

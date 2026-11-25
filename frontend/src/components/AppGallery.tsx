@@ -1,7 +1,8 @@
-import { useEffect, useState, type DragEvent, type MouseEvent as RMouseEvent, type ReactNode } from "react";
+import { useEffect, useState, type MouseEvent as RMouseEvent, type ReactNode } from "react";
 import { BookOpen, Lock, LogOut, MoreHorizontal, Pin, PinOff, Play, RotateCcw, Search, SlidersHorizontal, User } from "lucide-react";
 import { useAuth, useDock, useUsage, useWindows, type AppUsage } from "../lib/stores";
 import { useDismiss, useFlip } from "../lib/hooks";
+import { mergeVisible, useSmoothReorder } from "../hooks/useSmoothReorder";
 import { APPS, APP_IDS, type AppId } from "../apps/registry";
 import { APP_GUIDES } from "../data/wizardGuides";
 import { useWizard } from "../store/wizardStore";
@@ -65,7 +66,6 @@ export default function AppGallery() {
   const [category, setCategory] = useState<Category>("all");
   const [shown, setShown] = useState(false);
   const [menu, setMenu] = useState<AppId | null>(null);
-  const [drag, setDrag] = useState<AppId | null>(null);
   const menuRef = useDismiss(!!menu, () => setMenu(null));
   const close = () => set({ gallery: false });
 
@@ -75,7 +75,10 @@ export default function AppGallery() {
     (id) => (category === "all" || CATEGORY_OF[id] === category) && (!q || `${appTitle(id)} ${appDesc(id)} ${APPS[id].title}`.toLowerCase().includes(q)),
   );
   const topUsed = sortApps("most-used", galleryAppOrder, usage).find((id) => (usage[id]?.launch_count ?? 0) > 0);
-  const flipRef = useFlip<HTMLDivElement>(apps.join(",") + view);
+  // 2D pointer reorder of the visible tiles; search / category only hide tiles, and a drop always switches to Custom Order.
+  const reorder = useSmoothReorder(apps, (next) => setLayout({ galleryAppOrder: mergeVisible(ordered, apps, next), gallerySortMode: "custom" }), { axis: "xy" });
+  const drag = reorder.dragging;
+  const flipRef = useFlip<HTMLDivElement>(reorder.order.join(",") + view, reorder.settling);
 
   useEffect(() => {
     if (!open) return setShown(false);
@@ -93,20 +96,8 @@ export default function AppGallery() {
   if (!open) return null;
 
   const launch = (id: AppId) => (openApp(id), close());
-  // Reorder within the full list (search / category only hide tiles); dragging always switches to Custom Order.
-  const dragOnto = (target: AppId) => {
-    if (!drag || drag === target) return;
-    const next = ordered.filter((id) => id !== drag);
-    next.splice(ordered.indexOf(target), 0, drag);
-    setLayout({ galleryAppOrder: next, gallerySortMode: "custom" });
-  };
   const tileDrag = (id: AppId) => ({
-    draggable: true,
-    onDragStart: (e: DragEvent) => (e.dataTransfer.setData("text/plain", id), (e.dataTransfer.effectAllowed = "move"), setDrag(id), setMenu(null)),
-    onDragEnd: () => setDrag(null),
-    onDragEnter: () => dragOnto(id),
-    onDragOver: (e: DragEvent) => drag && e.preventDefault(),
-    onDrop: (e: DragEvent) => (e.preventDefault(), setDrag(null)),
+    ...reorder.bind(id),
     onContextMenu: (e: RMouseEvent) => (e.preventDefault(), e.stopPropagation(), setMenu(id)),
   });
   const count = (id: AppId) => usage[id]?.launch_count ?? 0;
@@ -145,7 +136,7 @@ export default function AppGallery() {
 
   return (
     <div
-      className={`fixed inset-0 z-[8900] flex flex-col items-center bg-slate-950/40 px-4 pt-12 backdrop-blur-3xl backdrop-saturate-150 transition-all duration-300 ${taskbar ? "pb-16" : "pb-32"} ${shown ? "opacity-100" : "scale-105 opacity-0"}`}
+      className={`fixed inset-0 z-[8900] flex flex-col items-center bg-slate-950/40 px-4 pt-12 backdrop-blur-3xl backdrop-saturate-150 transition-[opacity,scale] duration-300 ${taskbar ? "pb-16" : "pb-32"} ${shown ? "opacity-100" : "scale-105 opacity-0"}`}
       onClick={close}
       role="dialog"
       aria-label={t("gallery.title")}
@@ -194,9 +185,9 @@ export default function AppGallery() {
       </div>
 
       <div ref={flipRef} className={`w-full overflow-auto ${view === "list" ? "grid max-w-3xl content-start gap-2 sm:grid-cols-2" : "grid max-w-4xl grid-cols-3 content-start gap-x-4 gap-y-6 sm:grid-cols-4 md:grid-cols-6"}`}>
-        {apps.map((id) =>
+        {reorder.order.map((id) =>
           view === "list" ? (
-            <div key={id} data-flip={id} className={`group relative rounded-xl ${drag === id ? "opacity-40 outline-1 outline-sky-300/70 outline-dashed" : ""}`} {...tileDrag(id)}>
+            <div key={id} data-flip={id} className={`group relative rounded-xl ${drag === id ? "cursor-grabbing" : ""}`} {...tileDrag(id)}>
               <AppListRow id={id} iconSize={40} onClick={(e) => (e.stopPropagation(), launch(id))} className="pr-16" />
               <span className="pointer-events-none absolute top-1/2 right-10 -translate-y-1/2">
                 {badgeEl(id)}
@@ -205,7 +196,7 @@ export default function AppGallery() {
               {menu === id && menuEl(id)}
             </div>
           ) : (
-            <div key={id} data-flip={id} className={`group relative rounded-2xl ${drag === id ? "opacity-40 outline-1 outline-sky-300/70 outline-dashed" : ""}`} {...tileDrag(id)}>
+            <div key={id} data-flip={id} className={`group relative rounded-2xl ${drag === id ? "cursor-grabbing" : ""}`} {...tileDrag(id)}>
               <button
                 onClick={(e) => (e.stopPropagation(), launch(id))}
                 className="flex w-full flex-col items-center gap-1.5 rounded-2xl p-2 text-center text-xs text-slate-100 transition hover:bg-white/10 active:scale-95"

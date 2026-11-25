@@ -200,6 +200,11 @@ class HypervisorProvider(ABC):
         host is checked and hardened with ufw / nftables (deploy/host-hardening.sh)."""
         return None
 
+    def branding_extra(self) -> dict:
+        """Platform-specific fields for /api/system/branding/info, e.g. the hypervisor node name. "display_host"
+        overrides the host name shown on branded wallpapers (default: this machine's host name)."""
+        return {}
+
     @abstractmethod
     async def get_node_metrics(self) -> NodeMetrics: ...
     @abstractmethod

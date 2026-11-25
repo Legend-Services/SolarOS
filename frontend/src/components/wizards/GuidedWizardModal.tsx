@@ -133,7 +133,7 @@ export default function GuidedWizardModal() {
                 <button
                   key={r}
                   onClick={() => show(r)}
-                  className="glass-soft flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left transition hover:bg-white/[0.09]"
+                  className="glass-soft flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left transition-[background-color,border-color,box-shadow,transform,scale,opacity] hover:bg-white/[0.09]"
                 >
                   <BookOpen size={14} className="shrink-0 text-sky-300" />
                   <span className="min-w-0 flex-1">
