@@ -474,10 +474,15 @@ async def rollback(body: ApplyBody):
 
 
 async def scheduler_loop() -> None:
-    # The backend restarts after every update; clear a stale "update available" flag so notify mode stops nagging.
+    # The backend restarts after every update: a check from before it is stale (it may even name an older commit as
+    # the update), so clear it when it matches the installed commit and check again when it does not.
     s = load_settings()
-    if s["update_available"] and s["latest_remote_commit"] == (await source())["commit"]:
+    commit = (await source())["commit"]
+    if s["update_available"] and s["latest_remote_commit"] == commit:
         save_settings({**s, "update_available": False})
+    elif s["latest_remote_commit"] and s["latest_remote_commit"] != commit and s["auto_check_enabled"]:
+        with suppress(Exception):  # offline: check() records the error, the loop below retries on its interval
+            await check()
     while True:
         try:
             s = load_settings()
