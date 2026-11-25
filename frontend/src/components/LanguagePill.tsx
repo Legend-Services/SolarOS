@@ -1,7 +1,7 @@
 import { Languages } from "lucide-react";
 import { LANGS, isLang, useTranslation } from "../i18n";
 
-/** Compact language selector pill (login screen, top bar, taskbar, Control Panel). A native select keeps it keyboard and screen-reader friendly. */
+/** Compact language selector pill (login screen, top bar, taskbar, Settings). A native select keeps it keyboard and screen-reader friendly. */
 export default function LanguagePill({ className = "" }: { className?: string }) {
   const { t, language, setLanguage } = useTranslation();
   return (

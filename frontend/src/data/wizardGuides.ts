@@ -74,7 +74,7 @@ export const WELCOME: Guide = {
   steps: [
     {
       title: "Your Desktop & Widgets",
-      body: "This is your server's desktop. Every app has an icon here — click one to open it (prefer double-click? Change it under Control Panel → Appearance & Themes). The glass cards on the right are live widgets showing CPU, memory, storage health and running machines.",
+      body: "This is your server's desktop. Every app has an icon here — click one to open it (prefer double-click? Change it under Settings → General & Appearance). The glass cards on the right are live widgets showing CPU, memory, storage health and running machines.",
       bullets: [
         "Right-click empty space for quick actions like New Virtual Machine or View Options.",
         "Use View Options (the grid icon in the top bar) to switch between Grid and List, and to change icon size and spacing.",
@@ -87,9 +87,9 @@ export const WELCOME: Guide = {
       bullets: [
         "Click the four-squares button at the left of the Dock to open the App Gallery: every app, with search, categories, sorting and drag-and-drop ordering.",
         "Right-click a Dock icon to keep it in the Dock or remove it. Drag icons to reorder them.",
-        "Change Dock size and spacing in View Options or Control Panel → Appearance & Themes.",
+        "Change Dock size and spacing in View Options or Settings → General & Appearance.",
       ],
-      action: { label: "Open Appearance & Themes", app: "controlpanel", intent: "appearance" },
+      action: { label: "Open General & Appearance", app: "controlpanel", intent: "appearance" },
     },
     {
       title: "Instant Passwordless Host Shell",
@@ -278,9 +278,9 @@ export const APP_GUIDES: Record<AppId, Guide> = {
   datacenter: guide({
     id: "datacenter",
     app: "datacenter",
-    title: "Datacenter Guide",
+    title: "Users & Roles Guide",
     blurb: "Users, permissions, firewall and logs.",
-    what: "Datacenter is the advanced control room for {platform} itself: user accounts, groups and roles, who may do what, API tokens, the firewall, and system logs.",
+    what: "Users & Roles (in Settings) is the advanced control room for {platform} itself: user accounts, groups and roles, who may do what, API tokens, the firewall, and system logs.",
     when: [
       "Giving a friend access to just one VM.",
       "Blocking traffic to a machine with a firewall rule.",
@@ -293,7 +293,7 @@ export const APP_GUIDES: Record<AppId, Guide> = {
       "Logs: read the system journal and task history.",
     ],
     tip: "The SolarDeck service user and its token are protected so you can't lock yourself out by accident.",
-    action: { label: "Open Datacenter", app: "datacenter" },
+    action: { label: "Open Users & Roles", app: "datacenter" },
   }),
   terminal: guide({
     id: "terminal",
@@ -332,12 +332,33 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     ],
     action: { label: "Run a Health Check", app: "help", intent: "fix" },
   }),
+  settings: guide({
+    id: "settings",
+    app: "settings",
+    title: "Settings Guide",
+    blurb: "Every system, storage, security, network and hypervisor setting in one place.",
+    what: "Settings is the one place to configure SolarDeck and the host. Five categories (System, Storage & Data, Privilege & Security, Network & Services, Hypervisor & Runtime) each hold a row of sub-modules: click a tile to open it.",
+    when: [
+      "Changing the theme, wallpaper, Dock or language.",
+      "Creating a ZFS pool, a share or a backup schedule.",
+      "Turning on two-factor login or checking the security score.",
+      "Installing SolarDeck or host updates, or rebooting the host.",
+    ],
+    how: [
+      "Type in Filter settings to find a sub-module, then press Enter to open the first match.",
+      "Use the breadcrumb (← All Settings) to go back, or the sidebar to jump straight to another sub-module.",
+      "The ? Guide button in the breadcrumb opens the guide for the sub-module you are in.",
+      "The CPU, memory and pool pills in the top bar open Resource Monitor and Storage & ZFS Pools directly.",
+    ],
+    action: { label: "Open General & Appearance", app: "settings", intent: "general-appearance" },
+    related: ["security-hardening"],
+  }),
   controlpanel: guide({
     id: "controlpanel",
     app: "controlpanel",
-    title: "Control Panel Guide",
-    blurb: "Users, drivers, layout, updates and bug reports.",
-    what: "Control Panel holds the settings for SolarDeck and the host: security and two-factor login, network, appearance and desktop layout, hardware and GPU drivers, and system updates.",
+    title: "Settings Guide",
+    blurb: "Security, network, appearance, hardware and power.",
+    what: "Settings holds the settings for SolarDeck and the host: security and two-factor login, network, appearance and desktop layout, hardware and GPU drivers, and system updates.",
     when: [
       "Changing your password or turning on two-factor login.",
       "Installing NVIDIA, Intel or AMD graphics drivers.",
@@ -345,21 +366,21 @@ export const APP_GUIDES: Record<AppId, Guide> = {
       "Updating SolarDeck to the newest version.",
     ],
     how: [
-      "Security & Hardening: check the security score, change the admin password, set up 2FA, sign out other devices and read the audit log. Add more {platform} users and roles in Datacenter.",
-      "Hardware & System → GPU & Drivers: pick your card's vendor and press Install.",
-      "Appearance & Themes: themes, Light / Dark Mode, wallpapers, Grid/List view, icon size, spacing and Dock.",
-      "System & Power → SolarDeck Update: check for and install updates. To go back to an older version, redeploy that release with deploy.sh.",
+      "Security Posture & Hardening: check the security score. Security & 2FA: change the admin password, set up 2FA and sign out other devices. Audit & System Logs: read the audit log. Add more {platform} users and roles in Users & Roles.",
+      "Hardware & GPU → GPU & Drivers: pick your card's vendor and press Install.",
+      "General & Appearance: themes, Light / Dark Mode, wallpapers, Grid/List view, icon size, spacing and Dock.",
+      "Software & Repositories → SolarDeck Updates: check for and install updates. To go back to an older version, redeploy that release with deploy.sh.",
       "To report a bug, use Help & Support → Ask, then open an issue on the project's GitHub page with what you saw.",
     ],
-    action: { label: "Open Appearance & Themes", app: "controlpanel", intent: "appearance" },
+    action: { label: "Open General & Appearance", app: "controlpanel", intent: "appearance" },
     related: ["security-hardening"],
   }),
   system: guide({
     id: "system",
     app: "system",
-    title: "System Guide",
+    title: "Software & Repositories Guide",
     blurb: "Package sources and host updates.",
-    what: "System manages where the host gets its software (package repositories) and installs {platform} and operating system updates.",
+    what: "Software & Repositories (in Settings) manages where the host gets its software (package repositories) and installs {platform} and operating system updates.",
     when: [
       "Updates fail with an error like 401 Unauthorized (the Enterprise source needs a paid subscription).",
       "Installing security updates for the host.",
@@ -367,9 +388,9 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     how: [
       "Repositories: turn off Enterprise and turn on No-Subscription if you don't have a subscription.",
       "Updates: press Refresh, review the list, then Upgrade.",
-      "Reboot from Control Panel → System & Power if a new kernel was installed.",
+      "Reboot from Settings → Host & Power if a new kernel was installed.",
     ],
-    action: { label: "Open System", app: "system" },
+    action: { label: "Open Software & Repositories", app: "system" },
   }),
   "local-ai": guide({
     id: "local-ai",
@@ -473,7 +494,7 @@ const SUB_GUIDES: Guide[] = [
     how: [
       "Turn on VT-d / AMD-Vi (IOMMU) in the BIOS: Help & Support → BIOS & firmware shows the exact menu.",
       "Run Help & Support → Fix problems: if IOMMU is off on the host, press Fix it for me and reboot.",
-      "For GPUs, switch the card to passthrough mode in Control Panel → Hardware & System → GPU & Drivers.",
+      "For GPUs, switch the card to passthrough mode in Settings → Hardware & GPU → GPU & Drivers.",
       "Shut down the VM, open Compute Manager → Edit → Hardware, and Add PCI/GPU device or Add USB device.",
       "Tick \"include audio\" for GPUs, then start the VM and install the device's drivers inside it.",
     ],
@@ -513,7 +534,7 @@ const SUB_GUIDES: Guide[] = [
     what: "A pool combines drives into one big protected space. Datasets are folders inside the pool, each with its own settings like quotas and compression.",
     when: ["You added new empty drives.", "You want separate areas for media, documents and backups."],
     how: [
-      "Storage & ZFS → Disks & SMART: make sure the new drives show Unused (wipe them if they held old data).",
+      "Settings → Storage & ZFS Pools → Disks & SMART: make sure the new drives show Unused (wipe them if they held old data).",
       "ZFS Pools → Create pool: name it (for example tank), tick the drives, pick a RAID level, Create.",
       "Volumes & Datasets → Create: pick the pool, name the dataset (for example tank/media).",
       "Leave \"make available in File Station\" on, so it appears under /mnt/storage.",
@@ -530,7 +551,7 @@ const SUB_GUIDES: Guide[] = [
     what: "SMART is a health report built into every drive. Snapshots are instant, space-saving copies of a dataset you can roll back to.",
     when: ["A drive makes noise or the server feels slow.", "Protecting documents against accidental deletion or ransomware."],
     how: [
-      "Storage & ZFS → Disks & SMART: green PASSED is good; FAILED means replace the drive soon.",
+      "Settings → Storage & ZFS Pools → Disks & SMART: green PASSED is good; FAILED means replace the drive soon.",
       "Click Inspect SMART for temperature, power-on hours, life used and error counters. Rising reallocated or media errors are a warning sign.",
       "Snapshots & Schedules → Add schedule: pick a dataset, Hourly/Daily/Weekly, and how many to keep.",
       "To undo a mistake, find the snapshot and press Roll back.",
@@ -554,7 +575,7 @@ const SUB_GUIDES: Guide[] = [
       "A SMART test or surface scan reported failures.",
     ],
     how: [
-      "Storage & ZFS → ZFS Pools: find the drive marked FAULTED, DEGRADED or with errors.",
+      "Settings → Storage & ZFS Pools → ZFS Pools: find the drive marked FAULTED, DEGRADED or with errors.",
       "Note its serial number (Disks & SMART → List view shows it next to the device).",
       "Press Set Offline and confirm.",
       "Remove the drive with that serial and insert the new one (shut down first if your bays are not hot-swap).",
@@ -581,7 +602,7 @@ const SUB_GUIDES: Guide[] = [
       "Surface scan: to find exactly how many bad sectors a drive has.",
     ],
     how: [
-      "Storage & ZFS → Disks & SMART → Scan Drive on the drive.",
+      "Settings → Storage & ZFS Pools → Disks & SMART → Scan Drive on the drive.",
       "Pick a test. You can close the window; it keeps running on the server.",
       "Watch the progress bar and estimated time, or press Abort.",
       "Read the result in the SMART self-test history: 'Completed without error' is good.",
@@ -602,7 +623,7 @@ const SUB_GUIDES: Guide[] = [
     ],
     when: ["Comparing an NVMe drive with a hard-disk pool.", "Checking a new drive delivers its rated speed.", "Finding out why VMs feel slow."],
     how: [
-      "Storage & ZFS → Benchmark: pick a drive or a pool folder.",
+      "Settings → Storage & ZFS Pools → Benchmark: pick a drive or a pool folder.",
       "Keep Safe Read-Only for drives in use; Read + Write on a folder uses a temporary file that is deleted afterwards.",
       "Press Start All, or run a single row.",
       "Switch between MB/s, IOPS and Latency µs (lower latency is better).",
@@ -619,7 +640,7 @@ const SUB_GUIDES: Guide[] = [
     what: "Your server answers every \"where is this website?\" question for your network (DNS). With AdBlock on, it simply refuses to answer for known ad and tracker domains, so ads vanish everywhere — phones, TVs and consoles included.",
     when: ["Removing ads from smart TVs and apps that ad blockers can't reach.", "Giving devices friendly names like nas.home."],
     how: [
-      "Network & Services → DNS & AdBlock: press Install if asked.",
+      "Settings → Network Topology → DNS & AdBlock: press Install if asked.",
       "Turn on the DNS server and pick an upstream provider (for example Cloudflare or Quad9).",
       "Turn on AdBlocker and choose block lists (StevenBlack is a good start).",
       "In your router's settings, set the DHCP DNS server to this server's IP address.",
@@ -655,7 +676,7 @@ const SUB_GUIDES: Guide[] = [
     what: "WireGuard creates an encrypted tunnel from your phone or laptop back to your home network, so you can use your server and block ads while away — without exposing anything else to the internet.",
     when: ["Opening File Station or Jellyfin from a hotel or mobile data.", "Using public Wi-Fi safely."],
     how: [
-      "Network & Services → WireGuard Server: press Install.",
+      "Settings → WireGuard VPN: press Install.",
       "Keep the suggested port (51820) and VPN subnet, then Enable.",
       "On your internet router, forward UDP port 51820 to this server.",
       "Add a peer for each device (for example phone) and click its QR code button.",
@@ -694,7 +715,7 @@ const SUB_GUIDES: Guide[] = [
     ],
     when: ["Right after installing, before the server is reachable from other networks.", "When the score shows Action Recommended.", "After a phone, laptop or password may have been exposed."],
     how: [
-      "Control Panel → Security & Hardening: look at the score and the checklist.",
+      "Settings → Security & 2FA: look at the score and the checklist.",
       "Press Apply Recommended Hardening; follow the live log until it finishes.",
       "Two-Factor Authentication → Set Up 2FA: scan the QR code, enter the code, then download the recovery codes and keep them somewhere safe.",
       "Active Sessions: revoke devices you don't recognise, or Revoke All Other Sessions.",

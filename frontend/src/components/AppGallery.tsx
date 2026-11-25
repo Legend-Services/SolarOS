@@ -16,25 +16,17 @@ const CATEGORIES = {
   system: "gallery.cat.system",
   storage: "gallery.cat.storage",
   compute: "gallery.cat.compute",
-  network: "gallery.cat.network",
 } as const satisfies Record<string, TKey>;
 type Category = keyof typeof CATEGORIES;
 
 const CATEGORY_OF: Partial<Record<AppId, Exclude<Category, "all">>> = {
-  monitor: "system",
-  controlpanel: "system",
-  system: "system",
+  settings: "system",
   terminal: "system",
-  datacenter: "system",
   help: "system",
-  storage: "storage",
   files: "storage",
-  backup: "storage",
   compute: "compute",
   "local-ai": "compute",
   appcenter: "compute",
-  shares: "network",
-  netservices: "network",
 };
 
 const SORT_LABELS: Record<GallerySort, TKey> = {
@@ -245,7 +237,7 @@ export default function AppGallery() {
             </span>
             <span className="truncate">{username}</span>
           </span>
-          <GlassButton variant="ghost" size="xs" onClick={() => launch("controlpanel")} aria-label={t("top.controlPanel")} title={t("top.controlPanel")}>
+          <GlassButton variant="ghost" size="xs" onClick={() => launch("settings")} aria-label={t("top.controlPanel")} title={t("top.controlPanel")}>
             <SlidersHorizontal size={15} />
           </GlassButton>
           <GlassButton variant="ghost" size="xs" onClick={() => (close(), lock())} aria-label={t("top.lock")} title={t("top.lock")}>

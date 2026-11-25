@@ -29,7 +29,7 @@ export interface Edition {
   /** localStorage keys copied once to their new name before the stores hydrate. */
   legacyStorageKeys: Record<string, string>;
 
-  /* Control Panel → updates and network */
+  /* Settings → updates and network */
   updatesIntro: string;
   /** Appended to the updates note when the host helper is not updated in place. */
   hostHelperNote: string;

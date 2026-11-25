@@ -1067,9 +1067,9 @@ function CertsTab() {
 
 /* ---------------- App ---------------- */
 
-export default function NetworkServicesApp() {
+export default function NetworkServicesApp({ initialTab = "topology" }: { initialTab?: Tab }) {
   const { t: tr } = useTranslation();
-  const [tab, setTab] = useState<Tab>("topology");
+  const [tab, setTab] = useState<Tab>(initialTab);
   useIntentFor("netservices", setTab);
   const [status, setStatus] = useState<NetStatus | null>(null);
   const [error, setError] = useState("");

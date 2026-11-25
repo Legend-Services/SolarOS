@@ -430,7 +430,7 @@ function FixWizard({ item, onClose, onFixed, follow, showBios }: { item: Diag | 
         <div className="space-y-4 text-xs text-slate-200">
           {failed ? <Notice error="The fix did not finish. The log below shows why; nothing else was changed. You can try again or follow the manual steps." /> : <Notice notice={result?.message.replace(/…$/, ".") ?? "Done."} />}
           {result?.job && <JobLog name={result.job} active={false} />}
-          {item.fix?.reboot && !failed && <p className="text-amber-200">Remember: restart the server to finish (Control Panel → System & Power → Reboot host).</p>}
+          {item.fix?.reboot && !failed && <p className="text-amber-200">Remember: restart the server to finish (Settings → Host & Power → Reboot host).</p>}
           {item.bios && (
             <GlassButton variant="primary" onClick={() => (onClose(), showBios(item.bios!))}>
               <QrCode size={13} /> Show the BIOS steps + QR code
@@ -455,7 +455,7 @@ function FixWizard({ item, onClose, onFixed, follow, showBios }: { item: Diag | 
 
 /* ---------------- BIOS & firmware ---------------- */
 
-function Bios({ focus }: { focus: string | null }) {
+export function Bios({ focus }: { focus: string | null }) {
   const [vendor, setVendor] = useState("");
   const [info, setInfo] = useState<BiosInfo | null>(null);
   const [error, setError] = useState("");

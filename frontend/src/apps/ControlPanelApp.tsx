@@ -1,34 +1,20 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { Bug, ChevronLeft, Copy, Cpu, Disc3, BellRing, PencilRuler, CloudDownload, KeyRound, Network, Palette, Power, RefreshCw, RotateCcw, ShieldCheck, SquareTerminal } from "lucide-react";
+import { Bug, Copy, Disc3, PencilRuler, CloudDownload, KeyRound, Power, RefreshCw, RotateCcw, SquareTerminal } from "lucide-react";
 import { api } from "../lib/api";
 import type { HypervisorIsoStatus, SystemInfo, UpdateSettings, UpdateStatus, VersionEntry } from "../lib/types";
 import { bytes, copyText, uptime } from "../lib/format";
 import { usePoll, useRunner } from "../lib/hooks";
 import { edition } from "@edition";
-import { MAGNIFICATION, useBugReport, useDock, useIntent, usePrefs, useWindows, type Magnification } from "../lib/stores";
+import { MAGNIFICATION, useBugReport, useDock, usePrefs, useWindows, type Magnification } from "../lib/stores";
 import ThemeStudio from "./ThemeStudio";
 import { APPS, APP_IDS } from "./registry";
 import { AppIcon } from "../components/icons/AppIcons";
-import HardwarePanel from "./HardwarePanel";
 import { LayoutControls } from "../components/ViewOptions";
-import AutomationPanel from "./AutomationPanel";
-import LanguagePill from "../components/LanguagePill";
-import { LANGS, isLang, useTranslation, type TKey } from "../i18n";
+import { LANGS, isLang, useTranslation } from "../i18n";
 import { useWidgets } from "../store/widgetStore";
 import { productOf, useCapabilities, useProduct } from "../store/capabilitiesStore";
-import { AuditLogCard, PostureCard, SessionsCard, TwoFactorCard } from "./security/SecurityCenter";
+import { SessionsCard, TwoFactorCard } from "./security/SecurityCenter";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
-
-type Section = "security" | "network" | "appearance" | "automation" | "hardware" | "power";
-
-const SECTIONS: { id: Section; title: TKey; desc: TKey; icon: ReactNode; tint: string }[] = [
-  { id: "security", title: "cp.security", desc: "cp.securityDesc", icon: <ShieldCheck size={22} />, tint: "from-indigo-400 to-violet-600" },
-  { id: "network", title: "cp.network", desc: "cp.networkDesc", icon: <Network size={22} />, tint: "from-sky-400 to-cyan-600" },
-  { id: "appearance", title: "cp.appearance", desc: "cp.appearanceDesc", icon: <Palette size={22} />, tint: "from-pink-400 to-rose-600" },
-  { id: "automation", title: "cp.automation", desc: "cp.automationDesc", icon: <BellRing size={22} />, tint: "from-fuchsia-400 to-purple-600" },
-  { id: "hardware", title: "cp.hardware", desc: "cp.hardwareDesc", icon: <Cpu size={22} />, tint: "from-emerald-400 to-teal-600" },
-  { id: "power", title: "cp.power", desc: "cp.powerDesc", icon: <Power size={22} />, tint: "from-amber-300 to-orange-600" },
-];
 
 export function Card({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
   return (
@@ -69,7 +55,6 @@ function Security({ info }: { info: SystemInfo }) {
   };
   return (
     <div className="space-y-4">
-      <PostureCard />
       <div id="sec-password">
       <Card title={`Change password for "${info.admin_username}"`}>
         <form onSubmit={submit} className="grid max-w-md gap-3">
@@ -93,7 +78,6 @@ function Security({ info }: { info: SystemInfo }) {
       </div>
       <TwoFactorCard />
       <SessionsCard />
-      <AuditLogCard />
       <BridgeCard />
       <Card title={`${platform} API connection`} action={<GlassBadge tone={info.api.connected ? "success" : "danger"}>{info.api.connected ? "CONNECTED" : "UNREACHABLE"}</GlassBadge>}>
         <Rows
@@ -177,7 +161,7 @@ const short = (c?: string | null) => (c ? c.slice(0, 10) : "unknown");
 const when = (iso?: string | null) => (iso ? new Date(iso).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "Never");
 type Start = (path: "apply" | "rollback", targetRef?: string, includeSystemPackages?: boolean) => Promise<unknown>;
 
-/** Control Panel → System & Updates: version check, update preferences and version history share one job state. */
+/** Settings → Software & Repositories: version check, update preferences and version history share one job state. */
 function UpdatesSection() {
   const [st, setSt] = useState<UpdateStatus | null>(null);
   const [started, setStarted] = useState(false);
@@ -212,7 +196,7 @@ function UpdatesSection() {
   );
 }
 
-/** Control Panel → System & Updates: how to build the bootable SolarOS installer ISO, and the ISOs already built. */
+/** Settings → Software & Repositories: how to build the bootable SolarOS installer ISO, and the ISOs already built. */
 function HypervisorIsoCard() {
   const [st, setSt] = useState<HypervisorIsoStatus | null>(null);
   const [copied, setCopied] = useState("");
@@ -613,7 +597,7 @@ function AboutCard() {
 function PowerSection({ info }: { info: SystemInfo }) {
   const product = useProduct().short;
   const platform = useCapabilities((s) => s.capabilities.platform_label);
-  const openBugReport = useBugReport((s) => s.set);
+  const open = useWindows((s) => s.open);
   const [ask, setAsk] = useState<"reboot" | "shutdown" | null>(null);
   const { busy, error, notice, run } = useRunner();
   const send = async () => {
@@ -636,16 +620,12 @@ function PowerSection({ info }: { info: SystemInfo }) {
           ]}
         />
       </Card>
-      <UpdatesSection />
-      <Card title="Report a Bug">
-        <p className="mb-3 text-xs text-slate-400">Something not working? Send a report to the {product} developers on GitHub, with anonymized diagnostics if you like.</p>
-        <GlassButton onClick={() => openBugReport(true)}>
-          <Bug size={13} /> Report a Bug
-        </GlassButton>
-      </Card>
       <Card title="Power">
         <p className="mb-3 text-xs text-slate-400">All VMs and containers on the host stop, and {product} goes offline until the host is back.</p>
         <div className="flex flex-wrap gap-2">
+          <GlassButton onClick={() => open("console", { type: "node", vmid: 0, name: info.node, mode: "shell" })}>
+            <SquareTerminal size={13} /> Host console shell
+          </GlassButton>
           <GlassButton onClick={() => setAsk("reboot")} disabled={!!notice}>
             <RotateCcw size={13} /> Reboot host
           </GlassButton>
@@ -678,72 +658,28 @@ function PowerSection({ info }: { info: SystemInfo }) {
   );
 }
 
-export default function ControlPanelApp() {
-  const { t } = useTranslation();
-  const [section, setSection] = useState<Section | null>(null);
+/** Loads /system/info for the sections that need it (security, network, power). */
+export function WithSystemInfo({ children }: { children: (info: SystemInfo) => ReactNode }) {
   const [info, setInfo] = useState<SystemInfo | null>(null);
   const [error, setError] = useState("");
-  const load = useCallback(() => {
-    api<SystemInfo>("/system/info").then((i) => (setInfo(i), setError("")), (e) => setError(e.message));
-  }, []);
-  useEffect(load, [load]);
-  const current = SECTIONS.find((s) => s.id === section);
-  const intent = useIntent((s) => s.controlpanel);
-  const takeIntent = useIntent((s) => s.take);
   useEffect(() => {
-    if (intent) (setSection(intent), takeIntent("controlpanel"));
-  }, [intent, takeIntent]);
+    api<SystemInfo>("/system/info").then(setInfo, (e) => setError(e.message));
+  }, []);
+  return info ? children(info) : error ? <Notice error={error} /> : <p className="text-sm text-slate-400">Loading…</p>;
+}
 
+export function BugReportCard() {
+  const product = useProduct().short;
+  const openBugReport = useBugReport((s) => s.set);
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2.5">
-        {current ? (
-          <GlassButton variant="ghost" size="xs" onClick={() => setSection(null)}>
-            <ChevronLeft size={14} /> {t("cp.all")}
-          </GlassButton>
-        ) : (
-          <h2 className="text-sm font-semibold text-white">{t("cp.title")}</h2>
-        )}
-        {current && <span className="text-sm font-medium text-slate-200">{t(current.title)}</span>}
-        <LanguagePill className="ml-auto" />
-        <GlassButton variant="ghost" size="xs" onClick={load} aria-label={t("common.refresh")}>
-          <RefreshCw size={13} />
-        </GlassButton>
-      </div>
-      <div className="min-h-0 flex-1 overflow-auto p-4">
-        <Notice error={error} />
-        {!current ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {SECTIONS.map((s) => (
-              <button
-                key={s.id}
-                onClick={() => setSection(s.id)}
-                className="glass-soft flex items-center gap-3 rounded-2xl p-4 text-left transition hover:bg-white/[0.08] active:scale-[0.98]"
-              >
-                <span className={`flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-lg shadow-black/30 ${s.tint}`}>{s.icon}</span>
-                <span>
-                  <span className="block text-sm font-semibold text-slate-100">{t(s.title)}</span>
-                  <span className="block text-[11px] text-slate-400">{t(s.desc)}</span>
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : section === "appearance" ? (
-          <Appearance />
-        ) : section === "automation" ? (
-          <AutomationPanel />
-        ) : section === "hardware" ? (
-          <HardwarePanel />
-        ) : !info ? (
-          !error && <p className="text-sm text-slate-400">Loading…</p>
-        ) : section === "security" ? (
-          <Security info={info} />
-        ) : section === "network" ? (
-          <NetworkSection info={info} />
-        ) : (
-          <PowerSection info={info} />
-        )}
-      </div>
-    </div>
+    <Card title="Report a Bug">
+      <p className="mb-3 text-xs text-slate-400">Something not working? Send a report to the {product} developers on GitHub, with anonymized diagnostics if you like.</p>
+      <GlassButton onClick={() => openBugReport(true)}>
+        <Bug size={13} /> Report a Bug
+      </GlassButton>
+    </Card>
   );
 }
+
+export { Appearance, NetworkSection, PowerSection, Security, UpdatesSection };
+

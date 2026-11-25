@@ -98,7 +98,7 @@ export const edition: Edition = {
         keywords: "https ssl tls certificate lets encrypt acme padlock secure domain",
         intro: "A certificate removes browser security warnings.",
         steps: [
-          { text: "Open Network & Services → Certificates.", link: { app: "netservices" } },
+          { text: "Open Settings → Network Topology → Certificates.", link: { app: "netservices" } },
           { text: "Let's Encrypt: register an account, add your domain (and a DNS plugin if the host isn't reachable from the internet) and press Order." },
           { text: "Own certificate: paste the certificate and private key and apply them to Proxmox and/or SolarDeck." },
         ],
@@ -111,9 +111,9 @@ export const edition: Edition = {
         keywords: "user users account group role permission acl access family colleague token api pool",
         intro: "Proxmox users can log in to the Proxmox web UI with only the rights you give them.",
         steps: [
-          { text: "Open Datacenter → Users and press 'Add user' (realm 'pve', set a password).", link: { app: "datacenter" } },
+          { text: "Open Settings → Users & Roles → Users and press 'Add user' (realm 'pve', set a password).", link: { app: "datacenter" } },
           { text: "Optional: put users in a Group and VMs in a Pool to manage many at once." },
-          { text: "Datacenter → Permissions → Add: choose the user or group, a path (e.g. /vms/101 or /pool/family) and a role such as PVEVMUser." },
+          { text: "Settings → Users & Roles → Permissions → Add: choose the user or group, a path (e.g. /vms/101 or /pool/family) and a role such as PVEVMUser." },
         ],
       },
       firewall: {
@@ -124,7 +124,7 @@ export const edition: Edition = {
         keywords: "firewall rule block allow port security incoming",
         intro: "The Proxmox firewall filters traffic to the host and to each VM.",
         steps: [
-          { text: "Open Datacenter → Firewall.", link: { app: "datacenter" } },
+          { text: "Open Settings → Firewall & Port Forwarding.", link: { app: "datacenter" } },
           { text: "First add rules that ALLOW TCP 8006 (Proxmox), 22 (SSH) and 80/443 (SolarDeck) from your network." },
           { text: "Only then enable the firewall. SolarDeck warns you if you are about to lock yourself out." },
         ],
@@ -138,9 +138,9 @@ export const edition: Edition = {
         intro: "There are two kinds of updates: the Proxmox host itself and the SolarDeck desktop.",
         fix: "repos",
         steps: [
-          { text: "Host: open System → Updates, press Refresh, then Upgrade.", link: { app: "system" } },
+          { text: "Host: open Settings → Software & Repositories → OS Updates, press Refresh, then Upgrade.", link: { app: "system" } },
           { text: "Seeing '401 Unauthorized'? Your server uses the paid Enterprise source — the Help Center fix switches to the free one." },
-          { text: "SolarDeck: Control Panel → System & Power → 'Check & Install Updates'.", link: { app: "controlpanel", intent: "power" } },
+          { text: "SolarDeck: Settings → Software & Repositories → 'Check & Install Updates'.", link: { app: "controlpanel", intent: "power" } },
         ],
       },
     },

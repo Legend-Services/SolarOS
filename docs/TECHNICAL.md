@@ -12,7 +12,7 @@ It finds everything by itself: the node name, the next free container ID, the be
 - generates a random 14-character admin password and JWT secret,
 - sets up passwordless SSH from the container to the host (for the Host Shell, ZFS snapshots, drivers and network services),
 - installs Python, Node 22, nginx and Samba, builds the app and runs a health check,
-- enables HTTPS on port 443 with a self-signed certificate for the container's IP and hostname (`deploy/selfsigned-cert.sh`, renewed automatically). Your browser warns about it once; get a Let's Encrypt certificate for your own domain in Network & Services → Domains (DNS-01, renewed automatically) or upload one in Certificates, and updates will keep that one. Plain http keeps working,
+- enables HTTPS on port 443 with a self-signed certificate for the container's IP and hostname (`deploy/selfsigned-cert.sh`, renewed automatically). Your browser warns about it once; get a Let's Encrypt certificate for your own domain in Settings → Network Topology → Domains (DNS-01, renewed automatically) or upload one in Certificates, and updates will keep that one. Plain http keeps working,
 - runs a self-test that signs in and calls `/api/v1/bios/status` and `/api/hardware/inventory`, and prints the result in the final box.
 
 ## SolarOS on an existing Ubuntu Server
@@ -60,11 +60,11 @@ Then open **Datacenter → your node → the VM → Console** (noVNC):
 Eject the ISO afterwards with `qm set <vmid> --ide2 none,media=cdrom`; remove the VM with `qm destroy <vmid> --purge`.
 
 
-Both editions update from the same `main` branch in Control Panel → System & Updates.
+Both editions update from the same `main` branch in Settings → Software & Repositories.
 
 ## Updating & Downgrading Without Losing Settings
 
-**From the desktop (recommended):** open **Control Panel → System & Updates**.
+**From the desktop (recommended):** open **Settings → Software & Repositories**.
 
 - **Check for Updates** compares your version with GitHub and lists what's new. **Install Update Now** updates in about a minute.
 - **Automatic Update Preferences**: *Manual Only*, *Notify Me When Available* (default: a notification appears in the top bar) or *Automatic Updates*. You pick how often to check (every 6 hours, daily or weekly) and at what time.
@@ -78,7 +78,7 @@ Updates and downgrades only replace program files. **Your settings, users, passw
 
 ## Reporting Bugs
 
-Found a problem? Click **Report a Bug**. It's in the **?** Help menu and the user menu in the top bar, in Control Panel → System & Updates, and in the desktop right-click menu.
+Found a problem? Click **Report a Bug**. It's in the **?** Help menu and the user menu in the top bar, in Settings → Software & Repositories, and in the desktop right-click menu.
 
 1. Pick a category, give it a short title, and describe what happened and how to reproduce it.
 2. Leave **Attach anonymized system diagnostics** on. It adds the SolarDeck and Proxmox VE versions, kernel, CPU/RAM and the last 30 backend log lines. IP and MAC addresses, e-mail addresses, passwords, tokens, JWTs and SSH keys are removed first. Click **Preview** to see exactly what is sent.
@@ -160,7 +160,7 @@ The active theme, color mode, wallpaper choice per theme, blur and dimming are s
 
 ### Automation & Alerts
 
-Control Panel → **Automation & Alerts** has two tabs:
+Settings → **Automation & Alerts** has two tabs:
 
 - **Alert Channels**: Telegram Bot (`bot_token`, `chat_id`), Discord Webhook (rich embeds), Custom Webhook (`POST` or `PUT` JSON, optional bearer token) and SMTP Email (STARTTLS, or implicit TLS on port 465). **Send Test** delivers a test alert and shows the exact result. Secrets are stored in `backend/data/alert_channels.json` (mode 600) and never sent back to the browser.
 - **Automation Rules**: *When* a trigger holds, *then* run an action. Triggers: `gpu_temp_above`, `disk_temp_above`, `zfs_pool_degraded`, `storage_usage_above`, `guest_stopped_unexpectedly`, `scheduled_time`. Actions: `send_external_alert` (all or chosen channels, plus the top bar Notification Center), `restart_guest`, `start_guest`, `stop_guest`, `prune_old_snapshots` (removes `solardeck-auto-*` snapshots older than N days, on the pools over the threshold when the trigger is storage usage). A rule fires at most once per cooldown (default 15 minutes); a scheduled rule once per scheduled slot.
@@ -169,11 +169,11 @@ The backend checks the rules every minute. API: `GET|PUT /api/automation/channel
 
 ### Network Topology
 
-Network & Services → **Topology** draws `GET /api/v1/network/topology`, a `nodes[]` / `edges[]` graph built from the host's interfaces (`/nodes/{node}/network` plus `ip -j link` for MACs and link state), every VM and container's `net0..netN` bridge bindings and IPs (container interfaces, or the QEMU guest agent), the WireGuard server and its peers, and the router's port forwards. Click a node to highlight its connections and see its IP, MAC and link status, with **Open Console**, **Configure Bridge**, **Edit Port Forward** or **Configure VPN**.
+Settings → Network Topology → **Topology** draws `GET /api/v1/network/topology`, a `nodes[]` / `edges[]` graph built from the host's interfaces (`/nodes/{node}/network` plus `ip -j link` for MACs and link state), every VM and container's `net0..netN` bridge bindings and IPs (container interfaces, or the QEMU guest agent), the WireGuard server and its peers, and the router's port forwards. Click a node to highlight its connections and see its IP, MAC and link status, with **Open Console**, **Configure Bridge**, **Edit Port Forward** or **Configure VPN**.
 
 ### Widgets and languages
 
-Widgets, their order, slot (left, right, grid) and size, and the Scratchpad notes are saved in the browser and under `widgets` in `/api/system/preferences`; the language is saved under `i18n.language`. Translations live in `frontend/src/i18n/` (`en.ts` is the source; TypeScript rejects a language file with a missing or extra key). They cover the login screen, top bar, Dock, taskbar, App Gallery, View Options, Control Panel, app names, widgets, Automation & Alerts and the Network & Services tabs; deeper app screens are still in English.
+Widgets, their order, slot (left, right, grid) and size, and the Scratchpad notes are saved in the browser and under `widgets` in `/api/system/preferences`; the language is saved under `i18n.language`. Translations live in `frontend/src/i18n/` (`en.ts` is the source; TypeScript rejects a language file with a missing or extra key). They cover the login screen, top bar, Dock, taskbar, App Gallery, View Options, Settings, app names, widgets, Automation & Alerts and the Network & Services tabs; deeper app screens are still in English.
 
 ### Local AI Studio
 
@@ -189,7 +189,7 @@ Models are stored on `/mnt/storage/ai-models` (bind-mounted at `/usr/share/ollam
 
 Some operations are limited to root on the host and can't be done with the API token: ZFS dataset snapshots, bind mounts and `/dev/dri` passthrough for App Center containers, and running installers inside new containers. The installer puts `deploy/proxmox-os-helper.sh` on the host at `/usr/local/sbin/proxmox-os-helper`. The container's SSH key for it is locked to that script (`command="…",restrict`). The helper accepts only a fixed list of commands, validates every argument, and refuses guests that SolarDeck didn't tag.
 
-The Host Shell, container shells, GPU drivers and network services use a second, unrestricted root key. **Anyone signed in to SolarDeck is root on the host, so turn on 2FA** (Control Panel → Security & Hardening).
+The Host Shell, container shells, GPU drivers and network services use a second, unrestricted root key. **Anyone signed in to SolarDeck is root on the host, so turn on 2FA** (Settings → Security & 2FA).
 
 Container root in an unprivileged container is uid `100000` on the host. The installer grants it access to your datasets with additive POSIX ACLs (`setfacl -R`), never `chown`, so existing ownership on the host is unchanged.
 
