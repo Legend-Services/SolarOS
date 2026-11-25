@@ -58,7 +58,15 @@ export interface ThemePrefs {
   wallpaperBlurPx: number;
   wallpaperDimPct: number;
   perThemeWallpapers: Record<string, WallpaperChoice>;
+  /** Brand watermark on the desktop: none, logo + product name, or logo + product name + server name. */
+  brandOverlay: BrandOverlay;
+  brandPosition: BrandPosition;
+  brandOpacityPct: number; // 10–100
+  brandSizePct: number; // 50–200
 }
+
+export type BrandOverlay = "none" | "brand_only" | "full_personalized";
+export type BrandPosition = "center" | "bottom-right" | "bottom-center";
 
 export const HEX = /^#[0-9a-fA-F]{6}$/;
 export const THEME_ID = /^[a-z0-9][a-z0-9-]{1,62}$/;

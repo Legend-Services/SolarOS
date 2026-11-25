@@ -56,6 +56,20 @@ export const useCapabilities = create<CapabilitiesState>((set) => ({
   },
 }));
 
+/** GET /api/system/branding/info (signed in only: it names the host). */
+export interface BrandingInfo {
+  hostname: string;
+  /** The server name to show: the hypervisor node on a cluster platform, otherwise the host name. */
+  display_host: string;
+  platform_label: string;
+  brand_mode: "solardeck" | "solaros";
+}
+
+export const useBranding = create<{ info: BrandingInfo | null; load: () => Promise<void> }>((set) => ({
+  info: null,
+  load: async () => set({ info: await api<BrandingInfo>("/system/branding/info").catch(() => null) }),
+}));
+
 export const usePlatformLabel = () => useCapabilities((s) => s.capabilities.platform_label);
 export const useSupports = (flag: CapabilityFlag) => useCapabilities((s) => s.capabilities[flag]);
 export const useDriver = () => useCapabilities((s) => s.capabilities.driver);

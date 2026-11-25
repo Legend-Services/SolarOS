@@ -119,7 +119,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/
 | 🔌 **Visual virtual switch** | Every virtual switch as a rack faceplate: drag ports onto color-coded VLANs, add virtual network cards in two clicks, set host IPs safely and run a DHCP server per VLAN. |
 | 🌐 **Network & VPN** | A live network map, DNS with ad blocking, DHCP, WireGuard VPN with QR codes, port forwarding and Let's Encrypt. |
 | 🔔 **Alerts & automation** | "When the GPU gets hot, tell me on Telegram" style rules, without writing code. |
-| 🎨 **Make it yours** | 11 themes in dark and light, custom wallpapers, and a theme creator. |
+| 🎨 **Make it yours** | 11 themes in dark and light with 4 generative wallpapers each, custom wallpapers, a theme creator and a **Wallpaper Studio** that puts the logo and your server or node name on the desktop as a glass watermark. |
 | 🌍 **Five languages** | English, Nederlands, Deutsch, Español and Français. |
 | 🛟 **Help built in** | Guided wizards, health checks with "Fix it for me", BIOS guides and a bug reporter. |
 | 🔐 **Secure by design** | Two-factor sign-in, confirmation before destructive actions, encrypted secrets, a tamper-evident audit log and a security score with 1-click host hardening. |

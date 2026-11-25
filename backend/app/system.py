@@ -126,6 +126,11 @@ class ThemePrefs(BaseModel):
     wallpaperBlurPx: Annotated[int, Field(ge=0, le=24)] = 0
     wallpaperDimPct: Annotated[int, Field(ge=0, le=60)] = 0
     perThemeWallpapers: Annotated[dict[ThemeId, WallpaperChoice], Field(max_length=200)] = {}
+    # Brand watermark on the desktop wallpaper (Wallpaper Studio).
+    brandOverlay: Literal["none", "brand_only", "full_personalized"] = "none"
+    brandPosition: Literal["center", "bottom-right", "bottom-center"] = "bottom-right"
+    brandOpacityPct: Annotated[int, Field(ge=10, le=100)] = 85
+    brandSizePct: Annotated[int, Field(ge=50, le=200)] = 100
 
 
 def with_layout_defaults(data: dict) -> dict:

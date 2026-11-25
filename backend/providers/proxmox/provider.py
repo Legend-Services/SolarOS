@@ -53,6 +53,10 @@ class ProxmoxProvider(HypervisorProvider):
             supports_rbac_realms=True, supports_apt_repos=True, supports_host_shell=True,
             default_bridge=settings.default_bridge)
 
+    def branding_extra(self) -> dict:
+        # The node every API call targets; the backend itself runs in a container with its own host name.
+        return {"pve_node": settings.node_name, "display_host": settings.node_name}
+
     async def get_node_metrics(self) -> NodeMetrics:
         pve, safe, node = api.pve, api._safe, api._node
         status, qemu, lxc, rrd = await asyncio.gather(
