@@ -12,7 +12,7 @@ interface Diagnostics {
   solardeck_version: string | null;
   solardeck_tag: string | null;
   commit: string | null;
-  pve_version: string | null;
+  platform_version: string | null;
   kernel: string;
   cpu: string;
   memory_gb: number | null;
@@ -130,7 +130,7 @@ export default function BugReportModal() {
               {diag
                 ? [
                     `SolarDeck ${diag.solardeck_version ?? "?"} (${diag.solardeck_tag ?? "untagged"}, ${diag.commit ?? "?"})`,
-                    `${edition.platformLabel} ${diag.pve_version ?? "?"} · kernel ${diag.kernel}`,
+                    `${edition.platformLabel} ${diag.platform_version ?? "?"} · kernel ${diag.kernel}`,
                     `${diag.cpu} · ${diag.memory_gb ?? "?"} GB RAM`,
                     `Browser: ${navigator.userAgent}`,
                     "",

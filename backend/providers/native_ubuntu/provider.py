@@ -157,7 +157,7 @@ class NativeUbuntuProvider(HypervisorProvider):
                     "arc": arc},
             swap={"used": mem.get("SwapTotal", 0) - mem.get("SwapFree", 0), "total": mem.get("SwapTotal", 0)},
             uptime=int(float((proc / "uptime").read_text().split()[0])), kernel=os.uname().release,
-            pveversion="SolarOS",
+            platform_version="SolarOS",
             cpuinfo={"model": model, "cpus": os.cpu_count() or 0, "sockets": sockets, "cores": cores},
             net=net,
             vms={"running": count("qemu", "running"), "stopped": count("qemu", "stopped"),

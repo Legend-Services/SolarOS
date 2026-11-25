@@ -380,7 +380,7 @@ async def info():
         if FsPath("/etc/resolv.conf").exists() else {}
     return {
         "node": settings.node_name, "version": {"release": os_release.get("VERSION_ID", ""), "version": "SolarOS"},
-        "pveversion": f"SolarOS ({os_release.get('PRETTY_NAME', 'Linux')})", "kernel": m.kernel,
+        "platform_version": f"SolarOS ({os_release.get('PRETTY_NAME', 'Linux')})", "kernel": m.kernel,
         "uptime": m.uptime, "cpu_model": m.cpuinfo.get("model", ""), "cpus": m.cpuinfo.get("cpus", 0),
         "boot_mode": "efi" if FsPath("/sys/firmware/efi").exists() else "bios",
         "network": [n.model_dump() for n in net], "dns": {"dns1": dns.get("nameserver"), "search": dns.get("search")},

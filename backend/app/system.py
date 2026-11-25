@@ -127,7 +127,7 @@ async def info():
     return {
         "node": settings.node_name,
         "version": version or {},
-        "pveversion": status.get("pveversion", ""),
+        "platform_version": status.get("pveversion", ""),
         "kernel": status.get("kversion", ""),
         "uptime": status.get("uptime", 0),
         "cpu_model": cpu.get("model", ""),

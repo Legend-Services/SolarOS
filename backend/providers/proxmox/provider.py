@@ -68,7 +68,7 @@ class ProxmoxProvider(HypervisorProvider):
             swap={"used": swap.get("used", 0), "total": swap.get("total", 0)},
             uptime=status.get("uptime", 0),
             kernel=status.get("kversion", ""),
-            pveversion=status.get("pveversion", ""),
+            platform_version=status.get("pveversion", ""),
             cpuinfo={"model": cpuinfo.get("model", ""), "cpus": cpuinfo.get("cpus", 0),
                      "sockets": cpuinfo.get("sockets", 0), "cores": cpuinfo.get("cores", 0)},
             net={"in": float(last.get("netin") or 0), "out": float(last.get("netout") or 0)},

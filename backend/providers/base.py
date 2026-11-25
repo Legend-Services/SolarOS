@@ -41,6 +41,7 @@ class NodeMetrics(Model):
     swap: dict[str, int] = {}
     uptime: int = 0
     kernel: str = ""
+    platform_version: str = ""  # e.g. "SolarOS (Ubuntu 24.04.3 LTS)" or the hypervisor manager version
     cpuinfo: dict[str, Any] = {}
     net: dict[str, float] = {}
     vms: dict[str, int] = {}

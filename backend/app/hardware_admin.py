@@ -375,7 +375,7 @@ async def bios_status():
     if not out.strip():  # bridge down: CPU vendor and VT-x/AMD-V from the API's /proc/cpuinfo flags
         flags = str(ci.get("flags", "")).split()
         facts.update(virtualization="vmx" in flags or "svm" in flags, cpu="amd" if "AMD" in str(ci.get("model")) else "intel")
-    return {**facts, "cpu_model": ci.get("model"), "pve_version": (st or {}).get("pveversion"),
+    return {**facts, "cpu_model": ci.get("model"), "platform_version": (st or {}).get("pveversion"),
             "ssh_bridge_connected": bool(out.strip()), "ssh_bridge_message": "Connected" if out.strip() else
             (err.strip() or "No response from host")}
 

@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from . import updater
 from .auth import require_user
 from .config import settings
+from providers.registry import get_provider
 from .pve import _safe
 
 router = APIRouter(prefix="/api/system/bug-report", tags=["bug-report"], dependencies=[Depends(require_user)])
@@ -66,12 +67,12 @@ async def _journal() -> list[str]:
 
 @router.get("/diagnostics")
 async def diagnostics():
-    src, pve_version, logs = await asyncio.gather(updater.source(), _safe("/version", {}), _journal())
+    src, platform_version, logs = await asyncio.gather(updater.source(), _safe("/version", {}), _journal())
     cpu = re.search(r"^model name\s*:\s*(.+)$", _read("/proc/cpuinfo"), re.M)
     mem = re.search(r"^MemTotal:\s*(\d+)", _read("/proc/meminfo"), re.M)
     return {
         "solardeck_version": src["version"], "solardeck_tag": src["tag"], "commit": (src["commit"] or "")[:12] or None,
-        "pve_version": (pve_version or {}).get("version"), "kernel": platform.release(),
+        "platform_version": (platform_version or {}).get("version"), "kernel": platform.release(),
         "cpu": f"{cpu.group(1).strip() if cpu else platform.machine()} ({os.cpu_count()} threads)",
         "memory_gb": round(int(mem.group(1)) / 1024 ** 2, 1) if mem else None,
         "user_agent": "(filled in by your browser)", "logs": logs,
@@ -94,7 +95,7 @@ def format_body(r: BugReport, diag: dict | None) -> str:
         parts += ["", "### Steps to reproduce", r.steps_to_reproduce.strip()]
     if diag:
         rows = [("SolarDeck", f"{diag['solardeck_version'] or '?'} ({diag['solardeck_tag'] or 'untagged'}, {diag['commit'] or '?'})"),
-                ("Proxmox VE", diag["pve_version"]), ("Kernel", diag["kernel"]), ("CPU", diag["cpu"]),
+                (get_provider().get_capabilities().platform_label, diag["platform_version"]), ("Kernel", diag["kernel"]), ("CPU", diag["cpu"]),
                 ("Memory", f"{diag['memory_gb']} GB" if diag["memory_gb"] else None),
                 ("Browser", redact(r.user_agent) or diag["user_agent"])]
         parts += ["", "### System diagnostics", "| | |", "|---|---|", *[f"| {k} | {v or '?'} |" for k, v in rows],

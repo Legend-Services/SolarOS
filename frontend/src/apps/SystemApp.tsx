@@ -233,7 +233,7 @@ function Host() {
       <dl className="glass-soft grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-xl p-4 text-xs">
         {[
           ["Node", o?.node],
-          ["Platform", o?.pveversion],
+          ["Platform", o?.platform_version],
           ["Kernel", o?.kernel],
           ["Uptime", o && uptime(o.uptime)],
         ].map(([k, v]) => (

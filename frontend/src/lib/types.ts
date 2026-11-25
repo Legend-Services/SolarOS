@@ -6,7 +6,7 @@ export interface Overview {
   swap: { used: number; total: number };
   uptime: number;
   kernel: string;
-  pveversion: string;
+  platform_version: string;
   cpuinfo: { model: string; cpus: number; sockets: number; cores: number };
   net: { in: number; out: number };
   vms: { running: number; stopped: number; total: number };
@@ -474,7 +474,7 @@ export interface NetIface {
 export interface SystemInfo {
   node: string;
   version: { version?: string; release?: string; repoid?: string };
-  pveversion: string;
+  platform_version: string;
   kernel: string;
   uptime: number;
   cpu_model: string;

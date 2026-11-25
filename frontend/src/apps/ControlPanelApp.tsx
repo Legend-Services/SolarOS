@@ -674,8 +674,8 @@ function PowerSection({ info }: { info: SystemInfo }) {
         <Rows
           rows={[
             ["Node", info.node],
-            ["Version", info.version.version ? `${info.version.version}${info.version.repoid ? ` (${info.version.repoid})` : ""}` : info.pveversion],
-            ["Manager", info.pveversion],
+            ["Version", info.version.version ? `${info.version.version}${info.version.repoid ? ` (${info.version.repoid})` : ""}` : info.platform_version],
+            ["Manager", info.platform_version],
             ["Kernel", info.kernel],
             ["CPU", info.cpus ? `${info.cpu_model} · ${info.cpus} threads` : info.cpu_model],
             ["Boot mode", info.boot_mode.toUpperCase()],

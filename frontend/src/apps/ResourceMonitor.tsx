@@ -198,7 +198,7 @@ function Performance() {
             ["Topology", o && `${o.cpuinfo.sockets} socket(s) · ${o.cpuinfo.cores} cores · ${o.cpuinfo.cpus} threads`],
             ["Memory", o && bytes(o.memory.total)],
             ["Kernel", o?.kernel],
-            [edition.versionLabel, o?.pveversion],
+            [edition.versionLabel, o?.platform_version],
             ["Uptime", o && uptime(o.uptime)],
           ].map(([k, v]) => (
             <div key={k} className="contents">
