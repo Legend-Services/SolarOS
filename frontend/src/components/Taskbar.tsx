@@ -1,8 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
-import { Cpu, Database, Expand, LayoutDashboard, LayoutGrid, MemoryStick, Search, Shrink, SquareTerminal } from "lucide-react";
-import { activateApp, activeWindow, useDock, useSpotlight, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
+import { Expand, LayoutDashboard, LayoutGrid, Search, Shrink, SquareTerminal } from "lucide-react";
+import { activateApp, activeWindow, useDock, useSpotlight, useWindows } from "../lib/stores";
 import { useClock, useDismiss, useFlip } from "../lib/hooks";
-import { percent } from "../lib/format";
 import { useLayout } from "../store/layoutStore";
 import type { AppId } from "../apps/registry";
 import { useTranslation } from "../i18n";
@@ -10,7 +9,7 @@ import { useCapabilities } from "../store/capabilitiesStore";
 import LanguagePill from "./LanguagePill";
 import { AppIcon } from "./icons/AppIcons";
 import { ViewOptionsPanel } from "./ViewOptions";
-import { HelpMenu, Pill } from "./TopBar";
+import { HelpMenu, StatusPills } from "./TopBar";
 import TaskCenterPopover from "./TaskCenterPopover";
 import NotificationPopover from "./NotificationPopover";
 import { ModeToggle, ThemeSwitcher } from "./ThemeQuickSwitcher";
@@ -96,8 +95,6 @@ export default function Taskbar() {
   const windows = useWindows((s) => s.windows);
   const { open, close, minimize, setDockIconRect } = useWindows();
   const { pinned, pin, unpin, move, gallery, set: setDock } = useDock();
-  const overview = useTelemetry((s) => s.overview);
-  const storage = useTelemetry((s) => s.storage);
   const openSpotlight = useSpotlight((s) => s.set);
   const viewPanel = useLayout((s) => s.panel);
   const setLayout = useLayout((s) => s.set);
@@ -114,8 +111,6 @@ export default function Taskbar() {
   const running = [...new Set(windows.map((w) => w.id))].filter((id) => id !== "console" && !pinned.includes(id));
   const tasks: AppId[] = [...pinned, ...running];
   const active = activeWindow(windows);
-  const health = zfsHealth(storage);
-  const ram = overview ? percent(overview.memory.used, overview.memory.total) : 0;
 
   // Taskbar buttons are the minimize targets (the same rects the Dock registers in the other layout).
   const layoutKey = tasks.join(",");
@@ -195,15 +190,7 @@ export default function Taskbar() {
         })}
       </div>
       <div className="flex flex-1 items-center justify-end gap-1">
-        <Pill icon={<Cpu size={12} />} label={`${overview ? overview.cpu.toFixed(0) : "–"}%`} />
-        <Pill icon={<MemoryStick size={12} />} label={`${ram.toFixed(0)}%`} />
-        <span className="max-lg:hidden">
-          <Pill
-            icon={<Database size={12} />}
-            label={health}
-            tone={health === "ONLINE" ? "text-emerald-300" : health === "N/A" || health === "—" ? "text-slate-400" : "text-rose-300"}
-          />
-        </span>
+        <StatusPills />
         {caps.supports_host_shell && (
           <button onClick={() => open("terminal")} className="rounded-md px-2 py-1 text-slate-200 hover:bg-white/10 max-sm:hidden" aria-label={t("top.hostShell", { platform: caps.platform_label })} title={t("top.hostShell", { platform: caps.platform_label })}>
             <SquareTerminal size={14} />

@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from . import (apps, audit_log, auth, automation, bug_report, capabilities, console, disk_benchmark, domains, files, hardware_admin, help_center, host_ssh, hypervisor, local_ai, net_services, notifications,
+from . import (apps, audit_log, auth, automation, bug_report, capabilities, console, disk_benchmark, domains, files, hardware_admin, help_center, host_services, host_ssh, hypervisor, local_ai, net_services, notifications,
                provisioning, schedules, security, shares, storage_admin, system, system_extra,
                telemetry, themes, updater)
 from .config import settings
@@ -45,7 +45,7 @@ app.include_router(storage_admin.router)
 app.include_router(provisioning.router)
 app.include_router(system_extra.router)
 for module in (host_ssh, net_services, hardware_admin, help_center, disk_benchmark, updater, bug_report, local_ai, domains,
-               themes, automation, security):
+               themes, automation, security, host_services):
     app.include_router(module.router)
 app.include_router(themes.public)
 app.include_router(capabilities.router, prefix="/api/system")

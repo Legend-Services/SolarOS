@@ -1,6 +1,6 @@
 import { useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import { PencilRuler } from "lucide-react";
-import { useDock, usePrefs, useTelemetry, useWindows } from "../lib/stores";
+import { openLink, useDock, usePrefs, useTelemetry, useWindows } from "../lib/stores";
 import { useInsets, useLayout, useShell } from "../store/layoutStore";
 import { APP_IDS, type AppId } from "../apps/registry";
 import { AppListRow } from "./ViewOptions";
@@ -16,7 +16,6 @@ export default function Desktop() {
   const error = useTelemetry((s) => s.error);
   const widgets = usePrefs((s) => s.widgets);
   const editing = useWidgets((s) => s.editing);
-  const setEditing = useWidgets((s) => s.setEditing);
   const { t, appTitle } = useTranslation();
   const showWidgets = widgets || editing;
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
@@ -107,7 +106,7 @@ export default function Desktop() {
           <WidgetSlotArea slot="right" className="!flex" />
           {!editing && (
             <button
-              onClick={() => setEditing(true)}
+              onClick={() => openLink("settings", "general-appearance")}
               className="glass-soft self-end rounded-full px-3 py-1 text-[11px] text-slate-300 opacity-60 transition hover:opacity-100"
             >
               <PencilRuler size={11} className="mr-1 inline" />

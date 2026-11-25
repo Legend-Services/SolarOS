@@ -28,6 +28,8 @@ const OSTYPES = [
 const NAME_RE = /^[A-Za-z0-9]([A-Za-z0-9.-]{0,61}[A-Za-z0-9])?$/;
 const HOST_RE = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 
+import { useHypervisorDefaults } from "../store/hypervisorStore";
+
 const initial = {
   vmid: 0,
   name: "",
@@ -85,7 +87,8 @@ export default function GuestWizard({ kind, open, onClose, onCreated }: { kind: 
     setJob(null);
     setState(null);
     setError("");
-    setF({ ...initial, disk: k === "qemu" ? 32 : 8, memory: k === "qemu" ? 2048 : 1024, cores: k === "qemu" ? 2 : 1 });
+    const d = useHypervisorDefaults.getState();
+    setF({ ...initial, ...(k === "qemu" ? d.vm : d.lxc), nesting: d.nesting });
     refreshStorage();
     api<{ vmid: number }>("/v1/nextid").then((r) => set({ vmid: r.vmid }), (e) => setError(e.message));
     api<SystemInfo>("/system/info").then(
@@ -117,7 +120,8 @@ export default function GuestWizard({ kind, open, onClose, onCreated }: { kind: 
   useEffect(() => {
     if (open && !f.storage && diskStores.length) {
       // Same preference as the installer: ZFS, then local-lvm, then anything.
-      const pick = diskStores.find((t) => t.type === "zfspool") ?? diskStores.find((t) => t.storage === "local-lvm") ?? diskStores[0];
+      const preferred = useHypervisorDefaults.getState().storage;
+      const pick = diskStores.find((t) => t.storage === preferred) ?? diskStores.find((t) => t.type === "zfspool") ?? diskStores.find((t) => t.storage === "local-lvm") ?? diskStores[0];
       set({ storage: pick.storage });
     }
   }, [open, f.storage, diskStores]);

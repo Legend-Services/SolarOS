@@ -1,20 +1,9 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { edition } from "@edition";
-import { useCapabilities } from "../store/capabilitiesStore";
-import { ArrowUpCircle, Download, PackageCheck, Plus, Power, RefreshCw, RotateCcw, Server, SquareTerminal, TriangleAlert } from "lucide-react";
+import { Download, Plus, RefreshCw, TriangleAlert } from "lucide-react";
 import { api } from "../lib/api";
-import { useTelemetry, useWindows } from "../lib/stores";
-import { uptime } from "../lib/format";
 import { TaskLog } from "../components/TaskCenterPopover";
 import type { AptUpdate, RepoInfo, UpgradeStatus } from "../lib/types";
-
-type Tab = "repos" | "updates" | "host";
-
-const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
-  { id: "repos", label: "Repositories", icon: <PackageCheck size={15} /> },
-  { id: "updates", label: "Updates", icon: <ArrowUpCircle size={15} /> },
-  { id: "host", label: "Host & Power", icon: <Server size={15} /> },
-];
 
 function useAction(reload: () => void) {
   const [busy, setBusy] = useState(false);
@@ -214,83 +203,4 @@ function Updates() {
     </div>
   );
 }
-
-function Host() {
-  const o = useTelemetry((s) => s.overview);
-  const open = useWindows((s) => s.open);
-  const { busy, error, run } = useAction(() => {});
-  const [sent, setSent] = useState("");
-  const node = o?.node ?? "host";
-
-  const power = (command: "reboot" | "shutdown") => {
-    const verb = command === "reboot" ? "Reboot" : "Shut down";
-    if (!window.confirm(`${verb} ${edition.host} "${node}"? All running VMs and containers are stopped, and SolarDeck itself goes offline${command === "shutdown" ? " until the server is powered on again" : " for a few minutes"}.`)) return;
-    run(() => api("/system/power", { method: "POST", json: { command } }).then(() => setSent(`${verb} command sent.`)));
-  };
-
-  return (
-    <div className="space-y-4">
-      <dl className="glass-soft grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 rounded-xl p-4 text-xs">
-        {[
-          ["Node", o?.node],
-          ["Platform", o?.platform_version],
-          ["Kernel", o?.kernel],
-          ["Uptime", o && uptime(o.uptime)],
-        ].map(([k, v]) => (
-          <div key={k} className="contents">
-            <dt className="text-slate-400">{k}</dt>
-            <dd className="truncate text-slate-100">{v || "—"}</dd>
-          </div>
-        ))}
-      </dl>
-
-      <section className="glass-soft rounded-xl p-4">
-        <h3 className="mb-1 text-sm font-semibold text-slate-100">Host shell</h3>
-        <p className="mb-3 text-[11px] text-slate-400">A full terminal on {edition.host}. Log in with a host account, for example root and its password.</p>
-        <button className="btn" onClick={() => open("console", { type: "node", vmid: 0, name: node, mode: "shell" })}>
-          <SquareTerminal size={12} /> Open host shell
-        </button>
-      </section>
-
-      <section className="glass-soft rounded-xl p-4">
-        <h3 className="mb-3 text-sm font-semibold text-slate-100">Power</h3>
-        <div className="flex flex-wrap gap-2">
-          <button className="btn" disabled={busy || !!sent} onClick={() => power("reboot")}>
-            <RotateCcw size={12} /> Reboot host
-          </button>
-          <button className="btn text-rose-300" disabled={busy || !!sent} onClick={() => power("shutdown")}>
-            <Power size={12} /> Shut down host
-          </button>
-        </div>
-        {sent && <p className="mt-2 text-xs text-amber-300">{sent}</p>}
-      </section>
-      <Err text={error} />
-    </div>
-  );
-}
-
-export default function SystemApp() {
-  const caps = useCapabilities((s) => s.capabilities);
-  const [tab, setTab] = useState<Tab>(caps.supports_apt_repos ? "repos" : "updates");
-  return (
-    <div className="flex h-full">
-      <nav className="w-44 shrink-0 space-y-1 border-r border-white/10 bg-black/20 p-2 max-sm:w-14">
-        {TABS.filter((t) => t.id !== "repos" || caps.supports_apt_repos).map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            aria-current={tab === t.id}
-            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs ${
-              tab === t.id ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
-            }`}
-            title={t.label}
-          >
-            {t.icon}
-            <span className="max-sm:hidden">{t.label}</span>
-          </button>
-        ))}
-      </nav>
-      <div className="min-w-0 flex-1 overflow-auto p-4">{tab === "repos" ? <Repositories /> : tab === "updates" ? <Updates /> : <Host />}</div>
-    </div>
-  );
-}
+export { Repositories, Updates };

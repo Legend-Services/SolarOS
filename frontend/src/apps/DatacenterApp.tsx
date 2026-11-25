@@ -1119,8 +1119,8 @@ function LogsTab() {
 
 /* ---------------- App ---------------- */
 
-export default function DatacenterApp() {
-  const [tab, setTab] = useState<Tab>("users");
+export default function DatacenterApp({ initialTab = "users" }: { initialTab?: Tab }) {
+  const [tab, setTab] = useState<Tab>(initialTab);
   const caps = useCapabilities((s) => s.capabilities);
   const tokens = useLoad<Token[]>("/v1/access/tokens");
   const service = tokens.data?.find((t) => t.service)?.userid ?? edition.serviceUserFallback;

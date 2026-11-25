@@ -2,7 +2,8 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { api } from "../lib/api";
 import { useDock, usePrefs, useUsage } from "../lib/stores";
-import { APP_IDS, type AppId } from "../apps/registry";
+import { liveAppIds, type AppId } from "../apps/registry";
+import { hypervisorPrefs, sanitizeHypervisor, useHypervisorDefaults, type HypervisorDefaults } from "./hypervisorStore";
 import { useWizard } from "./wizardStore";
 import { sanitizePrefs, themePrefs, useTheme } from "./themeStore";
 import type { ThemePrefs } from "../theme/themeTypes";
@@ -87,8 +88,8 @@ const clamp = (v: unknown, [lo, hi]: readonly [number, number], fallback: number
   const n = Number(v);
   return Number.isFinite(n) ? Math.max(lo, Math.min(hi, Math.round(n))) : fallback;
 };
-/** Keep known app ids once each (saved lists may name removed apps). */
-export const appOrder = (v: unknown): AppId[] => (Array.isArray(v) ? [...new Set(v)].filter((id): id is AppId => (APP_IDS as unknown[]).includes(id)) : []);
+/** Keep known app ids once each; retired admin ids (Control Panel, System, …) migrate to Settings. */
+export const appOrder = liveAppIds;
 const mode = (v: unknown, fallback: ViewMode): ViewMode => (v === "grid" || v === "list" ? v : fallback);
 
 /** Validate a saved layout (localStorage or server JSON) against the current one. */
@@ -190,6 +191,7 @@ interface Preferences {
   theme?: Partial<ThemePrefs>;
   widgets?: { items?: WidgetCfg[]; notes?: string; visible?: boolean };
   i18n?: { language?: Lang };
+  hypervisor?: Partial<HypervisorDefaults>;
 }
 
 const snapshot = (): Preferences => {
@@ -200,6 +202,7 @@ const snapshot = (): Preferences => {
     theme: themePrefs(useTheme.getState()),
     widgets: { items: useWidgets.getState().items, notes: useWidgets.getState().notes, visible: usePrefs.getState().widgets },
     i18n: { language: useLanguage.getState().language },
+    hypervisor: hypervisorPrefs(useHypervisorDefaults.getState()),
   };
 };
 
@@ -224,7 +227,7 @@ export function startPreferencesSync(onReady: () => void): () => void {
     }, 600);
   };
   const subs = [useLayout.subscribe(push), useDock.subscribe(push), useWizard.subscribe(push), useTheme.subscribe(push), useWidgets.subscribe(push),
-    usePrefs.subscribe(push), useLanguage.subscribe(push)];
+    usePrefs.subscribe(push), useLanguage.subscribe(push), useHypervisorDefaults.subscribe(push)];
 
   useUsage.getState().load();
   api<Preferences>("/system/preferences")
@@ -238,6 +241,7 @@ export function startPreferencesSync(onReady: () => void): () => void {
       if (typeof p.widgets?.notes === "string") useWidgets.setState({ notes: p.widgets.notes.slice(0, NOTES_MAX) });
       if (typeof p.widgets?.visible === "boolean") usePrefs.getState().set({ widgets: p.widgets.visible });
       if (isLang(p.i18n?.language)) useLanguage.getState().setLanguage(p.i18n.language);
+      if (p.hypervisor) useHypervisorDefaults.setState(sanitizeHypervisor(p.hypervisor));
       last = p.layout && p.theme ? JSON.stringify(snapshot()) : ""; // nothing stored yet: upload this browser's settings
     })
     .catch(() => {})

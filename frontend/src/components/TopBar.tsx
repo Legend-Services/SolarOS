@@ -1,9 +1,9 @@
 import { useState, type ReactNode } from "react";
-import { BookOpen, Bug, CircleHelp, Cpu, Database, LayoutDashboard, LayoutGrid, LifeBuoy, Lock, LogOut, MemoryStick, Search, SlidersHorizontal, Sparkles, SquareTerminal, User } from "lucide-react";
+import { ArrowUpCircle, BookOpen, Bug, CircleHelp, Cpu, Database, LayoutDashboard, LayoutGrid, LifeBuoy, Lock, LogOut, MemoryStick, Search, SlidersHorizontal, Sparkles, SquareTerminal, User } from "lucide-react";
 import { useLayout } from "../store/layoutStore";
 import { useWizard } from "../store/wizardStore";
 import { ViewOptionsPanel } from "./ViewOptions";
-import { activeWindow, useAuth, useBugReport, useSpotlight, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
+import { activeWindow, openLink, useAuth, useBugReport, useRelease, useReleasePoll, useSpotlight, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
 import { useClock, useDismiss } from "../lib/hooks";
 import TaskCenterPopover from "./TaskCenterPopover";
 import NotificationPopover from "./NotificationPopover";
@@ -15,12 +15,47 @@ import LanguagePill from "./LanguagePill";
 import { useTranslation } from "../i18n";
 import { productOf, useCapabilities } from "../store/capabilitiesStore";
 
-export function Pill({ icon, label, tone = "text-slate-200" }: { icon: ReactNode; label: string; tone?: string }) {
+export function Pill({ icon, label, tone = "text-slate-200", onClick, title }: { icon: ReactNode; label: string; tone?: string; onClick?: () => void; title?: string }) {
   return (
-    <span className={`hidden items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 tabular-nums sm:inline-flex ${tone}`}>
+    <button
+      onClick={onClick}
+      title={title}
+      aria-label={title ? `${title}: ${label}` : label}
+      className={`hidden items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 tabular-nums transition hover:bg-white/15 sm:inline-flex ${tone}`}
+    >
       {icon}
       {label}
-    </span>
+    </button>
+  );
+}
+
+/** Telemetry pills + update badge shared by the top bar and the taskbar; each opens its Settings sub-module. */
+export function StatusPills() {
+  const { t } = useTranslation();
+  const overview = useTelemetry((s) => s.overview);
+  const storage = useTelemetry((s) => s.storage);
+  const update = useRelease((s) => s.update);
+  useReleasePoll();
+  const health = zfsHealth(storage);
+  const ram = overview ? percent(overview.memory.used, overview.memory.total) : 0;
+  const monitor = () => openLink("settings", "resource-monitor");
+  return (
+    <>
+      {update && (
+        <Pill icon={<ArrowUpCircle size={12} />} label={t("top.update")} tone="text-amber-300" onClick={() => openLink("settings", "software-updates")} title={t("set.mod.software-updates")} />
+      )}
+      <Pill icon={<Cpu size={12} />} label={`${overview ? overview.cpu.toFixed(0) : "–"}%`} onClick={monitor} title={t("set.mod.resource-monitor")} />
+      <Pill icon={<MemoryStick size={12} />} label={`${ram.toFixed(0)}%`} onClick={monitor} title={t("set.mod.resource-monitor")} />
+      <span className="max-lg:hidden">
+        <Pill
+          icon={<Database size={12} />}
+          label={health}
+          tone={health === "ONLINE" ? "text-emerald-300" : health === "N/A" || health === "—" ? "text-slate-400" : "text-rose-300"}
+          onClick={() => openLink("settings", "storage-zfs")}
+          title={t("set.mod.storage-zfs")}
+        />
+      </span>
+    </>
   );
 }
 
@@ -31,8 +66,6 @@ export default function TopBar() {
   const now = useClock();
   const windows = useWindows((s) => s.windows);
   const open = useWindows((s) => s.open);
-  const overview = useTelemetry((s) => s.overview);
-  const storage = useTelemetry((s) => s.storage);
   const { username, lock, logout } = useAuth();
   const openSpotlight = useSpotlight((s) => s.set);
   const openBugReport = useBugReport((s) => s.set);
@@ -45,8 +78,6 @@ export default function TopBar() {
   const viewRef = useDismiss(viewPanel, () => setLayout({ panel: false }));
 
   const active = activeWindow(windows);
-  const health = zfsHealth(storage);
-  const ram = overview ? percent(overview.memory.used, overview.memory.total) : 0;
 
   // z above the Dock (9000): the top bar popovers (View Options, Help, notifications) must open over the Dock.
   return (
@@ -84,13 +115,7 @@ export default function TopBar() {
 
       <div className="min-w-0 flex-1 truncate font-medium text-slate-300">{active ? appTitle(active.id) : t("top.desktop")}</div>
 
-      <Pill icon={<Cpu size={12} />} label={`${overview ? overview.cpu.toFixed(0) : "–"}%`} />
-      <Pill icon={<MemoryStick size={12} />} label={`${ram.toFixed(0)}%`} />
-      <Pill
-        icon={<Database size={12} />}
-        label={health}
-        tone={health === "ONLINE" ? "text-emerald-300" : health === "N/A" || health === "—" ? "text-slate-400" : "text-rose-300"}
-      />
+      <StatusPills />
       <button
         onClick={() => openSpotlight(true)}
         className="flex items-center gap-1 rounded-md px-2 py-1 text-slate-200 hover:bg-white/10"
@@ -144,7 +169,7 @@ export default function TopBar() {
         {menu && (
           <div className="glass absolute top-8 right-0 w-44 rounded-xl p-1">
             <button
-              onClick={() => (open("controlpanel"), setMenu(false))}
+              onClick={() => (open("settings"), setMenu(false))}
               className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10"
             >
               <SlidersHorizontal size={14} /> {t("top.controlPanel")}

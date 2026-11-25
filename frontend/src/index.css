@@ -191,7 +191,7 @@ body {
     color 400ms ease;
 }
 
-/* ---------------- Wallpaper (Control Panel → Appearance & Themes) ---------------- */
+/* ---------------- Wallpaper (Settings → General & Appearance) ---------------- */
 
 .wallpaper::after {
   /* Ambient top light that the glass surfaces pick up. */

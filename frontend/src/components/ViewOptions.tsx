@@ -40,7 +40,7 @@ const CONTROLS = [
 ];
 const COLUMNS = ["auto", "4", "5", "6", "8"].map((id) => ({ id, label: id === "auto" ? <T k="view.auto" /> : id }));
 
-/** Desktop + Dock layout form: view mode, icon size and spacing sliders, reset. Used by the popover and Control Panel. */
+/** Desktop + Dock layout form: view mode, icon size and spacing sliders, reset. Used by the popover and Settings. */
 export function LayoutControls() {
   const { t } = useTranslation();
   const editWidgets = useWidgets((s) => s.setEditing);
@@ -96,7 +96,7 @@ export function LayoutControls() {
   );
 }
 
-/** Floating View Options panel under the TopBar; opened from the TopBar, desktop menu or Control Panel. */
+/** Floating View Options panel under the TopBar; opened from the TopBar, desktop menu or Settings. */
 export function ViewOptionsPanel({ up = false }: { up?: boolean }) {
   const { t } = useTranslation();
   const dockSize = useDock((s) => s.baseSize);
