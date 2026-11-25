@@ -1,309 +1,144 @@
-# SolarDeck
+<div align="center">
 
-<p>
-  <img src="frontend/public/brand/solardeck-proxmox-logo.svg" alt="SolarDeck for Proxmox VE" height="96">
-  &nbsp;&nbsp;
-  <img src="frontend/public/brand/solaros-logo.svg" alt="SolarOS" height="96">
-</p>
+<img src="frontend/public/brand/solardeck-proxmox-logo.svg" alt="SolarDeck for Proxmox VE" height="96">
+&nbsp;&nbsp;&nbsp;
+<img src="frontend/public/brand/solaros-logo.svg" alt="SolarOS" height="96">
 
-*SolarDeck for Proxmox VE* — a web desktop for your Proxmox VE server, installed as its own LXC container. *SolarOS* is the same desktop as a standalone hypervisor operating system (bootable ISO, no Proxmox VE).
+# Your server, as a beautiful desktop in the browser
 
-[![Version](https://img.shields.io/badge/version-1.5.0-38bdf8)](CHANGELOG.md)
+**SolarDeck** turns a home server into something that feels like a NAS: windows, a dock, live widgets and
+point-and-click apps for virtual machines, containers, ZFS storage, shares, backups, VPN and GPUs.
+No config files, no command-line gymnastics.
+
+[![Latest release](https://img.shields.io/github/v/release/Legend-Services/SolarOS?label=release&color=38bdf8)](https://github.com/Legend-Services/SolarOS/releases/latest)
 [![Proxmox VE](https://img.shields.io/badge/Proxmox%20VE-8%20%7C%209-e57000)](https://www.proxmox.com/en/proxmox-virtual-environment)
+[![Ubuntu Server](https://img.shields.io/badge/SolarOS-Ubuntu%2024.04%20%7C%2026.04-e95420)](#solaros-a-complete-server-os)
 [![License](https://img.shields.io/badge/license-AGPLv3%20%2B%20Commercial-8b5cf6)](#license)
-[![Stack](https://img.shields.io/badge/stack-FastAPI%20%2B%20React-10b981)](#architecture)
 
-**Your Proxmox server, as a friendly desktop in the browser.** SolarDeck puts a Liquid Glass Desktop on top of Proxmox VE: windows, a Parabolic Dock, live widgets and point-and-click apps for virtual machines, containers, ZFS storage, network shares, backups, VPN and GPUs. Installing takes one command, and you don't need to touch a config file.
+[**Install on Proxmox VE**](#solardeck-for-proxmox-ve) · [**Download SolarOS**](#solaros-a-complete-server-os) · [Screenshots](#screenshots) · [Features](#what-you-get)
+
+<br>
 
 ![SolarDeck desktop](docs/screenshots/02-desktop-overview.png)
 
-## Features
+</div>
+
+## Pick your edition
+
+Both editions are the same desktop, built from the same code, and update with one click.
+
+| | 🟠 **SolarDeck for Proxmox VE** | ☀️ **SolarOS** |
+|---|---|---|
+| **For you if…** | you already run Proxmox VE | you have a spare PC or server and want a fresh start |
+| **What it is** | a friendly desktop on top of Proxmox, in its own container | a complete server OS: SolarDeck *is* the hypervisor |
+| **Install** | one command in the Proxmox Shell | boot the ISO, pick a disk, done |
+| **Time** | about 3 minutes | one install and one reboot |
+| **Touches your setup?** | no, Proxmox keeps working as before | installs on its own disk |
+
+---
+
+## SolarDeck for Proxmox VE
+
+**You need:** a Proxmox VE 8 or 9 server with internet access. That's it.
+
+1. Open your Proxmox web interface (for example `https://192.168.1.10:8006`), click your node, then **Shell**.
+2. Paste this and press **Enter**:
+
+   ```bash
+   bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/main/install.sh)"
+   ```
+
+3. After 2–3 minutes you get a box with the **web address**, the username **`admin`** and a **password**.
+   Open the address, sign in, and the Welcome Tour shows you around.
+
+The installer finds everything by itself (free container ID, storage, IP address) and creates one new container
+named `proxmox-os`. Your existing VMs and containers are not touched.
+
+> **Lost the password?** In the Proxmox Shell: `pct exec <container ID> -- grep ADMIN_PASSWORD /opt/proxmox-os/backend/.env`
+
+---
+
+## SolarOS: a complete server OS
+
+No Proxmox needed. SolarOS installs Ubuntu Server LTS with KVM virtual machines, containers, OpenZFS and the
+SolarDeck desktop, all set up for you.
+
+### Install on a PC or server
+
+1. **Download** the latest `SolarOS-vX.Y.Z-amd64.iso` from the
+   [**Releases page**](https://github.com/Legend-Services/SolarOS/releases/latest).
+2. **Write it to a USB stick** (8 GB or larger) with [balenaEtcher](https://etcher.balena.io/) or
+   [Rufus](https://rufus.ie/), or attach it as virtual media on your server's IPMI/iDRAC.
+3. **Boot from the USB stick** and choose **Install SolarOS (Interactive Disk Selection)**. Pick the disk to install
+   on. Only that disk is erased.
+4. **Wait for the reboot.** The first start sets up the rest by itself (it needs internet). Then the screen shows
+   the web address and your `admin` password.
+5. **Open the address** from any computer on your network and sign in.
+
+Your CPU needs virtualization (Intel VT-x or AMD-V) switched on in the BIOS. We test with 4 cores, 8 GB RAM and a
+32 GB system disk; add more disks to build ZFS pools from the desktop.
+
+### Try it in a Proxmox VE virtual machine
+
+Curious, but not ready to wipe a machine? Run SolarOS as a VM on your Proxmox server:
+
+1. In Proxmox, go to **local → ISO Images → Download from URL** and paste the ISO link from the
+   [Releases page](https://github.com/Legend-Services/SolarOS/releases/latest) (or upload the file you downloaded).
+2. **Create VM**: pick the SolarOS ISO, *Machine* `q35`, *BIOS* `OVMF (UEFI)`, *CPU type* `host`, 4 cores,
+   8 GB memory and a 32 GB disk. Add one or two extra disks if you want to play with ZFS.
+3. Turn on nested virtualization so SolarOS can run its own VMs. In the Proxmox Shell, check it with
+   `cat /sys/module/kvm_intel/parameters/nested` (or `kvm_amd`); it should say `Y` or `1`.
+4. Start the VM, open its **Console** and follow the same steps as above.
+
+Prefer scripts? `hypervisor/test-in-proxmox-vm.sh` creates and starts a ready-made test VM for you. See
+[docs/TECHNICAL.md](docs/TECHNICAL.md#testing-the-solaros-iso-inside-a-proxmox-ve-vm).
+
+### Already running Ubuntu Server?
+
+On a clean Ubuntu Server 24.04 or 26.04 LTS machine, as root:
+
+```bash
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/main/hypervisor/install-hypervisor.sh)" -- --with-console-tui
+```
+
+---
+
+## What you get
 
 | | |
 |---|---|
-| 🖥️ **Liquid Glass Desktop** | A clean, multi-window desktop with snapping, live CPU/RAM/ZFS widgets and Spotlight search (Ctrl+K). Pick the floating Parabolic Dock or an edge-to-edge bottom taskbar; drag icons on either to reorder them. Optional desktop shortcuts (View Options → Show Desktop Shortcuts) in Grid or List, aligned left or centered. |
-| 🧩 **Widget Studio** | Seven live desktop widgets (System Health, ZFS & Storage Pools, Compute Summary, GPU & Thermal Monitor, Live Network Throughput, Local AI Studio card, Quick Actions & Scratchpad). Switch them on or off, drag them between the left column, right column and middle grid, and pick compact or expanded size. |
-| 🔔 **Automation & Alerts** | No-code rules (GPU or drive temperature, degraded ZFS pool, storage usage, a keep-alive guest that stopped, a daily or weekly time) that send Telegram, Discord, webhook or email alerts, start, stop or restart a guest, or delete expired automatic snapshots, with cooldowns and an execution log. |
-| 🌍 **Five languages** | English, Nederlands, Deutsch, Español and Français, switchable from the login screen, the top bar or taskbar, and the Control Panel. |
-| 🗂️ **App Gallery** | Every app in one frosted-glass overlay: search, category pills, Grid or List, sort by Custom Order, Most Used, Name or Recently Used (real launch counts), drag-and-drop ordering and Pin to Bottom Bar. |
-| 🎨 **Theme Studio** | 11 built-in themes, each with Dark and Light palettes and 4 procedural wallpapers (44 in all), a one-click Light / Dark toggle and Quick Theme Switcher in the top bar, per-theme custom wallpapers (upload, image URL or gradient) with blur and dimming, a Theme Creator, and theme import / export as `.solardeck-theme.json`. |
-| 💽 **SolarDeck Storage Manager** | Create ZFS pools (Mirror, RAID10, RAIDZ1–3), datasets and ZVOLs, snapshots and schedules, SMART health, disk tuning, surface scans, disk replacement and benchmarks. |
-| 📦 **Compute Manager** | Create VMs and containers with wizards, GPU/PCI/USB passthrough, cloud-init, built-in screen console and shell. |
-| 🌐 **Network & Services** | Interactive network topology map (Internet → NICs → bridges and VLANs → VMs, containers, WireGuard and port forwards), DNS server with ad blocking, DHCP, WireGuard VPN with QR codes, router/NAT and port forwarding, Let's Encrypt certificates. |
-| 🗂️ **Files, Shares & Backups** | File Station, SMB shares (each with its own ZFS dataset), Network Backup Target, and the SolarDeck Backup Center for VM/container backups and restores. |
-| 🛒 **App Center** | One-click Jellyfin, Docker + Portainer, AdGuard Home, Nginx Proxy Manager, Immich, Local AI Studio and more, each in its own container. |
-| 🧠 **Local AI Studio** | Ollama + Open WebUI with a hardware picker (NVIDIA CUDA such as an RTX 3090, Intel/AMD Vulkan, or CPU), the live ollama.com model library with VRAM fit ratings, one-click downloads, GPU telemetry and a test chat with tokens/sec. |
-| 🎛️ **Control Panel** | 2FA, hardware inventory, one-click NVIDIA/Intel/AMD drivers, appearance, and **System & Updates** with one-click updates and downgrades. |
-| 🛟 **Help built in** | Guided wizards in every app, a Welcome Tour, health checks with "Fix it for me", tutorials, BIOS guides, and an in-app bug reporter. |
+| 🖥️ **A real desktop** | Movable windows with snapping, a dock or taskbar, live widgets, Spotlight search (Ctrl+K) and a Welcome Tour. |
+| 📦 **Virtual machines & containers** | Create them with step-by-step wizards, open their screen or shell in the browser, pass through GPUs, PCI and USB devices. Windows-ready out of the box. |
+| 💽 **ZFS storage made easy** | Build mirrors and RAIDZ pools, datasets, snapshots and schedules, check SMART health and benchmark your disks. |
+| 🗂️ **Files, shares & backups** | A file browser, SMB shares for your network, and a Backup Center to back up and restore guests. |
+| 🛒 **App Center** | One click for Jellyfin, Docker + Portainer, AdGuard Home, Nginx Proxy Manager, Immich and more. |
+| 🧠 **Local AI** | Ollama + Open WebUI on your own GPU (NVIDIA, Intel, AMD) or CPU, with a model library that tells you what fits. |
+| 🌐 **Network & VPN** | A live network map, DNS with ad blocking, DHCP, WireGuard VPN with QR codes, port forwarding and Let's Encrypt. |
+| 🔔 **Alerts & automation** | "When the GPU gets hot, tell me on Telegram" style rules, without writing code. |
+| 🎨 **Make it yours** | 11 themes in dark and light, custom wallpapers, and a theme creator. |
+| 🌍 **Five languages** | English, Nederlands, Deutsch, Español and Français. |
+| 🛟 **Help built in** | Guided wizards, health checks with "Fix it for me", BIOS guides and a bug reporter. |
 
 ## Screenshots
 
 | Sign in | Storage & ZFS |
 |---|---|
 | ![Login screen](docs/screenshots/01-login-screen.png) | ![Storage & ZFS](docs/screenshots/03-storage-zfs.png) |
-| **Compute Manager** | **Network & Services** |
+| **Virtual machines & containers** | **Network & Services** |
 | ![Compute Manager](docs/screenshots/04-compute-manager.png) | ![Network & Services](docs/screenshots/05-network-services.png) |
-| **Control Panel → System & Updates** | **Desktop** |
-| ![Control Panel](docs/screenshots/06-control-panel.png) | ![Desktop](docs/screenshots/02-desktop-overview.png) |
 
-## Quick Start (1-Command Installation)
+## Updating
 
-You need a Proxmox VE 8 or 9 server with internet access. That's all.
+Open **Control Panel → System & Updates** and click **Install Update Now**. Your settings, users, pools and shares
+are never touched, and you can roll back to an earlier version from the same screen.
 
-1. Open your Proxmox VE web interface in your browser (for example `https://192.168.1.10:8006`).
-2. Select your Proxmox node in the left sidebar and click **Shell**.
-3. Paste this command and press **Enter**:
+## Good to know
 
-   ```bash
-   bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/main/install.sh)"
-   ```
-
-4. Wait about 2–3 minutes. At the end, the shell prints a box like this. Copy the **Web UI URL**, the **`admin` username** and the **auto-generated password**:
-
-   ```
-   ╔════════════════════════════════════════════════════════════════════════════╗
-   ║                   SolarDeck for Proxmox VE v2.2.1 is ready                 ║
-   ╠════════════════════════════════════════════════════════════════════════════╣
-   ║  Web UI URL:      http://192.168.1.230                                     ║
-   ║  Username:        admin                                                    ║
-   ║  Password:        Xk3v9QmP2LrT8w                                           ║
-   ║                   (Saved in /opt/proxmox-os/backend/.env)                  ║
-   ║  Container ID:    105                                                      ║
-   ║  Proxmox Host:    pve (192.168.1.10)                                       ║
-   ║  Storage Mount:   /mnt/storage (2 ZFS dataset(s))                          ║
-   ╠════════════════════════════════════════════════════════════════════════════╣
-   ║  Tip:             Save these credentials now. You can update SolarDeck     ║
-   ║                   anytime from Control Panel -> System & Updates.          ║
-   ╚════════════════════════════════════════════════════════════════════════════╝
-   ```
-
-5. Open the URL in your browser and log in. The Welcome Tour shows you around.
-
-> **Lost the password?** In the Proxmox Shell run `pct exec <Container ID> -- grep ADMIN_PASSWORD /opt/proxmox-os/backend/.env`. You can change it in Control Panel → User & Security.
-
-### What the installer does
-
-It finds everything by itself: the node name, the next free container ID, the best storage (ZFS > `local-lvm` > `local`), the latest Debian 12 template, and a free static IP in `.230`–`.249` (DHCP if none is free). Then it:
-
-- installs `dmidecode`, `pciutils`, `lm-sensors` and `smartmontools` on the host (hardware inventory, BIOS facts, SMART),
-- creates the `solardeck@pve` API user with the token `solardeck@pve!solardeck` (`Administrator` role on `/`, no privilege separation, needed for host updates and power control); installs from before v1.5.1 keep their `pve-desktop@pve!webui` token,
-- creates the unprivileged container `proxmox-os` (2 cores, 2 GB RAM, 16 GB disk) and bind-mounts every ZFS dataset outside `rpool` at `/mnt/storage/<dataset>`,
-- generates a random 14-character admin password and JWT secret,
-- sets up passwordless SSH from the container to the host (for the Host Shell, ZFS snapshots, drivers and network services),
-- installs Python, Node 22, nginx and Samba, builds the app and runs a health check,
-- enables HTTPS on port 443 with a self-signed certificate for the container's IP and hostname (`deploy/selfsigned-cert.sh`, renewed automatically). Your browser warns about it once; get a Let's Encrypt certificate for your own domain in Network & Services → Domains (DNS-01, renewed automatically) or upload one in Certificates, and updates will keep that one. Plain http keeps working,
-- runs a self-test that signs in and calls `/api/pve/bios/status` and `/api/hardware/inventory`, and prints the result in the final box.
-
-## SolarOS: standalone hypervisor OS (no Proxmox VE)
-
-On a clean **Ubuntu Server 24.04 / 26.04 LTS** machine, as root:
-
-```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/main/hypervisor/install-hypervisor.sh)" -- --with-console-tui
-```
-
-It installs KVM/libvirt, Incus, OpenZFS and the disk/sensor tools, creates the `br0` bridge, deploys SolarDeck to
-`/opt/solardeck` with `HYPERVISOR_DRIVER=native_ubuntu`, and (with `--with-console-tui`) shows a console dashboard on
-the server's monitor. Or build a bootable installer ISO with `hypervisor/build-iso.sh`. Details: [hypervisor/README.md](hypervisor/README.md).
-
-### Testing the SolarOS ISO inside a Proxmox VE VM
-
-You can test the whole standalone edition (installer, first-boot setup, tty1 console, VMs, containers and ZFS) in a
-nested VM on any Proxmox VE host. Run as root on the Proxmox host:
-
-```bash
-# 1. Build the ISO with an extra unattended entry for the test VM's first disk and copy it to local:iso
-git clone https://github.com/Legend-Services/SolarOS.git && cd SolarOS
-apt install -y xorriso                  # + Node.js 22 and python3-pip to bundle the desktop and Python wheels
-bash hypervisor/build-iso.sh --auto-disk /dev/sda --deploy-to-pve
-
-# 2. Create and start the test VM (q35, OVMF, host CPU, 4 cores, 8 GiB, 32 GB OS disk + two 32 GB data disks)
-bash hypervisor/test-in-proxmox-vm.sh   # --vmid 950 --storage local-zfs --bridge vmbr0 --enable-nested --dry-run
-```
-
-`test-in-proxmox-vm.sh` checks nested virtualization (`/sys/module/kvm_intel/parameters/nested` or `kvm_amd`) and
-prints the `modprobe` command to turn it on (or does it with `--enable-nested` when no VM is running). It picks the
-next free VMID from 900, `local-zfs` or `local-lvm` and `vmbr0` unless you pass them, and never touches an existing VM.
-
-Then open **Datacenter → your node → the VM → Console** (noVNC):
-
-1. Choose **SolarOS - Automated VM Test Install** in the boot menu. The default entry,
-   **Install SolarOS (Interactive Disk Selection)**, asks for the disk and is the one to use on real servers.
-2. After the reboot, the first-boot setup bridges the NIC into `br0`, installs KVM/libvirt, Incus, OpenZFS and
-   SolarDeck, and starts the tty1 console. It shows the web URL and the initial `admin` password.
-3. Sign in at `http://<VM IP>`, then build a ZFS mirror or RAIDZ1 from the two blank data disks in Storage & ZFS and
-   check SMART health and disk benchmarks. Option **[6]** on the console checks `/dev/kvm`, nested virtualization,
-   libvirtd, Incus, ZFS and `br0`.
-
-Eject the ISO afterwards with `qm set <vmid> --ide2 none,media=cdrom`; remove the VM with `qm destroy <vmid> --purge`.
-
-
-Both editions update from the same `main` branch in Control Panel → System & Updates.
-
-## Updating & Downgrading Without Losing Settings
-
-**From the desktop (recommended):** open **Control Panel → System & Updates**.
-
-- **Check for Updates** compares your version with GitHub and lists what's new. **Install Update Now** updates in about a minute.
-- **Automatic Update Preferences**: *Manual Only*, *Notify Me When Available* (default: a notification appears in the top bar) or *Automatic Updates*. You pick how often to check (every 6 hours, daily or weekly) and at what time.
-- **Version History & Downgrade** lists every release and recent change. **Downgrade to This Version** switches back if a new version gives you trouble. You can move forward again from the same list.
-
-Updates and downgrades only replace program files. **Your settings, users, passwords, 2FA, schedules, ZFS pools and datasets, and network shares are never touched.** Before each switch, `backend/.env`, `backend/data/`, `backend/.ssh/` and the Samba share config are copied to `/tmp/proxmox-os-state-backup` and restored afterwards. New settings that a release introduces are added with safe defaults, and existing values are never changed.
-
-**From the Proxmox Shell:** run the same install command again. The installer detects the existing container and switches to **Upgrade Mode**. It backs up `.env` and `data/` to `/var/backups/proxmox-os-preupgrade-<timestamp>/` inside the container, keeps every setting and your password, refreshes the code and dependencies, and restarts the services. Running `install.sh` inside the SolarDeck container also upgrades it in place. Re-run it on the host after updates that change the host helper (`deploy/proxmox-os-helper.sh`).
-
-> **Private fork?** Add `GITHUB_TOKEN=<token with read access>` to `/opt/proxmox-os/backend/.env` and restart the backend (`systemctl restart proxmox-os-backend`) so the updater can reach GitHub.
-
-## Reporting Bugs
-
-Found a problem? Click **Report a Bug**. It's in the **?** Help menu and the user menu in the top bar, in Control Panel → System & Updates, and in the desktop right-click menu.
-
-1. Pick a category, give it a short title, and describe what happened and how to reproduce it.
-2. Leave **Attach anonymized system diagnostics** on. It adds the SolarDeck and Proxmox VE versions, kernel, CPU/RAM and the last 30 backend log lines. IP and MAC addresses, e-mail addresses, passwords, tokens, JWTs and SSH keys are removed first. Click **Preview** to see exactly what is sent.
-3. Click **Submit to GitHub**. A pre-filled GitHub issue opens in a new tab; review it and click *Submit new issue*. With a GitHub token (entered in the dialog, or `GITHUB_TOKEN` in `.env`) the issue is created directly. **Copy Report Markdown** copies the report so you can paste it anywhere.
-
-## Architecture
-
-```
- Browser ──HTTP──▶ nginx ──▶ FastAPI backend ──Proxmox API (token)──▶ Proxmox VE host
- (React SPA)        │          │                                    ▲
-                    │          ├──SSH (restricted helper key)───────┤  ZFS snapshots, bind mounts, pct exec
-                    │          └──SSH (root bridge key)─────────────┘  Host Shell, drivers, network services
-                    └── frontend/dist        all inside the unprivileged "proxmox-os" LXC container
-```
-
-- **Frontend**: React 19, TypeScript, Vite, Tailwind 4, Zustand, lucide-react, noVNC and xterm.js.
-- **Backend**: FastAPI, httpx, asyncssh and PyJWT, running as `proxmox-os-backend` (systemd) behind nginx in `/opt/proxmox-os`.
-- **State**: `backend/.env` (credentials, generated by the installer), `backend/data/*.json` (2FA, schedules, preferences, benchmarks, update settings) and `backend/data/themes/` (custom themes and uploaded wallpapers). Both are outside Git's tracked files, so updates never overwrite them.
-- **Updater**: `backend/app/updater.py` + `deploy/self-update.sh`, run as a detached systemd unit so it can restart the backend safely.
-
-```
-install.sh                 zero-touch installer and upgrader (runs on the PVE host)
-deploy.sh                  push a local checkout to a PVE host over SSH and run install.sh there
-deploy/                    systemd unit, nginx site, self-update.sh, merge-env.sh + env-defaults, proxmox-os-helper.sh
-backend/providers/         hypervisor driver layer: base.py (contract + domain models), registry.py, proxmox/, native_ubuntu/
-backend/app/               one FastAPI router per area: pve, files, console, apps, shares, storage_admin, provisioning,
-                           backups, net_services, hardware_admin, guest_hardware, pve_access, updater, bug_report,
-                           local_ai, ...
-backend/tests/             self-check scripts (python -m tests.<name>)
-frontend/src/apps/         one component per desktop app
-frontend/src/theme/        theme engine: built-in themes, procedural wallpaper art, palette variables (palette.css)
-frontend/src/components/   desktop, top bar, dock, windows, wizards, BugReportModal, Liquid Glass UI kit
-docs/screenshots/          README screenshots
-```
-
-### Hypervisor drivers
-
-The backend talks to the hypervisor through one contract, `HypervisorProvider` in `backend/providers/base.py`, so the
-same repository and desktop can manage different platforms. `HYPERVISOR_DRIVER` in `backend/.env` picks the driver:
-
-- `proxmox` (default, also when the key is missing): the Proxmox VE REST API plus host tools over the helper/bridge.
-- `native_ubuntu`: **SolarOS**, the standalone edition on Ubuntu Server LTS, where SolarDeck itself is the
-  management layer: QEMU/KVM guests through libvirt, containers through Incus, OpenZFS, smartctl/hdparm/nvme-cli/fio,
-  Netplan and a local root helper. Its routes (`backend/providers/native_ubuntu/routes.py`) shadow the Proxmox ones
-  at the same paths, so the desktop is identical. VM and container editing (network, PCI/USB passthrough, cloud-init,
-  options) lives in `backend/providers/native_ubuntu/guest_edit.py`. Proxmox-only extras (cluster log, PVE storage
-  backends, API tokens, ACME certificates) answer HTTP 501 there. See `hypervisor/README.md`.
-
-`GET /api/system/capabilities` (also `/api/v1/system/capabilities`) returns the active driver, its platform label and
-feature flags. The desktop uses them for labels and to show only supported features. Every `/api/pve/...` route is
-also available at the driver-neutral `/api/v1/...` path, with the same handler, sign-in and validation. Updates,
-downgrades and re-installs keep `HYPERVISOR_DRIVER` like every other `.env` value.
-
-### Themes and Light / Dark Mode
-
-Every surface reads CSS variables (`--sd-bg-base`, `--sd-surface-glass`, `--sd-text-primary`, `--sd-accent-primary`, `--sd-radius-window`, …) that `frontend/src/store/themeStore.ts` sets on `<html>` with `data-color-mode="dark|light"` and `data-window-chrome="standard|traffic-dots|angular-hud"`. `frontend/src/theme/palette.css` maps Tailwind's palette onto those variables, so every app follows the theme without per-app styles: neutrals are derived from the theme's text and background colors, sky/blue follow the primary accent and violet/indigo the secondary one, and the other color scales are mirrored in Light Mode.
-
-| Theme | Character |
-|---|---|
-| SolarDeck Liquid Glass (default) | cosmic indigo glass / alabaster glass, electric blue and violet |
-| Cupertino Frost | frosted acrylic, traffic-dot window controls |
-| Redmond Mica | mica-tinted layers, crisp 1px borders, azure accents |
-| Aubergine Yaru | aubergine and volcanic slate / warm stone, coral-orange |
-| Nordic Slate | polar night / snow drift, glacier cyan |
-| Vice Horizon | tropical neon sunset, palms and ocean |
-| Nightcity 2099 | megacity steel, acid yellow and neon cyan, chamfered HUD windows, scanlines |
-| Synthwave '84 | ultraviolet laser grids and striped suns |
-| Phosphor Terminal | phosphor green on obsidian / forest ink on e-ink paper, monospace UI |
-| Solarized Amber | ocean teal / parchment, amber-gold |
-| Obsidian Gold | carbon glass with champagne gold / ivory silk with bronze |
-
-App launches are counted for the App Gallery's *Most Used* and *Recently Used* sorting (`GET /api/system/app-usage`, `POST /api/system/app-usage/record`, `DELETE /api/system/app-usage` to reset; stored in `backend/data/app_usage.json`). The gallery order, sort mode, bottom bar order and the *Show Desktop Shortcuts* switch are saved with the other preferences.
-
-The active theme, color mode, wallpaper choice per theme, blur and dimming are saved with the other preferences (`theme` in `GET|PUT /api/system/preferences`). Custom themes and uploaded wallpapers live in `backend/data/themes/`:
-
-- `GET /api/system/themes` lists custom themes and the active theme preferences; `POST` adds one, `PUT|DELETE /api/system/themes/{id}` changes or removes it. Theme files are validated (colors, ranges, exactly 4 wallpapers; wallpaper images may only come from `data:image/` URIs, uploads or https).
-- `POST /api/system/themes/wallpapers/upload` accepts `.png`, `.jpg`, `.jpeg`, `.webp` or `.svg` up to 15 MB (the content is checked, not only the extension) and returns its URL; `GET /api/system/themes/wallpapers/{file}` serves it with long-lived caching. File names are random 128-bit tokens, so the lock screen can show the wallpaper before sign-in; SVGs are served with a sandboxing Content-Security-Policy.
-
-### Automation & Alerts
-
-Control Panel → **Automation & Alerts** has two tabs:
-
-- **Alert Channels**: Telegram Bot (`bot_token`, `chat_id`), Discord Webhook (rich embeds), Custom Webhook (`POST` or `PUT` JSON, optional bearer token) and SMTP Email (STARTTLS, or implicit TLS on port 465). **Send Test** delivers a test alert and shows the exact result. Secrets are stored in `backend/data/alert_channels.json` (mode 600) and never sent back to the browser.
-- **Automation Rules**: *When* a trigger holds, *then* run an action. Triggers: `gpu_temp_above`, `disk_temp_above`, `zfs_pool_degraded`, `storage_usage_above`, `guest_stopped_unexpectedly`, `scheduled_time`. Actions: `send_external_alert` (all or chosen channels, plus the top bar Notification Center), `restart_guest`, `start_guest`, `stop_guest`, `prune_old_snapshots` (removes `solardeck-auto-*` snapshots older than N days, on the pools over the threshold when the trigger is storage usage). A rule fires at most once per cooldown (default 15 minutes); a scheduled rule once per scheduled slot.
-
-The backend checks the rules every minute. API: `GET|PUT /api/automation/channels`, `POST /api/automation/channels/test` (`{"channel": "telegram"}`), `GET|POST /api/automation/rules`, `PUT|DELETE /api/automation/rules/{id}`, `GET /api/automation/logs` (newest first, up to 300 entries). Rules and the log are stored in `backend/data/automation_rules.json` and `backend/data/automation_logs.json`.
-
-### Network Topology
-
-Network & Services → **Topology** draws `GET /api/pve/network/topology`, a `nodes[]` / `edges[]` graph built from the host's interfaces (`/nodes/{node}/network` plus `ip -j link` for MACs and link state), every VM and container's `net0..netN` bridge bindings and IPs (container interfaces, or the QEMU guest agent), the WireGuard server and its peers, and the router's port forwards. Click a node to highlight its connections and see its IP, MAC and link status, with **Open Console**, **Configure Bridge**, **Edit Port Forward** or **Configure VPN**.
-
-### Widgets and languages
-
-Widgets, their order, slot (left, right, grid) and size, and the Scratchpad notes are saved in the browser and under `widgets` in `/api/system/preferences`; the language is saved under `i18n.language`. Translations live in `frontend/src/i18n/` (`en.ts` is the source; TypeScript rejects a language file with a missing or extra key). They cover the login screen, top bar, Dock, taskbar, App Gallery, View Options, Control Panel, app names, widgets, Automation & Alerts and the Network & Services tabs; deeper app screens are still in English.
-
-### Local AI Studio
-
-App Center → AI & Compute → **Local AI Studio** creates an unprivileged Debian 12 container with Ollama (and optionally Open WebUI on port 3000). The installer's **Compute Hardware Selector** lists every GPU from `GET /api/ai/hardware`:
-
-- **NVIDIA** (`nvidia:<PCI address>`): the backend loads `nvidia`/`nvidia_uvm` on the host (and makes them load at boot), adds `lxc.cgroup2.devices.allow` rules for the NVIDIA device majors and `lxc.mount.entry` binds for `/dev/nvidia0`, `/dev/nvidiactl`, `/dev/nvidia-uvm`, `/dev/nvidia-uvm-tools` and `/dev/nvidia-modeset`, then installs the matching user-space driver inside the container with `--no-kernel-module`, so `nvidia-smi` and CUDA work immediately. A card without a host driver, or bound to `vfio-pci`, gets a one-click **Prepare** button.
-- **Intel / AMD** (`intel:/dev/dri/renderD128`): the render node is passed through and Ollama uses Vulkan (AMD also gets ROCm).
-- **CPU**: no devices are mapped.
-
-Models are stored on `/mnt/storage/ai-models` (bind-mounted at `/usr/share/ollama/.ollama/models`) when that option is on. The **Local AI** desktop app browses the ollama.com library (cached for 15 minutes, with a built-in catalog as a fallback), rates every size for your GPU's VRAM, downloads models with live progress, shows which models are loaded in VRAM, switches between GPU and CPU, toggles Flash Attention and KV cache quantization, and has a test chat. Other tools can use the OpenAI-compatible endpoint `http://<container IP>:11434/v1`.
-
-### Host helper and permissions
-
-Some operations are limited to root on the host and can't be done with the API token: ZFS dataset snapshots, bind mounts and `/dev/dri` passthrough for App Center containers, and running installers inside new containers. The installer puts `deploy/proxmox-os-helper.sh` on the host at `/usr/local/sbin/proxmox-os-helper`. The container's SSH key for it is locked to that script (`command="…",restrict`). The helper accepts only a fixed list of commands, validates every argument, and refuses guests that SolarDeck didn't tag.
-
-The Host Shell, container shells, GPU drivers and network services use a second, unrestricted root key. **Anyone signed in to SolarDeck is root on the host, so turn on 2FA** (Control Panel → User & Security).
-
-Container root in an unprivileged container is uid `100000` on the host. The installer grants it access to your datasets with additive POSIX ACLs (`setfacl -R`), never `chown`, so existing ownership on the host is unchanged.
-
-## Development
-
-```bash
-# Deploy your working copy to a Proxmox host over SSH (no GitHub push needed)
-./deploy.sh                                  # root@192.168.68.220
-./deploy.sh --host 10.0.0.5 --user admin     # non-root users need passwordless sudo
-
-# Backend
-cd backend && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-cp .env.example .env                         # point PVE_* at a real host and token
-for t in tests/test_*.py; do .venv/bin/python -m tests.$(basename $t .py); done
-.venv/bin/uvicorn app.main:app --reload --port 8000
-
-# Frontend (proxies /api to :8000)
-cd frontend && npm ci && npm run dev
-```
-
-## Known limits
-
-- There is a single admin account from `.env` and no login rate limiting. Keep the UI on a trusted network.
-- The installer doesn't add bind mounts for pools created after the container. Delete the container and re-run the installer to pick them up.
-- Network throughput and ZFS ARC come from Proxmox's 1-minute averages, so those charts update in steps.
-- SolarOS: task logs live in memory and are lost when the backend restarts; VM snapshots
-  need QCOW2 disks (VMs on ZFS volumes are protected with dataset snapshots and backups instead); static container
-  addresses use the cloud-init image variants.
-- Schedules, automation rules and update checks run inside the backend. A run that is due while it is down is skipped, not replayed.
-- 2FA has no recovery codes. If you lose your authenticator, delete `backend/data/security.json` in the container.
-- PCIe passthrough needs IOMMU enabled on the host; Help & Support can check it and walk you through the BIOS.
-- App Center installer logs are kept in memory and are lost when the backend restarts (the containers remain).
-- Local AI model download progress is also kept in memory; after a backend restart, start the download again and Ollama resumes from the partial files.
-- Local AI Studio manages one AI container (`backend/data/local_ai.json`). An Ollama container from before v1.6.0 shows as installed in App Center but is not managed by the Local AI app; install Local AI Studio to use the new features.
-- NVIDIA GPU sharing binds the host's device nodes into the container, so the host driver must stay installed (not in VM passthrough mode). After a host driver upgrade, switch Local AI to CPU and back to the GPU in Hardware & Performance to reinstall matching user-space libraries.
-
-See [CHANGELOG.md](CHANGELOG.md) for the full feature history.
+- Anyone who can sign in to SolarDeck can control the whole server. Keep it on your home network and turn on
+  **2FA** in Control Panel → User & Security.
+- Found a bug? Click **Report a Bug** in the **?** menu. It opens a pre-filled GitHub issue with anonymized details.
+- Want to know how it works, run it from source or see the known limits? Read [docs/TECHNICAL.md](docs/TECHNICAL.md),
+  [hypervisor/README.md](hypervisor/README.md) and the [CHANGELOG](CHANGELOG.md).
 
 ## License
 
@@ -314,7 +149,6 @@ SolarDeck is dual-licensed:
 
 ## Trademark Notice
 
-*SolarDeck* is an independent open-source project by Ty Gultekin / Legend IT. It is not affiliated with, endorsed by, or sponsored by Proxmox Server Solutions GmbH. Proxmox® is a registered trademark of Proxmox Server Solutions GmbH; it is used here only to describe compatibility with Proxmox VE.
+*SolarDeck* and *SolarOS* are an independent open-source project by Ty Gultekin / Legend IT. They are not affiliated with, endorsed by, or sponsored by Proxmox Server Solutions GmbH. Proxmox® is a registered trademark of Proxmox Server Solutions GmbH; it is used here only to describe compatibility with Proxmox VE.
 
 SolarDeck was previously named ProxmoxOS. Existing installations keep working unchanged: the app still lives in `/opt/proxmox-os` (with an `/opt/solardeck` alias), the systemd units keep their names, and re-running `install.sh` upgrades a `proxmox-os` container in place.
-
