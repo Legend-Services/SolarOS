@@ -8,14 +8,16 @@ touch "$LIVE"
 # A .env from before HYPERVISOR_DRIVER existed: that edition's legacy defaults (env-defaults-legacy) first.
 LEGACY="$(dirname "$EXAMPLE")/env-defaults-legacy"
 if [[ -f "$LEGACY" && "$EXAMPLE" != "$LEGACY" ]] && ! grep -q "^HYPERVISOR_DRIVER=" "$LIVE"; then bash "$0" "$LIVE" "$LEGACY"; fi
-# Renamed keys (env-renames next to the example: "OLD NEW" per line) keep their value under the new name.
+# Renamed keys (env-renames next to the example: "OLD NEW" per line): the value is copied to the new name and the old
+# line stays, so rolling back to a release that reads the old name keeps working.
 RENAMES="$(dirname "$EXAMPLE")/env-renames"
 if [[ -f "$RENAMES" ]]; then
   while read -r old new; do
     [[ "$old" =~ ^[A-Z][A-Z0-9_]*$ && "$new" =~ ^[A-Z][A-Z0-9_]*$ ]] || continue
     if grep -q "^${old}=" "$LIVE" && ! grep -q "^${new}=" "$LIVE"; then
-      sed -i.bak "s/^${old}=/${new}=/" "$LIVE" && rm -f "$LIVE.bak"
-      echo "    renamed ${old} to ${new} in $(basename "$LIVE")"
+      [[ -z "$(tail -c1 "$LIVE")" ]] || echo >>"$LIVE"
+      grep "^${old}=" "$LIVE" | tail -n1 | sed "s/^${old}=/${new}=/" >>"$LIVE"
+      echo "    copied ${old} to ${new} in $(basename "$LIVE")"
     fi
   done <"$RENAMES"
 fi

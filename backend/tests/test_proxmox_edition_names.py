@@ -32,5 +32,5 @@ with tempfile.TemporaryDirectory() as d:
                        check=True, capture_output=True)
         text = env.read_text()
         assert ("SYSTEM_PREFIX=proxmox-os" in text) == bool(prefix), (driver, text)
-        assert "NODE_NAME=pve" in text and "PVE_NODE" not in text, text
+        assert "NODE_NAME=pve" in text and "PVE_NODE=pve" in text, text  # old key kept for rollbacks
 print("proxmox edition names OK")
