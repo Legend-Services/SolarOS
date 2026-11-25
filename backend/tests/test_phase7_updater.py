@@ -106,6 +106,11 @@ with tempfile.TemporaryDirectory() as d:
         assert (app / ".build-commit").read_text().strip() == released
         assert sh("git", "rev-parse", "HEAD", cwd=app) == released
         assert _aio.run(updater.source())["commit"] == released
+        # A test deploy left the checkout on a feature branch: updates still follow the configured REPO_BRANCH.
+        sh("git", "checkout", "-q", "-b", "feat/old-test", cwd=app)
+        old_branch, settings.repo_branch = settings.repo_branch, "solaros"
+        assert _aio.run(updater.source())["branch"] == "solaros"
+        settings.repo_branch = old_branch
     finally:
         updater.APP_DIR, settings.repo_url = old_dir, old_url
 print("phase 7 updater + bug report OK")

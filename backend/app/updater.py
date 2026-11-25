@@ -124,7 +124,8 @@ async def source() -> dict:
         version = json.loads((APP_DIR / "frontend/package.json").read_text()).get("version")
     except (OSError, ValueError):
         version = None
-    return {"git": is_git, "commit": commit, "tag": tag, "branch": branch if branch not in (None, "HEAD") else settings.repo_branch,
+    # The configured release branch, not whatever the checkout happens to be on (a test deploy may leave a feature branch).
+    return {"git": is_git, "commit": commit, "tag": tag, "branch": settings.repo_branch or branch,
             "remote": remote or settings.repo_url, "version": version}
 
 
