@@ -71,11 +71,12 @@ SolarDeck desktop, all set up for you.
    [Rufus](https://rufus.ie/), or attach it as virtual media on your server's IPMI/iDRAC.
 3. **Boot from the USB stick** and choose **Install SolarOS (Interactive Disk Selection)**. Pick the disk to install
    on. Only that disk is erased.
-4. **Wait for the reboot.** The first start sets up the rest by itself (it needs internet). Then the screen shows
-   the web address and your `admin` password.
+4. **Wait for the reboot.** The first start sets up the rest by itself. Then the screen shows the web address and
+   your `admin` password.
 5. **Open the address** from any computer on your network and sign in.
 
-Your CPU needs virtualization (Intel VT-x or AMD-V) switched on in the BIOS. We test with 4 cores, 8 GB RAM and a
+Connect the machine to the internet with a network cable before you start: the installer downloads the latest
+packages. Your CPU needs virtualization (Intel VT-x or AMD-V) switched on in the BIOS. We test with 4 cores, 8 GB RAM and a
 32 GB system disk; add more disks to build ZFS pools from the desktop.
 
 ### Try it in a Proxmox VE virtual machine
