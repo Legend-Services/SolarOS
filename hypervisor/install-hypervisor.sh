@@ -51,20 +51,19 @@ UPGRADE=""; [[ -f "${APP_DIR}/backend/.env" ]] && UPGRADE=1 && msg "Existing ins
 
 # ---------------------------------------------------------------- 2. Packages
 msg "Installing hypervisor packages (KVM/libvirt, Incus, OpenZFS, disk and sensor tools)"
-PKGS=(qemu-kvm qemu-utils libvirt-daemon-system libvirt-clients ovmf swtpm swtpm-tools incus zfsutils-linux
-  bridge-utils smartmontools hdparm nvme-cli lm-sensors fio websockify samba samba-common-bin nginx python3-venv
-  python3-pip git curl ca-certificates gnupg openssl rsync gdisk cloud-image-utils zstd acl pciutils usbutils
-  dmidecode openssh-server jq build-essential)
+# Only what SolarOS uses (no recommended extras such as desktop graphics stacks): what libvirt and ZFS would pull in
+# through Recommends is listed explicitly.
+PKGS=(qemu-kvm qemu-utils libvirt-daemon-system libvirt-daemon-driver-qemu libvirt-clients ovmf swtpm swtpm-tools
+  incus zfsutils-linux zfs-zed bridge-utils smartmontools hdparm nvme-cli lm-sensors fio websockify samba
+  samba-common-bin nginx python3-venv python3-pip git curl ca-certificates gnupg openssl rsync gdisk cloud-image-utils
+  zstd acl pciutils usbutils dmidecode openssh-server jq iproute2 kmod less)
 apt-get update -qq
-apt-get install -y -qq "${PKGS[@]}" >/dev/null
-# The desktop build (and later updates) need Node.js 22 (Ubuntu's own package is older).
-# A bundle ships the built desktop, so there a failed download only postpones Node.js to the first update.
-PREBUILT=""; [[ -n "$BUNDLE" && -f "${SRC%/}/frontend/dist/index.html" ]] && PREBUILT=1
-if ! node -v 2>/dev/null | grep -Eq '^v2[2-9]\.'; then
-  { curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null && apt-get install -y -qq nodejs >/dev/null; } \
-    || { [[ -n "$PREBUILT" ]] || die "Could not install Node.js 22"; warn "Node.js 22 not installed; updates will install it"; }
+apt-get install -y -qq --no-install-recommends "${PKGS[@]}" >/dev/null
+# snapd is part of Ubuntu Server but SolarOS uses no snaps: drop it when nothing is installed through it.
+if command -v snap >/dev/null && [[ -z "$(snap list 2>/dev/null | tail -n +2)" ]]; then
+  apt-get purge -y -qq snapd >/dev/null 2>&1 && rm -rf /snap /var/snap /var/lib/snapd && ok "snapd removed (no snaps in use)"
 fi
-ok "Packages installed (node $(node -v 2>/dev/null || echo none), $(virsh --version 2>/dev/null | sed 's/^/libvirt /'), incus $(incus --version 2>/dev/null))"
+ok "Packages installed ($(virsh --version 2>/dev/null | sed 's/^/libvirt /'), incus $(incus --version 2>/dev/null))"
 systemctl enable -q --now libvirtd ssh 2>/dev/null || systemctl enable -q --now libvirtd
 modprobe zfs 2>/dev/null || warn "ZFS kernel module not loaded (reboot after a kernel update)"
 
@@ -105,6 +104,7 @@ fi
 ok "Incus ready ($(incus storage list --format csv | cut -d, -f1 | paste -sd, -))"
 
 # ---------------------------------------------------------------- 5. SolarDeck code
+PREBUILT=""; [[ -n "$BUNDLE" && -f "${SRC%/}/frontend/dist/index.html" ]] && PREBUILT=1
 msg "Deploying SolarDeck to ${APP_DIR}"
 if [[ -z "$SRC" ]]; then
   HERE="$(cd "$(dirname "${BASH_SOURCE[0]:-.}")/.." 2>/dev/null && pwd || true)"
@@ -190,13 +190,20 @@ else
   .venv/bin/pip install -q --upgrade pip
   .venv/bin/pip install -q -r requirements.txt
 fi
-if [[ -n "$PREBUILT" ]]; then
-  ok "Desktop prebuilt in the bundle"
+# Release installs (ISO bundle, the solaros branch) ship the built desktop, so SolarOS needs neither Node.js nor npm.
+if [[ -f "${APP_DIR}/frontend/dist/index.html" ]] && { [[ -n "$PREBUILT" ]] || git -C "$APP_DIR" -c safe.directory='*' ls-files --error-unmatch frontend/dist/index.html >/dev/null 2>&1; }; then
+  ok "Desktop prebuilt"
 else
+  if ! node -v 2>/dev/null | grep -Eq '^v2[2-9]\.'; then
+    msg "Installing Node.js 22 to build the desktop"
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash - >/dev/null
+    apt-get install -y -qq --no-install-recommends nodejs >/dev/null
+  fi
   msg "Building the desktop"
   cd "${APP_DIR}/frontend"
   npm ci --no-audit --no-fund --loglevel=error
   VITE_EDITION=solaros npm run build >/dev/null
+  rm -rf node_modules
   ok "Desktop built"
 fi
 
@@ -235,6 +242,9 @@ for _ in $(seq 1 30); do
 done
 [[ "${HEALTHY:-}" == 1 ]] || die "Health check failed. Inspect with: journalctl -u solardeck-backend -n 50"
 ok "Healthy"
+
+apt-get autoremove -y -qq --purge >/dev/null 2>&1 || true
+apt-get clean
 
 # ---------------------------------------------------------------- 10. Summary
 trap - ERR
