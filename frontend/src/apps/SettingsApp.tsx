@@ -85,13 +85,13 @@ function ModuleBody({ id }: { id: ModuleId }) {
     case "iso-templates":
       return <div className="h-full overflow-auto"><IsoLibrary /></div>;
     case "users-roles":
-      return <DatacenterApp />;
+      return <DatacenterApp tabs={["users", "groups", "roles", "acl", "pools", "tokens", "realms"]} />;
     case "security-2fa":
       return pad(<WithSystemInfo>{(info) => <Security info={info} />}</WithSystemInfo>);
     case "security-posture":
       return pad(<PostureCard />);
     case "audit-logs":
-      return <Views views={[["set.view.audit", pad(<AuditLogCard />)], ["set.view.hostLogs", <DatacenterApp initialTab="logs" />]]} />;
+      return <Views views={[["set.view.audit", pad(<AuditLogCard />)], ["set.view.hostLogs", <DatacenterApp tabs={["logs"]} />]]} />;
     case "network-switch":
       return (
         <Views
@@ -102,17 +102,21 @@ function ModuleBody({ id }: { id: ModuleId }) {
         />
       );
     case "network-topology":
-      return <NetworkServicesApp />;
+      return <NetworkServicesApp tabs={["topology"]} />;
+    case "dns-dhcp":
+      return <NetworkServicesApp tabs={["dns", "dhcp"]} />;
+    case "domains-certs":
+      return <NetworkServicesApp tabs={["domains", "certs"]} />;
     case "firewall-forwarding":
-      return <Views views={[["set.view.firewall", <DatacenterApp initialTab="firewall" />], ["set.view.forwarding", <NetworkServicesApp initialTab="router" />]]} />;
+      return <Views views={[["set.view.firewall", <DatacenterApp tabs={["firewall"]} />], ["set.view.forwarding", <NetworkServicesApp tabs={["router"]} />]]} />;
     case "wireguard-vpn":
-      return <NetworkServicesApp initialTab="wg" />;
+      return <NetworkServicesApp tabs={["wg", "wgc"]} />;
     case "automation-alerts":
       return pad(<AutomationPanel />);
     case "hypervisor-defaults":
       return pad(<HypervisorDefaultsPanel />);
     case "local-ai-runtime":
-      return <LocalAiApp initialTab="hardware" />;
+      return <LocalAiApp initialTab="hardware" embedded />;
     case "system-services":
       return pad(<SystemServicesPanel />);
   }

@@ -110,7 +110,7 @@ function HardwareTab() {
 
 const TABS = [
   { id: "performance", label: "Performance", icon: Cpu },
-  { id: "hardware", label: "Hardware & GPU", icon: Thermometer },
+  { id: "hardware", label: "GPU & Sensors", icon: Thermometer },
 ] as const;
 
 export default function ResourceMonitor() {
