@@ -46,6 +46,7 @@ interface FwOptions { enable?: number; policy_in?: string; policy_out?: string }
 interface StorageCfg { storage: string }
 interface ClusterLog { uid: string; time: number; user: string; tag: string; msg: string; pri: number }
 
+export type DcTab = Tab;
 type Tab = "users" | "groups" | "roles" | "acl" | "pools" | "tokens" | "realms" | "firewall" | "logs";
 
 const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
@@ -1119,18 +1120,21 @@ function LogsTab() {
 
 /* ---------------- App ---------------- */
 
-export default function DatacenterApp({ initialTab = "users" }: { initialTab?: Tab }) {
-  const [tab, setTab] = useState<Tab>(initialTab);
+/** `tabs`: the tabs this Settings module owns (users & roles, firewall or host logs). */
+export default function DatacenterApp({ initialTab, tabs }: { initialTab?: Tab; tabs?: Tab[] }) {
   const caps = useCapabilities((s) => s.capabilities);
+  const shown = TABS.filter((t) => (!tabs || tabs.includes(t.id)) && (t.id !== "realms" || caps.supports_rbac_realms));
+  const [tab, setTab] = useState<Tab>(initialTab ?? shown[0]?.id ?? "users");
   const tokens = useLoad<Token[]>("/v1/access/tokens");
   const service = tokens.data?.find((t) => t.service)?.userid ?? edition.serviceUserFallback;
   return (
     <div className="flex h-full">
+      {shown.length > 1 && (
       <nav className="w-44 shrink-0 space-y-1 border-r border-white/10 bg-black/20 p-2 max-sm:w-14">
         <p className="flex items-center gap-1.5 px-3 pb-1 text-[10px] font-semibold tracking-wide text-slate-500 uppercase max-sm:hidden">
           <Shield size={11} /> Datacenter
         </p>
-        {TABS.filter((t) => t.id !== "realms" || caps.supports_rbac_realms).map((t) => (
+        {shown.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
@@ -1145,6 +1149,7 @@ export default function DatacenterApp({ initialTab = "users" }: { initialTab?: T
           </button>
         ))}
       </nav>
+      )}
       <div className="min-w-0 flex-1 overflow-auto p-4">
         {tab === "users" ? (
           <UsersTab service={service} />

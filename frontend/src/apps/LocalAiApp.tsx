@@ -933,7 +933,8 @@ function ChatList({ chats, activeId, query, onQuery, onSelect, onNew, onRename, 
 
 /* ---------------- Shell ---------------- */
 
-export default function LocalAiApp({ initialTab }: { initialTab?: SettingsTab }) {
+/** `embedded`: the Settings module (GPU assignment and model storage only, no chat or model library). */
+export default function LocalAiApp({ initialTab, embedded = false }: { initialTab?: SettingsTab; embedded?: boolean }) {
   const [status, setStatus] = useState<AiStatus | null>(null);
   const [error, setError] = useState("");
   const [view, setView] = useState<"chat" | "settings">(initialTab ? "settings" : "chat");
@@ -1034,19 +1035,28 @@ export default function LocalAiApp({ initialTab }: { initialTab?: SettingsTab })
           </>
         ) : (
           <>
-            <GlassButton size="xs" variant="ghost" onClick={() => setView("chat")}>
-              <ArrowLeft size={13} /> Back to chat
-            </GlassButton>
+            {!embedded && (
+              <GlassButton size="xs" variant="ghost" onClick={() => setView("chat")}>
+                <ArrowLeft size={13} /> Back to chat
+              </GlassButton>
+            )}
             <Segmented
               value={tab}
               onChange={setTab}
-              options={[
-                { id: "download", label: "Download models" },
-                { id: "installed", label: "Installed models" },
-                { id: "hardware", label: "Hardware" },
-                { id: "storage", label: "Storage" },
-                { id: "chat", label: "Chat" },
-              ]}
+              options={
+                embedded
+                  ? [
+                      { id: "hardware", label: "Hardware" },
+                      { id: "storage", label: "Storage" },
+                    ]
+                  : [
+                      { id: "download", label: "Download models" },
+                      { id: "installed", label: "Installed models" },
+                      { id: "hardware", label: "Hardware" },
+                      { id: "storage", label: "Storage" },
+                      { id: "chat", label: "Chat" },
+                    ]
+              }
             />
           </>
         )}
@@ -1055,7 +1065,7 @@ export default function LocalAiApp({ initialTab }: { initialTab?: SettingsTab })
             {status.running ? (status.ollama_reachable ? `Ollama ${status.ollama_version ?? ""}` : "Ollama starting…") : "Container stopped"}
           </GlassBadge>
           <GlassBadge tone="info">{status.compute_target === "cpu" ? "CPU" : shortGpu(status.gpu_name) || status.compute_target}</GlassBadge>
-          {downloading > 0 && (
+          {downloading > 0 && !embedded && (
             <button type="button" onClick={() => settings("installed")} className="text-[11px] text-sky-300 hover:underline">
               Downloading {downloading}…
             </button>
