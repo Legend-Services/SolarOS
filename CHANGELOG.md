@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.4.3 - SolarOS Name in the Control Panel — 2026-11-25
+
+### Changed
+- On SolarOS, the Control Panel now says "SolarOS" where it said "SolarDeck": the version and update card ("SolarOS Version"), update preferences, version history, the host bridge note and the power and bug report texts. SolarDeck for Proxmox VE keeps "SolarDeck".
+
 ## v2.4.2 - Updates Apply New Host Steps Immediately — 2026-11-25
 
 ### Fixed
