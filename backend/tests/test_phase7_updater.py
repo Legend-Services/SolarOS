@@ -77,4 +77,35 @@ with tempfile.TemporaryDirectory() as d:
     assert [i["name"] for i in r["isos"]] == ["SolarOS-v2.2.1-amd64.iso"], r
     assert r["isos"][0]["sha256"] == hashlib.sha256(b"iso").hexdigest() and r["isos"][0]["size"] == 3
     assert updater.find_isos([Path(d) / "missing"]) == [] and "build-iso.sh" in r["build_command"]
+# ---- fresh ISO install: .build-commit is a main-branch commit the edition branch lacks -> its same-version tag
+import asyncio as _aio  # noqa: E402
+import subprocess as _sp  # noqa: E402
+
+with tempfile.TemporaryDirectory() as d:
+    d = Path(d)
+    sh = lambda *a, cwd=d: _sp.run(a, cwd=cwd, check=True, capture_output=True, text=True).stdout.strip()  # noqa: E731
+    origin, app = d / "origin", d / "app"
+    origin.mkdir()
+    sh("git", "init", "-q", "-b", "solaros", cwd=origin)
+    (origin / "frontend").mkdir()
+    (origin / "frontend/package.json").write_text('{"version": "9.9.9"}')
+    sh("git", "add", "-A", cwd=origin)
+    sh("git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "SolarOS v9.9.9", cwd=origin)
+    sh("git", "tag", "solaros-v9.9.9", cwd=origin)
+    released = sh("git", "rev-parse", "HEAD", cwd=origin)
+    (origin / "later.txt").write_text("next")
+    sh("git", "add", "-A", cwd=origin)
+    sh("git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "SolarOS v10", cwd=origin)
+    (app / "frontend").mkdir(parents=True)  # installed copy of v9.9.9 without .git, as the ISO leaves it
+    (app / "frontend/package.json").write_text('{"version": "9.9.9"}')
+    (app / ".build-commit").write_text("dc84881b319f97c308c3ab29497888938131b26e\n")
+    old_dir, old_url = updater.APP_DIR, settings.repo_url
+    updater.APP_DIR, settings.repo_url = app, str(origin)
+    try:
+        _aio.run(updater.ensure_repo("solaros"))
+        assert (app / ".build-commit").read_text().strip() == released
+        assert sh("git", "rev-parse", "HEAD", cwd=app) == released
+        assert _aio.run(updater.source())["commit"] == released
+    finally:
+        updater.APP_DIR, settings.repo_url = old_dir, old_url
 print("phase 7 updater + bug report OK")
