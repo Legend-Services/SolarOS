@@ -85,7 +85,7 @@ async def notifications():
     details = await asyncio.gather(*[p.zfs_pool_detail(x["name"]) for x in pools])
     alerts = evaluate(pools, details, targets or [], status or {}, hw["disks"], tasks or [])
     u = updater.load_settings()
-    if u["mode"] != "manual" and u["update_available"]:
+    if u["update_available"]:
         alerts.append(_alert("solardeck-update", "info", "update", "SolarDeck update available",
                              f"Version {u['latest_remote_tag'] or (u['latest_remote_commit'] or '')[:10]} is ready. "
                              "Install it in Control Panel → System & Updates."))

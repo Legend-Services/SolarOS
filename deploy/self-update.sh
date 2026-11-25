@@ -10,8 +10,25 @@
 # the Samba share config. New .env keys from deploy/env-defaults are appended; existing values are never changed.
 # Host-side names use SYSTEM_PREFIX from backend/.env (default solardeck). A helper on a separate hypervisor host is
 # not updated here; re-run that edition's installer when deploy/solardeck-helper.sh changes.
+# Every stage is written to /run/<prefix>-update-progress.json (status, percent, stage), which the backend reads, so the
+# progress survives the backend restart near the end.
 set -Eeuo pipefail
-trap 'echo "solardeck: exit 1"' ERR
+PROGRESS=""; PERCENT=0; STAGE=starting; LABEL="Starting the updater"
+STARTED_AT="${STARTED_AT:-$(date -Iseconds)}"; export STARTED_AT
+# progress <status> <percent> <stage> <label> [extra JSON members]: atomic, so a reader never sees half a file.
+progress() {
+  PERCENT="$2"; STAGE="$3"; LABEL="$4"
+  [[ -n "$PROGRESS" ]] || return 0
+  printf '{"status":"%s","percent":%s,"stage":"%s","stage_label":"%s","target":"%s","started_at":"%s","updated_at":"%s"%s}\n' \
+    "$1" "$2" "$3" "$4" "${TARGET:-}" "$STARTED_AT" "$(date -Iseconds)" "${5:-}" >"${PROGRESS}.tmp" && mv -f "${PROGRESS}.tmp" "$PROGRESS" || true  # never fail the update over this
+}
+failed() {
+  trap - ERR
+  local cmd="${1//[\"\\]/}"; cmd="${cmd//[$'\n\r\t']/ }"
+  progress failed "$PERCENT" "$STAGE" "$LABEL" ",\"finished_at\":\"$(date -Iseconds)\",\"error_message\":\"${LABEL} failed: ${cmd:0:200} (exit $2)\""
+  echo "solardeck: exit 1"
+}
+trap 'failed "$BASH_COMMAND" $?' ERR
 
 APP_DIR="${1:?app dir}"; REPO_URL="${2:?repo url}"; BRANCH="${3:?branch}"; TARGET="${4:-}"; SYSTEM_PACKAGES="${5:-0}"
 [[ "$BRANCH" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "invalid branch"; echo "solardeck: exit 2"; exit 2; }
@@ -26,6 +43,7 @@ PREFIX="$(sed -n 's/^SYSTEM_PREFIX=//p' backend/.env 2>/dev/null | tail -n1 | tr
 PREFIX="${PREFIX:-solardeck}"
 [[ "$PREFIX" =~ ^[a-z][a-z0-9-]{1,30}$ ]] || { echo "invalid SYSTEM_PREFIX"; echo "solardeck: exit 2"; exit 2; }
 SHARES="/etc/samba/${PREFIX}-shares.conf"
+PROGRESS="/run/${PREFIX}-update-progress.json"
 echo "==> Driver ${DRIVER}, system prefix ${PREFIX}"
 # Private repositories: authenticate with GITHUB_TOKEN from backend/.env when it is set.
 TOKEN="$(sed -n 's/^GITHUB_TOKEN=//p' backend/.env 2>/dev/null | head -n1 || true)"
@@ -36,6 +54,7 @@ git() { command git -c safe.directory='*' "${AUTH[@]}" "$@"; }
 STATE="/tmp/${PREFIX}-state-backup"
 # A re-executed updater (see below) keeps the snapshot its first run took before the checkout.
 if [[ -z "${UPDATER_REEXEC:-}" ]]; then
+  progress running 5 prepare "Preparing update & backing up configuration and state"
   echo "==> Saving settings and data to ${STATE}"
   rm -rf "$STATE" && mkdir -p "$STATE"
   [[ -f backend/.env ]] && cp -a backend/.env "$STATE/.env"
@@ -44,6 +63,7 @@ if [[ -z "${UPDATER_REEXEC:-}" ]]; then
   [[ -f "$SHARES" ]] && cp -a "$SHARES" "$STATE/shares.conf"
 fi
 
+[[ -n "${UPDATER_REEXEC:-}" ]] || progress running 20 fetch "Fetching latest release tags from remote repository"
 echo "==> Fetching ${BRANCH} and tags from ${REPO_URL}"
 if [[ ! -d .git ]]; then
   # First update of a deploy.sh deployment: turn the copied tree into a checkout.
@@ -56,6 +76,7 @@ SHALLOW=(); [[ -f .git/shallow ]] && SHALLOW=(--unshallow)
 if [[ "$BRANCH" == main ]]; then TAG_OPT=(--tags); TAG_REF=(); else TAG_OPT=(--no-tags); TAG_REF=("+refs/tags/${BRANCH}-*:refs/tags/${BRANCH}-*"); fi
 git fetch -q --force "${TAG_OPT[@]}" "${SHALLOW[@]}" origin "+refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}" "${TAG_REF[@]}"
 TARGET="${TARGET:-$(git rev-parse "origin/${BRANCH}")}"
+progress running 40 checkout "Checking out target release & verifying files"
 # -f: a deploy.sh install has files that differ from HEAD; untracked state (.env, data/) is never touched.
 git -c advice.detachedHead=false checkout -q -f -B "$BRANCH" "$TARGET"
 git reset -q --hard "$TARGET"
@@ -84,14 +105,17 @@ fi
 [[ -f deploy/merge-env.sh ]] && bash deploy/merge-env.sh backend/.env deploy/env-defaults
 
 if [[ "$SYSTEM_PACKAGES" == 1 && "$DRIVER" == native_ubuntu ]]; then
+  progress running 50 os-packages "Upgrading host system packages"
   echo "==> Upgrading host system packages"
   apt-get update -q
   apt-get upgrade -y -q -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold
 fi
 
+progress running 60 backend "Installing & synchronizing Python backend dependencies"
 echo "==> Syncing backend dependencies"
 backend/.venv/bin/pip install -q -r backend/requirements.txt
 
+progress running 80 frontend "Building frontend interface assets"
 echo "==> Building frontend"
 EDITION=""; [[ "$DRIVER" == native_ubuntu ]] && EDITION=solaros
 if git ls-files --error-unmatch frontend/dist/index.html >/dev/null 2>&1; then
@@ -100,6 +124,7 @@ else
   (cd frontend && npm ci --no-audit --no-fund --loglevel=error && VITE_EDITION="$EDITION" npm run build >/dev/null)
 fi
 
+progress running 92 restart "Restarting SolarDeck services & web server"
 echo "==> Reloading services"
 # New-name alias for the legacy install dir; the real path stays put so existing units and mounts keep working.
 [[ -e /opt/solardeck ]] || ln -s "$APP_DIR" /opt/solardeck
@@ -124,5 +149,8 @@ else
   systemctl daemon-reload
   systemctl restart "${PREFIX}-backend"
 fi
+VERSION="$(sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' frontend/package.json | head -n1)"
+progress completed 100 done "Update completed successfully" \
+  ",\"finished_at\":\"$(date -Iseconds)\",\"completed_commit\":\"$(git rev-parse HEAD)\",\"completed_version\":\"${VERSION}\""
 echo "==> Update complete"
 echo "solardeck: exit 0"

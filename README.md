@@ -185,8 +185,13 @@ instructions) is in **[docs/README.md](docs/README.md)**. The same articles are 
 
 ## Updating
 
-Open **Settings → Software & Repositories** and click **Install Update Now**. Your settings, users, pools and shares
-are never touched, and you can roll back to an earlier version from the same screen.
+Open **Settings → Software & Repositories** and click **Install Update Now**. A progress bar shows each step, and the
+page reloads by itself when the update reaches 100%. Your settings, users, pools and shares are never touched, and you
+can roll back to an earlier version from the same screen.
+
+SolarDeck checks for new versions in the background and shows an **Update Ready** badge in the top bar (or in the
+taskbar tray). Under **Automatic Updates & Schedule** you can keep updates manual or let them install daily, weekly or
+monthly at a time you choose.
 
 ## Good to know
 

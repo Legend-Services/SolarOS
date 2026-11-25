@@ -189,11 +189,12 @@ Check for and install a new SolarDeck release; the update runs in the background
 
 ![SolarDeck Updates](screenshots/settings-software-updates--solardeck-updates.png)
 
-### Automatic Update Preferences
+### Automatic Updates & Schedule
 
-Automatic update checks, the update branch and the install time.
+Manual or automatic scheduled updates: background checks every 1, 6, 12 or 24 hours, and a daily, weekly or monthly install time.
 
-1. Turn automatic updates on and pick when they install.
+1. Choose Automatic Scheduled Updates.
+2. Pick the frequency, day and time, then press Save Schedule.
 
 ### Version History & Downgrade
 

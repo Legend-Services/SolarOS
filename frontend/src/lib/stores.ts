@@ -395,30 +395,3 @@ export const zfsHealth = (s: StorageInfo | null) => {
   return s.pools.every((p) => p.health === "ONLINE") ? "ONLINE" : s.pools.find((p) => p.health !== "ONLINE")!.health;
 };
 
-/* ---------------- SolarDeck release (Settings header, update badge) ---------------- */
-
-interface ReleaseState {
-  version: string | null;
-  update: boolean;
-  load: () => void;
-}
-
-export const useRelease = create<ReleaseState>((set) => ({
-  version: null,
-  update: false,
-  load: () =>
-    void api<{ version?: string | null; update_available?: boolean }>("/system/updates/status").then(
-      (s) => set({ version: s.version ?? null, update: !!s.update_available }),
-      () => {},
-    ),
-}));
-
-/** Refresh the release state now and every 30 minutes (the backend's own schedule does the remote check). */
-export function useReleasePoll() {
-  const load = useRelease((s) => s.load);
-  useEffect(() => {
-    load();
-    const i = setInterval(load, 30 * 60_000);
-    return () => clearInterval(i);
-  }, [load]);
-}
