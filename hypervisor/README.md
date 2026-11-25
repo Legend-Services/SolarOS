@@ -70,8 +70,9 @@ sudo bash hypervisor/build-iso.sh                 # -> ./dist/SolarOS-v2.2.1-amd
 ```
 
 Without `--source-iso` the latest official live-server ISO of the release is downloaded and checked against
-`SHA256SUMS`. The default boot entry, **Install SolarOS (Interactive Disk Selection)**, asks for the
-target disk, so it is safe on servers with data disks. `--auto-disk <device>` adds **SolarDeck Hypervisor - Automated
+`SHA256SUMS`. To stay under GitHub's 2 GiB release-asset limit, the ISO leaves out Ubuntu's offline package
+pool and the HWE kernel, so the installer needs internet access (first boot needs it anyway). The default boot entry, **Install SolarOS (Interactive Disk Selection)**, asks for the
+target disk, so it is safe on servers with data disks. `--auto-disk <device>` adds **SolarOS - Automated
 VM Test Install**, which erases that disk without asking. `--copy-to <dir>` also copies the finished ISO into a
 folder, for example a hypervisor's ISO library.
 

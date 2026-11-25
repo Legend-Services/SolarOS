@@ -72,6 +72,12 @@ echo "==> Extracting $(basename "$SOURCE_ISO")"
 xorriso -osirrox on -indev "$SOURCE_ISO" -extract / "$WORK/iso" 2>/dev/null
 chmod -R u+w "$WORK/iso"
 [[ -f "$WORK/iso/boot/grub/grub.cfg" ]] || die "not an Ubuntu live-server ISO (no boot/grub/grub.cfg)"
+# Keep the ISO under GitHub's 2 GiB release-asset limit: drop the offline package pool (drivers, firmware, kernels;
+# APT fetches them from the mirror, and first boot needs the network anyway) and the HWE kernel with its menu entry.
+rm -rf "$WORK/iso/pool" "$WORK/iso/casper/hwe-"* "$WORK/iso/casper/"*generic-hwe.*
+awk '/^menuentry .*HWE kernel/ {skip=1} skip && /^}/ {skip=0; next} !skip' "$WORK/iso/boot/grub/grub.cfg" >"$WORK/grub.cfg"
+mv "$WORK/grub.cfg" "$WORK/iso/boot/grub/grub.cfg"
+sed -i -E '\#\./(pool/|casper/hwe-|casper/.*generic-hwe\.)#d' "$WORK/iso/md5sum.txt" 2>/dev/null || true
 
 # ---------------------------------------------------------------- autoinstall seeds
 for mode in manual ${AUTO_DISK:+auto}; do
