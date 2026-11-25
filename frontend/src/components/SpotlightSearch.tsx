@@ -5,6 +5,8 @@ import type { SearchKind, SearchResult } from "../lib/types";
 import { useIntent, useSpotlight, useWindows, type Intents } from "../lib/stores";
 import { APPS, APP_IDS } from "../apps/registry";
 import { AppIcon } from "./icons/AppIcons";
+import { MODULES, MODULE_IDS } from "../apps/settings/modules";
+import { en } from "../i18n/en";
 
 interface Item {
   key: string;
@@ -22,7 +24,7 @@ const GROUPS: Record<SearchKind, string> = {
   dataset: "Datasets",
   share: "SMB Shares",
   app: "App Center",
-  section: "Control Panel",
+  section: "Settings",
 };
 
 const KIND_ICON: Record<SearchKind, ReactNode> = {
@@ -114,7 +116,18 @@ export default function SpotlightSearch() {
       const sub = (r.kind === "qemu" || r.kind === "lxc") && t.status !== "running" ? `${r.subtitle} · open Compute Manager` : r.subtitle;
       return { key: `r:${r.kind}:${i}`, group: GROUPS[r.kind], title: r.title, subtitle: sub, icon: KIND_ICON[r.kind], run: close(run) };
     });
-    return term ? [...apps, ...found, ...actions] : [...actions, ...apps];
+    // Settings sub-modules (Spotlight is English, like its other labels): the retired admin apps are found here by name.
+    const settings: Item[] = !term
+      ? []
+      : MODULE_IDS.filter((id) => `${en[`set.mod.${id}`]} ${en[`set.modDesc.${id}`]}`.toLowerCase().includes(term)).map((id) => ({
+          key: `set:${id}`,
+          group: "Settings",
+          title: en[`set.mod.${id}`],
+          subtitle: `Settings › ${en[`set.cat.${MODULES[id].cat}`]}`,
+          icon: <AppIcon id="settings" size={22} />,
+          run: close(() => go("settings", id)),
+        }));
+    return term ? [...apps, ...settings, ...found, ...actions] : [...actions, ...apps];
   }, [q, remote, set, go, openWindow]);
 
   useEffect(() => setSel((s) => Math.min(s, Math.max(0, items.length - 1))), [items.length]);

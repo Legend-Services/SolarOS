@@ -124,7 +124,7 @@ const ACTIONS: Record<Action, { label: string; job: string; message: string }> =
   },
 };
 
-/* ---------------- Small layout helpers (Control Panel look) ---------------- */
+/* ---------------- Small layout helpers (Settings look) ---------------- */
 
 function Card({ title, children, action }: { title: ReactNode; children: ReactNode; action?: ReactNode }) {
   return (

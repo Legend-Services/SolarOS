@@ -86,6 +86,21 @@ const ICONS: Record<AppId, { stops: [string, string, string]; glyph: ReactNode }
       </>
     ),
   },
+  settings: {
+    stops: ["#e2e8f0", "#6366f1", "#1e1b4b"],
+    glyph: (
+      <>
+        <g fill={W}>
+          {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => (
+            <rect key={a} x="29" y="10" width="6" height="11" rx="2" transform={`rotate(${a} 32 32)`} />
+          ))}
+        </g>
+        <circle cx="32" cy="32" r="14" fill={W} />
+        <circle cx="32" cy="32" r="8" fill="#6366f1" />
+        <circle cx="32" cy="32" r="3.5" fill={W} />
+      </>
+    ),
+  },
   controlpanel: {
     stops: ["#a5b4fc", "#4f46e5", "#1e1a6e"],
     glyph: (

@@ -8,7 +8,7 @@ import { useTranslation } from "../../i18n";
 import { Field, GlassBadge, GlassButton, GlassInput, GlassSelect, Notice } from "../../components/ui/GlassKit";
 import { Card } from "../ControlPanelApp";
 
-/* Control Panel → Security & Hardening: posture score, 2FA enrollment, signed-in sessions and the audit log. */
+/* Settings → Security & 2FA: posture score, 2FA enrollment, signed-in sessions and the audit log. */
 
 function download(name: string, text: string, type: string) {
   const a = document.createElement("a");
@@ -18,7 +18,6 @@ function download(name: string, text: string, type: string) {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 const when = (v: string | number) => new Date(typeof v === "number" ? v * 1000 : v).toLocaleString([], { dateStyle: "medium", timeStyle: "short" });
-const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
 
 /* ---------------- Security posture ---------------- */
 
@@ -64,7 +63,7 @@ function PostureCard() {
   const fixable = p?.items.filter((i) => i.status === "warn" && i.fix).map((i) => i.fix!) ?? [];
   const harden = (parts: string[]) => run(() => api("/security/harden", { method: "POST", json: { parts } }).then(() => setJob(true)));
   const follow = (link: string) =>
-    link === "password" ? scrollTo("sec-password") : link === "twofa" ? scrollTo("sec-2fa") : link === "certs" ? openLink("netservices", "certs") : openLink("datacenter");
+    link === "password" || link === "twofa" ? openLink("settings", "security-2fa") : link === "certs" ? openLink("netservices", "certs") : openLink("datacenter");
 
   return (
     <Card

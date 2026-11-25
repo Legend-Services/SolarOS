@@ -4,7 +4,8 @@ import { persist } from "zustand/middleware";
 import { api, forgetStepUp, setUnauthorizedHandler } from "./api";
 import type { ConsoleTarget, HardwareInfo, Overview, StorageInfo } from "./types";
 import type { AppId } from "../apps/registry";
-import { APPS, APP_IDS } from "../apps/registry";
+import { APPS, APP_IDS, DOCK_DEFAULT, liveAppIds } from "../apps/registry";
+import { settingsModule, type ModuleId } from "../apps/settings/modules";
 
 /* ---------------- Auth ---------------- */
 
@@ -96,6 +97,8 @@ export const useWindows = create<WindowState>((set, get) => ({
   dockIconRects: {},
   setDockIconRect: (id, r) => set((s) => ({ dockIconRects: { ...s.dockIconRects, [id]: r } })),
   open: (id, params) => {
+    const module = settingsModule(id);
+    if (module) return useIntent.getState().go("settings", module); // retired admin apps live in Settings now
     if (id !== "console") useUsage.getState().record(id); // every launcher ends here, so "Most Used" counts them all
     const key = params ? `${id}:${params.type}:${params.vmid}:${params.mode}` : id;
     if (get().windows.some((w) => w.key === key)) return get().focus(key);
@@ -160,10 +163,11 @@ export interface Intents {
   netservices?: "dns" | "dhcp" | "wg" | "wgc" | "router" | "domains" | "certs" | "topology";
   backup?: "backups" | "schedules" | "now"; // a tab, or the Back Up Now dialog
   shares?: "create" | "users";
+  settings?: ModuleId;
 }
 
 /** Apps that read an intent; the others are just opened. */
-export const INTENT_APPS: AppId[] = ["files", "compute", "storage", "controlpanel", "help", "netservices", "backup", "shares"];
+export const INTENT_APPS: AppId[] = ["files", "compute", "storage", "controlpanel", "help", "netservices", "backup", "shares", "settings"];
 
 /** Open an app, deep-linking into a tab or dialog when it supports one. */
 export function openLink(app: AppId, intent?: Intents[keyof Intents]) {
@@ -182,6 +186,8 @@ export function useIntentFor<K extends keyof Intents>(app: K, apply: (v: NonNull
   }, [v]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
+const EMBEDDED_INTENTS: (keyof Intents)[] = ["storage", "backup", "shares", "netservices"];
+
 interface IntentState extends Intents {
   go: <K extends keyof Intents>(app: K & AppId, value: Intents[K]) => void;
   take: (app: keyof Intents) => void;
@@ -189,8 +195,11 @@ interface IntentState extends Intents {
 
 export const useIntent = create<IntentState>((set) => ({
   go: (app, value) => {
-    set({ [app]: value });
-    useWindows.getState().open(app);
+    // Retired apps open their Settings module. Only apps embedded there that read their own intent keep it (a tab or dialog).
+    const module = settingsModule(app, value);
+    if (!module || EMBEDDED_INTENTS.includes(app)) set({ [app]: value });
+    if (module && app !== "settings") set({ settings: module });
+    useWindows.getState().open(module ? "settings" : app);
   },
   take: (app) => set({ [app]: undefined }),
 }));
@@ -234,7 +243,7 @@ interface DockState {
 export const useDock = create<DockState>()(
   persist(
     (set) => ({
-      pinned: [...APP_IDS],
+      pinned: [...DOCK_DEFAULT],
       autoHide: false,
       baseSize: 46,
       magnification: "strong",
@@ -258,7 +267,7 @@ export const useDock = create<DockState>()(
         return {
           ...cur,
           ...p,
-          pinned: Array.isArray(p.pinned) ? p.pinned.filter((id) => (APP_IDS as AppId[]).includes(id)) : cur.pinned,
+          pinned: Array.isArray(p.pinned) ? liveAppIds(p.pinned) : cur.pinned,
           baseSize: Math.max(36, Math.min(64, Number(p.baseSize) || cur.baseSize)),
           magnification: p.magnification && p.magnification in MAGNIFICATION ? p.magnification : cur.magnification,
         };
@@ -374,3 +383,31 @@ export const zfsHealth = (s: StorageInfo | null) => {
   if (!s.pools.length) return "N/A";
   return s.pools.every((p) => p.health === "ONLINE") ? "ONLINE" : s.pools.find((p) => p.health !== "ONLINE")!.health;
 };
+
+/* ---------------- SolarDeck release (Settings header, update badge) ---------------- */
+
+interface ReleaseState {
+  version: string | null;
+  update: boolean;
+  load: () => void;
+}
+
+export const useRelease = create<ReleaseState>((set) => ({
+  version: null,
+  update: false,
+  load: () =>
+    void api<{ version?: string | null; update_available?: boolean }>("/system/updates/status").then(
+      (s) => set({ version: s.version ?? null, update: !!s.update_available }),
+      () => {},
+    ),
+}));
+
+/** Refresh the release state now and every 30 minutes (the backend's own schedule does the remote check). */
+export function useReleasePoll() {
+  const load = useRelease((s) => s.load);
+  useEffect(() => {
+    load();
+    const i = setInterval(load, 30 * 60_000);
+    return () => clearInterval(i);
+  }, [load]);
+}

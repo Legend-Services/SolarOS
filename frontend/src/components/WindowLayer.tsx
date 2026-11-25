@@ -2,18 +2,11 @@ import { lazy, type ComponentType } from "react";
 import { useWindows } from "../lib/stores";
 import { useIsMobile } from "../lib/hooks";
 import type { AppId } from "../apps/registry";
-import ResourceMonitor from "../apps/ResourceMonitor";
 import ComputeManager from "../apps/ComputeManager";
-import StorageManager from "../apps/StorageManager";
 import FileStation from "../apps/FileStation";
 import AppCenter from "../apps/AppCenter";
-import SharesManager from "../apps/SharesManager";
-import ControlPanelApp from "../apps/ControlPanelApp";
-import SystemApp from "../apps/SystemApp";
-import BackupCenterApp from "../apps/BackupCenterApp";
-import NetworkServicesApp from "../apps/NetworkServicesApp";
-import DatacenterApp from "../apps/DatacenterApp";
 import HelpCenterApp from "../apps/HelpCenterApp";
+import SettingsApp from "../apps/SettingsApp";
 import LocalAiApp from "../apps/LocalAiApp";
 import WindowFrame from "./WindowFrame";
 import type { ConsoleTarget } from "../lib/types";
@@ -21,19 +14,21 @@ import type { ConsoleTarget } from "../lib/types";
 const ConsoleApp = lazy(() => import("../apps/ConsoleApp"));
 const HostShell = lazy(() => import("../apps/ConsoleApp").then((m) => ({ default: m.HostShell })));
 
+// Retired admin apps never get a window of their own (useWindows.open redirects them to Settings); they map to it for the type.
 const COMPONENTS: Record<AppId, ComponentType<{ params?: ConsoleTarget }>> = {
-  monitor: ResourceMonitor,
+  settings: SettingsApp,
+  monitor: SettingsApp,
   compute: ComputeManager,
-  storage: StorageManager,
+  storage: SettingsApp,
   files: FileStation,
   appcenter: AppCenter,
-  "local-ai": LocalAiApp,
-  backup: BackupCenterApp,
-  shares: SharesManager,
-  controlpanel: ControlPanelApp,
-  system: SystemApp,
-  netservices: NetworkServicesApp,
-  datacenter: DatacenterApp,
+  "local-ai": () => <LocalAiApp />,
+  backup: SettingsApp,
+  shares: SettingsApp,
+  controlpanel: SettingsApp,
+  system: SettingsApp,
+  netservices: SettingsApp,
+  datacenter: SettingsApp,
   terminal: HostShell,
   help: HelpCenterApp,
   console: ConsoleApp,

@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.6.0 - Unified Settings Hub & a Clean App Gallery — 2026-11-25
+
+### Added
+- **Settings**, one app for every built-in administration tool. The landing view shows a host summary (hostname, platform, CPU, memory, release), a live **Filter settings & sub-modules** field (Enter opens the first match) and the EN / NL / DE / ES / FR language switch, then five category rows with their sub-module tiles:
+  - **System:** General & Appearance, Hardware & GPU, BIOS & Firmware, Resource Monitor, Software & Repositories (SolarDeck updates and rollback, bug reports, OS repositories and OS updates), Host & Power.
+  - **Storage & Data:** Storage & ZFS Pools, Backup & Restore, Shared Folders & SMB, ISO & Template Library.
+  - **Privilege & Security:** Users & Roles, Security & 2FA, Security Posture & Hardening, Audit & System Logs (audit log and host logs).
+  - **Network & Services:** Network & Virtual Switch, Network Topology, Firewall & Port Forwarding, WireGuard VPN, Automation & Alerts.
+  - **Hypervisor & Runtime:** Hypervisor Defaults, Local AI Runtime, System Services.
+  A sub-module opens in place with a breadcrumb (`← All Settings / Category / Sub-Module`), a **? Guide** button and a collapsible category sidebar. Every sub-module reuses the existing panels, so no screen or API call was dropped. Storage pool health and SolarDeck updates show a status dot on their tile.
+- **Hypervisor Defaults:** default cores / memory / disk for new VMs and containers, a preferred storage target and container nesting, used by the New VM / New Container wizards and synced under `hypervisor` in `/api/system/preferences`. Shows the host's nested-virtualization status (`GET /api/system/nested-virt`).
+- **System Services:** systemd services on the host with filter and start / stop / restart (`GET /api/system/services`, `POST /api/system/services/{unit}/{start|stop|restart}`; step-up confirmation, recorded in the audit log).
+- An **Update available** badge in the top bar and taskbar.
+- Settings sub-modules are searchable in Spotlight, and a Settings guide.
+
+### Changed
+- The App Gallery, launcher and desktop icons list Settings, Compute Manager, File Station, App Center, Terminal (the Host Shell), Local AI and Help & Support. Control Panel, System, Storage & ZFS, Backup Center, Network & Services, Network Shares, Resource Monitor and Datacenter are no longer separate apps.
+- The default Dock / taskbar holds Settings, Compute, Files, App Center and Terminal. A saved Dock or App Gallery order is migrated once: the retired admin apps become one Settings entry in their place.
+- Every old link still works: opening a retired app or one of its deep links (for example `storage → pools`, `controlpanel → power`, `netservices → wg`, `help → bios`) opens Settings at the matching sub-module.
+- The CPU and memory pills open Resource Monitor, the pool pill opens Storage & ZFS Pools and Desktop **Edit Widgets** opens General & Appearance.
+- Host & Power gained a host console shell button; SolarDeck updates and Report a Bug moved to Software & Repositories.
+
 ## v2.5.1 - Security Score: Correct Host Checks — 2026-11-25
 
 ### Fixed

@@ -933,11 +933,11 @@ function ChatList({ chats, activeId, query, onQuery, onSelect, onNew, onRename, 
 
 /* ---------------- Shell ---------------- */
 
-export default function LocalAiApp() {
+export default function LocalAiApp({ initialTab }: { initialTab?: SettingsTab }) {
   const [status, setStatus] = useState<AiStatus | null>(null);
   const [error, setError] = useState("");
-  const [view, setView] = useState<"chat" | "settings">("chat");
-  const [tab, setTab] = useState<SettingsTab>("download");
+  const [view, setView] = useState<"chat" | "settings">(initialTab ? "settings" : "chat");
+  const [tab, setTab] = useState<SettingsTab>(initialTab ?? "download");
   const [jobs, setJobs] = useState<PullJob[]>([]);
   const [model, setModelState] = useState(() => readPref("solardeck-ai-model"));
   const [instructions, setInstructionsState] = useState(() => readPref("solardeck-ai-instructions"));

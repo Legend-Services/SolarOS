@@ -110,6 +110,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/
 | | |
 |---|---|
 | 🖥️ **A real desktop** | Movable windows with snapping, a dock or taskbar, live widgets, Spotlight search (Ctrl+K) and a Welcome Tour. |
+| ⚙️ **One Settings hub** | Every system, storage, security, network and hypervisor setting in one app: 5 categories, 22 sub-modules, a live filter and deep links from the top bar. The App Gallery stays focused on Settings, Compute, Files, App Center, Terminal and the apps you install. |
 | 📦 **Virtual machines & containers** | Create them with step-by-step wizards, open their screen or shell in the browser, pass through GPUs, PCI and USB devices. Windows-ready out of the box. |
 | 💽 **ZFS storage made easy** | Build mirrors and RAIDZ pools, datasets, snapshots and schedules, check SMART health and benchmark your disks. |
 | 🗂️ **Files, shares & backups** | A file browser, SMB shares for your network, and a Backup Center to back up and restore guests. |
@@ -124,7 +125,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/
 
 ## Security by Design & Hardening
 
-The same security layer runs in both editions (SolarDeck for Proxmox VE and SolarOS). Open **Control Panel →
+The same security layer runs in both editions (SolarDeck for Proxmox VE and SolarOS). Open **Settings →
 Security & Hardening** to see it all in one place.
 
 - **Two-factor sign-in (TOTP).** Scan a QR code with any authenticator app. You also get 8 single-use recovery codes.
@@ -168,13 +169,13 @@ Security & Hardening** to see it all in one place.
 
 ## Updating
 
-Open **Control Panel → System & Updates** and click **Install Update Now**. Your settings, users, pools and shares
+Open **Settings → Software & Repositories** and click **Install Update Now**. Your settings, users, pools and shares
 are never touched, and you can roll back to an earlier version from the same screen.
 
 ## Good to know
 
 - Anyone who can sign in to SolarDeck can control the whole server. Keep it on your home network and turn on
-  **2FA** in Control Panel → Security & Hardening.
+  **2FA** in Settings → Security & 2FA.
 - Found a bug? Click **Report a Bug** in the **?** menu. It opens a pre-filled GitHub issue with anonymized details.
 - Want to know how it works, run it from source or see the known limits? Read [docs/TECHNICAL.md](docs/TECHNICAL.md),
   [hypervisor/README.md](hypervisor/README.md) and the [CHANGELOG](CHANGELOG.md).
