@@ -493,7 +493,7 @@ export const en = {
   "set.mod.audit-logs": "Audit & System Logs",
   "set.modDesc.audit-logs": "Tamper-evident hash-chained audit log, integrity verification and host logs",
   "set.mod.network-switch": "Network & Virtual Switch",
-  "set.modDesc.network-switch": "Host NICs, Linux bridges (vmbr0/br0), VLANs and DNS resolvers",
+  "set.modDesc.network-switch": "Host NICs, Linux bridges, VLANs and DNS resolvers",
   "set.mod.network-topology": "Network Topology",
   "set.modDesc.network-topology": "Interactive live infrastructure and virtual switch map",
   "set.mod.firewall-forwarding": "Firewall & Port Forwarding",

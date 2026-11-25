@@ -494,7 +494,7 @@ export const fr: Dict = {
   "set.mod.audit-logs": "Journaux d'audit et système",
   "set.modDesc.audit-logs": "Journal d'audit chaîné par hachage infalsifiable, vérification d'intégrité et journaux de l'hôte",
   "set.mod.network-switch": "Réseau et commutateur virtuel",
-  "set.modDesc.network-switch": "Cartes réseau, ponts Linux (vmbr0/br0), VLAN et serveurs DNS",
+  "set.modDesc.network-switch": "Cartes réseau, ponts Linux, VLAN et serveurs DNS",
   "set.mod.network-topology": "Topologie réseau",
   "set.modDesc.network-topology": "Carte interactive en direct de l'infrastructure et des commutateurs virtuels",
   "set.mod.firewall-forwarding": "Pare-feu et redirection de ports",

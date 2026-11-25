@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.6.1 - SolarOS Release Branch Fix — 2026-11-25
+
+### Fixed
+- The v2.6.0 release check stopped because two shared files used terms of the Proxmox VE edition (a bridge name in the Network & Virtual Switch description and a service name in a self-check), so the SolarOS release branch was not published. Both are edition-neutral now; no behavior changes.
+
 ## v2.6.0 - Unified Settings Hub & a Clean App Gallery — 2026-11-25
 
 ### Added

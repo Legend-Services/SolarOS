@@ -494,7 +494,7 @@ export const nl: Dict = {
   "set.mod.audit-logs": "Audit- & systeemlogs",
   "set.modDesc.audit-logs": "Fraudebestendige auditlog met hashketen, integriteitscontrole en hostlogs",
   "set.mod.network-switch": "Netwerk & virtuele switch",
-  "set.modDesc.network-switch": "Netwerkkaarten, Linux-bridges (vmbr0/br0), VLAN's en DNS-servers",
+  "set.modDesc.network-switch": "Netwerkkaarten, Linux-bridges, VLAN's en DNS-servers",
   "set.mod.network-topology": "Netwerktopologie",
   "set.modDesc.network-topology": "Interactieve live kaart van infrastructuur en virtuele switches",
   "set.mod.firewall-forwarding": "Firewall & port forwarding",

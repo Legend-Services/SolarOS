@@ -494,7 +494,7 @@ export const es: Dict = {
   "set.mod.audit-logs": "Registros de auditoría y sistema",
   "set.modDesc.audit-logs": "Registro de auditoría encadenado con hash a prueba de manipulaciones, verificación de integridad y registros del host",
   "set.mod.network-switch": "Red y switch virtual",
-  "set.modDesc.network-switch": "Tarjetas de red, bridges Linux (vmbr0/br0), VLAN y servidores DNS",
+  "set.modDesc.network-switch": "Tarjetas de red, bridges Linux, VLAN y servidores DNS",
   "set.mod.network-topology": "Topología de red",
   "set.modDesc.network-topology": "Mapa interactivo en vivo de la infraestructura y los switches virtuales",
   "set.mod.firewall-forwarding": "Cortafuegos y redirección de puertos",
