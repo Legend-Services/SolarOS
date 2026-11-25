@@ -189,6 +189,12 @@ class HypervisorProvider(ABC):
     # Capabilities & host telemetry
     @abstractmethod
     def get_capabilities(self) -> ProviderCapabilities: ...
+
+    async def set_host_admin(self, username: str, password: str) -> None:
+        """Make the SolarDeck administrator an administrator of the host too (same name and password); default: no
+        host account is touched."""
+        return None
+
     @abstractmethod
     async def get_node_metrics(self) -> NodeMetrics: ...
     @abstractmethod

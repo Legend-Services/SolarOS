@@ -25,6 +25,15 @@ export const en = {
   "login.password": "Password",
   "login.signIn": "Sign in",
   "login.twoFactor": "Two-factor code",
+  "setup.title": "Create your administrator",
+  "setup.intro": "This server has no administrator yet. Enter the setup code shown on the server's own screen, then choose your user name and password.",
+  "setup.code": "Setup code",
+  "setup.username": "User name",
+  "setup.password": "Password (at least 10 characters)",
+  "setup.confirm": "Repeat password",
+  "setup.mismatch": "The passwords do not match",
+  "setup.create": "Create administrator",
+  "setup.linux": "This account can also sign in to the server itself (SSH, with sudo).",
 
   // Top bar
   "top.openLauncher": "Open launcher",

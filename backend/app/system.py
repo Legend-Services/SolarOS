@@ -59,11 +59,16 @@ def write_env(path: Path, key: str, value: str) -> None:
 
 
 @router.post("/password")
-def change_password(body: PasswordBody):
-    if not secrets.compare_digest(body.current_password.encode(), settings.admin_password.encode()):
+async def change_password(body: PasswordBody):
+    from . import accounts
+    from providers.registry import get_provider
+
+    if not accounts.verify_admin(settings.admin_username, body.current_password):
         raise HTTPException(403, "Current password is incorrect")
-    write_env(config.ENV_FILE, "ADMIN_PASSWORD", body.new_password)
-    settings.admin_password = body.new_password
+    accounts.check_new_credentials(settings.admin_username, body.new_password)
+    # The host account of the same name (if the platform has one) gets the same password; first, so a failure changes nothing.
+    await get_provider().set_host_admin(settings.admin_username, body.new_password)
+    accounts.set_admin(settings.admin_username, body.new_password)
     return {"ok": True}
 
 
