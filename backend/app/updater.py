@@ -134,8 +134,10 @@ async def ensure_repo(branch: str) -> None:
     if not await _out("remote", "get-url", "origin"):
         await git("remote", "add", "origin", settings.repo_url)
     unshallow = ["--unshallow"] if (APP_DIR / ".git/shallow").exists() else []
-    rc, out = await git("fetch", "-q", "--tags", "--force", *unshallow, "origin",
-                        f"+refs/heads/{branch}:refs/remotes/origin/{branch}", timeout=120)
+    # main carries every release tag; an edition release branch only its own <branch>-* tags (nothing else is fetched).
+    tags = (["--tags"], []) if branch == "main" else (["--no-tags"], [f"+refs/tags/{branch}-*:refs/tags/{branch}-*"])
+    rc, out = await git("fetch", "-q", *tags[0], "--force", *unshallow, "origin",
+                        f"+refs/heads/{branch}:refs/remotes/origin/{branch}", *tags[1], timeout=120)
     if rc and ("could not read Username" in out or "Authentication failed" in out):
         raise HTTPException(502, "GitHub refused access to the update source (private repository or invalid token). "
                                  "Set GITHUB_TOKEN in backend/.env or make the repository public.")

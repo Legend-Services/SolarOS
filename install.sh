@@ -292,7 +292,10 @@ fi
 # token, so the container gets an SSH key that can only run the allowlisted helper on this host.
 msg "Installing host helper"
 pct pull "$CTID" "${APP_DIR}/deploy/solardeck-helper.sh" /usr/local/sbin/proxmox-os-helper
+# The pct/qm commands of this edition, sourced by the helper.
+pct pull "$CTID" "${APP_DIR}/deploy/solardeck-helper-proxmox.sh" /usr/local/sbin/proxmox-os-helper-edition
 chmod 755 /usr/local/sbin/proxmox-os-helper
+chmod 644 /usr/local/sbin/proxmox-os-helper-edition
 ct "mkdir -p /root/.ssh && chmod 700 /root/.ssh
 [ -f /root/.ssh/proxmox-os-helper ] || ssh-keygen -q -t ed25519 -N '' -C proxmox-os-helper -f /root/.ssh/proxmox-os-helper"
 PUB_FILE="$(mktemp)"

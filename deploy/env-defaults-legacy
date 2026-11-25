@@ -1,0 +1,2 @@
+# backend/.env written before HYPERVISOR_DRIVER existed belongs to this edition (merge-env.sh, self-update.sh).
+HYPERVISOR_DRIVER=proxmox

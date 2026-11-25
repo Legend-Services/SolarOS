@@ -1,0 +1,13 @@
+# Words that must not appear anywhere in another edition's tree (grep -iE patterns, one per line).
+proxmox
+pveversion
+pveproxy
+pvesh
+pveum
+pve-firmware
+pve-manager
+api2/json
+pct (exec|config|list|set|push|pull|enter|start|stop)
+qm (set|config|start|stop|list|sendkey|monitor)
+vmbr[0-9]
+(^|[^a-z])pve([^a-z]|$)

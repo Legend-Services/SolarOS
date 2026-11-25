@@ -5,6 +5,9 @@ set -euo pipefail
 LIVE="${1:?live env}"; EXAMPLE="${2:?example env}"
 [[ -f "$EXAMPLE" ]] || exit 0
 touch "$LIVE"
+# A .env from before HYPERVISOR_DRIVER existed: that edition's legacy defaults (env-defaults-legacy) first.
+LEGACY="$(dirname "$EXAMPLE")/env-defaults-legacy"
+if [[ -f "$LEGACY" && "$EXAMPLE" != "$LEGACY" ]] && ! grep -q "^HYPERVISOR_DRIVER=" "$LIVE"; then bash "$0" "$LIVE" "$LEGACY"; fi
 # Renamed keys (env-renames next to the example: "OLD NEW" per line) keep their value under the new name.
 RENAMES="$(dirname "$EXAMPLE")/env-renames"
 if [[ -f "$RENAMES" ]]; then
@@ -24,9 +27,9 @@ while IFS= read -r line; do
   echo "$line" >>"$LIVE"
   echo "    added ${key} to $(basename "$LIVE")"
 done <"$EXAMPLE"
-# Edition defaults (env-defaults-<driver> next to the example), e.g. the Proxmox VE edition's SYSTEM_PREFIX.
+# Edition defaults (env-defaults-<driver> next to the example), e.g. an edition's SYSTEM_PREFIX.
 DRIVER="$(sed -n 's/^HYPERVISOR_DRIVER=//p' "$LIVE" | tail -n1 | tr -d "'\"")"
-EDITION="$(dirname "$EXAMPLE")/env-defaults-${DRIVER:-proxmox}"
-if [[ -f "$EDITION" && "$EDITION" != "$EXAMPLE" ]]; then
+EDITION="$(dirname "$EXAMPLE")/env-defaults-${DRIVER}"
+if [[ -n "$DRIVER" && -f "$EDITION" && "$EDITION" != "$EXAMPLE" ]]; then
   bash "$0" "$LIVE" "$EDITION"
 fi

@@ -2,7 +2,7 @@
 # SolarOS installer: turns a clean Ubuntu Server 24.04 / 26.04 LTS machine into a SolarOS
 # host (HYPERVISOR_DRIVER=native_ubuntu) with QEMU/KVM + libvirt, Incus containers, OpenZFS and the SolarDeck desktop.
 # Run as root:
-#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/main/hypervisor/install-hypervisor.sh)" -- --with-console-tui
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/solaros/hypervisor/install-hypervisor.sh)" -- --with-console-tui
 # Options:
 #   --with-console-tui   show the SolarDeck console dashboard on tty1 (the server's own monitor)
 #   --src <dir>          install from a local source tree instead of cloning REPO_URL
@@ -11,12 +11,11 @@
 #   --bridge-nic <nic>   NIC to enslave to br0 (default: the NIC of the default route)
 #   --no-bridge          do not create br0 (guests then need an existing bridge named in DEFAULT_BRIDGE)
 # Re-running is safe: backend/.env, backend/data/ and backend/.ssh/ are kept; code, dependencies and the build refresh.
-# The Proxmox VE edition keeps using ../install.sh; both editions update from the same branch.
 set -Eeuo pipefail
 export LANG=C.UTF-8 LC_ALL=C.UTF-8 DEBIAN_FRONTEND=noninteractive
 
 REPO_URL="${REPO_URL:-https://github.com/Legend-Services/SolarOS.git}"
-REPO_BRANCH="${REPO_BRANCH:-main}"
+REPO_BRANCH="${REPO_BRANCH:-solaros}"  # the SolarOS release branch
 APP_DIR="/opt/solardeck"
 STORAGE_ROOT="/mnt/storage"
 BRIDGE="br0"
@@ -44,7 +43,6 @@ done
 
 # ---------------------------------------------------------------- 1. Checks
 [[ $EUID -eq 0 ]] || die "Run as root."
-command -v pveversion >/dev/null && die "This is a Proxmox VE host: use install.sh (SolarDeck for Proxmox VE) instead."
 . /etc/os-release
 [[ "${ID:-}" == ubuntu ]] || die "SolarOS needs Ubuntu Server LTS (found ${PRETTY_NAME:-unknown})."
 case "${VERSION_ID:-}" in 24.04|26.04) ok "${PRETTY_NAME}" ;; *) warn "Tested on Ubuntu 24.04 / 26.04 LTS; found ${VERSION_ID}" ;; esac
@@ -126,11 +124,13 @@ if [[ -n "$SRC" && "$(realpath "$SRC")" != "$(realpath -m "$APP_DIR")" ]]; then
   if [[ -n "$COMMIT" ]]; then echo "$COMMIT" >"${APP_DIR}/.build-commit"; fi
 elif [[ -d "${APP_DIR}/.git" ]]; then
   # Re-run on a git checkout: move to the tip of the branch (untracked state files are untouched).
-  git -C "$APP_DIR" -c safe.directory='*' fetch -q --tags origin "+refs/heads/${REPO_BRANCH}:refs/remotes/origin/${REPO_BRANCH}"
+  git -C "$APP_DIR" -c safe.directory='*' fetch -q --no-tags origin "+refs/heads/${REPO_BRANCH}:refs/remotes/origin/${REPO_BRANCH}" \
+    "+refs/tags/${REPO_BRANCH}-*:refs/tags/${REPO_BRANCH}-*"
   git -C "$APP_DIR" -c safe.directory='*' checkout -q -f -B "$REPO_BRANCH" "origin/${REPO_BRANCH}"
   git -C "$APP_DIR" rev-parse HEAD >"${APP_DIR}/.build-commit"
 else
-  git clone -q --branch "$REPO_BRANCH" "$REPO_URL" "$APP_DIR"
+  git clone -q --single-branch --no-tags --branch "$REPO_BRANCH" "$REPO_URL" "$APP_DIR"
+  git -C "$APP_DIR" fetch -q --no-tags origin "+refs/tags/${REPO_BRANCH}-*:refs/tags/${REPO_BRANCH}-*" || true
   git -C "$APP_DIR" rev-parse HEAD >"${APP_DIR}/.build-commit"
 fi
 mkdir -p "${STORAGE_ROOT}"/{isos,templates,backups,ai-models}
@@ -196,7 +196,7 @@ else
   msg "Building the desktop"
   cd "${APP_DIR}/frontend"
   npm ci --no-audit --no-fund --loglevel=error
-  npm run build >/dev/null
+  VITE_EDITION=solaros npm run build >/dev/null
   ok "Desktop built"
 fi
 

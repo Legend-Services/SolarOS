@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SolarDeck host helper. Installed as /usr/local/sbin/<prefix>-helper and reachable from the
-# SolarDeck container only through a forced-command SSH key. It runs a fixed allowlist of root-only operations
-# that the Proxmox API token cannot do. Every argument is re-validated here.
+# backend locally or through a forced-command SSH key. It runs a fixed allowlist of root-only operations.
+# Every argument is re-validated here.
 set -euo pipefail
 # Host-side names follow the name this helper was installed under (<prefix>-helper).
 PREFIX="$(basename "$0")"; PREFIX="${PREFIX%-helper}"; [[ "$PREFIX" =~ ^[a-z][a-z0-9-]*$ ]] || PREFIX=solardeck
@@ -30,48 +30,29 @@ prop_ok() {
   esac || die "invalid property $1"
 }
 
-pos_ct() {
-  local ct
-  ct="$(pct list | awk -v p="$PREFIX" '$NF=="solardeck" || $NF==p {print $1; exit}')"
-  [[ -n "$ct" ]] || die "SolarDeck container not found"
-  echo "$ct"
+# Default storage mapping: the backend runs on this host, so a bind mount kept in fstab is enough.
+map_storage() {
+  local ds="$1" mnt="$2" tgt="/mnt/storage/$1"
+  mkdir -p "$tgt"
+  mountpoint -q "$tgt" || mount --bind "$mnt" "$tgt"
+  grep -q "^${mnt} ${tgt} " /etc/fstab || echo "${mnt} ${tgt} none bind,nofail,x-systemd.requires=zfs-mount.service 0 0" >>/etc/fstab
+  echo "mapped ${tgt}"
 }
 
-# Drop the container mount point of a dataset (and its children) so it can be destroyed.
+# Drop the /mnt/storage bind mounts of a dataset (and its children) so it can be destroyed.
 unmap_storage() {
-  local ds="$1" ct mnt key src
+  local ds="$1" mnt
   mnt="$(zfs get -H -o value mountpoint "$ds")"
   [[ "$mnt" == /* ]] || return 0
-  if ! command -v pct >/dev/null; then
-    # SolarOS: drop the /mnt/storage bind mounts of the dataset (and its children).
-    awk -v m="$mnt" '$1 == m || index($1, m "/") == 1 {print $2}' /etc/fstab | sort -r | while read -r tgt; do
-      umount "$tgt" 2>/dev/null || true; echo "unmapped $tgt"; done
-    awk -v m="$mnt" '!($1 == m || index($1, m "/") == 1) || $3 != "none"' /etc/fstab >/etc/fstab.solardeck && mv /etc/fstab.solardeck /etc/fstab
-    return 0
-  fi
-  ct="$(pos_ct)"
-  while IFS=': ' read -r key src; do
-    src="${src%%,*}"
-    if [[ "$src" == "$mnt" || "$src" == "$mnt"/* ]]; then pct set "$ct" -delete "$key"; echo "unmapped $key"; fi
-  done < <(pct config "$ct" | grep -E '^mp[0-9]+:')
+  awk -v m="$mnt" '$1 == m || index($1, m "/") == 1 {print $2}' /etc/fstab | sort -r | while read -r tgt; do
+    umount "$tgt" 2>/dev/null || true; echo "unmapped $tgt"; done
+  awk -v m="$mnt" '!($1 == m || index($1, m "/") == 1) || $3 != "none"' /etc/fstab >/etc/fstab.solardeck && mv /etc/fstab.solardeck /etc/fstab
 }
 
-app_vmid() {
-  local vmid="${ARGS[1]:-}"
-  [[ "$vmid" =~ ^[0-9]+$ ]] || die "invalid vmid"
-  # Only containers created by the App Center can be touched.
-  pct config "$vmid" | grep -Eq "^tags:.*${PREFIX}-app" || die "container $vmid is not a SolarDeck app"
-  echo "$vmid"
-}
-
-# Guests created by the SolarDeck VM/LXC wizards carry this tag; only they get root-only options.
-guest_vmid() {
-  local vmid="${ARGS[1]:-}" kind="$1"
-  [[ "$vmid" =~ ^[0-9]+$ ]] || die "invalid vmid"
-  if [[ "$kind" == lxc ]]; then pct config "$vmid"; else qm config "$vmid"; fi | grep -Eq "^tags:.*${PREFIX}-guest" \
-    || die "guest $vmid was not created by SolarDeck"
-  echo "$vmid"
-}
+# Edition-specific commands and overrides (installed next to this helper as <prefix>-helper-edition).
+EDITION_FILE="$(dirname "$(readlink -f "$0")")/$(basename "$0")-edition"
+# shellcheck source=/dev/null
+[[ -r "$EDITION_FILE" ]] && . "$EDITION_FILE"
 
 case "$CMD" in
   zfs-list)
@@ -106,33 +87,17 @@ case "$CMD" in
     ;;
   zfs-destroy-dataset)
     ds="$(child_ds_arg)"
-    [[ "$ds" =~ /(vm|base|subvol|basevol)-[0-9]+- ]] && die "guest disks are managed by Proxmox, not here"
+    [[ "$ds" =~ /(vm|base|subvol|basevol)-[0-9]+- ]] && die "guest disks are managed by the hypervisor, not here"
     unmap_storage "$ds"
     if [[ "${ARGS[2]:-}" == recursive ]]; then zfs destroy -r "$ds"; else zfs destroy "$ds"; fi
     ;;
   storage-map)
-    # Bind-mount a dataset into the SolarDeck container at /mnt/storage/<dataset> (same layout as install.sh).
     ds="${ARGS[1]:-}"; [[ "$ds" =~ $DS_RE ]] || die "invalid dataset name"
     [[ "$(zfs get -H -o value type "$ds")" == filesystem ]] || die "not a filesystem dataset"
     [[ "$(zfs get -H -o value mounted "$ds")" == yes ]] || zfs mount "$ds"
     mnt="$(zfs get -H -o value mountpoint "$ds")"
     [[ "$mnt" == /* ]] || die "dataset has no mountpoint"
-    if ! command -v pct >/dev/null; then
-      # SolarOS: the backend runs on this host, so a bind mount (kept in fstab) is enough.
-      tgt="/mnt/storage/${ds}"
-      mkdir -p "$tgt"
-      mountpoint -q "$tgt" || mount --bind "$mnt" "$tgt"
-      grep -q "^${mnt} ${tgt} " /etc/fstab || echo "${mnt} ${tgt} none bind,nofail,x-systemd.requires=zfs-mount.service 0 0" >>/etc/fstab
-      echo "mapped ${tgt}"; exit 0
-    fi
-    ct="$(pos_ct)"
-    if pct config "$ct" | sed -n 's/^mp[0-9]*: \([^,]*\),.*/\1/p' | grep -Fxq "$mnt"; then echo "already mapped"; exit 0; fi
-    i=0; while pct config "$ct" | grep -q "^mp${i}:"; do i=$((i + 1)); done
-    zfs set acltype=posixacl xattr=sa "$ds"
-    # Unprivileged container root is uid/gid 100000 on the host; additive ACLs leave host ownership untouched.
-    setfacl -R -P -m u:100000:rwX,g:100000:rwX,d:u:100000:rwX,d:g:100000:rwX "$mnt"
-    pct set "$ct" "-mp${i}" "${mnt},mp=/mnt/storage/${ds}"
-    echo "mapped mp${i}"
+    map_storage "$ds" "$mnt"
     ;;
   zpool-scrub)
     pool="${ARGS[1]:-}"
@@ -164,71 +129,7 @@ case "$CMD" in
         --format=csv,noheader,nounits 2>/dev/null | sed 's/^/nvidia:/' || true
     fi
     ;;
-  app-configure)
-    vmid="$(app_vmid)"
-    for opt in "${ARGS[@]:2}"; do
-      case "$opt" in
-        storage)
-          # Reuse the bind mounts of the SolarDeck container, so apps see the same /mnt/storage layout.
-          src="$(pct list | awk -v p="$PREFIX" '$NF=="solardeck" || $NF==p {print $1; exit}')"
-          [[ -n "$src" ]] || die "SolarDeck container not found"
-          i=0
-          while read -r mp; do
-            [[ "$mp" == /* ]] || continue
-            pct set "$vmid" "-mp${i}" "$mp"
-            i=$((i + 1))
-          done < <(pct config "$src" | sed -n 's/^mp[0-9]*: //p')
-          echo "storage: $i mount(s)"
-          ;;
-        igpu)
-          i=0
-          for dev in /dev/dri/renderD* /dev/dri/card*; do
-            [[ -e "$dev" ]] || continue
-            pct set "$vmid" "-dev${i}" "${dev},mode=0666"
-            i=$((i + 1))
-          done
-          (( i )) || die "no /dev/dri devices on host"
-          echo "igpu: $i device(s)"
-          ;;
-        keyctl)
-          pct set "$vmid" -features nesting=1,keyctl=1
-          echo "features: nesting=1,keyctl=1"
-          ;;
-        *) die "unknown option $opt" ;;
-      esac
-    done
-    ;;
-  guest-hostpci)
-    # PCIe passthrough of raw host devices is root-only in PVE. Needs IOMMU enabled on the host.
-    vmid="$(guest_vmid qemu)"; i=0
-    for id in "${ARGS[@]:2}"; do
-      [[ "$id" =~ ^([0-9a-f]{4}:)?[0-9a-f]{2}:[0-9a-f]{2}(\.[0-7])?$ ]] || die "invalid PCI id $id"
-      qm set "$vmid" "-hostpci${i}" "${id},pcie=1" >/dev/null
-      echo "hostpci${i}: ${id}"
-      i=$((i + 1))
-    done
-    (( i )) || die "no PCI devices given"
-    ;;
-  guest-bindmount)
-    # Bind-mount a ZFS dataset into a wizard-created container at /mnt/storage/<dataset>.
-    vmid="$(guest_vmid lxc)"; ds="${ARGS[2]:-}"
-    [[ "$ds" =~ $DS_RE ]] || die "invalid dataset name"
-    [[ "$(zfs get -H -o value type "$ds")" == filesystem ]] || die "not a filesystem dataset"
-    [[ "$(zfs get -H -o value mounted "$ds")" == yes ]] || zfs mount "$ds"
-    mnt="$(zfs get -H -o value mountpoint "$ds")"
-    [[ "$mnt" == /* ]] || die "dataset has no mountpoint"
-    i=0; while pct config "$vmid" | grep -q "^mp${i}:"; do i=$((i + 1)); done
-    zfs set acltype=posixacl xattr=sa "$ds"
-    setfacl -R -P -m u:100000:rwX,g:100000:rwX,d:u:100000:rwX,d:g:100000:rwX "$mnt"
-    pct set "$vmid" "-mp${i}" "${mnt},mp=/mnt/storage/${ds}"
-    echo "mapped mp${i}"
-    ;;
-  app-provision)
-    vmid="$(app_vmid)"
-    # Install script arrives on stdin.
-    pct exec "$vmid" -- env DEBIAN_FRONTEND=noninteractive bash -s
-    ;;
   *)
-    die "unknown command"
+    if declare -F edition_command >/dev/null && edition_command; then :; else die "unknown command"; fi
     ;;
 esac

@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 # Build a bootable SolarOS installer ISO from an Ubuntu Server LTS live ISO (run on Linux).
 #   hypervisor/build-iso.sh [--source-iso ubuntu-24.04.x-live-server-amd64.iso] [--output dist/SolarOS-vX-amd64.iso]
-#                           [--auto-disk /dev/sda] [--deploy-to-pve] [--ubuntu-release 24.04] [--hostname solaros]
+#                           [--auto-disk /dev/sda] [--copy-to <dir>] [--ubuntu-release 24.04] [--hostname solaros]
 #                           [--password <console user password>]
 # Without --source-iso the latest official live-server ISO of --ubuntu-release is downloaded and SHA256-verified.
 # The default boot entry is an Ubuntu autoinstall that asks for the target disk (safe on bare metal); --auto-disk adds
 # a second, fully automatic entry that erases that disk (nested VM tests). The ISO embeds the SolarDeck source, the
 # built desktop (frontend/dist) and the backend's Python wheels; on first boot hypervisor/firstboot-setup.sh creates
 # br0, installs KVM/libvirt, Incus, OpenZFS, the tty1 console and SolarDeck (HYPERVISOR_DRIVER=native_ubuntu).
-# --deploy-to-pve copies the ISO to /var/lib/vz/template/iso/ (on a Proxmox VE host).
+# --copy-to <dir> also copies the finished ISO into that folder (for example a hypervisor's ISO library).
+# The bundle is the SolarOS edition tree (deploy/make-edition-tree.sh): nothing of other editions is embedded.
 # Needs: xorriso, curl, openssl (or mkpasswd), gzip; npm (Node 22) and python3-pip to bundle the desktop and wheels.
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="$(sed -n 's/^  "version": "\(.*\)",$/\1/p' "${ROOT}/frontend/package.json" | head -n1)"
-SOURCE_ISO="" OUTPUT="" RELEASE="24.04" HOSTNAME_="solaros" PASSWORD="" AUTO_DISK="" DEPLOY_PVE=""
-PVE_ISO_DIR="/var/lib/vz/template/iso"
+SOURCE_ISO="" OUTPUT="" RELEASE="24.04" HOSTNAME_="solaros" PASSWORD="" AUTO_DISK="" COPY_TO=""
 CACHE="${ROOT}/hypervisor/.cache"
 
 die() { echo "build-iso: $*" >&2; exit 1; }
@@ -27,7 +27,7 @@ while (($#)); do
     --hostname) HOSTNAME_="${2:?}"; shift 2 ;;
     --password) PASSWORD="${2:?}"; shift 2 ;;
     --auto-disk) AUTO_DISK="${2:?}"; shift 2 ;;
-    --deploy-to-pve) DEPLOY_PVE=1; shift ;;
+    --copy-to) COPY_TO="${2:?}"; shift 2 ;;
     -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "unknown option $1" ;;
   esac
@@ -35,7 +35,7 @@ done
 [[ "$HOSTNAME_" =~ ^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$ ]] || die "invalid --hostname"
 [[ "$RELEASE" =~ ^[0-9]{2}\.04$ ]] || die "invalid --ubuntu-release (e.g. 24.04)"
 [[ -z "$AUTO_DISK" || "$AUTO_DISK" =~ ^/dev/[a-z][a-z0-9/_-]*$ ]] || die "invalid --auto-disk (e.g. /dev/sda or /dev/vda)"
-[[ -z "$DEPLOY_PVE" || -d "$PVE_ISO_DIR" ]] || die "--deploy-to-pve: ${PVE_ISO_DIR} not found (run on a Proxmox VE host)"
+[[ -z "$COPY_TO" || -d "$COPY_TO" ]] || die "--copy-to: ${COPY_TO} is not a directory"
 OUTPUT="${OUTPUT:-${PWD}/dist/SolarOS-v${VERSION}-amd64.iso}"
 mkdir -p "$(dirname "$OUTPUT")"
 for bin in xorriso curl gzip; do command -v "$bin" >/dev/null || die "missing $bin (apt install xorriso curl git)"; done
@@ -100,10 +100,16 @@ else
   cp "${ROOT}/backend/data/app_catalog.json" "$WORK/src/backend/data/"
   cp "${ROOT}/.build-commit" "$WORK/src/.build-commit" 2>/dev/null || true
 fi
+if [[ -d "$WORK/src/deploy/editions" ]]; then
+  echo "==> Reducing the tree to the SolarOS edition"
+  bash "$WORK/src/deploy/make-edition-tree.sh" solaros "$WORK/src" "$WORK/edition" || die "the SolarOS tree check failed"
+  cp "$WORK/src/.build-commit" "$WORK/edition/" 2>/dev/null || true
+  rm -rf "$WORK/src" && mv "$WORK/edition" "$WORK/src"
+fi
 # Each piece is optional: what is missing here is fetched on first boot instead (needs internet there).
 if command -v npm >/dev/null && node -v 2>/dev/null | grep -Eq '^v(2[2-9]|[3-9][0-9])\.'; then
   echo "==> Building the desktop (frontend/dist)"
-  (cd "$WORK/src/frontend" && npm ci --no-audit --no-fund --loglevel=error && npm run build >/dev/null) || die "desktop build failed"
+  (cd "$WORK/src/frontend" && npm ci --no-audit --no-fund --loglevel=error && VITE_EDITION=solaros npm run build >/dev/null) || die "desktop build failed"
   rm -rf "$WORK/src/frontend/node_modules"
 else
   echo "    note: Node.js 22+ not found; the desktop is built on first boot (needs internet)"
@@ -158,8 +164,10 @@ echo "SolarOS installer ISO: ${OUTPUT} ($(du -h "$OUTPUT" | cut -f1))"
 echo "  Console user: solardeck / ${PASSWORD}$([[ -n "${GENERATED:-}" ]] && echo "  (generated; keep it)")"
 echo "  Web UI admin password: generated on first boot, shown on the server's console (tty1)."
 echo "  SHA-256: $(sha256sum "$OUTPUT" | cut -d' ' -f1)"
-if [[ -n "$DEPLOY_PVE" ]]; then
-  cp "$OUTPUT" "${PVE_ISO_DIR}/$(basename "$OUTPUT")"
-  echo "  Copied to ${PVE_ISO_DIR}/$(basename "$OUTPUT")"
-  echo "  Test it in a nested VM: bash ${ROOT}/hypervisor/test-in-proxmox-vm.sh --iso ${PVE_ISO_DIR}/$(basename "$OUTPUT")"
+if [[ -n "$COPY_TO" ]]; then
+  cp "$OUTPUT" "${COPY_TO%/}/$(basename "$OUTPUT")"
+  echo "  Copied to ${COPY_TO%/}/$(basename "$OUTPUT")"
+  for t in "${ROOT}"/hypervisor/test-in-*-vm.sh; do
+    [[ -f "$t" ]] && echo "  Test it in a nested VM: bash ${t} --iso ${COPY_TO%/}/$(basename "$OUTPUT")"
+  done
 fi

@@ -19,7 +19,7 @@ APP_DIR="${1:?app dir}"; REPO_URL="${2:?repo url}"; BRANCH="${3:?branch}"; TARGE
 export DEBIAN_FRONTEND=noninteractive
 cd "$APP_DIR"
 DRIVER="$(sed -n 's/^HYPERVISOR_DRIVER=//p' backend/.env 2>/dev/null | tail -n1 | tr -d "'\"" || true)"
-DRIVER="${DRIVER:-proxmox}"
+[[ -n "$DRIVER" || ! -f deploy/env-defaults-legacy ]] || DRIVER="$(sed -n 's/^HYPERVISOR_DRIVER=//p' deploy/env-defaults-legacy)"
 PREFIX="$(sed -n 's/^SYSTEM_PREFIX=//p' backend/.env 2>/dev/null | tail -n1 | tr -d "'\"" || true)"
 # Not in .env yet (first update to a release with SYSTEM_PREFIX): the edition default shipped with the code.
 [[ -n "$PREFIX" || ! -f "deploy/env-defaults-${DRIVER}" ]] || PREFIX="$(sed -n 's/^SYSTEM_PREFIX=//p' "deploy/env-defaults-${DRIVER}")"
@@ -48,7 +48,10 @@ if [[ ! -d .git ]]; then
   git remote add origin "$REPO_URL"
 fi
 SHALLOW=(); [[ -f .git/shallow ]] && SHALLOW=(--unshallow)
-git fetch -q --tags --force "${SHALLOW[@]}" origin "+refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}"
+# main carries every release tag; an edition release branch (e.g. solaros) only its own <branch>-* tags, so nothing
+# outside that branch is downloaded.
+if [[ "$BRANCH" == main ]]; then TAG_OPT=(--tags); TAG_REF=(); else TAG_OPT=(--no-tags); TAG_REF=("+refs/tags/${BRANCH}-*:refs/tags/${BRANCH}-*"); fi
+git fetch -q --force "${TAG_OPT[@]}" "${SHALLOW[@]}" origin "+refs/heads/${BRANCH}:refs/remotes/origin/${BRANCH}" "${TAG_REF[@]}"
 TARGET="${TARGET:-$(git rev-parse "origin/${BRANCH}")}"
 # -f: a deploy.sh install has files that differ from HEAD; untracked state (.env, data/) is never touched.
 git -c advice.detachedHead=false checkout -q -f -B "$BRANCH" "$TARGET"
@@ -79,7 +82,8 @@ echo "==> Syncing backend dependencies"
 backend/.venv/bin/pip install -q -r backend/requirements.txt
 
 echo "==> Building frontend"
-(cd frontend && npm ci --no-audit --no-fund --loglevel=error && npm run build >/dev/null)
+EDITION=""; [[ "$DRIVER" == native_ubuntu ]] && EDITION=solaros
+(cd frontend && npm ci --no-audit --no-fund --loglevel=error && VITE_EDITION="$EDITION" npm run build >/dev/null)
 
 echo "==> Reloading services"
 # New-name alias for the legacy install dir; the real path stays put so existing units and mounts keep working.
