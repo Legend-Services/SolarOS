@@ -481,7 +481,7 @@ def apply_script(snapshot: list[str], reload_cmd: str) -> str:
     """Snapshot the config, write the restore script and arm the rollback timer (one host command)."""
     paths = " ".join(shlex.quote(p) for p in snapshot)
     restore = (f"#!/bin/bash\nfor p in {paths}; do rm -rf \"$p\"; [ -e \"{ROLLBACK_DIR}/files$p\" ] && cp -a "
-               f"\"{ROLLBACK_DIR}/files$p\" \"$p\"; done\n{reload_cmd}\nbash {SWITCH_SH} || true\n"
+               f"\"{ROLLBACK_DIR}/files$p\" \"$p\"; done\n{reload_cmd}\n[ -e {SWITCH_SH} ] && bash {SWITCH_SH}; true\n"
                f"rm -f {ROLLBACK_DIR}/deadline\n")
     return (f"set -e\nif systemctl is-active -q {ROLLBACK_UNIT}.timer; then echo 'A network change is still waiting for "
             f"confirmation' >&2; exit 3; fi\nrm -rf {ROLLBACK_DIR} && mkdir -p {ROLLBACK_DIR}/files\n"
@@ -497,6 +497,7 @@ SWITCH_SERVICE = f"""[Unit]
 Description=SolarDeck virtual switch (VLAN filtering, NAT switches)
 After=network-online.target
 Wants=network-online.target
+ConditionPathExists={SWITCH_SH}
 
 [Service]
 Type=oneshot
@@ -506,6 +507,13 @@ ExecStart=/bin/bash {SWITCH_SH}
 [Install]
 WantedBy=multi-user.target
 """
+
+
+def file_mode(path: str) -> str:
+    """resolv.conf and interfaces must stay world-readable (apt resolves as an unprivileged user); Netplan wants 0600."""
+    if path == SWITCH_SH:
+        return "700"
+    return "600" if path.startswith(("/etc/netplan/", STATE_DIR)) else "644"
 
 
 async def apply_model(model: dict[str, dict]) -> dict:
@@ -524,7 +532,7 @@ async def apply_model(model: dict[str, dict]) -> dict:
             if content is None:
                 await host_ssh.run(f"rm -f {shlex.quote(path)}")
             else:
-                await host_ssh.write_file(path, content, "700" if path == SWITCH_SH else "600")
+                await host_ssh.write_file(path, content, file_mode(path))
         await host_ssh.write_file(f"/etc/systemd/system/{SWITCH_UNIT}.service", SWITCH_SERVICE)
         await host_ssh.run(f"rm -f {STAGED}; systemctl daemon-reload; systemctl enable -q {SWITCH_UNIT} || true; "
                            f"systemctl reset-failed {APPLY_UNIT} 2>/dev/null; "

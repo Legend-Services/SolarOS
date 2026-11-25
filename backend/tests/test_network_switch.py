@@ -109,6 +109,10 @@ sh = ns.render_switch_script(nat, "")
 assert "ip saddr 10.10.10.0/24 oifname != \"br2\" masquerade" in sh and sh.endswith("exit 0\n")
 assert "masquerade" not in ns.render_switch_script(m, "")
 
+# Applied files keep sane modes: resolv.conf readable by apt's sandbox user, Netplan private.
+assert ns.file_mode("/etc/resolv.conf") == "644" and ns.file_mode("/etc/netplan/60-x.yaml") == "600"
+assert ns.file_mode(ns.SWITCH_SH) == "700" and ns.file_mode(ns.META) == "600"
+
 # Apply script: snapshot, restore script and a 60-second rollback timer.
 a = ns.apply_script(["/etc/netplan"], "netplan apply")
 assert "--on-active=60" in a and "cp -a --parents" in a and "netplan apply" in a and "exit 3" in a
