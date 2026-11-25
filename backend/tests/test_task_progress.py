@@ -29,6 +29,9 @@ for name, script in [*h.SCRIPTS.items(), ("mode", h.mode_script(h.vfio_files(["1
 for name, script in h.SCRIPTS.items():
     assert "update-initramfs -u -k \"$K\" || echo" in script and "\nupdate-initramfs -u\n" not in script, name
 assert "\nupdate-initramfs -u -k all\n" in h.mode_script(h.vfio_files([], set()))
+# NVIDIA: skip the installer when the latest driver already runs; unload an older loaded module before installing.
+nv = h.SCRIPTS["nvidia-install"]
+assert nv.index('if [ "$CUR" = "$VER" ]') < nv.index("rmmod \"$m\"") < nv.index('sh "$RUN" --silent --dkms'), "unload before install"
 
 # apt: lists → download → unpack/configure → triggers; failures surface the apt error line.
 apt = ["Hit:1 http://deb.debian.org/debian trixie InRelease", "Reading package lists..."]

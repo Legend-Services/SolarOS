@@ -20,6 +20,7 @@
 - The wallpaper layer is fixed under everything (`position: fixed; inset: 0; z-index: 0; pointer-events: none; contain: strict`), and `html`, `body` and the app root use the theme's base color, so a compositor tile dropped on a large display shows that color instead of a white or black flash.
 - Glass cards inside an already blurred window or dialog no longer add a second backdrop blur.
 - **GPU driver installs no longer fail at the very end:** after the drivers and container toolkit are installed, a warning from `update-initramfs` or `lsinitramfs` is reported in the log instead of failing the job. The initramfs check now reads the running kernel's image (`/boot/initrd.img-$(uname -r)`). A vfio-pci mode switch still fails when the initramfs cannot be rebuilt, because that rebuild is the change itself.
+- **NVIDIA driver updates no longer abort after the installer's initramfs scan:** the official installer refuses to continue while an older `nvidia` module is loaded. The install now skips the installer when the latest driver already runs, otherwise stops `nvidia-persistenced` and unloads the old modules first; when a guest still uses the GPU it stops with a clear message (stop the guests that use the GPU, such as Local AI Studio, then install again) instead of the installer's abort.
 
 ## v2.11.0 - Themed Generative Wallpapers, Server-Name Branding & Flicker-Free Desktop — 2026-11-26
 
