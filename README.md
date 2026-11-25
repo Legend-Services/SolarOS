@@ -116,12 +116,24 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/
 | 🗂️ **Files, shares & backups** | A file browser, SMB shares for your network, and a Backup Center to back up and restore guests. |
 | 🛒 **App Center** | One click for Jellyfin, Docker + Portainer, AdGuard Home, Nginx Proxy Manager, Immich and more. |
 | 🧠 **Local AI** | Ollama + Open WebUI on your own GPU (NVIDIA, Intel, AMD) or CPU, with a model library that tells you what fits. |
+| 🔌 **Visual virtual switch** | Every virtual switch as a rack faceplate: drag ports onto color-coded VLANs, add virtual network cards in two clicks, set host IPs safely and run a DHCP server per VLAN. |
 | 🌐 **Network & VPN** | A live network map, DNS with ad blocking, DHCP, WireGuard VPN with QR codes, port forwarding and Let's Encrypt. |
 | 🔔 **Alerts & automation** | "When the GPU gets hot, tell me on Telegram" style rules, without writing code. |
 | 🎨 **Make it yours** | 11 themes in dark and light, custom wallpapers, and a theme creator. |
 | 🌍 **Five languages** | English, Nederlands, Deutsch, Español and Français. |
 | 🛟 **Help built in** | Guided wizards, health checks with "Fix it for me", BIOS guides and a bug reporter. |
 | 🔐 **Secure by design** | Two-factor sign-in, confirmation before destructive actions, encrypted secrets, a tamper-evident audit log and a security score with 1-click host hardening. |
+
+## Visual Virtual Switch, VLANs & Per-VLAN DHCP
+
+Open **Settings → Network & Services → Network & Virtual Switch**:
+
+- **Switch faceplates.** Each virtual switch shows its physical ports (link LED, speed badge) and the virtual ports of its VMs, containers and host NICs. A port's colored ring is its VLAN; a striped ring is a trunk.
+- **Drag and drop VLANs.** Drag a port onto a VLAN card to make it an access port on that VLAN, onto **Trunk Port** to tick the VLANs it carries, or onto **Unplug**. Animated patch cables show which port sits on which VLAN. Click a port for a plain-English inspector with the same actions. Switches become VLAN-aware by themselves when a VLAN needs it.
+- **Virtual NICs.** Add a network card to any VM or container (switch, VLAN, adapter model, MAC), or a host VLAN interface / dummy NIC; edit bandwidth limits and plug or unplug the virtual cable.
+- **IP configurator.** Static or DHCP addresses, gateway, DNS, MTU and autostart for switches, ports and VLAN interfaces; bridged, NAT and isolated switches.
+- **Safe by default.** Host changes are staged first. **Apply safely** snapshots the network config, reloads it and starts a 60-second countdown on the host: confirm to keep the new settings, or they are restored by themselves, even when the change cut off the browser.
+- **DHCP per VLAN.** Flip one switch to run an isolated DHCP server on a VLAN, bound only to that VLAN's interface (created with the gateway IP when missing). See live leases and pin any device to a static address with one click.
 
 ## Security by Design & Hardening
 

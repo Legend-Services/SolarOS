@@ -448,3 +448,8 @@ class HypervisorProvider(ABC):
 
     async def remove_host_certificate(self) -> None:
         raise self.not_available()
+
+    def switch_driver(self):
+        """The driver's network_switch module for the Visual Virtual Switch (app.network_switch documents the
+        contract): host network config read/render, reload command and guest NIC handlers. None = not supported."""
+        return None

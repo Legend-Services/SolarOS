@@ -25,6 +25,7 @@ import AutomationPanel from "./AutomationPanel";
 import LocalAiApp from "./LocalAiApp";
 import HypervisorDefaultsPanel from "./settings/HypervisorDefaultsPanel";
 import SystemServicesPanel from "./settings/SystemServicesPanel";
+import VisualSwitchStudio from "../components/network/VisualSwitchStudio";
 
 const pad = (n: ReactNode) => <div className="h-full space-y-4 overflow-auto p-4">{n}</div>;
 
@@ -92,7 +93,14 @@ function ModuleBody({ id }: { id: ModuleId }) {
     case "audit-logs":
       return <Views views={[["set.view.audit", pad(<AuditLogCard />)], ["set.view.hostLogs", <DatacenterApp initialTab="logs" />]]} />;
     case "network-switch":
-      return pad(<WithSystemInfo>{(info) => <NetworkSection info={info} />}</WithSystemInfo>);
+      return (
+        <Views
+          views={[
+            ["set.view.vswitch", <VisualSwitchStudio />],
+            ["set.view.hostNet", pad(<WithSystemInfo>{(info) => <NetworkSection info={info} />}</WithSystemInfo>)],
+          ]}
+        />
+      );
     case "network-topology":
       return <NetworkServicesApp />;
     case "firewall-forwarding":

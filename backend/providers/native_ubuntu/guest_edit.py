@@ -85,6 +85,8 @@ def nic_element(b: NetBody, old_mac: str | None = None) -> ET.Element:
     if mac:
         ET.SubElement(el, "mac", address=mac.lower())
     ET.SubElement(el, "model", type=b.model)
+    if b.link_down:
+        ET.SubElement(el, "link", state="down")
     if b.rate:
         kib = str(int(b.rate * 1024))  # MB/s -> KiB/s
         bw = ET.SubElement(el, "bandwidth")
@@ -285,6 +287,7 @@ def lxc_nets(inst: dict) -> list[dict]:
                     "ip": dev.get("ipv4.address") or "dhcp", "gw": None, "ip6": None, "gw6": None,
                     "bridge": dev.get("parent") or dev.get("network") or "",
                     "tag": int(dev["vlan"]) if str(dev.get("vlan", "")).isdigit() else None, "firewall": False,
+                    "trunks": str(dev.get("vlan.tagged") or "").replace(",", ";") or None,
                     "rate": round(float(rate.group(1)) / 8, 2) if rate else None})
     return sorted(out, key=lambda n: n["index"])
 
@@ -299,6 +302,7 @@ def vlan_filtering(bridge: str) -> bool:
 def lxc_nic_args(idx: int, b: NetBody) -> list[str]:
     return [f"eth{idx}", "nic", "nictype=bridged", f"parent={_bridge(b.bridge)}", f"name={b.name or f'eth{idx}'}",
             *([f"hwaddr={b.macaddr.lower()}"] if b.macaddr else []), *([f"vlan={b.tag}"] if b.tag else []),
+            *([f"vlan.tagged={b.trunks.replace(';', ',')}"] if b.trunks else []),
             *([f"limits.max={b.rate * 8:g}Mbit"] if b.rate else [])]
 
 
@@ -410,14 +414,16 @@ async def delete_usb(vmid: VMID, idx: int = Path(ge=0, le=4)):
 async def set_net(guest_type: GuestType, vmid: VMID, body: NetBody, idx: int = Path(ge=0, le=7)):
     name = host.name_of(vmid, guest_type)
     if guest_type == "qemu":
-        if body.tag:
+        if body.tag or body.trunks:
             # libvirt only tags VLANs on Open vSwitch; on a Linux bridge the VM would refuse to start.
             raise HTTPException(400, "VLAN tags on VMs need a VLAN bridge on SolarOS: create one (e.g. br0.10) and pick it as the bridge")
         await host.define(set_interface(await _xml(name), idx, body))
         return {"ok": True}
     if body.ip not in (None, "dhcp"):
         raise HTTPException(400, "On SolarOS a container's static address is set inside the container (or at creation)")
-    if body.tag and not vlan_filtering(_bridge(body.bridge)):
+    if body.link_down:
+        raise HTTPException(400, "On SolarOS a container's network card cannot be unplugged; remove it instead")
+    if (body.tag or body.trunks) and not vlan_filtering(_bridge(body.bridge)):
         raise HTTPException(400, f"Bridge {_bridge(body.bridge)} has no VLAN filtering: pick a VLAN bridge (e.g. br0.10) instead of a tag")
     inst = await _inst(name)
     old = (inst.get("devices") or {}).get(f"eth{idx}")

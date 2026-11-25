@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.7.0 - Visual Virtual Switch, Drag-and-Drop VLANs, Virtual NICs & Per-VLAN DHCP — 2026-11-25
+
+### Added
+- **Visual Switch** in Settings → Network & Services → Network & Virtual Switch (the previous host interface view is the **Host Interfaces** tab next to it). Every virtual switch renders as a rack faceplate with its IP address, a **VLAN-Aware** badge, **Edit IP / Switch** and **+ Add Virtual NIC**; physical ports on the left, VM, container and host virtual ports on the right. Each port jack has a link LED with speed badge, a ring in its VLAN color (striped for a trunk) and a readable label such as `Port 1 · enp3s0 (Uplink)` or `VM 101 · lab (net0)`.
+- **Drag-and-drop VLAN patch panel:** color-coded VLAN cards (with templates and a color picker), a **Trunk Port · Carry Multiple VLANs** zone, an **Unplug** zone and animated patch cables from every port to its VLANs. Clicking a port opens a Port Inspector that explains access and trunk ports in plain words and offers the same actions. All of it goes through one endpoint, `POST /api/network/switch/assign-port`, which makes the switch VLAN-aware when needed and sets the port's untagged / tagged VLANs or the guest NIC's VLAN tag and trunks.
+- **Virtual switches and IP settings:** create, edit and delete switches (bridged, NAT or isolated; VLAN-aware; MTU; autostart; member ports) and set static / DHCP addresses, gateway, IPv6, DNS, MTU and autostart on switches, ports and VLAN interfaces. The default switch and the one carrying the host's gateway cannot be deleted.
+- **Virtual NICs:** add, edit and remove guest network cards (switch, VLAN tag, trunk VLANs, adapter model, MAC, bandwidth limit, cable plugged / unplugged) and host VLAN interfaces or dummy NICs.
+- **60-second rollback guard:** host network edits are staged first (an **Apply safely** bar). Applying snapshots the network configuration, reloads it from a transient unit on the host and arms a host-side 60-second timer; the banner counts down with **Keep Settings** and **Revert Now**. Without a confirmation the previous configuration comes back by itself, so a wrong address cannot lock you out.
+- **DHCP server per VLAN:** one switch per VLAN card runs an isolated DHCP server (DHCP only, bound to `<switch>.<vlan>`), creating the VLAN's gateway interface when it is missing. Gateway, subnet, range (with a visual range bar), DNS servers, lease time and static reservations; live leases with **Pin Static IP**. Offers to install the DHCP server software when it is missing (the system-wide instance stays disabled).
+- API: `GET /api/network/switch/state`, `POST|PUT|DELETE /api/network/switch/bridges[/{name}]`, `PUT /api/network/switch/interfaces/{name}`, `POST /api/network/switch/{apply|confirm|revert|discard}`, `POST|DELETE /api/network/switch/vnics/host[/{name}]`, `POST|PUT|DELETE /api/network/switch/vnics/guest[/{type}/{id}/{net}]`, `POST|PUT|DELETE /api/network/switch/vlans[/{id}]`, `POST /api/network/switch/assign-port`, `PUT /api/network/switch/vlans/{id}/dhcp`, `GET /api/network/switch/vlans/{id}/leases`. Network applies and DHCP changes are recorded in the audit log.
+- All new texts in English, Nederlands, Deutsch, Español and Français.
+
+### Changed
+- Guest network cards understand trunk VLANs and the unplugged-cable state on both editions where the platform supports them (VM trunks and VLAN tags on SolarOS still need a VLAN bridge; containers take both).
+
+### Notes
+- On SolarDeck for Proxmox VE the switch edits `/etc/network/interfaces` (options it does not manage are kept) and reloads with `ifreload -a`. On SolarOS it writes the merged Netplan configuration to SolarOS's own Netplan file (other Netplan files are parked, and restored by a rollback) and applies the port VLAN settings Netplan cannot express from a small boot-time service.
+
 ## v2.6.1 - SolarOS Release Branch Fix — 2026-11-25
 
 ### Fixed

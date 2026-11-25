@@ -329,6 +329,10 @@ class ProxmoxProvider(HypervisorProvider):
     async def close(self) -> None:
         await api.close_client()
 
+    def switch_driver(self):
+        from . import network_switch
+        return network_switch
+
     def host_address(self) -> str:
         return api.pve_settings.hostname
 
