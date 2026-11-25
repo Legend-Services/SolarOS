@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 import type { AiHardware, CatalogApp, Deployment } from "../lib/types";
-import { TaskLog } from "../components/TaskCenterPopover";
+import { TaskLog } from "../components/TaskCenter";
 import { ViewToggle } from "../components/ViewOptions";
 import { useAppView } from "../store/layoutStore";
 

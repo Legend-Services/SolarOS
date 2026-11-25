@@ -374,7 +374,7 @@ const VERSIONS = [
 ].map(([h, tag, subject, d], i) => ({ hash: h.padEnd(40, "0"), short_hash: h, tag, date: new Date((T0 - d * 86400) * 1000).toISOString(), subject, is_current: i === 0 }));
 const UPDATE_STATUS = {
   git: true, commit: "c1ecf74", tag: "v2.7.1", branch: "main", remote: "origin", version: "2.7.1", driver: "native_ubuntu", edition: "solaros", service: "solardeck",
-  supports_system_packages: true, remote_commit: "c1ecf74", remote_tag: "v2.7.1", update_available: false, incoming: [], settings: UPDATE_SETTINGS, running: false, exit_code: null, log: [],
+  supports_system_packages: true, remote_commit: "c1ecf74", remote_tag: "v2.7.1", update_available: false, incoming: [], settings: UPDATE_SETTINGS, running: false, exit_code: null, log: [], logs: [],
 };
 const REPOS = {
   digest: "4be1c0de",
@@ -555,7 +555,7 @@ const EXACT = {
   "/auth/2fa/status": () => ({ enabled: true, recovery_codes_left: 8 }),
   "/auth/sessions": () => SESSIONS,
   "/system/capabilities": () => ({ supports_clustering: false, supports_lxc: true, supports_qemu: true, supports_zfs: true, supports_gpu_passthrough: true, supports_bios_manager: true, supports_rbac_realms: true, supports_apt_repos: true, supports_host_shell: true, default_bridge: "br0" }),
-  "/system/preferences": () => ({ wizard: { welcomeAuto: false }, widgets: { visible: true } }),
+  "/system/preferences": () => ({ wizard: { welcomeAuto: false }, widgets: { visible: true }, layout: { hideSearchIntroBalloon: true } }),
   "/system/themes": () => ({ themes: [] }),
   "/system/app-usage": () => ({ files: { launch_count: 14, last_opened_at: "2025-11-24T18:10:00Z" }, compute: { launch_count: 22, last_opened_at: "2025-11-24T20:31:00Z" }, settings: { launch_count: 9, last_opened_at: "2025-11-24T21:02:00Z" } }),
   "/system/info": () => SYSTEM_INFO,

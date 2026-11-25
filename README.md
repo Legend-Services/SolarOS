@@ -183,6 +183,11 @@ The complete illustrated manual (every app, every Settings category, sub-module 
 instructions) is in **[docs/README.md](docs/README.md)**. The same articles are built into the desktop under
 **Help & Support → Manual**, and the TopBar search (**⌘K / Ctrl+K**) finds apps, settings and help in one place.
 
+The status icons in the top bar (or the taskbar tray) are yours to arrange: right-click the bar and choose
+**Customize Bar & Tray...** (or open **Settings → System → General & Appearance → Top Bar & Taskbar Tray**) to reorder
+them by dragging, hide the ones you do not need and choose how many stay on the bar; the rest wait behind a small
+chevron. Notifications and the Task Center share the bell icon.
+
 ## Updating
 
 Open **Settings → Software & Repositories** and click **Install Update Now**. A progress bar shows each step, and the

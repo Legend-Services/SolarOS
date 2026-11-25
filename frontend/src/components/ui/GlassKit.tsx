@@ -66,6 +66,21 @@ export function GlassSwitch({
   );
 }
 
+/** Liquid Glass checkbox: a native input (keyboard + screen readers) styled as a small frosted square. */
+export function GlassCheckbox({ checked, onChange, label, className = "" }: { checked: boolean; onChange: (v: boolean) => void; label: ReactNode; className?: string }) {
+  return (
+    <label className={`inline-flex cursor-pointer items-center gap-1.5 text-[11px] text-slate-300 select-none ${className}`}>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-3.5 w-3.5 cursor-pointer appearance-none rounded border border-white/25 bg-white/10 transition checked:border-sky-300/70 checked:bg-sky-400/80 checked:bg-[url('data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2016%2016%22%3E%3Cpath%20d=%22M4%208.5l2.5%202.5L12%205.5%22%20fill=%22none%22%20stroke=%22white%22%20stroke-width=%222%22/%3E%3C/svg%3E')] focus-visible:ring-2 focus-visible:ring-sky-300/60 focus-visible:outline-none"
+      />
+      {label}
+    </label>
+  );
+}
+
 export function GlassInput({ className = "", ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={`glass-field ${className}`} {...rest} />;
 }

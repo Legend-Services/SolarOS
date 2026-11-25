@@ -12,13 +12,25 @@ with tempfile.TemporaryDirectory() as d:
     assert system.get_preferences() == {}
     prefs = {"layout": {"desktopView": "list", "iconSize": 64}, "wizard": {"welcomeAuto": False}}
     placement = {"desktopAlignment": "left", "desktopVerticalAlign": "top", "desktopMaxColumns": "auto",
-                 "showDesktopIcons": False, "gallerySortMode": "custom", "galleryAppOrder": []}
+                 "showDesktopIcons": False, "gallerySortMode": "custom", "galleryAppOrder": [],
+                 "trayItemOrder": list(system.TRAY_ITEMS), "hiddenTrayItems": [], "maxVisibleTrayItems": 6,
+                 "taskbarClockSide": "right", "hideSearchIntroBalloon": False}
     stored = {**prefs, "layout": {**prefs["layout"], **placement}}  # older clients omit placement: defaults filled in
     assert system.put_preferences(prefs) == stored
     assert system.get_preferences() == stored
     centered = {"layout": {"desktopAlignment": "center", "desktopVerticalAlign": "middle", "desktopMaxColumns": 6}}
     assert system.put_preferences(centered)["layout"]["desktopMaxColumns"] == 6
     assert system.get_preferences()["layout"]["desktopAlignment"] == "center"
+    tray = {"trayItemOrder": ["notifications", "cpu"], "hiddenTrayItems": ["help"], "maxVisibleTrayItems": 12,
+            "taskbarClockSide": "left", "hideSearchIntroBalloon": True}
+    system.put_preferences({"layout": tray})
+    assert {k: system.get_preferences()["layout"][k] for k in tray} == tray
+    for bad in ({"maxVisibleTrayItems": 1}, {"maxVisibleTrayItems": 13}, {"trayItemOrder": ["bogus"]}, {"taskbarClockSide": "top"}):
+        try:
+            system.put_preferences({"layout": bad})
+            raise AssertionError(f"invalid tray layout accepted: {bad}")
+        except HTTPException as e:
+            assert e.status_code == 422
     for bad in ({"desktopAlignment": "right"}, {"desktopMaxColumns": 9}, {"desktopMaxColumns": "6"}, {"desktopVerticalAlign": 1}):
         try:
             system.put_preferences({"layout": bad})

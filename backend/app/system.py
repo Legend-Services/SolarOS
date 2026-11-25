@@ -79,6 +79,10 @@ PREFS_MAX_BYTES = 64 * 1024
 AppIdStr = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9-]{0,31}$")]
 
 
+TRAY_ITEMS = ("cpu", "ram", "storage", "terminal", "app-gallery", "language", "color-mode", "theme", "help", "updates", "notifications")
+TrayItem = Literal[TRAY_ITEMS]
+
+
 class LayoutPrefs(BaseModel):
     """Desktop layout block. Only the placement fields are typed; the other keys (icon size, gaps, views) pass through."""
 
@@ -90,6 +94,12 @@ class LayoutPrefs(BaseModel):
     showDesktopIcons: bool = False
     gallerySortMode: Literal["custom", "most-used", "alpha-asc", "alpha-desc", "recent"] = "custom"
     galleryAppOrder: Annotated[list[AppIdStr], Field(max_length=64)] = []
+    # Top bar / taskbar tray: order, hidden items, how many sit on the bar (the rest go behind the overflow chevron).
+    trayItemOrder: Annotated[list[TrayItem], Field(max_length=32)] = list(TRAY_ITEMS)
+    hiddenTrayItems: Annotated[list[TrayItem], Field(max_length=32)] = []
+    maxVisibleTrayItems: Annotated[int, Field(ge=2, le=12, strict=True)] = 6
+    taskbarClockSide: Literal["right", "left"] = "right"
+    hideSearchIntroBalloon: bool = False
 
 
 ThemeId = Annotated[str, Field(pattern=r"^[a-z0-9][a-z0-9-]{1,62}$")]
