@@ -14,7 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from . import host, host_ssh
-from .auth import require_user
+from .auth import require_step_up_auth, require_user
 from .config import settings
 from .hardware_admin import split_sections
 from .hypervisor import DATASET_RE, zfs_helper
@@ -309,7 +309,7 @@ async def dataset_map(name: str = Query(pattern=DATASET_RE, max_length=200)):
     return {"ok": True, "output": await host.run(["storage-map", name], timeout=600), "path": f"/{name}"}
 
 
-@router.delete("/zfs/datasets")
+@router.delete("/zfs/datasets", dependencies=[Depends(require_step_up_auth)])
 async def dataset_destroy(name: str = Query(pattern=CHILD_DATASET_RE, max_length=200),
                           confirm: str = Query(max_length=200), recursive: bool = False):
     if confirm != name:
@@ -393,7 +393,7 @@ class MemberBody(BaseModel):
     expand: bool = False  # online -e: grow onto a larger replacement disk
 
 
-@router.post("/zfs/pools/{pool}/members/offline")
+@router.post("/zfs/pools/{pool}/members/offline", dependencies=[Depends(require_step_up_auth)])
 async def member_offline(pool: str, body: MemberBody):
     rows, _, m = await _member(pool, body.device)
     if problem := offline_problem(rows, pool, m):
@@ -409,7 +409,7 @@ async def member_online(pool: str, body: MemberBody):
     return {"ok": True}
 
 
-@router.post("/zfs/pools/{pool}/members/detach")
+@router.post("/zfs/pools/{pool}/members/detach", dependencies=[Depends(require_step_up_auth)])
 async def member_detach(pool: str, body: MemberBody):
     _, _, m = await _member(pool, body.device)
     if vdev_kind(m["parent"] or "") not in ("mirror", "replacing", "spare"):

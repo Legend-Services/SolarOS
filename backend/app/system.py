@@ -6,7 +6,7 @@ import secrets
 from pathlib import Path
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from . import config, host
@@ -59,8 +59,9 @@ def write_env(path: Path, key: str, value: str) -> None:
 
 
 @router.post("/password")
-async def change_password(body: PasswordBody):
-    from . import accounts
+async def change_password(body: PasswordBody, request: Request):
+    from . import accounts, sessions
+    from .auth import current_session, load_security, save_security
     from providers.registry import get_provider
 
     if not accounts.verify_admin(settings.admin_username, body.current_password):
@@ -69,7 +70,9 @@ async def change_password(body: PasswordBody):
     # The host account of the same name (if the platform has one) gets the same password; first, so a failure changes nothing.
     await get_provider().set_host_admin(settings.admin_username, body.new_password)
     accounts.set_admin(settings.admin_username, body.new_password)
-    return {"ok": True}
+    save_security({**load_security(), "weak_password": False})
+    # A new password signs out every other device.
+    return {"ok": True, "revoked_sessions": sessions.revoke_all(keep=current_session(request)["jti"])}
 
 
 PREFS_MAX_BYTES = 64 * 1024

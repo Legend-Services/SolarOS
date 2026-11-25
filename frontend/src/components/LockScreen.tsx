@@ -11,12 +11,15 @@ export default function LockScreen({ visible, checking }: { visible: boolean; ch
   const { t, language } = useTranslation();
   const now = useClock();
   const login = useAuth((s) => s.login);
+  const login2fa = useAuth((s) => s.login2fa);
   const lockedUser = useAuth((s) => s.username);
   const [node, setNode] = useState<string>("");
   const [username, setUsername] = useState(lockedUser ?? "admin");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
-  const [needOtp, setNeedOtp] = useState(false);
+  // Set after the password checked out on an account with 2FA: the second step uses this challenge token.
+  const [challenge, setChallenge] = useState<string | null>(null);
+  const [useRecovery, setUseRecovery] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   // First-run setup: no administrator yet (null = not known yet).
@@ -42,7 +45,7 @@ export default function LockScreen({ visible, checking }: { visible: boolean; ch
   }, []);
 
   useEffect(() => {
-    if (visible) (setPassword(""), setOtp(""), setNeedOtp(false));
+    if (visible) (setPassword(""), setOtp(""), setChallenge(null), setUseRecovery(false));
     if (lockedUser) setUsername(lockedUser);
   }, [visible, lockedUser]);
 
@@ -51,15 +54,13 @@ export default function LockScreen({ visible, checking }: { visible: boolean; ch
     setBusy(true);
     setError("");
     try {
-      await login(username, password, needOtp ? otp : undefined);
+      if (challenge) await login2fa(challenge, otp);
+      else setChallenge(await login(username, password));
     } catch (err) {
       const msg = (err as Error).message;
-      // The backend asks for the TOTP code only after the password checked out.
-      if (msg === "Two-factor code required") {
-        setNeedOtp(true);
-        setError("");
-      } else setError(msg);
-      if (needOtp) setOtp("");
+      if (challenge && /expired/i.test(msg)) (setChallenge(null), setPassword(""));
+      setError(msg);
+      setOtp("");
     } finally {
       setBusy(false);
     }
@@ -159,49 +160,71 @@ export default function LockScreen({ visible, checking }: { visible: boolean; ch
               <ProductLogo className="h-14 max-w-full" />
               <div className="text-xs text-slate-400">{t("login.subtitle")}</div>
             </div>
-            <label className="mb-1 block text-xs text-slate-400" htmlFor="u">
-              {t("login.username")}
-            </label>
-            <input id="u" className="input mb-3 w-full" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
-            <label className="mb-1 block text-xs text-slate-400" htmlFor="p">
-              {t("login.password")}
-            </label>
-            <div className="flex gap-2">
-              <input
-                id="p"
-                type="password"
-                className="input w-full"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                autoFocus
-              />
-              <button
-                type="submit"
-                disabled={busy || !password || (needOtp && otp.length !== 6)}
-                className="flex w-11 shrink-0 items-center justify-center rounded-lg bg-sky-500 text-white transition hover:bg-sky-400 disabled:opacity-40"
-                aria-label={t("login.signIn")}
-              >
-                {busy ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
-              </button>
-            </div>
-            {needOtp && (
-              <div className="mt-3">
+            {challenge ? (
+              <div key="otp">
                 <label className="mb-1 flex items-center gap-1.5 text-xs text-slate-400" htmlFor="otp">
-                  <ShieldCheck size={12} /> {t("login.twoFactor")}
+                  <ShieldCheck size={12} /> {useRecovery ? t("login.recoveryCode") : t("login.twoFactor")}
                 </label>
-                <input
-                  id="otp"
-                  className="input w-full font-mono tracking-[0.4em]"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={6}
-                  placeholder="000000"
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                  autoFocus
-                />
+                <div className="flex gap-2">
+                  <input
+                    id="otp"
+                    className={`input w-full font-mono ${useRecovery ? "tracking-widest uppercase" : "tracking-[0.4em]"}`}
+                    inputMode={useRecovery ? "text" : "numeric"}
+                    autoComplete="one-time-code"
+                    maxLength={useRecovery ? 11 : 6}
+                    placeholder={useRecovery ? "XXXXX-XXXXX" : "000000"}
+                    value={otp}
+                    onChange={(e) => setOtp(useRecovery ? e.target.value : e.target.value.replace(/\D/g, ""))}
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    disabled={busy || (useRecovery ? otp.replace(/[^a-z0-9]/gi, "").length !== 10 : otp.length !== 6)}
+                    className="flex w-11 shrink-0 items-center justify-center rounded-lg bg-sky-500 text-white transition hover:bg-sky-400 disabled:opacity-40"
+                    aria-label={t("login.verify")}
+                  >
+                    {busy ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+                  </button>
+                </div>
+                <p className="mt-2 text-[11px] text-slate-400">{useRecovery ? t("login.recoveryHint") : t("login.twoFactorHint")}</p>
+                <div className="mt-2 flex justify-between text-[11px]">
+                  <button type="button" className="text-sky-300 hover:underline" onClick={() => (setUseRecovery(!useRecovery), setOtp(""), setError(""))}>
+                    {useRecovery ? t("login.useAuthenticator") : t("login.useRecovery")}
+                  </button>
+                  <button type="button" className="text-slate-400 hover:underline" onClick={() => (setChallenge(null), setOtp(""), setPassword(""), setError(""))}>
+                    {t("login.back")}
+                  </button>
+                </div>
               </div>
+            ) : (
+              <>
+                <label className="mb-1 block text-xs text-slate-400" htmlFor="u">
+                  {t("login.username")}
+                </label>
+                <input id="u" className="input mb-3 w-full" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" />
+                <label className="mb-1 block text-xs text-slate-400" htmlFor="p">
+                  {t("login.password")}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    id="p"
+                    type="password"
+                    className="input w-full"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    autoComplete="current-password"
+                    autoFocus
+                  />
+                  <button
+                    type="submit"
+                    disabled={busy || !password}
+                    className="flex w-11 shrink-0 items-center justify-center rounded-lg bg-sky-500 text-white transition hover:bg-sky-400 disabled:opacity-40"
+                    aria-label={t("login.signIn")}
+                  >
+                    {busy ? <Loader2 size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+                  </button>
+                </div>
+              </>
             )}
             {error && (
               <p role="alert" className="mt-3 text-sm text-rose-400">

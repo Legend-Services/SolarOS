@@ -217,7 +217,8 @@ async def start(target: str, branch: str, system_packages: bool = False) -> None
     if (await job())["running"]:
         raise HTTPException(409, "An update is already running")
     # Run a copy: git reset rewrites deploy/self-update.sh while bash is still reading it.
-    script = Path(f"/tmp/{UNIT}.sh")
+    # In /run, not /tmp: the backend's /tmp is private (PrivateTmp=yes) and invisible to the transient unit.
+    script = Path(f"/run/{UNIT}.sh")
     shutil.copy(APP_DIR / "deploy/self-update.sh", script)
     await _cmd("systemctl", "reset-failed", UNIT)
     # Detached transient unit: the script restarts this backend, which must not kill the update midway.

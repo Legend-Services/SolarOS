@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { api, setUnauthorizedHandler } from "./api";
+import { api, forgetStepUp, setUnauthorizedHandler } from "./api";
 import type { ConsoleTarget, HardwareInfo, Overview, StorageInfo } from "./types";
 import type { AppId } from "../apps/registry";
 import { APPS, APP_IDS } from "../apps/registry";
@@ -14,7 +14,9 @@ interface AuthState {
   status: AuthStatus;
   username: string | null;
   init: () => Promise<void>;
-  login: (username: string, password: string, otp?: string) => Promise<void>;
+  /** Resolves with a challenge token when the account has 2FA: finish with `login2fa`. */
+  login: (username: string, password: string) => Promise<string | null>;
+  login2fa: (challenge: string, code: string) => Promise<void>;
   lock: () => void;
   logout: () => Promise<void>;
 }
@@ -30,13 +32,20 @@ export const useAuth = create<AuthState>((set) => ({
       set({ status: "locked" });
     }
   },
-  login: async (username, password, otp) => {
-    const res = await api<{ username: string }>("/auth/login", { method: "POST", json: { username, password, otp: otp || undefined } });
+  login: async (username, password) => {
+    const res = await api<{ username?: string; requires_2fa?: boolean; challenge_token?: string }>("/auth/login", { method: "POST", json: { username, password } });
+    if (res.requires_2fa) return res.challenge_token ?? null;
+    set({ status: "unlocked", username: res.username ?? username });
+    return null;
+  },
+  login2fa: async (challenge, code) => {
+    const res = await api<{ username: string }>("/auth/login/2fa", { method: "POST", json: { challenge_token: challenge, code } });
     set({ status: "unlocked", username: res.username });
   },
   // Lock keeps the username but hides the desktop until the password is re-entered.
-  lock: () => set({ status: "locked" }),
+  lock: () => (forgetStepUp(), set({ status: "locked" })),
   logout: async () => {
+    forgetStepUp();
     await api("/auth/logout", { method: "POST" }).catch(() => {});
     useWindows.setState({ windows: [] });
     set({ status: "locked", username: null });

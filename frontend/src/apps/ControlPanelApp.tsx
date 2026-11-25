@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { Bug, ChevronLeft, Copy, Cpu, Disc3, BellRing, PencilRuler, CloudDownload, KeyRound, Network, Palette, Power, RefreshCw, RotateCcw, ShieldCheck, Smartphone, SquareTerminal } from "lucide-react";
+import { Bug, ChevronLeft, Copy, Cpu, Disc3, BellRing, PencilRuler, CloudDownload, KeyRound, Network, Palette, Power, RefreshCw, RotateCcw, ShieldCheck, SquareTerminal } from "lucide-react";
 import { api } from "../lib/api";
 import type { HypervisorIsoStatus, SystemInfo, UpdateSettings, UpdateStatus, VersionEntry } from "../lib/types";
 import { bytes, copyText, uptime } from "../lib/format";
@@ -16,6 +16,7 @@ import LanguagePill from "../components/LanguagePill";
 import { LANGS, isLang, useTranslation, type TKey } from "../i18n";
 import { useWidgets } from "../store/widgetStore";
 import { productOf, useCapabilities, useProduct } from "../store/capabilitiesStore";
+import { AuditLogCard, PostureCard, SessionsCard, TwoFactorCard } from "./security/SecurityCenter";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
 
 type Section = "security" | "network" | "appearance" | "automation" | "hardware" | "power";
@@ -68,13 +69,15 @@ function Security({ info }: { info: SystemInfo }) {
   };
   return (
     <div className="space-y-4">
+      <PostureCard />
+      <div id="sec-password">
       <Card title={`Change password for "${info.admin_username}"`}>
         <form onSubmit={submit} className="grid max-w-md gap-3">
           <Field label="Current password">
             <GlassInput type="password" className="w-full" value={f.current} onChange={(e) => setF({ ...f, current: e.target.value })} autoComplete="current-password" required />
           </Field>
-          <Field label="New password" hint="At least 8 characters. Quotes, backslashes and line breaks are not allowed.">
-            <GlassInput type="password" className="w-full" value={f.next} minLength={8} pattern={"[^'\\\\]+"} onChange={(e) => setF({ ...f, next: e.target.value })} autoComplete="new-password" required />
+          <Field label="New password" hint="10 to 128 characters with letters and a digit or symbol. Quotes, backslashes and line breaks are not allowed. Other signed-in devices are signed out.">
+            <GlassInput type="password" className="w-full" value={f.next} minLength={10} pattern={"[^'\\\\]+"} onChange={(e) => setF({ ...f, next: e.target.value })} autoComplete="new-password" required />
           </Field>
           <Field label="Confirm new password">
             <GlassInput type="password" className="w-full" value={f.confirm} onChange={(e) => setF({ ...f, confirm: e.target.value })} autoComplete="new-password" required />
@@ -87,7 +90,10 @@ function Security({ info }: { info: SystemInfo }) {
           </div>
         </form>
       </Card>
+      </div>
       <TwoFactorCard />
+      <SessionsCard />
+      <AuditLogCard />
       <BridgeCard />
       <Card title={`${platform} API connection`} action={<GlassBadge tone={info.api.connected ? "success" : "danger"}>{info.api.connected ? "CONNECTED" : "UNREACHABLE"}</GlassBadge>}>
         <Rows
@@ -151,65 +157,6 @@ function BridgeCard() {
             <KeyRound size={13} /> {copied ? `Copied: paste it into ${edition.host} shell` : "Copy SSH Setup Command"}
           </GlassButton>
         )}
-      </div>
-    </Card>
-  );
-}
-
-function TwoFactorCard() {
-  const [enabled, setEnabled] = useState<boolean | null>(null);
-  const [setup, setSetup] = useState<{ secret: string; qr_svg: string } | null>(null);
-  const [code, setCode] = useState("");
-  const { busy, error, notice, run } = useRunner();
-  useEffect(() => {
-    api<{ enabled: boolean }>("/auth/2fa/status").then((r) => setEnabled(r.enabled), () => setEnabled(false));
-  }, []);
-  const begin = () => run(() => api<{ secret: string; qr_svg: string }>("/auth/2fa/setup", { method: "POST" }).then(setSetup));
-  const confirm = (path: "enable" | "disable") =>
-    run(
-      () => api<{ enabled: boolean }>(`/auth/2fa/${path}`, { method: "POST", json: { code } }).then((r) => (setEnabled(r.enabled), setSetup(null), setCode(""))),
-      path === "enable" ? "Two-factor authentication is on. You will be asked for a code at sign-in." : "Two-factor authentication is off.",
-    );
-  return (
-    <Card
-      title="Two-Factor Authentication (2FA)"
-      action={enabled !== null && <GlassBadge tone={enabled ? "success" : "neutral"}>{enabled ? "ENABLED" : "DISABLED"}</GlassBadge>}
-    >
-      <p className="mb-3 text-xs text-slate-400">Require a 6-digit code from an authenticator app (Google Authenticator, 1Password, Authy, …) when signing in.</p>
-      {enabled ? (
-        <div className="flex flex-wrap items-end gap-2">
-          <Field label="Current code to disable">
-            <GlassInput className="w-32 font-mono tracking-widest" inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} />
-          </Field>
-          <GlassButton variant="danger" disabled={busy || code.length !== 6} onClick={() => confirm("disable")}>
-            Disable 2FA
-          </GlassButton>
-        </div>
-      ) : setup ? (
-        <div className="flex flex-wrap gap-4">
-          <img src={`data:image/svg+xml;utf8,${encodeURIComponent(setup.qr_svg)}`} alt="2FA QR code" className="h-40 w-40 rounded-xl bg-white p-2" />
-          <div className="min-w-0 flex-1 space-y-3">
-            <p className="text-xs text-slate-300">1. Scan the QR code, or enter this secret manually:</p>
-            <code className="block rounded-lg bg-black/30 px-3 py-2 font-mono text-xs break-all text-sky-200 select-all">{setup.secret}</code>
-            <p className="text-xs text-slate-300">2. Enter the 6-digit code shown by the app:</p>
-            <div className="flex gap-2">
-              <GlassInput className="w-32 font-mono tracking-widest" inputMode="numeric" maxLength={6} autoFocus value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} />
-              <GlassButton variant="primary" disabled={busy || code.length !== 6} onClick={() => confirm("enable")}>
-                Verify & enable
-              </GlassButton>
-              <GlassButton variant="ghost" onClick={() => (setSetup(null), setCode(""))}>
-                Cancel
-              </GlassButton>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <GlassButton variant="primary" disabled={busy || enabled === null} onClick={begin}>
-          <Smartphone size={13} /> Set up 2FA
-        </GlassButton>
-      )}
-      <div className="mt-3">
-        <Notice error={error} notice={notice} />
       </div>
     </Card>
   );

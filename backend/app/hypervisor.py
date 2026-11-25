@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from . import host
-from .auth import require_user
+from .auth import require_step_up_auth, require_user
 from providers.registry import get_provider
 
 router = APIRouter(prefix="/api/v1", tags=["hypervisor"], dependencies=[Depends(require_user)])
@@ -32,7 +32,7 @@ async def guest_action(guest_type: Literal["qemu", "lxc"], vmid: int, body: Acti
     return await get_provider().guest_power_action(guest_type, vmid, body.action)
 
 
-@router.delete("/guests/{guest_type}/{vmid}")
+@router.delete("/guests/{guest_type}/{vmid}", dependencies=[Depends(require_step_up_auth)])
 async def guest_delete(guest_type: Literal["qemu", "lxc"], vmid: int, purge: bool = True):
     return await get_provider().delete_guest(guest_type, vmid, purge)
 
