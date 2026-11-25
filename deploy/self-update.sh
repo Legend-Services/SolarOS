@@ -83,7 +83,11 @@ backend/.venv/bin/pip install -q -r backend/requirements.txt
 
 echo "==> Building frontend"
 EDITION=""; [[ "$DRIVER" == native_ubuntu ]] && EDITION=solaros
-(cd frontend && npm ci --no-audit --no-fund --loglevel=error && VITE_EDITION="$EDITION" npm run build >/dev/null)
+if git ls-files --error-unmatch frontend/dist/index.html >/dev/null 2>&1; then
+  echo "    prebuilt desktop shipped with the release"
+else
+  (cd frontend && npm ci --no-audit --no-fund --loglevel=error && VITE_EDITION="$EDITION" npm run build >/dev/null)
+fi
 
 echo "==> Reloading services"
 # New-name alias for the legacy install dir; the real path stays put so existing units and mounts keep working.
