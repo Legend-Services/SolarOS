@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from "react";
+import { memo, useState, type CSSProperties } from "react";
 import { Check, Moon, Palette, SlidersHorizontal, Sun } from "lucide-react";
 import { useDismiss } from "../lib/hooks";
 import { useIntent } from "../lib/stores";
@@ -7,20 +7,30 @@ import { customBackground, type ColorMode, type Theme } from "../theme/themeType
 import { al } from "../theme/wallpaperArt";
 import { Segmented } from "./ui/GlassKit";
 
-/** The desktop background: the active theme's wallpaper (or the custom one), with blur, dimming and scanlines. */
-export function WallpaperLayer() {
-  const { colorMode, selectedWallpaperIndex, customWallpaperUrl, wallpaperBlurPx: blur, wallpaperDimPct: dim } = useTheme();
-  const theme = useActiveTheme();
+// Own compositor layer that never repaints during widget / telemetry updates (the glass above samples a stable texture).
+const STABLE_LAYER: CSSProperties = { transform: "translate3d(0, 0, 0)", backfaceVisibility: "hidden", contain: "strict" };
+
+/**
+ * The desktop background: the active theme's wallpaper (or the custom one), with blur, dimming and scanlines.
+ * Memoized with one selector per wallpaper field, so telemetry, clock and window updates never re-render it.
+ */
+export const DesktopWallpaperLayer = memo(function DesktopWallpaperLayer() {
+  const colorMode = useTheme((s) => s.colorMode);
+  const selectedWallpaperIndex = useTheme((s) => s.selectedWallpaperIndex);
+  const customWallpaperUrl = useTheme((s) => s.customWallpaperUrl);
+  const blur = useTheme((s) => s.wallpaperBlurPx);
+  const dim = useTheme((s) => s.wallpaperDimPct);
+  const theme = useActiveTheme(); // activeThemeId (+ the custom theme list it resolves against)
   const background = customWallpaperUrl ? customBackground(customWallpaperUrl) : theme.wallpapers[selectedWallpaperIndex][colorMode];
   return (
-    <div className="wallpaper absolute inset-0 overflow-hidden" aria-hidden>
+    <div className="wallpaper absolute inset-0 overflow-hidden" style={STABLE_LAYER} aria-hidden>
       {/* Bleeds past the edges so the blur never shows a soft border. */}
       <div className="absolute transition-[filter] duration-300" style={{ inset: -blur * 2, background, filter: blur ? `blur(${blur}px)` : undefined }} />
       {theme.style.scanlines && <div className="sd-scanlines absolute inset-0" />}
       {dim > 0 && <div className="absolute inset-0 bg-black" style={{ opacity: dim / 100 }} />}
     </div>
   );
-}
+});
 
 /** Miniature window on the theme's first wallpaper, drawn with the palette of one color mode. */
 export function ThemePreview({ theme, mode, className = "" }: { theme: Theme; mode: ColorMode; className?: string }) {

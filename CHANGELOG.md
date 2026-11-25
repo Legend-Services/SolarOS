@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased - Flicker-Free Desktop & Smooth Icon Dragging
+
+### Fixed
+- **Desktop flicker:** the wallpaper is a memoized layer on its own GPU compositing layer (`translate3d`, `backface-visibility: hidden`, `contain: strict`) that only follows the wallpaper settings (theme, light / dark mode, wallpaper pick or custom image, blur, dimming), so live CPU, memory, GPU, storage, network and clock updates never repaint it.
+- Theme tokens are only written to the page when their value actually changes, so unrelated preference saves no longer invalidate every glass surface.
+- Glass surfaces (desktop, Dock, App Gallery, dialogs, cards, window snap preview) no longer use catch-all transitions that also animated the backdrop blur; they transition only color, border, shadow, transform and opacity, so the blur stays cached.
+- The desktop and its widgets subscribe only to the fields they show: tray, panel and widget-store changes no longer re-render the whole desktop.
+
+### Changed
+- **Smooth icon dragging everywhere:** the Dock, the bottom taskbar, the top bar / taskbar tray, the App Gallery, desktop shortcuts, the **Top Bar & Taskbar Tray** list in Settings and the Widget Studio list use one pointer-based reorder engine instead of browser drag-and-drop:
+  - a drag only starts after the pointer moves 6 px, so a click still opens the app or flips the switch right away;
+  - the dragged icon follows the pointer smoothly (slightly enlarged) while its neighbours glide aside, with no ghost image and no layout jumps;
+  - places swap only when the icon passes the middle of a neighbour, with a short lock against back-and-forth jitter;
+  - the new order is saved once, when you let go.
+- Dock magnification pauses while you drag, so icons keep a fixed size and position.
+- Desktop shortcuts can be rearranged by dragging (grid and list view). The order is saved in the new `layout.desktopIconOrder` preference and syncs across browsers.
+- Widget Studio cards can be dragged into a new order. Move Up / Move Down stay available as the keyboard fallback, here and in the tray list.
+
 ## v2.10.1 - Overflow Chevron Next to View Settings — 2026-11-25
 
 ### Changed

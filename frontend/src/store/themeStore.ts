@@ -152,14 +152,17 @@ export function themeVars(t: Theme, mode: ColorMode): Record<string, string> {
   };
 }
 
-/** Write the active theme onto <html>: CSS variables, data-color-mode and data-window-chrome. */
+/**
+ * Write the active theme onto <html>: CSS variables, data-color-mode and data-window-chrome. Only values that changed
+ * are written: re-setting an identical token still invalidates styles and every glass blur on the page (flicker).
+ */
 function apply(s: ThemeState) {
   const t = findTheme(s.activeThemeId, s.customThemes);
   const root = document.documentElement;
-  for (const [k, v] of Object.entries(themeVars(t, s.colorMode))) root.style.setProperty(k, v);
-  root.dataset.colorMode = s.colorMode;
-  root.dataset.windowChrome = t.style.windowChrome;
-  root.style.colorScheme = s.colorMode; // native scrollbars, date pickers and form controls follow the mode
+  for (const [k, v] of Object.entries(themeVars(t, s.colorMode))) if (root.style.getPropertyValue(k) !== v) root.style.setProperty(k, v);
+  if (root.dataset.colorMode !== s.colorMode) root.dataset.colorMode = s.colorMode;
+  if (root.dataset.windowChrome !== t.style.windowChrome) root.dataset.windowChrome = t.style.windowChrome;
+  if (root.style.colorScheme !== s.colorMode) root.style.colorScheme = s.colorMode; // native scrollbars, date pickers and form controls follow the mode
 }
 apply(useTheme.getState());
 useTheme.subscribe(apply);

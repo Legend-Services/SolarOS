@@ -132,7 +132,7 @@ export function AppListRow({ id, iconSize, className = "", ...rest }: { id: AppI
   const { appTitle, appDesc } = useTranslation();
   return (
     <button
-      className={`glass-soft group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition hover:bg-white/[0.1] focus:bg-white/[0.1] focus:outline-none active:scale-[0.99] ${className}`}
+      className={`glass-soft group flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left transition-[background-color,border-color,box-shadow,transform,scale,opacity] hover:bg-white/[0.1] focus:bg-white/[0.1] focus:outline-none active:scale-[0.99] ${className}`}
       {...rest}
     >
       <AppIcon id={id} size={iconSize} className="shrink-0" />

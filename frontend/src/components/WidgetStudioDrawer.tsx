@@ -4,13 +4,20 @@ import { useTranslation } from "../i18n";
 import { useWidgets, type WidgetSize, type WidgetSlot } from "../store/widgetStore";
 import { WIDGET_META } from "./DesktopWidgets";
 import { GlassButton, GlassSwitch, Segmented } from "./ui/GlassKit";
+import { useSmoothReorder } from "../hooks/useSmoothReorder";
 
-/** Side drawer of Edit Widgets mode: on/off, slot, size and order for every widget (keyboard alternative to dragging). */
+/** Side drawer of Edit Widgets mode: on/off, slot, size and order for every widget (drag a card, or Move Up / Move Down). */
 export default function WidgetStudioDrawer() {
   const { t } = useTranslation();
   const { items, editing, setEditing, update, move, nudge, reset } = useWidgets();
   const { widgets: master, set: setPrefs } = usePrefs();
+  const reorder = useSmoothReorder(
+    items.map((w) => w.id),
+    (next) => useWidgets.setState((s) => ({ items: next.map((id) => s.items.find((w) => w.id === id)!) })),
+    { axis: "y" },
+  );
   if (!editing) return null;
+  const byId = new Map(items.map((w) => [w.id, w]));
   const slots = (["left", "right", "grid"] as WidgetSlot[]).map((id) => ({ id, label: t(`studio.slot.${id}`) }));
   const sizes = (["compact", "expanded"] as WidgetSize[]).map((id) => ({ id, label: t(`studio.${id}`) }));
   return (
@@ -39,18 +46,20 @@ export default function WidgetStudioDrawer() {
             </GlassButton>
           </div>
         )}
-        {items.map((w) => (
-          <div key={w.id} className={`glass-soft space-y-2 rounded-xl p-3 ${w.enabled ? "" : "opacity-60"}`}>
+        {reorder.order.map((wid) => byId.get(wid)!).map((w) => (
+          <div key={w.id} {...reorder.bind(w.id)} className={`glass-soft cursor-grab space-y-2 rounded-xl p-3 ${w.enabled ? "" : "opacity-60"} ${reorder.dragging === w.id ? "cursor-grabbing shadow-lg shadow-black/30" : ""}`}>
             <div className="flex items-center gap-2">
               <span className="text-slate-300">{WIDGET_META[w.id].icon}</span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium text-slate-100">{t(WIDGET_META[w.id].title)}</span>
                 <span className="block truncate text-[10px] text-slate-400">{t(WIDGET_META[w.id].desc)}</span>
               </span>
-              <GlassSwitch checked={w.enabled} onChange={(v) => update(w.id, { enabled: v })} label={undefined} />
+              <span data-no-drag className="contents">
+                <GlassSwitch checked={w.enabled} onChange={(v) => update(w.id, { enabled: v })} label={undefined} />
+              </span>
             </div>
             {w.enabled && (
-              <div className="flex flex-wrap items-center gap-2">
+              <div data-no-drag className="flex flex-wrap items-center gap-2">
                 <Segmented value={w.slot} onChange={(slot) => move(w.id, slot, null)} options={slots} />
                 <Segmented value={w.size} onChange={(size) => update(w.id, { size })} options={sizes} />
                 <span className="ml-auto flex">

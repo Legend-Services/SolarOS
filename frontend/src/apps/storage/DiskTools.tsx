@@ -209,7 +209,7 @@ export function ScanModal({ disk, onClose }: { disk: PhysicalDisk | null; onClos
               type="button"
               disabled={busy || running || !st}
               onClick={() => start(kind, label)}
-              className="glass-soft rounded-xl p-3 text-left transition hover:bg-white/[0.08] active:scale-[0.98] disabled:opacity-40"
+              className="glass-soft rounded-xl p-3 text-left transition-[background-color,border-color,box-shadow,transform,scale,opacity] hover:bg-white/[0.08] active:scale-[0.98] disabled:opacity-40"
             >
               <span className="mb-1 flex items-center gap-1.5 font-medium text-slate-100">
                 {kind === "surface" ? <ScanLine size={13} /> : kind === "short" ? <Timer size={13} /> : <Activity size={13} />} {label}

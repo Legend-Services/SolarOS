@@ -2,15 +2,16 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 
 /**
  * FLIP reorder animation: children of the returned ref marked `data-flip="<key>"` spring from their old spot
- * to the new one whenever `order` changes (drag-and-drop reordering in the Dock, Taskbar and App Gallery).
+ * to the new one whenever `order` changes (pin / unpin, sorting, filtering). `skip` records positions without animating:
+ * pass useSmoothReorder's `settling` so a drag drop (already shown by the reorder engine) does not animate twice.
  */
-export function useFlip<T extends HTMLElement>(order: string) {
+export function useFlip<T extends HTMLElement>(order: string, skip = false) {
   const ref = useRef<T>(null);
   const last = useRef(new Map<string, DOMRect>());
   useLayoutEffect(() => {
     const els = ref.current ? [...ref.current.querySelectorAll<HTMLElement>("[data-flip]")] : [];
     const next = new Map(els.map((el) => [el.dataset.flip!, el.getBoundingClientRect()]));
-    if (!matchMedia("(prefers-reduced-motion: reduce)").matches)
+    if (!skip && !matchMedia("(prefers-reduced-motion: reduce)").matches)
       for (const el of els) {
         const a = last.current.get(el.dataset.flip!);
         const b = next.get(el.dataset.flip!)!;
