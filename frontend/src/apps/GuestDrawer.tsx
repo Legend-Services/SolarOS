@@ -8,7 +8,7 @@ import { useRunner } from "../lib/hooks";
 import { useTelemetry } from "../lib/stores";
 import { GuideBanner } from "../components/wizards/GuidedWizardModal";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
-import { TaskLog } from "../components/TaskCenterPopover";
+import { TaskLog } from "../components/TaskCenter";
 import { PassthroughPicker, usePassthroughDevices, type PciSel, type UsbSel } from "./guest/passthrough";
 
 type Tab = "resources" | "hardware" | "network" | "cloudinit" | "snapshots" | "options";

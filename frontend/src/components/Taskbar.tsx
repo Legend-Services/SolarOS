@@ -1,22 +1,17 @@
 import { useEffect, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
-import { Expand, LayoutDashboard, LayoutGrid, Search, Shrink, SquareTerminal } from "lucide-react";
+import { Expand, LayoutDashboard, LayoutGrid, Search, Shrink } from "lucide-react";
 import { activateApp, activeWindow, useDock, useSpotlight, useWindows } from "../lib/stores";
 import { useClock, useDismiss, useFlip } from "../lib/hooks";
 import { useLayout } from "../store/layoutStore";
 import type { AppId } from "../apps/registry";
 import { useTranslation } from "../i18n";
-import { useCapabilities } from "../store/capabilitiesStore";
-import LanguagePill from "./LanguagePill";
 import { AppIcon } from "./icons/AppIcons";
 import { ViewOptionsPanel } from "./ViewOptions";
-import { HelpMenu, StatusPills } from "./TopBar";
-import TaskCenterPopover from "./TaskCenterPopover";
-import NotificationPopover from "./NotificationPopover";
-import { ModeToggle, ThemeSwitcher } from "./ThemeQuickSwitcher";
+import { TrayItems, TrayOverflow, useBarMenu, useTray } from "./SystemTray";
 
 /* One edge-to-edge bar along the bottom (the alternative to top bar + floating Dock): the App Gallery button in the
-   far left corner, a divider, search and the ordered app buttons; status, help, tasks, notifications and the clock
-   on the right. Popovers open upwards. */
+   far left corner, a divider, search and the ordered app buttons; view options, full screen, the system tray and the
+   clock on the right (tray left of the clock by default, overflow chevron on the tray's inner side). Popovers open upwards. */
 
 const START_KEYS = new Set(["Meta", "OS"]); // the Start / logo key as browsers report it
 
@@ -90,7 +85,9 @@ function BarButton({ label, onClick, active, children }: { label: string; onClic
 
 export default function Taskbar() {
   const { t, appTitle } = useTranslation();
-  const caps = useCapabilities((s) => s.capabilities);
+  const tray = useTray();
+  const clockLeft = useLayout((s) => s.taskbarClockSide === "left");
+  const [onContextMenu, barMenu] = useBarMenu();
   const now = useClock();
   const windows = useWindows((s) => s.windows);
   const { open, close, minimize, setDockIconRect } = useWindows();
@@ -135,7 +132,7 @@ export default function Taskbar() {
   const onDrop = (e: DragEvent) => (e.preventDefault(), setDrag(null));
 
   return (
-    <footer className="glass fixed inset-x-0 bottom-0 z-[9000] flex h-12 items-center gap-1 border-x-0 border-b-0 bg-slate-900/75 pl-2 text-xs" aria-label={t("taskbar.label")}>
+    <footer onContextMenu={onContextMenu} className="glass fixed inset-x-0 bottom-0 z-[9000] flex h-12 items-center gap-1 border-x-0 border-b-0 bg-slate-900/75 pl-2 text-xs" aria-label={t("taskbar.label")}>
       <div ref={flipRef} className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
         <BarButton label={t("taskbar.start")} onClick={toggleGallery} active={gallery}>
           <LayoutGrid size={20} className="text-sky-300" />
@@ -190,16 +187,10 @@ export default function Taskbar() {
         })}
       </div>
       <div className="flex flex-1 items-center justify-end gap-1">
-        <StatusPills />
-        {caps.supports_host_shell && (
-          <button onClick={() => open("terminal")} className="rounded-md px-2 py-1 text-slate-200 hover:bg-white/10 max-sm:hidden" aria-label={t("top.hostShell", { platform: caps.platform_label })} title={t("top.hostShell", { platform: caps.platform_label })}>
-            <SquareTerminal size={14} />
-          </button>
-        )}
         <div ref={viewRef} className="relative max-sm:hidden">
           <button
             onClick={() => setLayout({ panel: !viewPanel })}
-            className={`rounded-md px-2 py-1 text-slate-200 hover:bg-white/10 ${viewPanel ? "bg-white/10" : ""}`}
+            className={`rounded-md p-1 text-slate-200 hover:bg-white/10 ${viewPanel ? "bg-white/10" : ""}`}
             aria-expanded={viewPanel}
             aria-label={t("top.viewSettings")}
             title={t("top.viewSettings")}
@@ -210,7 +201,7 @@ export default function Taskbar() {
         </div>
         <button
           onClick={toggleFullscreen}
-          className="rounded-md px-2 py-1 text-slate-200 hover:bg-white/10 max-sm:hidden"
+          className="rounded-md p-1 text-slate-200 hover:bg-white/10 max-sm:hidden"
           aria-label={fullscreen ? t("taskbar.exitFullScreen") : t("taskbar.fullScreen")}
           title={
             fullscreen
@@ -222,19 +213,19 @@ export default function Taskbar() {
         >
           {fullscreen ? <Shrink size={14} /> : <Expand size={14} />}
         </button>
-        <LanguagePill className="max-sm:hidden" />
-        <ModeToggle />
-        <ThemeSwitcher up />
-        <HelpMenu up />
-        <TaskCenterPopover up />
-        <NotificationPopover up />
-        <span className="flex flex-col items-end px-2 leading-tight tabular-nums text-slate-200">
-          <span>{now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-          <span className="text-[10px] text-slate-400">{now.toLocaleDateString()}</span>
-        </span>
+        <span className="mx-0.5 h-6 w-px shrink-0 bg-white/15" aria-hidden />
+        <div className={`flex items-center gap-1 ${clockLeft ? "flex-row-reverse" : ""}`}>
+          <TrayOverflow ids={tray.overflow} up />
+          <TrayItems ids={tray.bar} up />
+          <span className={`flex flex-col px-2 leading-tight tabular-nums text-slate-200 ${clockLeft ? "items-start" : "items-end"}`}>
+            <span>{now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+            <span className="text-[10px] text-slate-400">{now.toLocaleDateString()}</span>
+          </span>
+        </div>
         {/* Thin strip at the far right: minimize every window to show the desktop. */}
         <button onClick={showDesktop} className="h-12 w-2 border-l border-white/15 hover:bg-white/15" aria-label={t("taskbar.showDesktop")} title={t("taskbar.showDesktop")} />
       </div>
+      {barMenu}
     </footer>
   );
 }

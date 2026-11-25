@@ -7,7 +7,7 @@ import { bytes } from "../lib/format";
 import { useRunner } from "../lib/hooks";
 import { useTelemetry } from "../lib/stores";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassSelect, Notice, Segmented } from "../components/ui/GlassKit";
-import { TaskLog } from "../components/TaskCenterPopover";
+import { TaskLog } from "../components/TaskCenter";
 
 type Content = "iso" | "vztmpl";
 

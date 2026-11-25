@@ -9,7 +9,7 @@ import { useRunner } from "../lib/hooks";
 import { useTelemetry } from "../lib/stores";
 import { GuideBanner } from "../components/wizards/GuidedWizardModal";
 import { Field, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
-import { TaskLog } from "../components/TaskCenterPopover";
+import { TaskLog } from "../components/TaskCenter";
 
 export type GuestKind = "qemu" | "lxc";
 
