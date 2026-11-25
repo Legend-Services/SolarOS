@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.3.2 - SolarOS First-Boot Fix — 2026-11-25
+
+### Fixed
+- **Fresh SolarOS v2.3.1 installs stopped at "incus admin init"**: installing without recommended packages also left out `dnsmasq-base`. SolarOS now installs the recommended packages it actually uses: `dnsmasq-base`, the QEMU network-boot ROMs, `qemu-block-extra`, `parted`, `netcat-openbsd`, `libxml2-utils`, `samba-vfs-modules` and `cpu-checker`. Existing installs were not affected.
+- The minimal Ubuntu base's tracing tools (`bpftrace`, `bpfcc-tools`), which pull in LLVM/Clang, are removed. A fresh SolarOS install now uses about 3.3 GB of disk including the swap file (8.6 GB with v2.3.0).
+
 ## v2.3.1 - Slimmer SolarOS — 2026-11-25
 
 ### Changed
