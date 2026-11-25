@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.4.2 - Updates Apply New Host Steps Immediately — 2026-11-25
+
+### Fixed
+- An update ran the previous release's updater, so host steps added in a release only ran on the update after it. For example, the switch to Zabbly's Incus in v2.4.0 didn't happen when updating to v2.4.0 or v2.4.1. After fetching the new release, the updater now continues with the new release's own updater. Settings are still saved before the checkout.
+
 ## v2.4.1 - SolarOS Update Check Fix — 2026-11-25
 
 ### Fixed
