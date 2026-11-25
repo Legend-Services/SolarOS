@@ -17,7 +17,7 @@
 ### Changed
 - Control Panel → User & Security is now **Security & Hardening**.
 - nginx sends `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` and a Content-Security-Policy on every response (including assets), and `server_tokens off`.
-- The container edition's backend service runs with `NoNewPrivileges=yes`, `PrivateTmp=yes`, `ProtectSystem=true` and `ProtectHome=read-only` (root's home stays writable for certificates); `/etc` stays writable because Network Shares create Samba users there. The SolarOS backend gets `PrivateTmp=yes`: it is the host's management layer (Netplan, users, packages), which the stricter options would block. Both keep `.env` and the SSH key at `0600` on every start.
+- The container edition's backend service runs with `NoNewPrivileges=yes`, `PrivateTmp=yes`, `ProtectSystem=true` and `ProtectHome=read-only` (only `/root/.acme.sh` stays writable, for certificates; acme.sh is installed without editing `~/.bashrc`); `/etc` stays writable because Network Shares create Samba users there. The SolarOS backend gets `PrivateTmp=yes`: it is the host's management layer (Netplan, users, packages), which the stricter options would block. Both keep `.env` and the SSH key at `0600` on every start.
 - The updater copies itself to `/run` instead of `/tmp` (the backend's `/tmp` is now private).
 - Installers, `deploy.sh` and the ISO builder never copy the vault key, sessions, sign-in limiter or audit log.
 

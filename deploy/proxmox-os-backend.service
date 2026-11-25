@@ -10,15 +10,16 @@ ExecStartPre=-/bin/chmod 600 /opt/proxmox-os/backend/.env /opt/proxmox-os/backen
 ExecStart=/opt/proxmox-os/backend/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 --proxy-headers
 Restart=always
 RestartSec=3
-# Sandbox: no privilege gain, private /tmp, read-only /usr and /boot, read-only home directories except root's (acme.sh
-# keeps its home in /root/.acme.sh). /etc stays writable (ProtectSystem=true, not "full"): Network Shares create Samba
-# users and smb.conf entries in this container, and certificates go to /etc/nginx. Updates run in their own transient
-# unit (systemd-run), outside this sandbox.
+# Sandbox: no privilege gain, private /tmp, read-only /usr, /boot and home directories (acme.sh keeps its home in
+# /root/.acme.sh, created outside the sandbox by the "+" step below). /etc stays writable (ProtectSystem=true, not
+# "full"): Network Shares create Samba users and smb.conf entries in this container, and certificates go to /etc/nginx.
+# Updates run in their own transient unit (systemd-run), outside this sandbox.
+ExecStartPre=-+/bin/mkdir -p /root/.acme.sh
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=true
 ProtectHome=read-only
-ReadWritePaths=-/root
+ReadWritePaths=-/root/.acme.sh
 
 [Install]
 WantedBy=multi-user.target
