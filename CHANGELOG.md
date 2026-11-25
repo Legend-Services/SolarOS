@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.4.1 - SolarOS Update Check Fix — 2026-11-25
+
+### Fixed
+- A freshly installed SolarOS reported "update available" for the version it already ran, so the update screen offered nothing new. The ISO records its main-branch commit, which isn't on the SolarOS release branch. The first update check now records the release tag of the same version instead.
+
 ## v2.4.0 - SolarOS First-Run Setup: No Default Passwords — 2026-11-25
 
 ### Added
