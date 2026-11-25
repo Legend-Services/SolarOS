@@ -1,0 +1,73 @@
+[
+  {
+    "id": "jellyfin",
+    "name": "Jellyfin Media Server",
+    "category": "Media",
+    "description": "Stream your movies, shows and music to any device. Supports Intel Quick Sync hardware transcoding through /dev/dri passthrough.",
+    "icon": "Clapperboard",
+    "cores": 2, "memory_mb": 2048, "disk_gb": 16,
+    "web_port": 8096, "web_scheme": "http",
+    "supports_igpu": true, "supports_storage_mount": true, "keyctl": false
+  },
+  {
+    "id": "docker-portainer",
+    "name": "Docker & Portainer CE",
+    "category": "Infrastructure",
+    "description": "Docker Engine in a nested unprivileged container, managed through the Portainer CE web UI.",
+    "icon": "Container",
+    "cores": 2, "memory_mb": 2048, "disk_gb": 32,
+    "web_port": 9443, "web_scheme": "https",
+    "supports_igpu": false, "supports_storage_mount": true, "keyctl": true
+  },
+  {
+    "id": "samba",
+    "name": "Samba File Server",
+    "category": "Network",
+    "description": "Lightweight standalone SMB server. Creates a read-only guest share 'public' and, when storage is mounted, a 'storage' share for Samba users.",
+    "icon": "FolderTree",
+    "cores": 1, "memory_mb": 512, "disk_gb": 4,
+    "web_port": null, "web_scheme": "http",
+    "supports_igpu": false, "supports_storage_mount": true, "keyctl": false
+  },
+  {
+    "id": "adguard-home",
+    "name": "AdGuard Home",
+    "category": "Network",
+    "description": "Network-wide DNS ad and tracker blocker. Point your router's DNS at this container after setup.",
+    "icon": "ShieldCheck",
+    "cores": 1, "memory_mb": 512, "disk_gb": 4,
+    "web_port": 3000, "web_scheme": "http",
+    "supports_igpu": false, "supports_storage_mount": false, "keyctl": false
+  },
+  {
+    "id": "nginx-proxy-manager",
+    "name": "Nginx Proxy Manager",
+    "category": "Network",
+    "description": "Reverse proxy with free Let's Encrypt SSL certificates and a friendly web UI (default login admin@example.com / changeme).",
+    "icon": "Waypoints",
+    "cores": 1, "memory_mb": 1024, "disk_gb": 8,
+    "web_port": 81, "web_scheme": "http",
+    "supports_igpu": false, "supports_storage_mount": false, "keyctl": true
+  },
+  {
+    "id": "immich",
+    "name": "Immich",
+    "category": "Media",
+    "description": "Self-hosted photo and video backup with mobile apps, face recognition and smart search.",
+    "icon": "Images",
+    "cores": 4, "memory_mb": 4096, "disk_gb": 32,
+    "web_port": 2283, "web_scheme": "http",
+    "supports_igpu": false, "supports_storage_mount": true, "keyctl": true
+  },
+  {
+    "id": "local-ai",
+    "name": "Local AI Studio (Ollama + Open WebUI)",
+    "category": "AI & Compute",
+    "description": "Private ChatGPT-style AI on your own hardware: Ollama with NVIDIA CUDA (RTX GPUs), Intel/AMD Vulkan or CPU, an optional Open WebUI chat on port 3000, and a model library with VRAM fit ratings in the Local AI app.",
+    "icon": "BrainCircuit",
+    "cores": 8, "memory_mb": 16384, "disk_gb": 64,
+    "web_port": 3000, "web_scheme": "http",
+    "supports_igpu": false, "supports_storage_mount": false, "keyctl": false,
+    "featured": true, "compute_selector": true
+  }
+]

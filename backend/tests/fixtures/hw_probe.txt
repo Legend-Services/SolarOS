@@ -1,0 +1,436 @@
+@@dmi@@
+# dmidecode 3.6
+Getting SMBIOS data from sysfs.
+SMBIOS 3.6.0 present.
+
+Handle 0x0000, DMI type 0, 26 bytes
+BIOS Information
+	Vendor: American Megatrends International, LLC.
+	Version: E1.5D
+	Release Date: 01/14/2026
+	Address: 0xF0000
+	Runtime Size: 64 kB
+	ROM Size: 0 MB
+	Characteristics:
+		PCI is supported
+		BIOS is upgradeable
+		BIOS shadowing is allowed
+		Boot from CD is supported
+		Selectable boot is supported
+		BIOS ROM is socketed
+		EDD is supported
+		Japanese floppy for NEC 9800 1.2 MB is supported (int 13h)
+		Japanese floppy for Toshiba 1.2 MB is supported (int 13h)
+		5.25"/360 kB floppy services are supported (int 13h)
+		5.25"/1.2 MB floppy services are supported (int 13h)
+		3.5"/720 kB floppy services are supported (int 13h)
+		3.5"/2.88 MB floppy services are supported (int 13h)
+		Print screen service is supported (int 5h)
+		Serial services are supported (int 14h)
+		Printer services are supported (int 17h)
+		CGA/mono video services are supported (int 10h)
+		ACPI is supported
+		USB legacy is supported
+		BIOS boot specification is supported
+		Targeted content distribution is supported
+		UEFI is supported
+	BIOS Revision: 5.27
+
+Handle 0x0001, DMI type 1, 27 bytes
+System Information
+	Manufacturer: TOPC
+	Product Name: TOPC RPL-HX MATX 2.5G
+	Version: E1.5D
+	Serial Number: Default string
+	UUID: 00000000-0000-0000-0000-000000000000
+	Wake-up Type: Power Switch
+	SKU Number: Default string
+	Family: Default string
+
+Handle 0x0002, DMI type 2, 15 bytes
+Base Board Information
+	Manufacturer: TOPC
+	Product Name: TOPC RPL-HX MATX 2.5G
+	Version: E1.5D
+	Serial Number: Default string
+	Asset Tag: Default string
+	Features:
+		Board is a hosting board
+		Board is replaceable
+	Location In Chassis: Default string
+	Chassis Handle: 0x0003
+	Type: Motherboard
+	Contained Object Handles: 0
+
+@@dimm@@
+# dmidecode 3.6
+Getting SMBIOS data from sysfs.
+SMBIOS 3.6.0 present.
+
+Handle 0x0028, DMI type 17, 92 bytes
+Memory Device
+	Array Handle: 0x0027
+	Error Information Handle: Not Provided
+	Total Width: 64 bits
+	Data Width: 64 bits
+	Size: 32 GB
+	Form Factor: DIMM
+	Set: None
+	Locator: Controller0-ChannelA-DIMM0
+	Bank Locator: BANK 0
+	Type: DDR4
+	Type Detail: Synchronous
+	Speed: 3200 MT/s
+	Manufacturer: Kingston
+	Serial Number: SERIAL00
+	Asset Tag: 9876543210
+	Part Number: 9905734-063.A00G    
+	Rank: 2
+	Configured Memory Speed: 3200 MT/s
+	Minimum Voltage: 1.2 V
+	Maximum Voltage: 1.2 V
+	Configured Voltage: 1.2 V
+	Memory Technology: DRAM
+	Memory Operating Mode Capability: Volatile memory
+	Firmware Version: Not Specified
+	Module Manufacturer ID: Bank 2, Hex 0x98
+	Module Product ID: Unknown
+	Memory Subsystem Controller Manufacturer ID: Unknown
+	Memory Subsystem Controller Product ID: Unknown
+	Non-Volatile Size: None
+	Volatile Size: 32 GB
+	Cache Size: None
+	Logical Size: None
+
+Handle 0x0029, DMI type 17, 92 bytes
+Memory Device
+	Array Handle: 0x0027
+	Error Information Handle: Not Provided
+	Total Width: 64 bits
+	Data Width: 64 bits
+	Size: 32 GB
+	Form Factor: DIMM
+	Set: None
+	Locator: Controller1-ChannelA-DIMM0
+	Bank Locator: BANK 0
+	Type: DDR4
+	Type Detail: Synchronous
+	Speed: 3200 MT/s
+	Manufacturer: Kingston
+	Serial Number: SERIAL00
+	Asset Tag: 9876543210
+	Part Number: 9905734-063.A00G    
+	Rank: 2
+	Configured Memory Speed: 3200 MT/s
+	Minimum Voltage: 1.2 V
+	Maximum Voltage: 1.2 V
+	Configured Voltage: 1.2 V
+	Memory Technology: DRAM
+	Memory Operating Mode Capability: Volatile memory
+	Firmware Version: Not Specified
+	Module Manufacturer ID: Bank 2, Hex 0x98
+	Module Product ID: Unknown
+	Memory Subsystem Controller Manufacturer ID: Unknown
+	Memory Subsystem Controller Product ID: Unknown
+	Non-Volatile Size: None
+	Volatile Size: 32 GB
+	Cache Size: None
+	Logical Size: None
+
+@@lscpu@@
+{
+   "lscpu": [
+      {
+         "field": "Architecture:",
+         "data": "x86_64"
+      },{
+         "field": "CPU op-mode(s):",
+         "data": "32-bit, 64-bit"
+      },{
+         "field": "Address sizes:",
+         "data": "39 bits physical, 48 bits virtual"
+      },{
+         "field": "Byte Order:",
+         "data": "Little Endian"
+      },{
+         "field": "CPU(s):",
+         "data": "32"
+      },{
+         "field": "On-line CPU(s) list:",
+         "data": "0-31"
+      },{
+         "field": "Vendor ID:",
+         "data": "GenuineIntel"
+      },{
+         "field": "Model name:",
+         "data": "Intel(R) Core(TM) i9-14900HX"
+      },{
+         "field": "CPU family:",
+         "data": "6"
+      },{
+         "field": "Model:",
+         "data": "183"
+      },{
+         "field": "Thread(s) per core:",
+         "data": "2"
+      },{
+         "field": "Core(s) per socket:",
+         "data": "24"
+      },{
+         "field": "Socket(s):",
+         "data": "1"
+      },{
+         "field": "Stepping:",
+         "data": "1"
+      },{
+         "field": "CPU(s) scaling MHz:",
+         "data": "19%"
+      },{
+         "field": "CPU max MHz:",
+         "data": "5800.0000"
+      },{
+         "field": "CPU min MHz:",
+         "data": "800.0000"
+      },{
+         "field": "BogoMIPS:",
+         "data": "4838.40"
+      },{
+         "field": "Flags:",
+         "data": "fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc art arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf tsc_known_freq pni pclmulqdq dtes64 monitor ds_cpl vmx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm 3dnowprefetch cpuid_fault epb ssbd ibrs ibpb stibp ibrs_enhanced tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid rdseed adx smap clflushopt clwb intel_pt sha_ni xsaveopt xsavec xgetbv1 xsaves split_lock_detect user_shstk avx_vnni dtherm ida arat pln pts hwp hwp_notify hwp_act_window hwp_epp hwp_pkg_req hfi vnmi umip pku ospke waitpkg gfni vaes vpclmulqdq rdpid movdiri movdir64b fsrm md_clear serialize arch_lbr ibt flush_l1d arch_capabilities"
+      },{
+         "field": "Virtualization:",
+         "data": "VT-x"
+      },{
+         "field": "L1d cache:",
+         "data": "896 KiB (24 instances)"
+      },{
+         "field": "L1i cache:",
+         "data": "1.3 MiB (24 instances)"
+      },{
+         "field": "L2 cache:",
+         "data": "32 MiB (12 instances)"
+      },{
+         "field": "L3 cache:",
+         "data": "36 MiB (1 instance)"
+      },{
+         "field": "NUMA node(s):",
+         "data": "1"
+      },{
+         "field": "NUMA node0 CPU(s):",
+         "data": "0-31"
+      },{
+         "field": "Vulnerability Gather data sampling:",
+         "data": "Not affected"
+      },{
+         "field": "Vulnerability Ghostwrite:",
+         "data": "Not affected"
+      },{
+         "field": "Vulnerability Indirect target selection:",
+         "data": "Not affected"
+      },{
+         "field": "Vulnerability Itlb multihit:",
+         "data": "Not affected"
+      },{
+         "field": "Vulnerability L1tf:",
+         "data": "Not affected"
+      },{
+         "field": "Vulnerability Mds:",
+         "data": "Not affected"
+      },{
+         "field": "Vulnerability Meltdown:",
+         "data": "Not affected"
+      },{
+         "field": "Vulnerability Mmio stale data:",
+         "data": "Not affected"
+      },{
+         "field": "Vulnerability Old microcode:",
+         "data": "Not affected"
+      },{
+         "field": "Vulnerability Reg file data sampling:",
+         "data": "Mitigation; Clear Register File"
+      },{
+         "field": "Vulnerability Retbleed:",
+         "data": "Not affected"
+      },{
+         "field": "Vulnerability Spec rstack overflow:",
+         "data": "Not affected"
+      },{
+         "field": "Vulnerability Spec store bypass:",
+         "data": "Mitigation; Speculative Store Bypass disabled via prctl"
+      },{
+         "field": "Vulnerability Spectre v1:",
+         "data": "Mitigation; usercopy/swapgs barriers and __user pointer sanitization"
+      },{
+         "field": "Vulnerability Spectre v2:",
+         "data": "Mitigation; Enhanced / Automatic IBRS; IBPB conditional; PBRSB-eIBRS SW sequence; BHI BHI_DIS_S"
+      },{
+         "field": "Vulnerability Srbds:",
+         "data": "Not affected"
+      },{
+         "field": "Vulnerability Tsa:",
+         "data": "Not affected"
+      },{
+         "field": "Vulnerability Tsx async abort:",
+         "data": "Not affected"
+      },{
+         "field": "Vulnerability Vmscape:",
+         "data": "Mitigation; IBPB before exit to userspace"
+      }
+   ]
+}
+@@mhz@@
+cpu MHz		: 800.000
+cpu MHz		: 800.000
+cpu MHz		: 870.691
+cpu MHz		: 800.000
+cpu MHz		: 800.000
+cpu MHz		: 800.000
+cpu MHz		: 800.000
+cpu MHz		: 800.000
+cpu MHz		: 800.000
+cpu MHz		: 800.000
+cpu MHz		: 800.000
+cpu MHz		: 800.000
+cpu MHz		: 3533.889
+cpu MHz		: 800.000
+cpu MHz		: 800.000
+cpu MHz		: 800.000
+cpu MHz		: 1255.687
+cpu MHz		: 799.218
+cpu MHz		: 2695.810
+cpu MHz		: 2816.482
+cpu MHz		: 799.268
+cpu MHz		: 800.138
+cpu MHz		: 800.000
+cpu MHz		: 799.953
+cpu MHz		: 1237.091
+cpu MHz		: 1182.891
+cpu MHz		: 799.994
+cpu MHz		: 1231.750
+cpu MHz		: 800.000
+cpu MHz		: 2905.711
+cpu MHz		: 1395.853
+cpu MHz		: 800.000
+@@hwmon@@
+acpitz|temp|27800
+r8169_0_300:00|temp|42000
+nvme|Composite|30850
+nvme|Composite|33850
+nvme|Sensor 1|33850
+coretemp|Core 8|32000
+coretemp|Core 12|37000
+coretemp|Core 16|31000
+coretemp|Package id 0|42000
+coretemp|Core 20|35000
+coretemp|Core 24|35000
+coretemp|Core 0|35000
+coretemp|Core 28|34000
+coretemp|Core 32|38000
+coretemp|Core 33|40000
+coretemp|Core 34|40000
+coretemp|Core 35|38000
+coretemp|Core 36|40000
+coretemp|Core 37|40000
+coretemp|Core 38|40000
+coretemp|Core 39|40000
+coretemp|Core 40|39000
+coretemp|Core 41|39000
+coretemp|Core 42|41000
+coretemp|Core 43|41000
+coretemp|Core 44|38000
+coretemp|Core 45|38000
+coretemp|Core 46|37000
+coretemp|Core 47|37000
+coretemp|Core 4|34000
+@@meminfo@@
+MemTotal:       65145908 kB
+MemFree:        61759496 kB
+MemAvailable:   61526788 kB
+Buffers:            1092 kB
+Cached:           352876 kB
+SwapCached:            0 kB
+Active:          1523188 kB
+Inactive:           1264 kB
+Active(anon):    1232268 kB
+Inactive(anon):        0 kB
+Active(file):     290920 kB
+Inactive(file):     1264 kB
+Unevictable:        9636 kB
+Mlocked:               0 kB
+SwapTotal:             0 kB
+SwapFree:              0 kB
+Zswap:                 0 kB
+Zswapped:              0 kB
+Dirty:              1740 kB
+Writeback:             0 kB
+AnonPages:       1179900 kB
+Mapped:           122424 kB
+Shmem:             61836 kB
+KReclaimable:     109544 kB
+Slab:             471632 kB
+SReclaimable:     109544 kB
+SUnreclaim:       362088 kB
+KernelStack:       11408 kB
+PageTables:        16716 kB
+SecPageTables:         0 kB
+NFS_Unstable:          0 kB
+Bounce:                0 kB
+WritebackTmp:          0 kB
+CommitLimit:    32572952 kB
+Committed_AS:    2672936 kB
+VmallocTotal:   34359738367 kB
+VmallocUsed:      524884 kB
+VmallocChunk:          0 kB
+Percpu:            25472 kB
+HardwareCorrupted:     0 kB
+AnonHugePages:         0 kB
+ShmemHugePages:     8192 kB
+ShmemPmdMapped:        0 kB
+FileHugePages:         0 kB
+FilePmdMapped:         0 kB
+CmaTotal:              0 kB
+CmaFree:         5103616 kB
+Unaccepted:            0 kB
+Balloon:               0 kB
+GPUActive:           152 kB
+GPUReclaim:            0 kB
+HugePages_Total:       0
+HugePages_Free:        0
+HugePages_Rsvd:        0
+HugePages_Surp:        0
+Hugepagesize:       2048 kB
+Hugetlb:               0 kB
+DirectMap4k:      386392 kB
+DirectMap2M:     6256640 kB
+DirectMap1G:    59768832 kB
+@@arc@@
+size                            4    747723760
+@@nvidia@@
+@@amd@@
+@@intel@@
+-1
+/sys/kernel/debug/dri/0000:00:02.0/gt0/uc/guc_info:	status: RUNNING
+/sys/kernel/debug/dri/128/gt0/uc/guc_info:	status: RUNNING
+/sys/kernel/debug/dri/1/gt0/uc/guc_info:	status: RUNNING
+/sys/kernel/debug/dri/0000:00:02.0/gt0/uc/huc_info:	status: RUNNING
+/sys/kernel/debug/dri/128/gt0/uc/huc_info:	status: RUNNING
+/sys/kernel/debug/dri/1/gt0/uc/huc_info:	status: RUNNING
+@@ipaddr@@
+[{"ifindex":1,"ifname":"lo","flags":["LOOPBACK","UP","LOWER_UP"],"mtu":65536,"qdisc":"noqueue","operstate":"UNKNOWN","group":"default","txqlen":1000,"link_type":"loopback","address":"02:00:00:00:00:01","broadcast":"02:00:00:00:00:01","addr_info":[{"family":"inet","local":"127.0.0.1","prefixlen":8,"scope":"host","label":"lo","valid_life_time":4294967295,"preferred_life_time":4294967295},{"family":"inet6","local":"::1","prefixlen":128,"scope":"host","noprefixroute":true,"valid_life_time":4294967295,"preferred_life_time":4294967295}]},{"ifindex":2,"ifname":"nic0","flags":["BROADCAST","MULTICAST","UP","LOWER_UP"],"mtu":1500,"qdisc":"fq_codel","master":"br0","operstate":"UP","group":"default","txqlen":1000,"link_type":"ether","address":"02:00:00:00:00:01","broadcast":"02:00:00:00:00:01","altnames":["enx00e269b6a518"],"addr_info":[]},{"ifindex":3,"ifname":"br0","flags":["BROADCAST","MULTICAST","UP","LOWER_UP"],"mtu":1500,"qdisc":"noqueue","operstate":"UP","group":"default","txqlen":1000,"link_type":"ether","address":"02:00:00:00:00:01","broadcast":"02:00:00:00:00:01","addr_info":[{"family":"inet","local":"192.168.68.220","prefixlen":24,"scope":"global","label":"br0","valid_life_time":4294967295,"preferred_life_time":4294967295},{"family":"inet6","local":"fe80::2e2:69ff:feb6:a518","prefixlen":64,"scope":"link","protocol":"kernel_ll","valid_life_time":4294967295,"preferred_life_time":4294967295}]},{"ifindex":4,"link_index":2,"ifname":"veth100i0","flags":["BROADCAST","MULTICAST","UP","LOWER_UP"],"mtu":1500,"qdisc":"noqueue","master":"br0","operstate":"UP","group":"default","txqlen":1000,"link_type":"ether","address":"02:00:00:00:00:01","broadcast":"02:00:00:00:00:01","link_netnsid":0,"addr_info":[]}]
+@@netsys@@
+lo|||virt
+nic0|1000|r8169|phys
+veth100i0|10000||virt
+br0|10000||virt
+@@smart@@
+/dev/nvme0n1|34
+/dev/nvme1n1|31
+/dev/sda|28
+/dev/sdb|
+@@pkgs@@
+firmware-amd-graphics||not-installed
+firmware-misc-nonfree||not-installed
+lm-sensors||not-installed
+@@vfio@@
+@@kernel@@
+7.0.14-30-generic

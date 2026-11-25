@@ -1,0 +1,246 @@
+@import "tailwindcss";
+@import "./theme/palette.css";
+
+@layer components {
+  /* Window / dock / top bar surface: frosted fill, 1px light rim on top, soft ambient shadow. */
+  .glass {
+    border: 1px solid var(--sd-border-glass);
+    background-color: var(--sd-surface-glass);
+    backdrop-filter: blur(var(--sd-glass-blur)) saturate(150%);
+    box-shadow:
+      inset 0 1px 0 var(--sd-specular-highlight),
+      0 24px 60px -20px var(--sd-shadow);
+  }
+  .glass-soft {
+    @apply border border-white/10 bg-white/[0.045] backdrop-blur-xl;
+    box-shadow: inset 0 1px 0 var(--sd-specular-highlight);
+  }
+  /* Modal surface: crisp 1px gradient border via a masked pseudo-element. */
+  .glass-panel {
+    background-color: var(--sd-surface-elevated);
+    backdrop-filter: blur(var(--sd-glass-blur)) saturate(150%);
+    box-shadow:
+      inset 0 1px 0 var(--sd-specular-highlight),
+      0 30px 80px -24px var(--sd-shadow);
+  }
+  .glass-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(160deg, var(--sd-border-glass), transparent 40%, var(--sd-border-subtle));
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+    pointer-events: none;
+  }
+
+  .glass-btn {
+    @apply border border-white/15 bg-gradient-to-b from-white/[0.14] to-white/[0.04] hover:brightness-125;
+    box-shadow:
+      inset 0 1px 0 var(--sd-specular-highlight),
+      0 1px 2px rgba(0, 0, 0, 0.25),
+      0 4px 14px -6px rgba(0, 0, 0, 0.4);
+  }
+  .glass-btn-primary {
+    @apply border-sky-200/35 from-sky-400/60 to-blue-600/50;
+    --color-white: var(--sd-on-accent); /* black or white, whichever reads best on this accent */
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.3),
+      0 6px 18px -6px var(--sd-accent-glow);
+  }
+  .glass-btn-danger {
+    @apply border-rose-200/30 from-rose-500/55 to-rose-700/45;
+    --color-white: #fff;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.25),
+      0 6px 18px -6px rgba(244, 63, 94, 0.5);
+  }
+
+  .glass-field {
+    @apply rounded-lg border px-2.5 py-1.5 text-xs text-slate-100 outline-none placeholder:text-slate-500 focus:border-sky-300/50 focus:ring-2 focus:ring-sky-400/20;
+    border-color: var(--sd-border-glass);
+    background-color: var(--sd-surface-input);
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.25),
+      0 1px 0 var(--sd-border-subtle);
+  }
+  select.glass-field {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='%2394a3b8' stroke-width='1.5'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.6rem center;
+  }
+  select.glass-field option {
+    background: var(--sd-bg-base);
+    color: var(--sd-text-primary);
+  }
+
+  .glass-switch {
+    @apply relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border border-white/15 bg-black/35 transition-[background-color,box-shadow] duration-300 disabled:cursor-not-allowed;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+  }
+  .glass-switch.is-on {
+    @apply border-sky-200/40 bg-sky-500/70;
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.2),
+      0 0 12px var(--sd-accent-glow);
+  }
+  .glass-switch-thumb {
+    @apply absolute left-0.5 h-4 w-4 rounded-full;
+    background: linear-gradient(to bottom, #fff, #e2e8f0);
+    box-shadow:
+      inset 0 1px 0 #fff,
+      0 1px 3px rgba(0, 0, 0, 0.45);
+    /* Slight overshoot = spring feel. */
+    transition: transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .glass-switch.is-on .glass-switch-thumb {
+    transform: translateX(16px);
+  }
+
+  /* Range slider: recessed glass track, accent fill up to --fill, raised glass thumb that swells while dragged. */
+  .glass-slider {
+    appearance: none;
+    height: 6px;
+    border-radius: 9999px;
+    cursor: pointer;
+    background: linear-gradient(90deg, var(--sd-accent-primary), var(--sd-accent-secondary)) 0 / var(--fill, 50%) 100% no-repeat, rgba(0, 0, 0, 0.3);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.45), 0 1px 0 var(--sd-border-subtle);
+  }
+  .glass-slider:focus-visible {
+    outline: 2px solid var(--sd-accent-glow);
+    outline-offset: 4px;
+  }
+  .glass-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 18px;
+    height: 18px;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    background: linear-gradient(to bottom, #fff, #cbd5e1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45), inset 0 1px 0 #fff;
+    transition: transform 160ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .glass-slider:active::-webkit-slider-thumb {
+    transform: scale(1.2);
+  }
+  .glass-slider::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border-radius: 9999px;
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    background: linear-gradient(to bottom, #fff, #cbd5e1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Legacy helpers kept for apps not yet on GlassKit; restyled to match. */
+  .btn {
+    @apply inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-gradient-to-b from-white/[0.12] to-white/[0.04] px-2.5 py-1.5 text-xs font-medium text-slate-200 transition hover:brightness-125 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40;
+    box-shadow: inset 0 1px 0 var(--sd-specular-highlight);
+  }
+  .input {
+    @apply rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-sky-400/60 focus:ring-2 focus:ring-sky-400/20;
+    background-color: var(--sd-surface-input);
+  }
+}
+
+/* Light Mode: plain glass buttons read as raised white glass instead of a grey tint. */
+:root[data-color-mode="light"] .glass-btn:not(.glass-btn-primary, .glass-btn-danger),
+:root[data-color-mode="light"] .btn {
+  background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.6));
+}
+:root[data-color-mode="light"] .glass-btn:not(.glass-btn-primary, .glass-btn-danger) {
+  box-shadow:
+    inset 0 1px 0 #fff,
+    0 1px 2px rgba(15, 23, 42, 0.12),
+    0 4px 12px -6px rgba(15, 23, 42, 0.2);
+}
+
+:root[data-color-mode="light"] .glass-btn-primary {
+  border-color: color-mix(in oklab, var(--sd-accent-primary) 70%, black);
+  background-image: linear-gradient(to bottom, color-mix(in oklab, var(--sd-accent-primary) 85%, white), var(--sd-accent-primary));
+}
+
+/* Angular HUD window chrome: chamfered corners and an accent rim. */
+:root[data-window-chrome="angular-hud"] .sd-window:not(.is-full) {
+  border-radius: 0;
+  border-color: color-mix(in oklab, var(--sd-accent-primary) 45%, transparent);
+  clip-path: polygon(16px 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%, 0 16px);
+}
+:root[data-window-chrome="angular-hud"] .sd-window > header {
+  border-bottom-color: color-mix(in oklab, var(--sd-accent-primary) 40%, transparent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: var(--sd-bg-base);
+  color: var(--sd-text-primary);
+  font-family: var(--sd-font-ui);
+  -webkit-font-smoothing: antialiased;
+  transition:
+    background-color 400ms ease,
+    color 400ms ease;
+}
+
+/* ---------------- Wallpaper (Control Panel → Appearance & Themes) ---------------- */
+
+.wallpaper::after {
+  /* Ambient top light that the glass surfaces pick up. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(70rem 22rem at 50% -6rem, rgba(255, 255, 255, 0.09), transparent 70%);
+}
+.sd-scanlines {
+  pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.22) 0 1px, transparent 1px 3px);
+}
+:root[data-color-mode="light"] .sd-scanlines {
+  background: repeating-linear-gradient(0deg, rgba(15, 23, 42, 0.05) 0 1px, transparent 1px 3px);
+}
+
+/* Window edge-snap preview. */
+.snap-preview {
+  position: fixed;
+  z-index: 8900;
+  pointer-events: none;
+  border-radius: var(--sd-radius-window);
+  border: 1px solid var(--sd-border-glass);
+  background: color-mix(in oklab, var(--sd-accent-primary) 14%, transparent);
+  backdrop-filter: blur(6px);
+  box-shadow: inset 0 1px 0 var(--sd-specular-highlight), 0 0 40px var(--sd-accent-glow);
+  transition: all 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--sd-text-primary) 18%, transparent);
+  border-radius: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+  }
+}
+
+/* Product logo variants (ProductLogo.tsx): white wordmark on dark glass, navy wordmark in light mode. */
+.brand-on-light { display: none; }
+:root[data-color-mode="light"] .brand-on-light { display: inline-block; }
+:root[data-color-mode="light"] .brand-on-dark { display: none; }

@@ -1,0 +1,40 @@
+#cloud-config
+# SolarOS unattended installation (Ubuntu autoinstall v1). build-iso.sh fills the @@...@@ fields.
+# Subiquity installs the OS; on first boot solardeck-firstboot.service runs hypervisor/firstboot-setup.sh from the
+# SolarDeck bundle copied off the ISO (source, prebuilt desktop and Python wheels; APT packages need the network).
+autoinstall:
+  version: 1
+  @@INTERACTIVE@@
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+  network:
+    version: 2
+    ethernets:
+      all-en:
+        match:
+          name: "en*"
+        dhcp4: true
+      all-eth:
+        match:
+          name: "eth*"
+        dhcp4: true
+  storage:
+    layout:
+      name: lvm
+      sizing-policy: all
+      @@DISK_MATCH@@
+  identity:
+    hostname: @@HOSTNAME@@
+    username: solardeck
+    realname: SolarOS Administrator
+    password: "@@PASSWORD_HASH@@"
+  ssh:
+    install-server: true
+    allow-pw: true
+  updates: security
+  late-commands:
+    - mkdir -p /target/opt/solardeck-src
+    - tar -xzf /cdrom/solardeck/solardeck-src.tar.gz -C /target/opt/solardeck-src
+    - cp /target/opt/solardeck-src/hypervisor/solardeck-firstboot.service /target/etc/systemd/system/
+    - curtin in-target --target=/target -- systemctl enable solardeck-firstboot.service

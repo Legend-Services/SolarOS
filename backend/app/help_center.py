@@ -1,0 +1,269 @@
+"""Help Center: health diagnostics with one-click fixes, each with a plain-language explainer and do-it-yourself steps.
+
+Every check returns the same shape so the frontend wizard can walk any user through it:
+  id, title, status (ok | info | warning | error), summary, details,
+  fix: {label, changes[], reboot} or None, manual: [steps], link: {app, intent?}, bios: guide id or None
+  (a BIOS/UEFI change only the user can make; see bios_guides.py and GET /api/help/bios).
+Evaluators are pure functions (tested in tests/test_help_center.py); collection and fixes reuse existing modules.
+"""
+import asyncio
+import re
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+
+from . import bios_guides, host, host_ssh, notifications, pci
+from .config import settings
+from .auth import load_security, require_user
+from providers.registry import driver_package, get_provider
+
+router = APIRouter(prefix="/api/help", tags=["help"], dependencies=[Depends(require_user)])
+FixId = Literal["repos", "iommu", "time", "updates", "backups"]
+# systemd-boot entry tool of this platform ("" = GRUB only).
+BOOT_TOOL = driver_package().BOOT_TOOL
+
+
+def item(id_: str, title: str, status: str, summary: str, details: str = "", fix: dict | None = None,
+         manual: list[str] | None = None, link: dict | None = None, bios: str | None = None) -> dict:
+    return {"id": id_, "title": title, "status": status, "summary": summary, "details": details, "fix": fix,
+            "manual": manual or [], "link": link, "bios": bios}
+
+
+def check_bridge(error: str | None) -> dict:
+    if not error:
+        return item("bridge", "Host connection (SSH key bridge)", "ok", "SolarDeck can run admin tasks on your host.")
+    return item("bridge", "Host connection (SSH key bridge)", "error",
+                "SolarDeck cannot log in to your host, so Host Shell, drivers, network services and fixes won't work.",
+                error, None,
+                ["On your computer, open a terminal in the SolarDeck folder and run ./deploy.sh (or run the installer on the "
+                 "host as root). It re-creates and authorizes the SolarDeck key.",
+                 "Make sure the host allows root logins with keys: in /etc/ssh/sshd_config, PermitRootLogin must not be 'no'.",
+                 "Come back here and press 'Check again'."],
+                {"app": "controlpanel", "intent": "security"})
+
+
+def check_iommu(enabled: bool, has_gpu: bool, cpu_vendor: str) -> dict:
+    if enabled:
+        return item("iommu", "Device passthrough (IOMMU / VT-d)", "ok", "Graphics cards and other devices can be passed to VMs.")
+    flag = "amd_iommu=on" if cpu_vendor == "amd" else "intel_iommu=on"
+    return item("iommu", "Device passthrough (IOMMU / VT-d)", "warning" if has_gpu else "info",
+                "IOMMU is off, so you can't give a graphics card, USB controller or other PCI device to a VM.",
+                "No IOMMU groups exist on the host. Both the BIOS setting and the kernel option are needed.",
+                {"label": "Turn on IOMMU in the boot settings",
+                 "changes": [f"Adds '{flag} iommu=pt' to the kernel command line (a backup copy is kept)",
+                             "Loads the vfio modules at boot and rebuilds the boot images"], "reboot": True},
+                ["Reboot the server and enter the BIOS/UEFI setup (usually Del or F2 while it starts).",
+                 "Find 'Intel VT-d' (Intel) or 'AMD-Vi / IOMMU' (AMD), set it to Enabled, save and exit.",
+                 *([f"Open Host Shell. If the host boots with systemd-boot (ZFS on UEFI), add '{flag} iommu=pt' to the end "
+                    f"of the single line in /etc/kernel/cmdline and run: {BOOT_TOOL} refresh"] if BOOT_TOOL else []),
+                 f"Otherwise (GRUB), add '{flag} iommu=pt' inside GRUB_CMDLINE_LINUX_DEFAULT in /etc/default/grub and "
+                 "run: update-grub",
+                 "Reboot. Back here, 'Check again' should turn green."],
+                {"app": "controlpanel", "intent": "hardware"}, bios="vt-d")
+
+
+def check_vtx(enabled: bool) -> dict:
+    if enabled:
+        return item("vtx", "CPU virtualization (VT-x / AMD-V)", "ok", "The processor can run virtual machines.")
+    return item("vtx", "CPU virtualization (VT-x / AMD-V)", "error",
+                "CPU virtualization is switched off in the BIOS, so virtual machines cannot start (containers still work).",
+                manual=["This can only be changed in the BIOS/UEFI setup. Open the BIOS instructions below: scan the QR code "
+                        "with your phone so you can read the steps while the server restarts."],
+                link={"app": "help"}, bios="vt-x")
+
+
+def check_time(synced: bool | None) -> dict:
+    if synced:
+        return item("time", "Clock synchronisation", "ok", "The host clock is synchronised with internet time servers.")
+    return item("time", "Clock synchronisation", "warning",
+                "The host clock is not synchronised. Wrong time breaks certificates, 2FA codes, backup schedules and clusters.",
+                fix={"label": "Turn on automatic time sync", "changes": ["Enables and starts chrony (NTP)"], "reboot": False},
+                manual=["Open Host Shell.", "Run: systemctl enable --now chrony", "Run: chronyc tracking — 'Leap status: Normal' "
+                        "means it works."],
+                link={"app": "terminal"})
+
+
+def check_twofa(enabled: bool) -> dict:
+    if enabled:
+        return item("twofa", "Sign-in protection (2FA)", "ok", "Two-factor authentication protects your sign-in.")
+    return item("twofa", "Sign-in protection (2FA)", "warning",
+                "Anyone who learns your password gets full control of the server (SolarDeck includes a root shell). "
+                "Turn on 2FA so a code from your phone is also needed.",
+                manual=["Install an authenticator app on your phone (Google Authenticator, Microsoft Authenticator, 1Password…).",
+                        "Open Control Panel → User & Security → Two-Factor Authentication → 'Set up 2FA'.",
+                        "Scan the QR code with the app and type the 6-digit code to confirm."],
+                link={"app": "controlpanel", "intent": "security"})
+
+
+def check_updates(updates: list) -> dict:
+    n = len(updates or [])
+    if not n:
+        return item("updates", "Host updates", "ok", "No pending host updates were found (press Refresh in System → Updates "
+                    "to check again).", link={"app": "system"})
+    security = sum(1 for u in updates if "security" in (u.get("Origin", "") + u.get("Section", "")).lower())
+    return item("updates", "Host updates", "warning" if n >= 20 or security else "info",
+                f"{n} update(s) are waiting{f', including {security} security update(s)' if security else ''}.",
+                fix={"label": "Install all host updates now", "changes": [f"Runs apt dist-upgrade for {n} package(s)",
+                                                                          "Keeps your existing configuration files"],
+                     "reboot": False},
+                manual=["Open the System app → Updates.", "Press 'Refresh', then 'Upgrade'.",
+                        "If a new kernel was installed, reboot the host when convenient (Control Panel → System & Power)."],
+                link={"app": "system"})
+
+
+def check_gpu_drivers(devices: list) -> list[dict]:
+    out = []
+    for d in devices:
+        if d["gpu"] and d["vendor"] == "nvidia" and d["driver"] == "nouveau":
+            out.append(item(f"gpu:{d['id']}", f"NVIDIA graphics card ({d['id']})", "info",
+                            f"{d['name']} uses the basic open-source 'nouveau' driver: no CUDA, no AI/transcoding acceleration "
+                            "and no VM passthrough.",
+                            manual=["Open Control Panel → Hardware & System → GPU & Drivers.",
+                                    "To use the card on the host or in containers: 'Install NVIDIA driver'.",
+                                    "To give the card to one VM: 'Switch to VM Passthrough Mode'.",
+                                    "Reboot when the log says it is finished."],
+                            link={"app": "controlpanel", "intent": "hardware"}))
+    return out
+
+
+def from_alerts(alerts: list) -> list[dict]:
+    status = {"critical": "error", "warning": "warning", "info": "info"}
+    app = {"zfs": "storage", "capacity": "storage", "disk": "storage", "task": "monitor"}
+    return [item(f"alert:{a['id']}", a["title"], status.get(a["severity"], "info"), a["message"],
+                 manual=["Open the linked app to see the details.", "Capacity: delete old snapshots/backups or add disks.",
+                         "Disk/SMART problems: back up now and replace the disk."], link={"app": app.get(a["category"], "monitor")})
+            for a in alerts]
+
+
+async def _bridge_error() -> str | None:
+    try:
+        await host_ssh.run("true", timeout=15)
+        return None
+    except HTTPException as e:
+        return str(e.detail)
+
+
+# dmidecode first, then the kernel's copy in /sys/devices/virtual/dmi/id (works without the dmidecode package).
+BIOS_PROBE = ("for p in system-manufacturer:sys_vendor baseboard-manufacturer:board_vendor baseboard-product-name:board_name "
+              "bios-vendor:bios_vendor bios-version:bios_version; do k=${p%%:*}; "
+              "v=$(dmidecode -s $k 2>/dev/null | head -1); [ -n \"$v\" ] || v=$(cat /sys/devices/virtual/dmi/id/${p#*:} 2>/dev/null); "
+              "echo \"$k=$v\"; done; "
+              "echo \"virt=$(grep -cE 'vmx|svm' /proc/cpuinfo)\"; echo \"cpu=$(grep -m1 vendor_id /proc/cpuinfo)\"; "
+              "echo \"sb=$(mokutil --sb-state 2>/dev/null || od -An -t u1 /sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c 2>/dev/null | awk '{print $NF}')\"")
+
+
+OEM_PLACEHOLDER = re.compile(r"^(to be filled by o\.?e\.?m\.?|default string|not specified|not applicable|n/a|none|"
+                             r"system manufacturer|system product name|base board manufacturer|0123456789|x\.x+|)$", re.I)
+
+
+def parse_bios_facts(out: str) -> dict:
+    kv = {k: "" if OEM_PLACEHOLDER.match(v.strip()) else v.strip()
+          for k, _, v in (line.partition("=") for line in out.splitlines() if "=" in line)}
+    sb = kv.get("sb", "")
+    return {"manufacturer": kv.get("system-manufacturer", ""), "board_vendor": kv.get("baseboard-manufacturer", ""),
+            "board": kv.get("baseboard-product-name", ""), "bios_vendor": kv.get("bios-vendor", ""),
+            "bios_version": kv.get("bios-version", ""), "virtualization": kv.get("virt", "0").strip() not in ("", "0"),
+            "cpu": "amd" if "AMD" in kv.get("cpu", "") else "intel",
+            "secure_boot": "enabled" in sb.lower() or sb == "1"}
+
+
+async def _host_facts() -> tuple[bool | None, str]:
+    try:
+        out = await host_ssh.run("timedatectl show -p NTPSynchronized --value; grep -m1 vendor_id /proc/cpuinfo", timeout=15)
+    except HTTPException:
+        return None, "intel"
+    lines = out.splitlines() + ["", ""]
+    return lines[0].strip() == "yes", "amd" if "AMD" in lines[1] else "intel"
+
+
+async def _probe() -> dict | None:
+    try:
+        return await pci.probe()
+    except HTTPException:
+        return None
+
+
+@router.get("/diagnostics")
+async def diagnostics():
+    bridge_err, (synced, vendor), probe, platform, alerts = await asyncio.gather(
+        _bridge_error(), _host_facts(), _probe(), get_provider().help_diagnostics(), notifications.notifications(),
+    )
+    items = [check_bridge(bridge_err), check_twofa(bool(load_security().get("totp_enabled"))), *platform]
+    if synced is not None:
+        items.append(check_time(synced))
+    if probe:
+        devs = probe["devices"]
+        items.append(check_iommu(probe["iommu_enabled"], any(d["gpu"] for d in devs), vendor))
+        try:
+            items.append(check_vtx(parse_bios_facts(await host_ssh.run(BIOS_PROBE, timeout=20))["virtualization"]))
+        except HTTPException:
+            pass
+        items += check_gpu_drivers(devs)
+    items += from_alerts(alerts["alerts"])
+    rank = {"error": 0, "warning": 1, "info": 2, "ok": 3}
+    return sorted(items, key=lambda i: rank[i["status"]])
+
+
+@router.get("/bios")
+async def bios(vendor: str | None = Query(None, pattern=r"^[a-z]{2,12}$")):
+    """BIOS/UEFI guides for this board (or `vendor` override), marking the ones this host needs, with text QR codes."""
+    try:
+        facts = parse_bios_facts(await host_ssh.run(BIOS_PROBE, timeout=20))
+    except HTTPException:  # host unreachable: still show the guides, with generic menus and nothing marked "needed"
+        facts = parse_bios_facts("virt=1")
+    probe = await _probe()
+    detected = bios_guides.detect_vendor(facts["board_vendor"], facts["manufacturer"], facts["bios_vendor"])
+    v = vendor if vendor in bios_guides.VENDORS else detected
+    nvidia = any(d["gpu"] and d["vendor"] == "nvidia" for d in (probe or {}).get("devices", []))
+    needed = {"vt-x": not facts["virtualization"], "vt-d": not (probe or {}).get("iommu_enabled", True),
+              "above4g": None if nvidia else False, "primary-display": None if nvidia else False,
+              "secure-boot": facts["secure_boot"] and nvidia}
+    board = " ".join(dict.fromkeys(x for x in (facts["board_vendor"], facts["board"]) if x)).strip()
+    guides = [bios_guides.build_guide(t, v, facts["cpu"], needed[t], board) for t in bios_guides.TOPICS]
+    return {"facts": facts, "detected_vendor": detected, "vendor": v,
+            "vendors": [{"id": k, "name": n} for k, (n, _, _) in bios_guides.VENDORS.items()],
+            # needed first, then recommended (None), then the rest
+            "guides": sorted(guides, key=lambda g: {True: 0, None: 1, False: 2}[g["needed"]])}
+
+
+IOMMU_SCRIPT = r"""
+P="__FLAG__ iommu=pt"
+# Never pipe into grep -q here: jobs run with pipefail and its early exit SIGPIPEs the writer, failing the test.
+BT="__BOOT_TOOL__"
+if [ -n "$BT" ] && [ -d /sys/firmware/efi ] && [ -f /etc/kernel/cmdline ] && [[ "$($BT status 2>/dev/null)" == *uefi* ]]; then
+  echo "==> systemd-boot detected: editing /etc/kernel/cmdline (backup: /etc/kernel/cmdline.{P}.bak)"
+  cp -n /etc/kernel/cmdline /etc/kernel/cmdline.{P}.bak
+  for p in $P; do grep -qw -- "$p" /etc/kernel/cmdline || sed -i "1 s/[[:space:]]*\$/ $p/" /etc/kernel/cmdline; done
+  cat /etc/kernel/cmdline
+  $BT refresh
+else
+  echo "==> GRUB detected: editing /etc/default/grub (backup: /etc/default/grub.{P}.bak)"
+  cp -n /etc/default/grub /etc/default/grub.{P}.bak
+  for p in $P; do
+    grep -q "^GRUB_CMDLINE_LINUX_DEFAULT=.*$p" /etc/default/grub \
+      || sed -i "s/^GRUB_CMDLINE_LINUX_DEFAULT=\"\(.*\)\"/GRUB_CMDLINE_LINUX_DEFAULT=\"\1 $p\"/" /etc/default/grub
+  done
+  grep ^GRUB_CMDLINE_LINUX_DEFAULT /etc/default/grub
+  update-grub
+fi
+printf 'vfio\nvfio_iommu_type1\nvfio_pci\n' > /etc/modules-load.d/{P}-iommu.conf
+update-initramfs -u -k all
+echo "==> Done. Reboot the host. If IOMMU is still off afterwards, enable VT-d / AMD-Vi in the BIOS/UEFI setup."
+"""
+IOMMU_SCRIPT = IOMMU_SCRIPT.replace("{P}", settings.system_prefix).replace("__BOOT_TOOL__", BOOT_TOOL)
+
+
+@router.post("/fix/{fix_id}")
+async def fix(fix_id: FixId):
+    """Apply a fix. Returns {message, job?}; a job streams its log at /api/host/jobs/{job}."""
+    if fix_id == "iommu":
+        _, vendor = await _host_facts()
+        await host_ssh.start_job("help-iommu", IOMMU_SCRIPT.replace("__FLAG__", "amd_iommu=on" if vendor == "amd" else "intel_iommu=on"))
+        return {"message": "Updating the boot settings…", "job": "help-iommu"}
+    if fix_id == "time":
+        await host_ssh.run("systemctl enable --now chrony 2>/dev/null || timedatectl set-ntp true; chronyc makestep >/dev/null 2>&1 || true")
+        return {"message": "Automatic time synchronisation is on."}
+    if fix_id == "updates":
+        await host.run(["apt-upgrade"])
+        return {"message": "Updates are installing in the background. Follow the progress in System → Updates."}
+    return await get_provider().help_fix(fix_id)  # repos, backups: the platform's update sources and backup jobs

@@ -1,0 +1,10 @@
+.build-commit
+backend/data/benchmarks.json
+backend/data/local_ai.json
+backend/data/ai_chats.json
+backend/data/themes/
+backend/data/native_guests.json
+backend/data/local_rbac.json
+backend/data/native_backup_jobs.json
+hypervisor/.cache/
+*.iso
