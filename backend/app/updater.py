@@ -1,4 +1,5 @@
-"""Git-backed SolarDeck updater: update checks, version history, update/rollback to any ref and scheduled auto-updates.
+"""Git-backed SolarDeck updater: background update checks, version history, update/rollback to any ref, live update
+progress and scheduled installs.
 
 The actual code swap runs in deploy/self-update.sh as a detached systemd unit, because it restarts this backend.
 """
@@ -27,9 +28,15 @@ log = logging.getLogger(__name__)
 APP_DIR = Path(__file__).resolve().parents[2]
 UNIT = settings.name("self-update")
 LOG = Path(f"/var/log/{UNIT}.log")
+# Written by deploy/self-update.sh at every stage. In /run, not /tmp: the backend's /tmp is private (PrivateTmp=yes),
+# so the updater unit and this backend would each see their own copy.
+PROGRESS = Path(f"/run/{settings.name('update-progress')}.json")
+COMPLETED_TTL = timedelta(minutes=2)  # a finished update is shown this long, then the page is back to idle
 REF_RE = r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$"
 SEP = "\x1f"
-DEFAULTS = {"mode": "notify", "schedule_frequency": "daily", "schedule_time": "03:00", "schedule_day": 0,
+DEFAULTS = {"auto_check_enabled": True, "check_interval_hours": 6, "auto_install_enabled": False,
+            "schedule_frequency": "weekly", "schedule_day_of_week": 0, "schedule_day_of_month": 1, "schedule_time": "03:00",
+            "include_os_packages": False, "last_auto_install_at": None,
             "last_checked_at": None, "latest_remote_commit": None, "latest_remote_tag": None, "update_available": False,
             "last_check_error": None}
 
@@ -42,7 +49,17 @@ def load_settings() -> dict:
         data = json.loads(settings.update_settings_file.read_text())
     except (OSError, ValueError):
         data = {}
-    return {**DEFAULTS, **(data if isinstance(data, dict) else {})}
+    data = data if isinstance(data, dict) else {}
+    if "mode" in data:
+        # Settings from before the update schedule: manual / notify / auto with a 6h, daily or weekly check.
+        mode = data.pop("mode")
+        data.setdefault("auto_check_enabled", mode != "manual")
+        data.setdefault("auto_install_enabled", mode == "auto")
+        if "schedule_day" in data:
+            data.setdefault("schedule_day_of_week", data.pop("schedule_day"))
+        if data.get("schedule_frequency") == "6h":
+            data.update(schedule_frequency="daily", check_interval_hours=6)
+    return {**DEFAULTS, **data}
 
 
 def save_settings(data: dict) -> dict:
@@ -54,22 +71,43 @@ def save_settings(data: dict) -> dict:
     return data
 
 
-def due(s: dict, now: datetime) -> bool:
-    """Whether a scheduled check is due. schedule_day uses 0 = Sunday (JavaScript getDay)."""
-    if s["mode"] == "manual":
-        return False
-    last = datetime.fromisoformat(s["last_checked_at"]) if s.get("last_checked_at") else None
-    if s["schedule_frequency"] == "6h":
-        return last is None or now - last >= timedelta(hours=6)
+def _ts(v: str | None) -> datetime | None:
+    return datetime.fromisoformat(v) if v else None
+
+
+def check_due(s: dict, now: datetime) -> bool:
+    """Whether the background update check is due (every check_interval_hours)."""
+    last = _ts(s.get("last_checked_at"))
+    return s["auto_check_enabled"] and (last is None or now - last >= timedelta(hours=s["check_interval_hours"]))
+
+
+def install_slot(s: dict, day: datetime) -> datetime | None:
+    """The scheduled install time on `day`, or None when it is not an install day. Day of week: 0 = Sunday."""
+    if s["schedule_frequency"] == "weekly" and day.isoweekday() % 7 != s["schedule_day_of_week"]:
+        return None
+    if s["schedule_frequency"] == "monthly" and day.day != s["schedule_day_of_month"]:
+        return None
     h, m = map(int, s["schedule_time"].split(":"))
-    slot = now.replace(hour=h, minute=m, second=0, microsecond=0)
-    step = timedelta(days=1)
-    if s["schedule_frequency"] == "weekly":
-        step = timedelta(days=7)
-        slot -= timedelta(days=(now.isoweekday() % 7 - s["schedule_day"]) % 7)
-    if slot > now:
-        slot -= step
-    return last is None or last < slot
+    return day.replace(hour=h, minute=m, second=0, microsecond=0)
+
+
+def install_due(s: dict, now: datetime) -> bool:
+    """Within an hour after today's slot, once per day: the backend restarted by the update must not start it again."""
+    slot = install_slot(s, now) if s["auto_install_enabled"] else None
+    last = _ts(s.get("last_auto_install_at"))
+    return slot is not None and slot <= now < slot + timedelta(hours=1) and (last is None or last.date() != now.date())
+
+
+def next_runs(s: dict, now: datetime) -> dict:
+    last = _ts(s.get("last_checked_at"))
+    check_at = max(now, last + timedelta(hours=s["check_interval_hours"])) if last else now
+    install_at = None
+    if s["auto_install_enabled"]:
+        # Monthly days are 1..28, so every schedule has a slot within 31 days.
+        days = (install_slot(s, now + timedelta(days=i)) for i in range(32))
+        install_at = next((d for d in days if d and d > now), None)
+    iso = lambda d: d and d.isoformat(timespec="seconds")  # noqa: E731
+    return {"next_check_at": iso(check_at) if s["auto_check_enabled"] else None, "next_install_at": iso(install_at)}
 
 
 # ---------------------------------------------------------------- Git
@@ -197,13 +235,46 @@ async def _incoming(src: dict) -> list[dict]:
     return _parse_log(await _out("log", "-50", FMT, f"{src['commit']}..origin/{src['branch']}"), None)
 
 
+_detached: asyncio.subprocess.Process | None = None  # the runner when systemd-run is missing
+
+
 async def job() -> dict:
     _, state = await _cmd("systemctl", "is-active", UNIT)
+    if _detached and _detached.returncode is None:
+        state = "active"
     try:
         lines = LOG.read_text(errors="replace").splitlines()[-300:]
     except OSError:
         lines = []
     return parse_upgrade_status("\n".join([f"state:{state}", *lines]))
+
+
+def write_progress(**p) -> None:
+    tmp = PROGRESS.with_suffix(".tmp")
+    tmp.write_text(json.dumps(p))
+    tmp.replace(PROGRESS)
+
+
+def progress(j: dict, now: datetime) -> dict:
+    """The update runner's stage, from the file self-update.sh keeps current (it outlives backend restarts)."""
+    try:
+        p = json.loads(PROGRESS.read_text())
+    except (OSError, ValueError):
+        p = {}
+    p = p if isinstance(p, dict) else {}
+    if p.get("status") == "running" and not j["running"]:
+        # The unit ended without a final stage: killed, or an updater from a release without progress tracking.
+        ok = j["exit_code"] == 0
+        p.update(status="completed" if ok else "failed", percent=100 if ok else p.get("percent", 0),
+                 error_message=None if ok else "The updater stopped unexpectedly; see the log for details.")
+        p.setdefault("finished_at", now.isoformat(timespec="seconds"))
+    finished = _ts(p.get("finished_at"))
+    if p.get("status") == "completed" and finished and now - finished > COMPLETED_TTL:
+        p = {}
+    return {"update_status": p.get("status", "idle"), "progress_percent": p.get("percent", 0), "stage": p.get("stage"),
+            "current_stage": p.get("stage_label"), "error_message": p.get("error_message"),
+            "started_at": p.get("started_at"), "finished_at": p.get("finished_at"),
+            "completed_version": p.get("completed_version"), "completed_commit": p.get("completed_commit")}
 
 
 def edition() -> dict:
@@ -222,11 +293,20 @@ async def start(target: str, branch: str, system_packages: bool = False) -> None
     shutil.copy(APP_DIR / "deploy/self-update.sh", script)
     await _cmd("systemctl", "reset-failed", UNIT)
     # Detached transient unit: the script restarts this backend, which must not kill the update midway.
+    now = datetime.now().astimezone().isoformat(timespec="seconds")
+    write_progress(status="running", percent=0, stage="starting", stage_label="Starting the updater", target=target,
+                   started_at=now, updated_at=now)
+    run = ["bash", str(script), str(APP_DIR), settings.repo_url, branch, target, "1" if system_packages else "0"]
     rc, out = await _cmd("systemd-run", "--quiet", f"--unit={UNIT}", "--collect",
-                         "-p", f"StandardOutput=truncate:{LOG}", "-p", "StandardError=inherit",
-                         "bash", str(script), str(APP_DIR), settings.repo_url, branch, target,
-                         "1" if system_packages else "0")
-    if rc:
+                         "-p", f"StandardOutput=truncate:{LOG}", "-p", "StandardError=inherit", *run)
+    if rc == 127:
+        # No systemd-run: a nohup-style new session survives this backend's restart just the same.
+        global _detached
+        with LOG.open("w") as f:
+            _detached = await asyncio.create_subprocess_exec(*run, stdout=f, stderr=asyncio.subprocess.STDOUT, start_new_session=True)
+    elif rc:
+        write_progress(status="failed", percent=0, stage="starting", stage_label="Starting the updater",
+                       error_message=f"Could not start the updater: {out[-300:]}", started_at=now, finished_at=now)
         raise HTTPException(500, f"Could not start the updater: {out[-300:]}")
 
 
@@ -248,21 +328,53 @@ async def status(check_remote: bool = Query(False, alias="check")):
     s = load_settings()
     # A check stored before the last update/rollback may compare against an older commit.
     available = bool(s["latest_remote_commit"]) and s["latest_remote_commit"] != src["commit"]
-    return {**src, **edition(), "remote_commit": s["latest_remote_commit"], "remote_tag": s["latest_remote_tag"],
+    tag = s["latest_remote_tag"]
+    j = await job()
+    return {**src, **edition(), "remote_commit": s["latest_remote_commit"], "remote_tag": tag,
             "update_available": available, "incoming": await _incoming(src) if available else [], "settings": s,
-            **await job()}
+            "current_version": src["version"], "last_checked": s["last_checked_at"],
+            # The branch can be ahead of its newest tag: then the commit names the new version.
+            "latest_version": tag if tag and tag != src["tag"] else (s["latest_remote_commit"] or "")[:10] or None,
+            "running": j["running"], "exit_code": j["exit_code"], "logs": j["log"],
+            **progress(j, datetime.now().astimezone())}
 
 
-class UpdateSettings(BaseModel):
-    mode: Literal["manual", "notify", "auto"]
-    schedule_frequency: Literal["6h", "daily", "weekly"]
+@router.post("/acknowledge")
+async def acknowledge():
+    """Clear a finished or failed update, so the page shows the idle state again (the log stays on disk)."""
+    if (await job())["running"]:
+        raise HTTPException(409, "An update is running")
+    PROGRESS.unlink(missing_ok=True)
+    return {"ok": True}
+
+
+class UpdateSchedule(BaseModel):
+    auto_check_enabled: bool
+    check_interval_hours: Literal[1, 6, 12, 24]
+    auto_install_enabled: bool
+    schedule_frequency: Literal["daily", "weekly", "monthly"]
+    schedule_day_of_week: int = Field(0, ge=0, le=6)
+    schedule_day_of_month: int = Field(1, ge=1, le=28)
     schedule_time: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
-    schedule_day: int = Field(0, ge=0, le=6)
+    include_os_packages: bool = False
 
 
-@router.put("/settings")
-def put_settings(body: UpdateSettings):
-    return save_settings({**load_settings(), **body.model_dump()})
+def _schedule(s: dict) -> dict:
+    return {**{k: s[k] for k in UpdateSchedule.model_fields}, **next_runs(s, datetime.now().astimezone()),
+            "supports_os_packages": edition()["supports_system_packages"]}
+
+
+@router.get("/schedule")
+def get_schedule():
+    return _schedule(load_settings())
+
+
+@router.put("/schedule")
+def put_schedule(body: UpdateSchedule):
+    data = body.model_dump()
+    if data["include_os_packages"] and not edition()["supports_system_packages"]:
+        raise HTTPException(400, "This edition upgrades host packages from the hypervisor host itself")
+    return _schedule(save_settings({**load_settings(), **data}))
 
 
 @router.get("/versions")
@@ -352,10 +464,10 @@ async def rollback(body: ApplyBody):
     target = await resolve(body.target_ref)
     await start(target, src["branch"])
     s = load_settings()
-    if s["mode"] == "auto":
+    if s["auto_install_enabled"]:
         # Otherwise the next scheduled run would immediately undo the downgrade.
-        save_settings({**s, "mode": "notify"})
-    return {"ok": True, "target": target, "mode": load_settings()["mode"]}
+        save_settings({**s, "auto_install_enabled": False})
+    return {"ok": True, "target": target, "auto_install_enabled": False}
 
 
 # ---------------------------------------------------------------- Scheduler
@@ -369,12 +481,18 @@ async def scheduler_loop() -> None:
     while True:
         try:
             s = load_settings()
-            if due(s, datetime.now().astimezone()):
+            now = datetime.now().astimezone()
+            if install_due(s, now):
+                # Recorded first: whatever happens next, this slot is used up (no retry loop on a broken update).
+                save_settings({**s, "last_auto_install_at": now.isoformat(timespec="seconds")})
                 s = await check()
-                if s["mode"] == "auto" and s["update_available"] and not (await job())["running"]:
+                if s["update_available"] and not (await job())["running"]:
                     branch = (await source())["branch"]
-                    log.info("Auto-update to %s", s["latest_remote_commit"])
-                    await start(s["latest_remote_commit"], branch)
+                    log.info("Scheduled update to %s", s["latest_remote_commit"])
+                    await start(s["latest_remote_commit"], branch,
+                                s["include_os_packages"] and edition()["supports_system_packages"])
+            elif check_due(s, now):
+                await check()
         except asyncio.CancelledError:
             raise
         except Exception as e:  # noqa: BLE001 - a failed check must not stop future checks

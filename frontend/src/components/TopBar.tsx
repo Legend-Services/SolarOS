@@ -3,7 +3,7 @@ import { ArrowUpCircle, BookOpen, Bug, CircleHelp, Cpu, Database, LayoutDashboar
 import { useLayout } from "../store/layoutStore";
 import { useWizard } from "../store/wizardStore";
 import { ViewOptionsPanel } from "./ViewOptions";
-import { activeWindow, openLink, useAuth, useBugReport, useRelease, useReleasePoll, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
+import { activeWindow, openLink, useAuth, useBugReport, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
 import GlobalSearchBar from "./search/GlobalSearchBar";
 import { useClock, useDismiss } from "../lib/hooks";
 import TaskCenterPopover from "./TaskCenterPopover";
@@ -15,6 +15,7 @@ import { AppIcon } from "./icons/AppIcons";
 import LanguagePill from "./LanguagePill";
 import { useTranslation } from "../i18n";
 import { productOf, useCapabilities } from "../store/capabilitiesStore";
+import { useUpdatePoll, useUpdateStore } from "../store/updateStore";
 
 export function Pill({ icon, label, tone = "text-slate-200", onClick, title }: { icon: ReactNode; label: string; tone?: string; onClick?: () => void; title?: string }) {
   return (
@@ -30,20 +31,29 @@ export function Pill({ icon, label, tone = "text-slate-200", onClick, title }: {
   );
 }
 
-/** Telemetry pills + update badge shared by the top bar and the taskbar; each opens its Settings sub-module. */
+/** Telemetry pills + update badge, shown by whichever bar the shell uses (top bar or taskbar tray, never both). */
 export function StatusPills() {
   const { t } = useTranslation();
   const overview = useTelemetry((s) => s.overview);
   const storage = useTelemetry((s) => s.storage);
-  const update = useRelease((s) => s.update);
-  useReleasePoll();
+  const updateAvailable = useUpdateStore((s) => s.updateAvailable);
+  const latestVersion = useUpdateStore((s) => s.latestVersion);
+  const updateRunning = useUpdateStore((s) => s.updateRunning);
+  const progressPercent = useUpdateStore((s) => s.progressPercent);
+  useUpdatePoll();
   const health = zfsHealth(storage);
   const ram = overview ? percent(overview.memory.used, overview.memory.total) : 0;
   const monitor = () => openLink("settings", "resource-monitor");
   return (
     <>
-      {update && (
-        <Pill icon={<ArrowUpCircle size={12} />} label={t("top.update")} tone="text-amber-300" onClick={() => openLink("settings", "software-updates")} title={t("set.mod.software-updates")} />
+      {(updateAvailable || updateRunning) && (
+        <Pill
+          icon={<ArrowUpCircle size={12} className={updateRunning ? "animate-pulse" : ""} />}
+          label={updateRunning ? t("upd.badgeRunning", { percent: progressPercent }) : latestVersion ? t("upd.badge", { version: latestVersion }) : t("top.update")}
+          tone="text-amber-300"
+          onClick={() => openLink("settings", { module: "software-updates", tab: "solardeck" })}
+          title={t("set.mod.software-updates")}
+        />
       )}
       <Pill icon={<Cpu size={12} />} label={`${overview ? overview.cpu.toFixed(0) : "–"}%`} onClick={monitor} title={t("set.mod.resource-monitor")} />
       <Pill icon={<MemoryStick size={12} />} label={`${ram.toFixed(0)}%`} onClick={monitor} title={t("set.mod.resource-monitor")} />

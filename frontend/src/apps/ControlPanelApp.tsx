@@ -1,16 +1,17 @@
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { Bug, Copy, Disc3, PencilRuler, CloudDownload, KeyRound, Power, RefreshCw, RotateCcw, SquareTerminal } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { Bug, CalendarClock, CheckCircle2, Copy, Disc3, PencilRuler, CloudDownload, KeyRound, Power, RefreshCw, RotateCcw, SquareTerminal } from "lucide-react";
 import { api } from "../lib/api";
-import type { HypervisorIsoStatus, SystemInfo, UpdateSettings, UpdateStatus, VersionEntry } from "../lib/types";
+import type { HypervisorIsoStatus, SystemInfo, UpdateSchedule, UpdateScheduleState, UpdateStatus, VersionEntry } from "../lib/types";
 import { bytes, copyText, uptime } from "../lib/format";
-import { usePoll, useRunner } from "../lib/hooks";
+import { useClock, usePoll, useRunner } from "../lib/hooks";
 import { edition } from "@edition";
 import { MAGNIFICATION, useBugReport, useDock, usePrefs, useWindows, type Magnification } from "../lib/stores";
 import ThemeStudio from "./ThemeStudio";
 import { APPS, APP_IDS } from "./registry";
 import { AppIcon } from "../components/icons/AppIcons";
 import { LayoutControls } from "../components/ViewOptions";
-import { LANGS, isLang, useTranslation } from "../i18n";
+import { LANGS, isLang, useTranslation, type TKey } from "../i18n";
+import { useUpdateStore } from "../store/updateStore";
 import { useWidgets } from "../store/widgetStore";
 import { productOf, useCapabilities, useProduct } from "../store/capabilitiesStore";
 import { SessionsCard, TwoFactorCard } from "./security/SecurityCenter";
@@ -146,53 +147,125 @@ function BridgeCard() {
   );
 }
 
-const MODES: { id: UpdateSettings["mode"]; label: string }[] = [
-  { id: "manual", label: "Manual Only" },
-  { id: "notify", label: "Notify Me When Available" },
-  { id: "auto", label: "Automatic Updates" },
-];
-const FREQUENCIES: { id: UpdateSettings["schedule_frequency"]; label: string }[] = [
-  { id: "6h", label: "Every 6 Hours" },
-  { id: "daily", label: "Daily" },
-  { id: "weekly", label: "Weekly" },
-];
-const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const short = (c?: string | null) => (c ? c.slice(0, 10) : "unknown");
 const when = (iso?: string | null) => (iso ? new Date(iso).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "Never");
 type Start = (path: "apply" | "rollback", targetRef?: string, includeSystemPackages?: boolean) => Promise<unknown>;
 
-/** Settings → Software & Repositories: version check, update preferences and version history share one job state. */
+/** Settings → Software & Repositories: version check, live update progress, schedule and version history share one state. */
 function UpdatesSection() {
   const [st, setSt] = useState<UpdateStatus | null>(null);
-  const [started, setStarted] = useState(false);
   const [error, setError] = useState("");
-  const load = useCallback((check = false) => api<UpdateStatus>(`/system/updates/status${check ? "?check=true" : ""}`).then((s) => (setSt(s), s)), []);
-  // While an update runs, poll; the backend restarts near the end, so failed polls are expected and ignored.
+  const share = useUpdateStore((s) => s.apply);
+  const load = useCallback(
+    (check = false) => api<UpdateStatus>(`/system/updates/status${check ? "?check=true" : ""}`).then((s) => (setSt(s), share(s), s)),
+    [share],
+  );
+  const running = st?.update_status === "running" || !!st?.running;
+  // The backend restarts at ~92%: a 502 or network error while polling is expected, so polling just carries on.
   const poll = useCallback(() => {
-    if (started) load().catch(() => {});
-  }, [started, load]);
-  usePoll(poll, 3000);
+    if (running) load().catch(() => {});
+  }, [running, load]);
+  usePoll(poll, 1500);
   useEffect(() => {
     load().catch((e) => setError(e.message));
   }, [load]);
-  useEffect(() => {
-    if (started && st && !st.running && st.exit_code !== null) setStarted(false);
-  }, [started, st]);
   const start: Start = (path, targetRef, includeSystemPackages) =>
     api(`/system/updates/${path}`, {
       method: "POST",
       json: { ...(targetRef ? { target_ref: targetRef } : {}), ...(includeSystemPackages ? { include_system_packages: true } : {}) },
-    }).then(() => setStarted(true));
-  const running = !!st?.running || started;
+    }).then(() => load().catch(() => {}));
 
   return (
     <>
       <Notice error={error} />
+      {st && st.update_status !== "idle" && <UpdateProgressCard st={st} onDismiss={() => api("/system/updates/acknowledge", { method: "POST" }).then(() => load())} />}
       <UpdateCard st={st} running={running} load={load} start={start} />
-      {st && <UpdatePreferences initial={st.settings} onSaved={() => load()} />}
+      <UpdateScheduleCard />
       <VersionHistory st={st} running={running} start={start} />
       <HypervisorIsoCard />
     </>
+  );
+}
+
+const STAGES: Record<string, TKey> = {
+  starting: "upd.stage.starting",
+  prepare: "upd.stage.prepare",
+  fetch: "upd.stage.fetch",
+  checkout: "upd.stage.checkout",
+  "os-packages": "upd.stage.os-packages",
+  backend: "upd.stage.backend",
+  frontend: "upd.stage.frontend",
+  restart: "upd.stage.restart",
+  done: "upd.stage.done",
+};
+const RELOAD_MS = 2000;
+const mmss = (ms: number) => {
+  const sec = Math.max(0, Math.floor(ms / 1000));
+  return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+};
+
+/** Live update progress: stage, percentage, elapsed time and the runner's log; reloads the page once it reaches 100%. */
+function UpdateProgressCard({ st, onDismiss }: { st: UpdateStatus; onDismiss: () => Promise<unknown> }) {
+  const { t } = useTranslation();
+  const product = useProduct().short;
+  const now = useClock();
+  const logRef = useRef<HTMLPreElement>(null);
+  const status = st.update_status;
+  const pct = Math.min(100, Math.max(0, st.progress_percent));
+  const stage = st.stage && STAGES[st.stage] ? t(STAGES[st.stage], { product }) : (st.current_stage ?? t("upd.stage.starting"));
+  const elapsed = st.started_at ? mmss((st.finished_at ? Date.parse(st.finished_at) : now.getTime()) - Date.parse(st.started_at)) : null;
+  useEffect(() => {
+    logRef.current?.scrollTo({ top: logRef.current.scrollHeight });
+  }, [st.logs.length]);
+  useEffect(() => {
+    if (status !== "completed") return;
+    // Acknowledge first, so the reloaded page starts idle instead of reloading again.
+    const timer = setTimeout(() => window.location.reload(), RELOAD_MS);
+    onDismiss().catch(() => {});
+    return () => clearTimeout(timer);
+  }, [status]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const tone = status === "failed" ? "from-rose-500 to-rose-400" : status === "completed" ? "from-emerald-400 to-emerald-300" : "from-sky-400 to-emerald-400";
+  return (
+    <Card
+      title={t("upd.progress.title")}
+      action={<GlassBadge tone={status === "failed" ? "danger" : status === "completed" ? "success" : "info"}>{t(`upd.status.${status as "running" | "completed" | "failed"}`)}</GlassBadge>}
+    >
+      <div className="flex items-end justify-between gap-3">
+        <p className="min-w-0 flex-1 truncate text-xs text-slate-200" aria-live="polite">
+          {status === "completed" ? (
+            <span className="inline-flex items-center gap-1.5 font-medium text-emerald-300">
+              <CheckCircle2 size={14} /> {t("upd.reloading")}
+            </span>
+          ) : status === "failed" ? (
+            t("upd.failedAt", { stage })
+          ) : (
+            `${stage}…`
+          )}
+        </p>
+        <span className="text-2xl font-bold tabular-nums text-white">{pct}%</span>
+      </div>
+      <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white/10" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={stage}>
+        <div className={`h-full rounded-full bg-gradient-to-r ${tone} transition-[width] duration-700 ease-out ${status === "running" ? "animate-pulse" : ""}`} style={{ width: `${pct}%` }} />
+      </div>
+      <div className="mt-1.5 flex flex-wrap gap-x-4 text-[11px] text-slate-400">
+        {elapsed && <span>{t("upd.elapsed", { time: elapsed })}</span>}
+        {status === "completed" && st.completed_version && <span>{t("upd.installedVersion", { version: st.completed_version })}</span>}
+        {status === "running" && pct >= 92 && <span>{t("upd.restartHint")}</span>}
+      </div>
+      {status === "failed" && (
+        <div className="mt-3 space-y-2">
+          <Notice error={st.error_message ?? t("upd.failedGeneric")} />
+          <p className="text-[11px] text-slate-400">{t("upd.failedHint")}</p>
+          <GlassButton size="xs" onClick={() => void onDismiss()}>
+            {t("upd.dismiss")}
+          </GlassButton>
+        </div>
+      )}
+      <pre ref={logRef} className="mt-3 max-h-48 overflow-auto rounded-lg bg-black/40 p-2 font-mono text-[10px] whitespace-pre-wrap text-slate-300">
+        {st.logs.join("\n") || t("upd.stage.starting")}
+      </pre>
+    </Card>
   );
 }
 
@@ -262,8 +335,7 @@ function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; run
   const { busy, error, notice, run } = useRunner();
   const check = () => run(() => load(true));
   const apply = () => run(() => start("apply", undefined, sysPkgs && st?.supports_system_packages).then(() => setAsk(false)));
-  const done = st && !st.running && st.exit_code !== null && st.log.length > 0;
-  const latest = st?.remote_tag && st.remote_tag !== st.tag ? st.remote_tag : short(st?.remote_commit);
+  const latest = st?.latest_version ?? short(st?.remote_commit);
 
   return (
     <Card title={`${product} Version`} action={st?.update_available && !running && <GlassBadge tone="info">UPDATE AVAILABLE</GlassBadge>}>
@@ -283,17 +355,10 @@ function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; run
         <GlassButton variant={st?.update_available ? "secondary" : "primary"} disabled={busy || running} onClick={check}>
           <RefreshCw size={13} className={busy ? "animate-spin" : ""} /> Check for Updates
         </GlassButton>
-        {st?.update_available && (
-          <GlassButton variant="primary" disabled={busy || running} onClick={() => setAsk(true)}>
-            <CloudDownload size={13} /> {running ? "Updating…" : "Install Update Now"}
-          </GlassButton>
-        )}
+        <GlassButton variant="primary" disabled={busy || running || !st?.update_available} onClick={() => setAsk(true)}>
+          <CloudDownload size={13} /> Install Update Now
+        </GlassButton>
         {st && !st.update_available && st.remote_commit && !st.settings.last_check_error && !running && <span className="text-xs text-emerald-300">{product} is up to date.</span>}
-        {done && st.exit_code === 0 && (
-          <GlassButton onClick={() => window.location.reload()}>
-            <RefreshCw size={13} /> Reload {product}
-          </GlassButton>
-        )}
       </div>
       {st?.update_available && st.incoming.length > 0 && !running && (
         <div className="mt-3">
@@ -314,10 +379,6 @@ function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; run
           <Notice error={`Last update check failed: ${st.settings.last_check_error}`} />
         </div>
       )}
-      {(running || done) && (
-        <pre className="mt-3 max-h-48 overflow-auto rounded-lg bg-black/40 p-2 font-mono text-[10px] whitespace-pre-wrap text-slate-300">{st?.log.join("\n") || "Starting…"}</pre>
-      )}
-      {done && st.exit_code !== 0 && <Notice error={`Update failed (exit code ${st.exit_code}); see the log above. Your previous settings are saved in the state backup folder named in the log.`} />}
       <p className="mt-2 text-[11px] text-slate-500">
         {edition.updatesIntro}Updates pull the new code, sync dependencies, rebuild the desktop and restart the services. Settings, users, 2FA, schedules, shares and ZFS pools are kept.
         {st?.driver === "native_ubuntu" ? " The host helper and the console dashboard are updated as well." : edition.hostHelperNote}
@@ -345,55 +406,114 @@ function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; run
   );
 }
 
-function UpdatePreferences({ initial, onSaved }: { initial: UpdateSettings; onSaved: () => void }) {
-  const product = useProduct().short;
-  const [f, setF] = useState(initial);
-  const { busy, error, notice, run } = useRunner(onSaved);
-  const save = () =>
-    run(
-      () => api("/system/updates/settings", { method: "PUT", json: { mode: f.mode, schedule_frequency: f.schedule_frequency, schedule_time: f.schedule_time, schedule_day: f.schedule_day } }),
-      "Update preferences saved.",
-    );
+const INTERVALS = ["1", "6", "12", "24"] as const;
+// 2026-11-22 is a Sunday: day i of that week is weekday i (0 = Sunday), named in the interface language.
+const weekday = (lang: string, i: number) => new Date(2026, 10, 22 + i).toLocaleDateString(lang, { weekday: "long" });
+const at = (lang: string, iso: string) => new Date(iso).toLocaleString(lang, { dateStyle: "medium", timeStyle: "short" });
+
+/** Manual updates, or scheduled automatic installs (daily / weekly / monthly at a set time); background checks either way. */
+function UpdateScheduleCard() {
+  const { t, language } = useTranslation();
+  const [f, setF] = useState<UpdateScheduleState | null>(null);
+  const { busy, error, notice, run } = useRunner();
+  useEffect(() => {
+    run(() => api<UpdateScheduleState>("/system/updates/schedule").then(setF));
+  }, [run]);
+  if (!f) return <Card title={t("upd.schedule.title")}><Notice error={error} /></Card>;
+  const set = (p: Partial<UpdateSchedule>) => setF({ ...f, ...p });
+  const save = () => {
+    const body: UpdateSchedule = {
+      auto_check_enabled: f.auto_check_enabled,
+      check_interval_hours: f.check_interval_hours,
+      auto_install_enabled: f.auto_install_enabled,
+      schedule_frequency: f.schedule_frequency,
+      schedule_day_of_week: f.schedule_day_of_week,
+      schedule_day_of_month: f.schedule_day_of_month,
+      schedule_time: f.schedule_time,
+      include_os_packages: f.supports_os_packages && f.include_os_packages,
+    };
+    run(() => api<UpdateScheduleState>("/system/updates/schedule", { method: "PUT", json: body }).then(setF), t("upd.schedule.saved"));
+  };
+
   return (
-    <Card title="Automatic Update Preferences">
+    <Card title={t("upd.schedule.title")} action={<CalendarClock size={14} className="text-slate-400" />}>
       <div className="grid gap-3">
-        <Field label="When a new version is released">
-          <Segmented value={f.mode} onChange={(mode) => setF({ ...f, mode })} options={MODES} />
+        <Field label={t("upd.schedule.mode")}>
+          <Segmented
+            value={f.auto_install_enabled ? "auto" : "manual"}
+            onChange={(v) => set({ auto_install_enabled: v === "auto" })}
+            options={[
+              { id: "manual", label: t("upd.schedule.manual") },
+              { id: "auto", label: t("upd.schedule.auto") },
+            ]}
+          />
         </Field>
-        {f.mode !== "manual" && (
+        {f.auto_install_enabled && (
           <div className="flex flex-wrap items-end gap-3">
-            <Field label="Check for updates">
-              <Segmented value={f.schedule_frequency} onChange={(schedule_frequency) => setF({ ...f, schedule_frequency })} options={FREQUENCIES} />
+            <Field label={t("upd.schedule.frequency")}>
+              <Segmented
+                value={f.schedule_frequency}
+                onChange={(schedule_frequency) => set({ schedule_frequency })}
+                options={[
+                  { id: "daily", label: t("upd.schedule.daily") },
+                  { id: "weekly", label: t("upd.schedule.weekly") },
+                  { id: "monthly", label: t("upd.schedule.monthly") },
+                ]}
+              />
             </Field>
             {f.schedule_frequency === "weekly" && (
-              <Field label="Day">
-                <GlassSelect value={f.schedule_day} onChange={(e) => setF({ ...f, schedule_day: Number(e.target.value) })}>
-                  {DAYS.map((d, i) => (
-                    <option key={d} value={i}>
+              <Field label={t("upd.schedule.day")}>
+                <GlassSelect value={f.schedule_day_of_week} onChange={(e) => set({ schedule_day_of_week: Number(e.target.value) })}>
+                  {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+                    <option key={i} value={i}>
+                      {weekday(language, i)}
+                    </option>
+                  ))}
+                </GlassSelect>
+              </Field>
+            )}
+            {f.schedule_frequency === "monthly" && (
+              <Field label={t("upd.schedule.dayOfMonth")}>
+                <GlassSelect value={f.schedule_day_of_month} onChange={(e) => set({ schedule_day_of_month: Number(e.target.value) })}>
+                  {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+                    <option key={d} value={d}>
                       {d}
                     </option>
                   ))}
                 </GlassSelect>
               </Field>
             )}
-            {f.schedule_frequency !== "6h" && (
-              <Field label="Time">
-                <GlassInput type="time" required value={f.schedule_time} onChange={(e) => setF({ ...f, schedule_time: e.target.value })} />
-              </Field>
-            )}
+            <Field label={t("upd.schedule.time")}>
+              <GlassInput type="time" required value={f.schedule_time} onChange={(e) => set({ schedule_time: e.target.value })} />
+            </Field>
           </div>
         )}
-        <p className="text-[11px] text-slate-500">
-          {f.mode === "manual"
-            ? `${product} never checks on its own. Use Check for Updates above.`
-            : f.mode === "notify"
-              ? `${product} checks on this schedule and shows a notification in the top bar when an update is ready.`
-              : `${product} checks on this schedule and installs updates by itself. Settings and data are always kept.`}
-        </p>
-        <div className="flex items-center gap-2">
+        {f.auto_install_enabled && f.supports_os_packages && (
+          <GlassSwitch checked={f.include_os_packages} onChange={(include_os_packages) => set({ include_os_packages })} label={t("upd.schedule.osPackages")} />
+        )}
+        <div className="flex flex-wrap items-end gap-3">
+          <GlassSwitch checked={f.auto_check_enabled} onChange={(auto_check_enabled) => set({ auto_check_enabled })} label={t("upd.schedule.autoCheck")} />
+          {f.auto_check_enabled && (
+            <Segmented
+              value={String(f.check_interval_hours) as (typeof INTERVALS)[number]}
+              onChange={(v) => set({ check_interval_hours: Number(v) as UpdateSchedule["check_interval_hours"] })}
+              options={INTERVALS.map((h) => ({ id: h, label: t("upd.schedule.everyHours", { hours: h }) }))}
+            />
+          )}
+        </div>
+        <p className="text-[11px] text-slate-500">{f.auto_install_enabled ? t("upd.schedule.autoHint") : t("upd.schedule.manualHint")}</p>
+        <div className="flex flex-wrap items-center gap-3">
           <GlassButton variant="primary" disabled={busy} onClick={save}>
-            Save Preferences
+            {t("upd.schedule.save")}
           </GlassButton>
+          <span className="text-[11px] text-slate-400">
+            {[
+              f.next_check_at && t("upd.schedule.nextCheck", { time: at(language, f.next_check_at) }),
+              f.next_install_at && t("upd.schedule.nextInstall", { time: at(language, f.next_install_at) }),
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </span>
         </div>
         <Notice error={error} notice={notice} />
       </div>
@@ -465,7 +585,7 @@ function VersionHistory({ st, running, start }: { st: UpdateStatus | null; runni
             <br />
             <br />
             Only the {product} program files change. All settings, users, passwords, 2FA, ZFS pools and datasets, schedules and network shares remain untouched, and you can switch back from
-            this list at any time. {st?.settings.mode === "auto" && "Automatic updates are switched to Notify so they do not undo the downgrade."}
+            this list at any time. {st?.settings.auto_install_enabled && "Scheduled automatic installs are switched off so they do not undo the downgrade."}
           </>
         }
       />

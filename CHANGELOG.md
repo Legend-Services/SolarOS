@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.9.0 - Live Update Progress, Automatic Reload & Update Schedule — 2026-11-25
+
+### Added
+- **Live update progress:** Settings → Software & Repositories → SolarDeck Updates shows an **Update Progress** card while an update runs: an animated progress bar with the percentage, the current step (backup 5%, fetching release tags 20%, checkout 40%, Python backend dependencies 60%, frontend build 80%, service restart 92%, done 100%), the elapsed time and the live, auto-scrolling log.
+- **Automatic reload:** at 100% the card shows *Update installed (100%) — Reloading interface...* and the page reloads itself after 2 seconds, so the new version appears without a manual refresh. Polling every 1.5 seconds rides out the short 502 / network gap while the backend restarts.
+- **Clear failures:** a failed step keeps its percentage and shows the failing step, the error and the full log, with a **Dismiss** button (`POST /api/system/updates/acknowledge`). A finished update clears itself after 2 minutes.
+- **Automatic Updates & Schedule card:** choose **Manual Updates** (default) or **Automatic Scheduled Updates** daily, weekly or monthly at a set time (at most once per day), with background checks every 1, 6, 12 or 24 hours and, on a standalone SolarOS host, optional OS security packages. The card shows the next check and the next scheduled install. API: `GET / PUT /api/system/updates/schedule`.
+- **Update Ready badge:** background checks show *Update Ready: <version>* in the top bar in the floating-dock layout, or in the taskbar tray in the bottom-taskbar layout (never both), and *Updating NN%* while an update runs. It opens SolarDeck Updates directly.
+- All new texts in English, Nederlands, Deutsch, Español and Français.
+
+### Changed
+- The update runner writes its stage to `/run/<prefix>-update-progress.json` (the backend's own `/tmp` is private), so the progress survives the backend restart. Without `systemd-run` the runner starts in its own session instead.
+- `GET /api/system/updates/status` also returns `update_status`, `progress_percent`, `current_stage`, `logs`, `current_version`, `latest_version` and `last_checked`.
+- Earlier *Manual Only / Notify Me / Automatic Updates* choices carry over to the new schedule; `PUT /api/system/updates/settings` is replaced by `PUT /api/system/updates/schedule`.
+
 ## v2.8.0 - Global Desktop Search & Illustrated Manual — 2026-11-25
 
 ### Added

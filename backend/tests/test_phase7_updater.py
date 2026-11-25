@@ -7,34 +7,74 @@ from urllib.parse import parse_qs, urlparse
 from app import bug_report, updater
 from app.config import settings
 
-# ---- update settings persistence
+# ---- update schedule persistence + migration from the old manual / notify / auto modes
 with tempfile.TemporaryDirectory() as d:
     settings.update_settings_file = Path(d) / "data" / "update_settings.json"
     assert updater.load_settings() == updater.DEFAULTS
-    updater.put_settings(updater.UpdateSettings(mode="auto", schedule_frequency="weekly", schedule_time="04:30", schedule_day=3))
+    body = updater.UpdateSchedule(auto_check_enabled=True, check_interval_hours=12, auto_install_enabled=True,
+                                  schedule_frequency="monthly", schedule_day_of_month=15, schedule_time="04:30")
+    r = updater.put_schedule(body)
+    assert r["schedule_day_of_month"] == 15 and r["next_install_at"] and "last_checked_at" not in r, r
     s = updater.load_settings()
-    assert s["mode"] == "auto" and s["schedule_day"] == 3 and s["update_available"] is False, s
+    assert s["auto_install_enabled"] and s["check_interval_hours"] == 12 and s["update_available"] is False, s
     settings.update_settings_file.write_text("[]")
     assert updater.load_settings() == updater.DEFAULTS
+    settings.update_settings_file.write_text('{"mode": "auto", "schedule_frequency": "6h", "schedule_day": 3}')
+    s = updater.load_settings()
+    assert s["auto_check_enabled"] and s["auto_install_enabled"] and s["schedule_frequency"] == "daily", s
+    assert s["check_interval_hours"] == 6 and s["schedule_day_of_week"] == 3 and "mode" not in s, s
+    settings.update_settings_file.write_text('{"mode": "manual", "schedule_frequency": "weekly"}')
+    s = updater.load_settings()
+    assert not s["auto_check_enabled"] and not s["auto_install_enabled"] and s["schedule_frequency"] == "weekly", s
 
-# ---- due(): Wednesday 2026-11-25 10:00
+# ---- check_due / install_due / next_runs: Wednesday 2026-11-25 10:00
 now = datetime(2026, 11, 25, 10, 0)
-base = {**updater.DEFAULTS, "schedule_time": "03:00"}
+base = {**updater.DEFAULTS, "schedule_time": "10:00"}
 iso = lambda dt: dt.isoformat()  # noqa: E731
-assert updater.due({**base, "mode": "manual"}, now) is False
-assert updater.due(base, now) is True  # never checked
-assert updater.due({**base, "last_checked_at": iso(now.replace(hour=3, minute=1))}, now) is False  # today's slot done
-assert updater.due({**base, "last_checked_at": iso(now - timedelta(days=1))}, now) is True  # missed today's 03:00
-assert updater.due({**base, "schedule_time": "11:00", "last_checked_at": iso(now - timedelta(hours=20))}, now) is False
-h6 = {**base, "schedule_frequency": "6h"}
-assert updater.due({**h6, "last_checked_at": iso(now - timedelta(hours=5))}, now) is False
-assert updater.due({**h6, "last_checked_at": iso(now - timedelta(hours=6))}, now) is True
-wk = {**base, "schedule_frequency": "weekly", "schedule_day": 1}  # Monday 03:00 -> slot 2026-11-23 03:00
-assert updater.due({**wk, "last_checked_at": iso(datetime(2026, 11, 23, 4))}, now) is False
-assert updater.due({**wk, "last_checked_at": iso(datetime(2026, 11, 22, 4))}, now) is True
-wk3 = {**wk, "schedule_day": 3, "schedule_time": "11:00"}  # today, later -> last week's slot counts
-assert updater.due({**wk3, "last_checked_at": iso(datetime(2026, 11, 19))}, now) is False
-assert updater.due({**wk3, "last_checked_at": iso(datetime(2026, 11, 18, 10))}, now) is True
+assert updater.check_due(base, now) is True  # never checked
+assert updater.check_due({**base, "auto_check_enabled": False}, now) is False
+assert updater.check_due({**base, "last_checked_at": iso(now - timedelta(hours=5))}, now) is False
+assert updater.check_due({**base, "last_checked_at": iso(now - timedelta(hours=6))}, now) is True
+assert updater.check_due({**base, "check_interval_hours": 24, "last_checked_at": iso(now - timedelta(hours=6))}, now) is False
+auto = {**base, "auto_install_enabled": True, "schedule_frequency": "daily"}
+assert updater.install_due({**auto, "auto_install_enabled": False}, now) is False
+assert updater.install_due(auto, now) is True
+assert updater.install_due(auto, now + timedelta(minutes=59)) is True
+assert updater.install_due(auto, now + timedelta(hours=1)) is False  # missed slots are skipped, not caught up
+assert updater.install_due(auto, now - timedelta(minutes=1)) is False
+assert updater.install_due({**auto, "last_auto_install_at": iso(now.replace(hour=10, minute=0))}, now + timedelta(minutes=5)) is False
+assert updater.install_due({**auto, "last_auto_install_at": iso(now - timedelta(days=1))}, now) is True
+wk = {**auto, "schedule_frequency": "weekly"}
+assert updater.install_due({**wk, "schedule_day_of_week": 3}, now) is True  # Wednesday = 3
+assert updater.install_due({**wk, "schedule_day_of_week": 0}, now) is False
+mo = {**auto, "schedule_frequency": "monthly"}
+assert updater.install_due({**mo, "schedule_day_of_month": 25}, now) is True
+assert updater.install_due({**mo, "schedule_day_of_month": 1}, now) is False
+n = updater.next_runs({**mo, "schedule_day_of_month": 1, "last_checked_at": iso(now - timedelta(hours=1))}, now)
+assert n == {"next_check_at": "2026-11-25T15:00:00", "next_install_at": "2026-12-01T10:00:00"}, n
+n = updater.next_runs({**wk, "schedule_day_of_week": 3}, now)  # the slot is now, so the next one is in a week
+assert n["next_install_at"] == "2026-12-02T10:00:00" and n["next_check_at"] == "2026-11-25T10:00:00", n
+assert updater.next_runs({**base, "auto_check_enabled": False}, now) == {"next_check_at": None, "next_install_at": None}
+
+# ---- update progress: the file survives backend restarts; a dead unit without a final stage is resolved from its log
+with tempfile.TemporaryDirectory() as d:
+    updater.PROGRESS = Path(d) / "progress.json"
+    idle = {"running": False, "exit_code": None, "log": []}
+    assert updater.progress(idle, now)["update_status"] == "idle"
+    updater.write_progress(status="running", percent=60, stage="backend", stage_label="Installing", started_at=iso(now))
+    r = updater.progress({**idle, "running": True}, now)
+    assert (r["update_status"], r["progress_percent"], r["stage"]) == ("running", 60, "backend"), r
+    r = updater.progress({**idle, "exit_code": 1}, now)
+    assert (r["update_status"], r["progress_percent"]) == ("failed", 60) and r["error_message"], r
+    r = updater.progress({**idle, "exit_code": 0}, now)
+    assert (r["update_status"], r["progress_percent"]) == ("completed", 100), r
+    updater.write_progress(status="completed", percent=100, stage="done", finished_at=iso(now), completed_version="x")
+    assert updater.progress(idle, now + timedelta(minutes=1))["completed_version"] == "x"
+    assert updater.progress(idle, now + timedelta(minutes=3))["update_status"] == "idle"  # auto-cleared
+    updater.write_progress(status="failed", percent=40, finished_at=iso(now), error_message="boom")
+    assert updater.progress(idle, now + timedelta(days=1))["update_status"] == "failed"  # stays until acknowledged
+    updater.PROGRESS.write_text("{broken")
+    assert updater.progress(idle, now)["update_status"] == "idle"
 
 # ---- git log parsing
 row = updater._parse_log(f"abc123{updater.SEP}abc{updater.SEP}2026-11-24T10:00:00+00:00{updater.SEP}Fix x{updater.SEP}HEAD -> main, tag: v1.3.0", "abc123")
