@@ -322,11 +322,11 @@ export default function GuestWizard({ kind, open, onClose, onCreated }: { kind: 
                 </Field>
               ) : (
                 <Field label="Swap (MB)">
-                  <GlassInput type="number" min={0} step={256} className="w-full" value={f.swap} onChange={(e) => set({ swap: Number(e.target.value) })} />
+                  <GlassInput type="number" min={0} step={64} className="w-full" value={f.swap} onChange={(e) => set({ swap: Number(e.target.value) })} />
                 </Field>
               )}
               <Field label="Memory (MB)" hint={bytes(f.memory * 1024 * 1024)}>
-                <GlassInput type="number" min={64} step={256} className="w-full" value={f.memory} onChange={(e) => set({ memory: Number(e.target.value) })} />
+                <GlassInput type="number" min={64} step={64} className="w-full" value={f.memory} onChange={(e) => set({ memory: Number(e.target.value) })} />
               </Field>
               {k === "lxc" && (
                 <div className="flex items-end pb-1">

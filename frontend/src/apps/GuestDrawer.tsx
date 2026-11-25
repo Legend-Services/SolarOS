@@ -126,11 +126,11 @@ function ResourcesTab({ guest, onSaved }: { guest: Guest; onSaved: () => void })
           <GlassInput type="number" min={1} max={512} className="w-full" value={f.cores} onChange={(e) => setF({ ...f, cores: Number(e.target.value) })} required />
         </Field>
         <Field label="Memory (MB)" hint={bytes(f.memory * 1024 * 1024)}>
-          <GlassInput type="number" min={16} step={256} className="w-full" value={f.memory} onChange={(e) => setF({ ...f, memory: Number(e.target.value) })} required />
+          <GlassInput type="number" min={64} step={64} className="w-full" value={f.memory} onChange={(e) => setF({ ...f, memory: Number(e.target.value) })} required />
         </Field>
         {guest.type === "lxc" && (
           <Field label="Swap (MB)">
-            <GlassInput type="number" min={0} step={256} className="w-full" value={f.swap} onChange={(e) => setF({ ...f, swap: Number(e.target.value) })} />
+            <GlassInput type="number" min={0} step={64} className="w-full" value={f.swap} onChange={(e) => setF({ ...f, swap: Number(e.target.value) })} />
           </Field>
         )}
         <Field label="Tags" hint="Separated by ; or ,">
@@ -794,6 +794,50 @@ function OptionsTab({ guest, hw, reload }: { guest: Guest; hw: Hardware; reload:
   );
 }
 
+/* ---------------- Delete ---------------- */
+
+/** Permanently removes a stopped guest and its disks (purge); the name must be typed to confirm. */
+function DeleteCard({ guest, onDeleted }: { guest: Guest; onDeleted: () => void }) {
+  const kind = guest.type === "qemu" ? "VM" : "container";
+  const [ask, setAsk] = useState(false);
+  const [task, setTask] = useState<string | null>(null);
+  const { busy, error, run } = useRunner();
+  const stopped = guest.status === "stopped";
+  const remove = () =>
+    run(async () => {
+      const r = await api<{ upid?: string | null; task?: string | null }>(`/v1/guests/${guest.type}/${guest.vmid}`, { method: "DELETE" });
+      setAsk(false);
+      if (r.upid || r.task) setTask(r.upid || r.task || null);
+      else onDeleted();
+    });
+
+  return (
+    <div className="mt-6 space-y-2 rounded-2xl border border-rose-500/30 bg-rose-500/5 p-3">
+      <div className="text-xs font-medium text-rose-200">Delete {kind}</div>
+      <p className="text-[11px] text-slate-400">
+        Permanently removes {guest.name} ({guest.vmid}) and its disks. Backups are kept.
+        {!stopped && ` Stop the ${kind} first.`}
+      </p>
+      <GlassButton variant="danger" size="sm" disabled={!stopped || busy || !!task} onClick={() => setAsk(true)}>
+        <Trash2 size={13} /> Delete {kind}
+      </GlassButton>
+      {task && <TaskLog upid={task} className="h-24" onDone={(state) => state !== "running" && onDeleted()} />}
+      <Notice error={error} />
+      <ConfirmModal
+        open={ask}
+        onClose={() => setAsk(false)}
+        onConfirm={remove}
+        busy={busy}
+        error={error}
+        title={`Delete ${kind}`}
+        confirmLabel={`Delete ${kind}`}
+        expect={guest.name}
+        message={`Delete ${guest.name} (${guest.vmid}) and all of its disks? This cannot be undone. Type the name to confirm.`}
+      />
+    </div>
+  );
+}
+
 /* ---------------- Drawer ---------------- */
 
 export default function GuestDrawer({ guest, onClose, onSaved }: { guest: Guest | null; onClose: () => void; onSaved: () => void }) {
@@ -848,7 +892,10 @@ export default function GuestDrawer({ guest, onClose, onSaved }: { guest: Guest 
           ) : tab === "cloudinit" && hw.cloudinit ? (
             <CloudInitTab guest={guest} ci={hw.cloudinit} reload={reload} />
           ) : (
-            <OptionsTab guest={guest} hw={hw} reload={reload} />
+            <>
+              <OptionsTab guest={guest} hw={hw} reload={reload} />
+              <DeleteCard guest={guest} onDeleted={() => (onSaved(), onClose())} />
+            </>
           )}
         </div>
       )}

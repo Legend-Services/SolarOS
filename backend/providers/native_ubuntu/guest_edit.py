@@ -4,6 +4,7 @@ Shadows the Proxmox-only app.guest_hardware routes with the same paths, request 
 VM / container drawer works unchanged. VM changes are written to the persistent libvirt definition and apply at the
 next start of a running VM; container changes go through `incus config`.
 """
+import asyncio
 import json
 import re
 import shutil
@@ -464,6 +465,18 @@ async def _write_seed(vmid: int, name: str, xml: str, ci: dict) -> str:
     finally:
         shutil.rmtree(d, ignore_errors=True)
     return str(seed)
+
+
+@router.post("/qemu/{vmid}/boot-iso")
+async def boot_iso(vmid: VMID):
+    """Restart (or start) the VM and press Enter every 0.5 s for 12 s, so a Windows installer boots from its ISO."""
+    name = host.name_of(vmid, "qemu")
+    running = "running" in await run("virsh", "domstate", name)
+    await run("virsh", "reset" if running else "start", name)
+    for _ in range(24):
+        await asyncio.sleep(0.5)
+        await run("virsh", "send-key", name, "KEY_ENTER", check=False)
+    return {"ok": True}
 
 
 @router.get("/qemu/{vmid}/cloudinit")

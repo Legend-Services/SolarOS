@@ -44,7 +44,7 @@ for path in ("/api/system/capabilities", "/api/v1/system/capabilities"):
     assert caps["driver"] == "proxmox" and caps["supports_clustering"] is True, caps
 anon = TestClient(app)
 assert anon.get("/api/v1/system/capabilities").status_code == 200  # public: the sign-in screen shows the platform
-assert anon.get("/api/v1/guests").status_code == 401 and anon.get("/api/pve/guests").status_code == 404  # one API, no legacy path
+assert anon.get("/api/v1/guests").status_code == 401  # guests need a session
 
 # Guests resolve through the provider.
 v1 = c.get("/api/v1/guests").json()

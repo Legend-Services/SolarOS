@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.2.5 - Delete VMs and Containers from the Desktop — 2026-11-25
+
+### Added
+- **Delete a VM or container** from its drawer (Options → Delete), in both editions. It is only available for a stopped guest, and you confirm by typing its name. The guest and its disks are removed (backups are kept); the task log follows the removal, then the list refreshes (`DELETE /api/pve/guests/{type}/{vmid}`).
+
+## v2.2.4 - Windows Installs: Boot from ISO, Windows-Ready VMs on Proxmox VE, Memory Field Fix — 2026-11-25
+
+### Added
+- **Boot from ISO** button in the VM console (both editions). It restarts (or starts) the VM and presses Enter every half second for 12 seconds. Windows installers boot from their ISO only when a key is pressed within about 5 seconds of "Press any key to boot from CD or DVD", which a console that reconnects after the restart nearly always misses (`POST /api/pve/guests/qemu/{vmid}/boot-iso`).
+
+### Fixed
+- **Memory fields rejected normal values** such as 8192 MB in the VM drawer and wizard ("nearest valid values are 7952 and 8208"). The browser counted the 256 MB step from a 16/64 MB minimum; the fields now use 64 MB steps from 64 MB.
+- **Windows VMs on SolarDeck for Proxmox VE** get a SATA disk and an e1000e network card, so Windows Setup sees the disk and the network without a virtio driver ISO (Linux VMs keep virtio-scsi and virtio).
+
 ## v2.2.3 - SolarOS: ISO Upload, CD/DVD Drive and Windows-Ready VMs — 2026-11-25
 
 ### Added

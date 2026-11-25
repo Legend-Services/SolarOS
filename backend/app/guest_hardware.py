@@ -2,7 +2,9 @@
 
 hostpciN / usbN are root-only in PVE and go through `qm set` over the SSH bridge; everything else uses the API token.
 """
+import asyncio
 import re
+from contextlib import suppress
 from typing import Annotated, Literal
 from urllib.parse import quote, unquote
 
@@ -245,6 +247,19 @@ async def set_cloudinit(vmid: VMID, body: CloudInitBody):
     data = cloudinit_params(body, await _config("qemu", vmid))
     if data:
         await pve("PUT", _node(f"/qemu/{vmid}/config"), data=data)
+    return {"ok": True}
+
+
+@router.post("/qemu/{vmid}/boot-iso")
+async def boot_iso(vmid: VMID):
+    """Restart (or start) the VM and press Enter every 0.5 s for 12 s: Windows installers boot from the ISO only
+    when a key is pressed within ~5 s, which a console that reconnects after the reset almost always misses."""
+    state = (await pve("GET", _node(f"/qemu/{vmid}/status/current")) or {}).get("status")
+    await pve("POST", _node(f"/qemu/{vmid}/status/{'reset' if state == 'running' else 'start'}"))
+    for _ in range(24):
+        await asyncio.sleep(0.5)
+        with suppress(HTTPException):
+            await pve("PUT", _node(f"/qemu/{vmid}/sendkey"), data={"key": "ret"})
     return {"ok": True}
 
 
