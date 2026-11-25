@@ -9,7 +9,9 @@ import qrcode.image.svg
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
+from . import accounts
 from .config import settings
+from providers.registry import get_provider
 
 COOKIE = "pos_session"
 OTP_REQUIRED = "Two-factor code required"
@@ -67,14 +69,50 @@ def otp_ok(secret: str | None, code: str | None) -> bool:
     return bool(secret and code) and pyotp.TOTP(secret).verify(code.strip().replace(" ", ""), valid_window=1)
 
 
+def _set_session(request: Request, response: Response, username: str) -> dict:
+    token = _issue(username)
+    response.set_cookie(
+        COOKIE, token, httponly=True, samesite="strict", max_age=settings.jwt_ttl_hours * 3600,
+        secure=request.url.scheme == "https",
+    )
+    return {"username": username, "token": token}
+
+
+class SetupBody(BaseModel):
+    code: str = Field(max_length=32)
+    username: str = Field(max_length=32)
+    password: str = Field(max_length=128)
+
+
+@router.get("/setup")
+def setup_status():
+    """Public: whether the sign-in screen must show first-run setup instead of the login form."""
+    return {"required": accounts.setup_required()}
+
+
+@router.post("/setup")
+async def setup(body: SetupBody, request: Request, response: Response):
+    """Create the first administrator. Needs the one-time code from the server's console."""
+    if not accounts.setup_required():
+        raise HTTPException(409, "The administrator already exists")
+    if not settings.jwt_secret:
+        raise HTTPException(500, "Server is not configured (JWT_SECRET missing)")
+    accounts.check_setup_code(body.code)
+    accounts.check_new_credentials(body.username, body.password)
+    # Linux account first: if it fails, nothing is saved and setup can simply be retried.
+    await get_provider().set_host_admin(body.username, body.password)
+    accounts.set_admin(body.username, body.password)
+    settings.setup_code_file.unlink(missing_ok=True)
+    return _set_session(request, response, body.username)
+
+
 @router.post("/login")
 def login(body: LoginBody, request: Request, response: Response):
-    if not settings.jwt_secret or not settings.admin_password:
-        raise HTTPException(500, "Server is not configured (JWT_SECRET / ADMIN_PASSWORD missing)")
-    # Evaluate both comparisons to avoid leaking which one failed via timing.
-    ok_user = secrets.compare_digest(body.username.encode(), settings.admin_username.encode())
-    ok_pass = secrets.compare_digest(body.password.encode(), settings.admin_password.encode())
-    if not (ok_user and ok_pass):
+    if accounts.setup_required():
+        raise HTTPException(409, "Create the administrator first (first-run setup)")
+    if not settings.jwt_secret:
+        raise HTTPException(500, "Server is not configured (JWT_SECRET missing)")
+    if not accounts.verify_admin(body.username, body.password):
         raise HTTPException(401, "Invalid username or password")
     sec = load_security()
     if sec.get("totp_enabled"):
@@ -82,12 +120,7 @@ def login(body: LoginBody, request: Request, response: Response):
             raise HTTPException(401, OTP_REQUIRED)
         if not otp_ok(sec.get("totp_secret"), body.otp):
             raise HTTPException(401, "Invalid two-factor code")
-    token = _issue(body.username)
-    response.set_cookie(
-        COOKIE, token, httponly=True, samesite="strict", max_age=settings.jwt_ttl_hours * 3600,
-        secure=request.url.scheme == "https",
-    )
-    return {"username": body.username, "token": token}
+    return _set_session(request, response, body.username)
 
 
 @router.get("/me")

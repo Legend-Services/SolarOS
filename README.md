@@ -72,8 +72,9 @@ SolarDeck desktop, all set up for you.
 3. **Boot from the USB stick** and choose **Install SolarOS (Interactive Disk Selection)**. Pick the disk to install
    on. Only that disk is erased.
 4. **Wait for the reboot.** The first start sets up the rest by itself. Then the screen shows the web address and
-   your `admin` password.
-5. **Open the address** from any computer on your network and sign in.
+   a one-time **setup code**.
+5. **Open the address** from any computer on your network, enter the setup code and choose your own user name and
+   password. There are no default passwords; the same account also signs in to the server itself (SSH, with sudo).
 
 Connect the machine to the internet with a network cable before you start: the installer downloads the latest
 packages. Your CPU needs virtualization (Intel VT-x or AMD-V) switched on in the BIOS. We test with 4 cores, 8 GB RAM and a

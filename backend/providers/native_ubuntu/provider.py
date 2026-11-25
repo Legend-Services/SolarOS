@@ -38,6 +38,9 @@ from providers.base import (AccessAclInfo, AccessGroupInfo, AccessRoleInfo, Acce
 from . import host, rbac
 from .host import run, run_json, ok, start_job
 
+# The user the ISO's unattended install creates; it only bridges the time until the setup wizard has run.
+BOOTSTRAP_USER = "solardeck"
+
 LOCAL = "local"  # directory storage below STORAGE_ROOT: isos/, templates/, backups/
 IMAGES_STORE = "images"  # Incus image server (container templates)
 CONTENT_DIRS = {"iso": "isos", "vztmpl": "templates", "backup": "backups"}
@@ -112,6 +115,20 @@ def parse_calendar_next(out: str) -> int | None:
 
 class NativeUbuntuProvider(HypervisorProvider):
     # ============================================================ Capabilities & host telemetry
+    async def set_host_admin(self, username: str, password: str) -> None:
+        """The SolarOS administrator is also a Linux administrator (sudo, plus libvirt/incus-admin when present) with the
+        same password. The installer's bootstrap user is locked once a different administrator exists; root keeps no
+        password (Ubuntu default), so administration always goes through this account."""
+        groups = ",".join([g for g in ("sudo", "libvirt", "incus-admin") if await ok("getent", "group", g) is not None])
+        if await ok("id", "-u", username) is None:
+            await run("useradd", "-m", "-s", "/bin/bash", "-c", "SolarOS administrator", "-G", groups, username)
+        else:
+            await run("usermod", "-aG", groups, username)
+            await run("usermod", "-U", "-e", "", username)  # a re-used name may have been locked before
+        await run("chpasswd", input=f"{username}:{password}\n")
+        if username != BOOTSTRAP_USER and await ok("id", "-u", BOOTSTRAP_USER) is not None:
+            await run("usermod", "-L", "-e", "1", BOOTSTRAP_USER)  # locked and expired: no password or key logins
+
     def get_capabilities(self) -> ProviderCapabilities:
         return ProviderCapabilities(
             driver="native_ubuntu", platform_label="SolarOS", supports_clustering=False,

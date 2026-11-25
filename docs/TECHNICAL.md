@@ -52,7 +52,7 @@ Then open **Datacenter → your node → the VM → Console** (noVNC):
 1. Choose **SolarOS - Automated VM Test Install** in the boot menu. The default entry,
    **Install SolarOS (Interactive Disk Selection)**, asks for the disk and is the one to use on real servers.
 2. After the reboot, the first-boot setup bridges the NIC into `br0`, installs KVM/libvirt, Incus, OpenZFS and
-   SolarDeck, and starts the tty1 console. It shows the web URL and the initial `admin` password.
+   SolarDeck, and starts the tty1 console. It shows the web URL and the setup code for the administrator.
 3. Sign in at `http://<VM IP>`, then build a ZFS mirror or RAIDZ1 from the two blank data disks in Storage & ZFS and
    check SMART health and disk benchmarks. Option **[6]** on the console checks `/dev/kvm`, nested virtualization,
    libvirtd, Incus, ZFS and `br0`.

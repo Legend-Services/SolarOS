@@ -22,7 +22,8 @@ from pathlib import Path
 
 APP_DIR = Path(os.environ.get("SOLARDECK_DIR", "/opt/solardeck"))
 ENV_FILE = APP_DIR / "backend/.env"
-CREDS_FILE = Path("/etc/solardeck/initial-credentials.txt")
+SETUP_CODE_FILE = Path("/etc/solardeck/setup-code")  # first-run setup: create the administrator in the Web UI
+CREDS_FILE = Path("/etc/solardeck/initial-credentials.txt")  # installs before the setup wizard
 LEGACY_CREDS = Path("/root/solardeck-credentials.txt")  # v1.14 installs
 NETPLAN_DIR = Path("/etc/netplan")
 UPDATE_UNIT = "solardeck-self-update"
@@ -37,7 +38,7 @@ BANNER = r"""
 """
 MENU = [
     ("1", "Configure Network Interface / Static IP (Netplan)"),
-    ("2", "Reset / Clear Initial Password Display"),
+    ("2", "Reset Administrator (new setup code)"),
     ("3", "Update SolarOS from Git (main)"),
     ("4", "Open Root Diagnostic Shell"),
     ("5", "Reboot or Shut Down Server"),
@@ -112,6 +113,19 @@ def set_env(text: str, key: str, value: str) -> str:
     if entry not in lines:
         lines.append(entry)
     return "\n".join(lines) + "\n"
+
+
+def new_setup_code() -> str:
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # same alphabet as the backend (no 0/O/1/I)
+    raw = "".join(secrets.choice(alphabet) for _ in range(8))
+    return f"{raw[:4]}-{raw[4:]}"
+
+
+def read_setup_code() -> str:
+    try:
+        return SETUP_CODE_FILE.read_text().strip()
+    except OSError:
+        return ""
 
 
 def new_password(n: int = 14) -> str:
@@ -242,8 +256,13 @@ class Console:
             self.put(y, 4, f"http://{cidr.split('/')[0]}", curses.color_pair(2) | curses.A_BOLD)
             self.put(y, 30, f"{iface}  {cidr}")
             y += 1
+        code = read_setup_code()
+        if code:
+            self.put(y, 4, f"Create your administrator: open the address above and enter setup code  {code}",
+                     curses.color_pair(3) | curses.A_BOLD)
+            y += 1
         initial = read_initial_password()
-        if initial:
+        if initial and not code:
             self.put(y, 4, f"Initial login:  {env_get('ADMIN_USERNAME') or 'admin'} / {initial}", curses.color_pair(3) | curses.A_BOLD)
             self.put(y + 1, 4, "Change it after signing in, then clear this display with [2].", curses.A_DIM)
             y += 2
@@ -342,25 +361,35 @@ class Console:
 
     # [2]
     def reset_password(self) -> None:
-        choice = self.ask("r = reset the admin password, c = clear the initial password display, x = cancel", "x").lower()
-        if choice == "c":
-            for f in (CREDS_FILE, LEGACY_CREDS):
-                f.unlink(missing_ok=True)
-            self.status = "Initial password removed from this screen and from disk"
-            return
-        if choice != "r" or self.ask("Generate a new Web UI admin password? (yes/no)", "no").lower() != "yes":
+        """Back to first-run setup: the administrator is cleared and a new one-time code appears on this screen."""
+        if self.ask("Reset the administrator? The next Web UI visit creates a new one with a setup code (yes/no)",
+                    "no").lower() != "yes":
             self.status = "Cancelled"
             return
-        pw = new_password()
-        CREDS_FILE.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
-        ENV_FILE.write_text(set_env(ENV_FILE.read_text() if ENV_FILE.exists() else "", "ADMIN_PASSWORD", pw))
+        code = new_setup_code()
+        SETUP_CODE_FILE.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        SETUP_CODE_FILE.write_text(code + "\n")
+        SETUP_CODE_FILE.chmod(0o600)
+        text = ENV_FILE.read_text() if ENV_FILE.exists() else ""
+        for key in ("ADMIN_PASSWORD_HASH", "ADMIN_PASSWORD"):
+            text = set_env(text, key, "")
+        ENV_FILE.write_text(text)
         ENV_FILE.chmod(0o600)
-        CREDS_FILE.write_text(f"SolarOS Web UI\nUsername: {env_get('ADMIN_USERNAME') or 'admin'}\nPassword: {pw}\n")
-        CREDS_FILE.chmod(0o600)
+        for f in (CREDS_FILE, LEGACY_CREDS):
+            f.unlink(missing_ok=True)
+        # The new administrator cannot use the previous one's authenticator: two-factor sign-in starts over too.
+        sec_file = APP_DIR / "backend/data/security.json"
+        try:
+            sec = json.loads(sec_file.read_text())
+            sec.update(totp_enabled=False, totp_secret=None)
+            sec_file.write_text(json.dumps(sec))
+        except (OSError, ValueError):
+            pass
         subprocess.run(["systemctl", "restart", "solardeck-backend"], capture_output=True)
-        self.message([f"Username:  {env_get('ADMIN_USERNAME') or 'admin'}", f"Password:  {pw}", "",
-                      "The backend was restarted with the new password.",
-                      "Two-factor authentication, if enabled, still applies."], "New Web UI admin password")
+        self.message([f"Setup code:  {code}", "",
+                      "Open the Web UI, choose a user name and password and enter this code.",
+                      "The Linux account of that user gets the same password (with sudo).",
+                      "Two-factor sign-in was switched off; set it up again in Control Panel."], "Administrator reset")
 
     # [3]
     def update(self) -> None:
@@ -451,6 +480,8 @@ def self_test() -> None:
     assert len(new_password()) == 14 and new_password().isalnum()
     assert initial_password("SolarOS Web UI\nUsername: admin\nPassword: Ab12\n") == "Ab12"
     assert initial_password("nothing") == ""
+    c = new_setup_code()
+    assert len(c) == 9 and c[4] == "-" and not set(c) & set("01OI")
     rows = readiness({"cpu_flag": "vmx", "kvm": True, "nested": "Y\n", "libvirtd": "active", "incus": "inactive",
                       "zfs": "zfs 2.2.2", "br0": "10.0.0.5/24", "virt": ""})
     assert [ok for _, ok, _ in rows] == [True, True, True, True, False, True, True, True]

@@ -61,7 +61,8 @@ fi
 
 # ---------------------------------------------------------------- Console user password
 if [[ -z "$PASSWORD" ]]; then
-  PASSWORD="$(openssl rand -base64 18 | tr -dc 'a-zA-Z0-9' | head -c 12)"
+  # Unknown to anyone (not printed): the setup wizard creates the real administrator and locks this bootstrap user.
+  PASSWORD="$(openssl rand -base64 48 | tr -dc 'a-zA-Z0-9' | head -c 40)"
   GENERATED=1
 fi
 HASH="$(openssl passwd -6 "$PASSWORD" 2>/dev/null || mkpasswd -m sha-512 "$PASSWORD")" || die "need openssl 1.1.1+ or mkpasswd"
@@ -167,8 +168,8 @@ eval "xorriso -as mkisofs ${OPTS[*]} -o \"\$OUTPUT\" \"\$WORK/iso\"" 2>&1 | grep
 
 echo
 echo "SolarOS installer ISO: ${OUTPUT} ($(du -h "$OUTPUT" | cut -f1))"
-echo "  Console user: solardeck / ${PASSWORD}$([[ -n "${GENERATED:-}" ]] && echo "  (generated; keep it)")"
-echo "  Web UI admin password: generated on first boot, shown on the server's console (tty1)."
+[[ -n "${GENERATED:-}" ]] || echo "  Bootstrap console user: solardeck / ${PASSWORD} (from --password; locked after setup)"
+echo "  Administrator: created in the Web UI on first visit, with the setup code shown on the server's console (tty1)."
 echo "  SHA-256: $(sha256sum "$OUTPUT" | cut -d' ' -f1)"
 if [[ -n "$COPY_TO" ]]; then
   cp "$OUTPUT" "${COPY_TO%/}/$(basename "$OUTPUT")"

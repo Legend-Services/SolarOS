@@ -99,6 +99,8 @@ if [[ "$DRIVER" == native_ubuntu ]]; then
   # Standalone host: the root helper and the console TUI run on this machine, so they update with the code.
   install -m 755 deploy/solardeck-helper.sh "/usr/local/sbin/${PREFIX}-helper"
   install -m 755 hypervisor/solardeck-console-tui.py /usr/local/bin/solardeck-console
+  [[ -f hypervisor/zabbly-incus.sh ]] && { bash hypervisor/zabbly-incus.sh --upgrade >/dev/null || echo "!! could not switch to Zabbly's Incus"; }
+  [[ -f hypervisor/ensure-incus-pool.sh ]] && { bash hypervisor/ensure-incus-pool.sh || echo "!! could not check the Incus storage pool"; }
   install -m 644 hypervisor/solardeck-backend.service /etc/systemd/system/solardeck-backend.service
   if [[ -f /etc/systemd/system/solardeck-console.service ]]; then
     install -m 644 hypervisor/solardeck-console.service /etc/systemd/system/solardeck-console.service
