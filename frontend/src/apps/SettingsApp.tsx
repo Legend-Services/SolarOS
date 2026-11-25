@@ -1,10 +1,12 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import { useCapabilities } from "../store/capabilitiesStore";
 import { useWizard } from "../store/wizardStore";
 import { api } from "../lib/api";
 import { bytes } from "../lib/format";
 import { useIntentFor, useRelease, useTelemetry, zfsHealth } from "../lib/stores";
+import { pulseAnchor } from "../lib/hooks";
+import { controlHeadings } from "../data/knowledgeRegistry";
 import type { SystemInfo } from "../lib/types";
 import { LANGS, isLang, useTranslation, type TKey } from "../i18n";
 import { GlassInput } from "../components/ui/GlassKit";
@@ -27,12 +29,12 @@ import HypervisorDefaultsPanel from "./settings/HypervisorDefaultsPanel";
 import SystemServicesPanel from "./settings/SystemServicesPanel";
 import VisualSwitchStudio from "../components/network/VisualSwitchStudio";
 
-const pad = (n: ReactNode) => <div className="h-full space-y-4 overflow-auto p-4">{n}</div>;
+const pad = (n: ReactNode) => <div className="h-full space-y-4 overflow-auto p-4" data-settings-body>{n}</div>;
 
 /** A module made of several existing panels: a small tab row above the active one. */
-function Views({ views }: { views: [TKey, ReactNode][] }) {
+function Views({ views, initial }: { views: [TKey, ReactNode][]; initial?: string }) {
   const { t } = useTranslation();
-  const [i, setI] = useState(0);
+  const [i, setI] = useState(() => Math.max(0, views.findIndex(([k]) => k === `set.view.${initial}`)));
   return (
     <div className="flex h-full flex-col">
       <div className="flex gap-1 border-b border-white/10 px-3 py-1.5">
@@ -53,7 +55,9 @@ function Views({ views }: { views: [TKey, ReactNode][] }) {
 }
 
 /** Each sub-module reuses the existing panels and apps, so every API call they make stays the same. */
-function ModuleBody({ id }: { id: ModuleId }) {
+function ModuleBody({ id, tab }: { id: ModuleId; tab?: string }) {
+  // `tab` comes from a search / Help deep link: the inner tab to show first (each panel checks it against its own tabs).
+  const initialTab = tab as never;
   const caps = useCapabilities((s) => s.capabilities);
   switch (id) {
     case "general-appearance":
@@ -61,12 +65,13 @@ function ModuleBody({ id }: { id: ModuleId }) {
     case "hardware-gpu":
       return pad(<HardwarePanel />);
     case "bios-firmware":
-      return pad(<Bios focus={null} />);
+      return <div className="h-full overflow-auto p-4" data-settings-body><Bios focus={null} /></div>;
     case "resource-monitor":
-      return <ResourceMonitor />;
+      return <ResourceMonitor initialTab={initialTab} />;
     case "software-updates":
       return (
         <Views
+          initial={tab}
           views={[
             ["set.view.solardeck", pad(<><UpdatesSection /><BugReportCard /></>)],
             ...(caps.supports_apt_repos ? ([["set.view.repos", pad(<Repositories />)]] as [TKey, ReactNode][]) : []),
@@ -77,24 +82,25 @@ function ModuleBody({ id }: { id: ModuleId }) {
     case "host-power":
       return pad(<WithSystemInfo>{(info) => <PowerSection info={info} />}</WithSystemInfo>);
     case "storage-zfs":
-      return <StorageManager />;
+      return <StorageManager initialTab={initialTab} />;
     case "backup-restore":
-      return <BackupCenterApp />;
+      return <BackupCenterApp initialTab={initialTab} />;
     case "shared-folders":
-      return <SharesManager />;
+      return <SharesManager initialTab={initialTab} />;
     case "iso-templates":
       return <div className="h-full overflow-auto"><IsoLibrary /></div>;
     case "users-roles":
-      return <DatacenterApp tabs={["users", "groups", "roles", "acl", "pools", "tokens", "realms"]} />;
+      return <DatacenterApp initialTab={initialTab} tabs={["users", "groups", "roles", "acl", "pools", "tokens", "realms"]} />;
     case "security-2fa":
       return pad(<WithSystemInfo>{(info) => <Security info={info} />}</WithSystemInfo>);
     case "security-posture":
       return pad(<PostureCard />);
     case "audit-logs":
-      return <Views views={[["set.view.audit", pad(<AuditLogCard />)], ["set.view.hostLogs", <DatacenterApp tabs={["logs"]} />]]} />;
+      return <Views initial={tab} views={[["set.view.audit", pad(<AuditLogCard />)], ["set.view.hostLogs", <DatacenterApp tabs={["logs"]} />]]} />;
     case "network-switch":
       return (
         <Views
+          initial={tab}
           views={[
             ["set.view.vswitch", <VisualSwitchStudio />],
             ["set.view.hostNet", pad(<WithSystemInfo>{(info) => <NetworkSection info={info} />}</WithSystemInfo>)],
@@ -104,19 +110,19 @@ function ModuleBody({ id }: { id: ModuleId }) {
     case "network-topology":
       return <NetworkServicesApp tabs={["topology"]} />;
     case "dns-dhcp":
-      return <NetworkServicesApp tabs={["dns", "dhcp"]} />;
+      return <NetworkServicesApp initialTab={initialTab} tabs={["dns", "dhcp"]} />;
     case "domains-certs":
-      return <NetworkServicesApp tabs={["domains", "certs"]} />;
+      return <NetworkServicesApp initialTab={initialTab} tabs={["domains", "certs"]} />;
     case "firewall-forwarding":
-      return <Views views={[["set.view.firewall", <DatacenterApp tabs={["firewall"]} />], ["set.view.forwarding", <NetworkServicesApp tabs={["router"]} />]]} />;
+      return <Views initial={tab} views={[["set.view.firewall", <DatacenterApp tabs={["firewall"]} />], ["set.view.forwarding", <NetworkServicesApp tabs={["router"]} />]]} />;
     case "wireguard-vpn":
-      return <NetworkServicesApp tabs={["wg", "wgc"]} />;
+      return <NetworkServicesApp initialTab={initialTab} tabs={["wg", "wgc"]} />;
     case "automation-alerts":
       return pad(<AutomationPanel />);
     case "hypervisor-defaults":
       return pad(<HypervisorDefaultsPanel />);
     case "local-ai-runtime":
-      return <LocalAiApp initialTab="hardware" embedded />;
+      return <LocalAiApp initialTab={tab === "storage" ? "storage" : "hardware"} embedded />;
     case "system-services":
       return pad(<SystemServicesPanel />);
   }
@@ -218,7 +224,20 @@ export default function SettingsApp() {
   const [module, setModule] = useState<ModuleId | null>(null);
   const [query, setQuery] = useState("");
   const [tree, setTree] = useState(true);
-  useIntentFor("settings", setModule);
+  // The last deep link: which module's inner tab to open, and what to highlight once it renders.
+  const [nav, setNav] = useState<{ n: number; module?: ModuleId; tab?: string; anchor?: string; category?: CategoryId }>({ n: 0 });
+  const root = useRef<HTMLDivElement>(null);
+  useIntentFor("settings", (v) => {
+    if (typeof v === "string") return setModule(v);
+    setModule(v.module ?? null);
+    if (v.category) setQuery("");
+    setNav((p) => ({ ...v, n: p.n + 1 }));
+  });
+  useEffect(() => {
+    if (!nav.n) return;
+    if (nav.category) pulseAnchor(root.current, `cat-${nav.category}`);
+    else if (nav.module && nav.anchor) pulseAnchor(root.current, nav.anchor, controlHeadings(nav.module, nav.anchor, t), "[data-settings-body]");
+  }, [nav.n]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(loadRelease, [loadRelease]);
 
   const available = MODULE_IDS.filter((id) => id !== "bios-firmware" || caps.supports_bios_manager);
@@ -230,7 +249,7 @@ export default function SettingsApp() {
   if (module) {
     const cat = MODULES[module].cat;
     return (
-      <div className="flex h-full flex-col">
+      <div ref={root} className="flex h-full flex-col">
         <nav className="flex items-center gap-1.5 border-b border-white/10 px-3 py-2 text-xs" aria-label="Breadcrumb">
           <button onClick={() => setTree((v) => !v)} className="rounded-md p-1 text-slate-400 hover:bg-white/10 hover:text-slate-200 max-sm:hidden" aria-label={t("set.toggleTree")} title={t("set.toggleTree")}>
             {tree ? <PanelLeftClose size={14} /> : <PanelLeftOpen size={14} />}
@@ -270,7 +289,7 @@ export default function SettingsApp() {
             </aside>
           )}
           <div className="min-w-0 flex-1">
-            <ModuleBody key={module} id={module} />
+            <ModuleBody key={`${module}:${nav.n}`} id={module} tab={nav.module === module ? nav.tab : undefined} />
           </div>
         </div>
       </div>
@@ -279,7 +298,7 @@ export default function SettingsApp() {
 
   const first = available.find(matches);
   return (
-    <div className="h-full overflow-auto pb-4">
+    <div ref={root} className="h-full overflow-auto pb-4">
       <HostSummary query={query} setQuery={setQuery} onEnter={() => first && setModule(first)} />
       <div className="mt-4 space-y-3 px-4">
         {CATEGORIES.map((c) => {
@@ -287,7 +306,7 @@ export default function SettingsApp() {
           if (!mods.length) return null;
           const { icon: Icon, tint } = CATEGORY_META[c];
           return (
-            <section key={c} className="grid gap-3 border-b border-white/5 pb-3 md:grid-cols-[240px_1fr]">
+            <section key={c} data-anchor={`cat-${c}`} className="grid gap-3 border-b border-white/5 pb-3 md:grid-cols-[240px_1fr]">
               <div className="flex gap-3">
                 <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-lg shadow-black/30 ${tint}`}>
                   <Icon size={20} />

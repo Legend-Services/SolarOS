@@ -244,3 +244,24 @@ body {
 .brand-on-light { display: none; }
 :root[data-color-mode="light"] .brand-on-light { display: inline-block; }
 :root[data-color-mode="light"] .brand-on-dark { display: none; }
+
+/* Global Search deep link: a 2-second accent ring on the card the result points at. */
+@keyframes sd-search-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  20%, 70% { box-shadow: 0 0 0 2px var(--sd-accent-primary), 0 0 24px 4px var(--sd-accent-glow); }
+}
+.search-pulse {
+  animation: sd-search-pulse 2s ease-in-out;
+  border-radius: 1rem;
+}
+mark.search-mark {
+  background: color-mix(in oklab, var(--sd-accent-primary) 45%, transparent);
+  color: inherit;
+  border-radius: 0.2rem;
+  padding: 0 0.1rem;
+}
+
+@keyframes sd-search-in {
+  from { opacity: 0; transform: translate(-50%, -4px) scale(0.98); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}

@@ -1776,9 +1776,9 @@ function AddStorageModal({ open, onClose, onDone }: { open: boolean; onClose: ()
   );
 }
 
-export default function StorageManager() {
+export default function StorageManager({ initialTab }: { initialTab?: Tab } = {}) {
   const caps = useCapabilities((s) => s.capabilities);
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>(initialTab && TABS.some((x) => x.id === initialTab) ? initialTab : "overview");
   const { storage, refreshStorage } = useTelemetry();
   const [disks, setDisks] = useState<PhysicalDisk[] | null>(null);
   const [parents, setParents] = useState<string[]>([]);

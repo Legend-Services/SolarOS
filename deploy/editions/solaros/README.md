@@ -7,6 +7,8 @@ server's own monitor, on top of Ubuntu Server LTS.
 - Install from the bootable ISO (`hypervisor/build-iso.sh`) or on an existing Ubuntu Server with
   `hypervisor/install-hypervisor.sh --with-console-tui`.
 - Details: [hypervisor/README.md](hypervisor/README.md).
+- **Manual:** the illustrated guide to every app and setting is built in: open Help & Support → Manual. The TopBar
+  search (⌘K / Ctrl+K) finds apps, settings and help in one place.
 - Security by design: two-factor sign-in with recovery codes, confirmation before destructive actions, encrypted
   secrets, a tamper-evident audit log and a 0–100 security score with 1-click host hardening (sysctl, key-only SSH,
   ufw default-deny, AppArmor, automatic security updates) in Control Panel → Security & Hardening; console option
