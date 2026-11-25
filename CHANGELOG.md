@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased - Themed Generative Wallpapers & Server-Name Branding
+
+### Added
+- **Wallpaper Studio** card in **Settings → System → General & Appearance**, below the wallpaper card: theme picker, the theme's 4 wallpaper variants and a live preview that shows the real server name.
+- **Brand Watermark Overlay:** a glass badge on the desktop wallpaper with the glowing sun mark and the product name (*SolarDeck* or *SolarOS*). Choose **None** (default), **Logo + product name** or **Logo + server name**; the personalized badge adds *Running on <node>* (SolarDeck for Proxmox VE, the Proxmox VE node name) or *SolarOS [<host name>]*. Position (centered, bottom right, bottom center), opacity (10–100%) and size (50–200%) are adjustable. The badge follows the theme's font and Light / Dark Mode and stays off the lock screen.
+- **Download as SVG:** `POST /api/system/themes/wallpapers/generate` draws a 1920×1080 vector wallpaper in the theme's colors (built-in and custom themes) in one of 4 styles (minimal glow, abstract orbs, cinematic laser grid, ambient contour lines) with the badge, logo, drop shadow and optional blur drawn in. Results are cached per setting; the response is served with a sandboxing Content-Security-Policy.
+- `GET /api/system/branding/info` returns `hostname`, `display_host`, `platform_label`, `brand_mode` (`solardeck` / `solaros`) and, with `HYPERVISOR_DRIVER=proxmox`, `pve_node`.
+- New `theme` preferences, validated by the backend with defaults for older clients: `brandOverlay`, `brandPosition`, `brandOpacityPct` and `brandSizePct`.
+- Global Search and the Help manual find the card as *Wallpaper Studio*.
+- All new texts in English, Nederlands, Deutsch, Español and Français.
+
 ## Unreleased - Flicker-Free Desktop & Smooth Icon Dragging
 
 ### Fixed

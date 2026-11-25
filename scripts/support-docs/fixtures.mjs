@@ -557,6 +557,7 @@ const EXACT = {
   "/system/capabilities": () => ({ supports_clustering: false, supports_lxc: true, supports_qemu: true, supports_zfs: true, supports_gpu_passthrough: true, supports_bios_manager: true, supports_rbac_realms: true, supports_apt_repos: true, supports_host_shell: true, default_bridge: "br0" }),
   "/system/preferences": () => ({ wizard: { welcomeAuto: false }, widgets: { visible: true }, layout: { hideSearchIntroBalloon: true } }),
   "/system/themes": () => ({ themes: [] }),
+  "/system/branding/info": () => ({ hostname: "solardeck", display_host: "solardeck", platform_label: "SolarOS", brand_mode: "solaros" }),
   "/system/app-usage": () => ({ files: { launch_count: 14, last_opened_at: "2025-11-24T18:10:00Z" }, compute: { launch_count: 22, last_opened_at: "2025-11-24T20:31:00Z" }, settings: { launch_count: 9, last_opened_at: "2025-11-24T21:02:00Z" } }),
   "/system/info": () => SYSTEM_INFO,
   "/system/updates/status": () => UPDATE_STATUS,

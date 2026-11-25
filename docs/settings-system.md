@@ -41,6 +41,15 @@ Pick or upload the desktop wallpaper for dark and light mode.
 1. Open a theme in the editor.
 2. Choose a wallpaper or upload your own image.
 
+### Wallpaper Studio
+
+Put the product logo and this server's name on the desktop wallpaper as a glass watermark, with a live preview, and download a branded wallpaper as SVG.
+
+1. Pick a theme and one of its 4 wallpapers.
+2. Under Brand Watermark Overlay choose Logo + product name or Logo + server name.
+3. Set the position, opacity and size; the preview shows the real server name.
+4. Press Download as SVG for a 1920×1080 copy with the watermark drawn in.
+
 ### Language
 
 Switch the whole interface between English, Nederlands, Deutsch, Español and Français.

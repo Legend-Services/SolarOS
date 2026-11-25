@@ -14,6 +14,7 @@ import Taskbar from "./components/Taskbar";
 import { startPreferencesSync, useShell } from "./store/layoutStore";
 import { useWizard } from "./store/wizardStore";
 import { useTheme } from "./store/themeStore";
+import { useBranding } from "./store/capabilitiesStore";
 import { DesktopWallpaperLayer } from "./components/ThemeQuickSwitcher";
 
 // The automatic Welcome Tour shows at most once per page load (not again after a lock / unlock).
@@ -31,7 +32,9 @@ export default function App() {
 
   useEffect(() => (status === "unlocked" ? start() : undefined), [status, start]);
   useEffect(() => {
-    if (status === "unlocked") useTheme.getState().loadCustom().catch(() => {}); // custom themes; built-ins work offline
+    if (status !== "unlocked") return;
+    useTheme.getState().loadCustom().catch(() => {}); // custom themes; built-ins work offline
+    void useBranding.getState().load(); // server name for the wallpaper brand badge
   }, [status]);
   // Server preferences first, so a "don't show again" saved on another browser is respected.
   useEffect(

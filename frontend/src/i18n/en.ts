@@ -840,6 +840,24 @@ export const en = {
   "upd.schedule.saved": "Update schedule saved.",
   "upd.schedule.nextCheck": "Next check: {time}",
   "upd.schedule.nextInstall": "Next scheduled install: {time}",
+  // Wallpaper Studio
+  "brand.runningOn": "Running on {host}",
+  "wps.title": "Wallpaper Studio",
+  "wps.intro": "Put the {product} logo and this server's name on your desktop wallpaper. The preview shows the real server name.",
+  "wps.preview": "Live preview of the wallpaper with the brand watermark",
+  "wps.theme": "Theme",
+  "wps.overlay": "Brand Watermark Overlay",
+  "wps.overlay.none": "None",
+  "wps.overlay.brand": "Logo + {product}",
+  "wps.overlay.full": "Logo + server name",
+  "wps.position": "Position",
+  "wps.pos.center": "Centered",
+  "wps.pos.bottomRight": "Bottom right",
+  "wps.pos.bottomCenter": "Bottom center",
+  "wps.opacity": "Watermark opacity",
+  "wps.size": "Watermark size",
+  "wps.download": "Download as SVG",
+  "wps.downloadFailed": "The wallpaper could not be generated. Try again.",
 } as const;
 
 export type TKey = keyof typeof en;
