@@ -1,5 +1,5 @@
 import {
-  Activity, ArchiveRestore, BellRing, BrainCircuit, Cog, Cpu, Database, Disc3, FileClock, Flame, HardDrive, KeyRound, Layers, MonitorCog, Network,
+  Activity, ArchiveRestore, Award, BellRing, BrainCircuit, Cog, Cpu, Database, Disc3, FileClock, Flame, Globe, HardDrive, KeyRound, Layers, MonitorCog, Network,
   Palette, Power, Server, Share2, ShieldCheck, Users, Waypoints, Workflow, type LucideIcon,
 } from "lucide-react";
 import type { AppId } from "../registry";
@@ -24,6 +24,8 @@ export const MODULES = {
   "bios-firmware": { cat: "system", icon: MonitorCog, tint: "from-lime-300 to-green-600", guide: "help" },
   "resource-monitor": { cat: "system", icon: Activity, tint: "from-cyan-300 to-blue-600", guide: "monitor" },
   "software-updates": { cat: "system", icon: Cog, tint: "from-slate-300 to-slate-600", guide: "system" },
+  "system-services": { cat: "system", icon: Workflow, tint: "from-slate-300 to-zinc-600", guide: "system" },
+  "automation-alerts": { cat: "system", icon: BellRing, tint: "from-fuchsia-400 to-purple-600", guide: "controlpanel" },
   "host-power": { cat: "system", icon: Power, tint: "from-amber-300 to-orange-600", guide: "controlpanel" },
   "storage-zfs": { cat: "storage", icon: HardDrive, tint: "from-amber-300 to-orange-600", guide: "storage" },
   "backup-restore": { cat: "storage", icon: ArchiveRestore, tint: "from-violet-400 to-fuchsia-600", guide: "backup" },
@@ -35,12 +37,12 @@ export const MODULES = {
   "audit-logs": { cat: "security", icon: FileClock, tint: "from-slate-300 to-slate-600", guide: "datacenter" },
   "network-switch": { cat: "network", icon: Network, tint: "from-sky-400 to-cyan-600", guide: "controlpanel" },
   "network-topology": { cat: "network", icon: Share2, tint: "from-cyan-300 to-sky-600", guide: "netservices" },
+  "dns-dhcp": { cat: "network", icon: Globe, tint: "from-blue-400 to-sky-600", guide: "netservices" },
+  "domains-certs": { cat: "network", icon: Award, tint: "from-yellow-300 to-amber-600", guide: "netservices" },
   "firewall-forwarding": { cat: "network", icon: Flame, tint: "from-orange-400 to-red-600", guide: "netservices" },
   "wireguard-vpn": { cat: "network", icon: Waypoints, tint: "from-green-400 to-emerald-700", guide: "netservices" },
-  "automation-alerts": { cat: "network", icon: BellRing, tint: "from-fuchsia-400 to-purple-600", guide: "controlpanel" },
   "hypervisor-defaults": { cat: "hypervisor", icon: Server, tint: "from-emerald-400 to-teal-600", guide: "compute" },
   "local-ai-runtime": { cat: "hypervisor", icon: BrainCircuit, tint: "from-purple-400 to-indigo-600", guide: "local-ai" },
-  "system-services": { cat: "hypervisor", icon: Workflow, tint: "from-slate-300 to-zinc-600", guide: "system" },
 } satisfies Record<string, { cat: CategoryId; icon: LucideIcon; tint: string; guide: AppId }>;
 
 export type ModuleId = keyof typeof MODULES;
@@ -68,6 +70,11 @@ const LEGACY_INTENT: Record<string, ModuleId> = {
   "netservices:wg": "wireguard-vpn",
   "netservices:wgc": "wireguard-vpn",
   "netservices:router": "firewall-forwarding",
+  "netservices:topology": "network-topology",
+  "netservices:dns": "dns-dhcp",
+  "netservices:dhcp": "dns-dhcp",
+  "netservices:domains": "domains-certs",
+  "netservices:certs": "domains-certs",
   "help:bios": "bios-firmware",
 };
 

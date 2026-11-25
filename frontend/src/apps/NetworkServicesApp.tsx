@@ -6,7 +6,7 @@ import { bytes } from "../lib/format";
 import { usePoll, useRunner } from "../lib/hooks";
 import { JobLog } from "../components/JobLog";
 import { GuideBanner } from "../components/wizards/GuidedWizardModal";
-import { useIntentFor } from "../lib/stores";
+import { useIntent } from "../lib/stores";
 import DomainsTab from "./network/DomainsTab";
 import TopologyTab from "./network/TopologyTab";
 import { useTranslation, type TKey } from "../i18n";
@@ -144,6 +144,7 @@ interface CertState {
   nginx_https: boolean;
 }
 
+export type NetTab = Tab;
 type Tab = "topology" | "dns" | "dhcp" | "wg" | "wgc" | "router" | "domains" | "certs";
 const TABS: { id: Tab; label: TKey; icon: ReactNode }[] = [
   { id: "topology", label: "net.topology", icon: <Share2 size={15} /> },
@@ -1067,10 +1068,22 @@ function CertsTab() {
 
 /* ---------------- App ---------------- */
 
-export default function NetworkServicesApp({ initialTab = "topology" }: { initialTab?: Tab }) {
+/** `tabs`: the tabs this Settings module owns; a link to any other tab opens the module that owns it. */
+export default function NetworkServicesApp({ initialTab, tabs }: { initialTab?: Tab; tabs?: Tab[] }) {
   const { t: tr } = useTranslation();
-  const [tab, setTab] = useState<Tab>(initialTab);
-  useIntentFor("netservices", setTab);
+  const allowed = tabs ?? TABS.map((t) => t.id);
+  const [tab, setTabRaw] = useState<Tab>(initialTab && allowed.includes(initialTab) ? initialTab : allowed[0]);
+  const go = useIntent((s) => s.go);
+  const intent = useIntent((s) => s.netservices);
+  const take = useIntent((s) => s.take);
+  const setTab = (t: Tab) => (allowed.includes(t) ? setTabRaw(t) : go("netservices", t));
+  useEffect(() => {
+    // Only take an intent this module shows; another tab's intent stays for the module that opens next.
+    if (intent && allowed.includes(intent)) {
+      setTabRaw(intent);
+      take("netservices");
+    }
+  }, [intent]); // eslint-disable-line react-hooks/exhaustive-deps
   const [status, setStatus] = useState<NetStatus | null>(null);
   const [error, setError] = useState("");
   const reload = useCallback(() => {
@@ -1079,8 +1092,9 @@ export default function NetworkServicesApp({ initialTab = "topology" }: { initia
   useEffect(reload, [reload]);
   return (
     <div className="flex h-full">
+      {allowed.length > 1 && (
       <nav className="w-48 shrink-0 space-y-1 border-r border-white/10 bg-black/20 p-2 max-sm:w-14">
-        {TABS.map((t) => (
+        {TABS.filter((t) => allowed.includes(t.id)).map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
@@ -1098,6 +1112,7 @@ export default function NetworkServicesApp({ initialTab = "topology" }: { initia
           <RefreshCw size={15} /> <span className="max-sm:hidden">{tr("common.refresh")}</span>
         </button>
       </nav>
+      )}
       <div className="min-w-0 flex-1 overflow-auto p-4">
         <Notice error={error} />
         {tab === "topology" ? (

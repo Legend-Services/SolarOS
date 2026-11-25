@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.7.1 - Settings Without Duplicates — 2026-11-25
+
+### Fixed
+- Several Settings sub-modules showed a whole app with every tab, so the same screens appeared in two or three places. Network Topology no longer contains DNS, DHCP, WireGuard, Router & NAT, Domains and Certificates; WireGuard VPN now shows only the WireGuard server and client; Firewall & Port Forwarding shows only the firewall rules and port forwarding; Users & Roles no longer contains the firewall and host logs, and Audit & System Logs shows only the audit log and host logs. Local AI Runtime shows only GPU assignment and model storage (chat and the model library stay in the Local AI app). A link to another screen (for example the map's WireGuard button) opens the sub-module that owns it.
+- The Resource Monitor's live GPU tab is called **GPU & Sensors**, so it is no longer confused with Hardware & GPU.
+
+### Changed
+- New sub-modules under **Network & Services**: **DNS, AdBlock & DHCP** and **Domains & Certificates** (they were only reachable inside Network Topology before). Old links to those screens open them.
+- **Automation & Alerts** and **System Services** moved to **System**.
+
 ## v2.7.0 - Visual Virtual Switch, Drag-and-Drop VLANs, Virtual NICs & Per-VLAN DHCP — 2026-11-25
 
 ### Added
