@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased - Themed Generative Wallpapers & Server-Name Branding
+## v2.11.0 - Themed Generative Wallpapers, Server-Name Branding & Flicker-Free Desktop — 2026-11-26
 
 ### Added
 - **Wallpaper Studio** card in **Settings → System → General & Appearance**, below the wallpaper card: theme picker, the theme's 4 wallpaper variants and a live preview that shows the real server name.
@@ -10,8 +10,6 @@
 - New `theme` preferences, validated by the backend with defaults for older clients: `brandOverlay`, `brandPosition`, `brandOpacityPct` and `brandSizePct`.
 - Global Search and the Help manual find the card as *Wallpaper Studio*.
 - All new texts in English, Nederlands, Deutsch, Español and Français.
-
-## Unreleased - Flicker-Free Desktop & Smooth Icon Dragging
 
 ### Fixed
 - **Desktop flicker:** the wallpaper is a memoized layer on its own GPU compositing layer (`translate3d`, `backface-visibility: hidden`, `contain: strict`) that only follows the wallpaper settings (theme, light / dark mode, wallpaper pick or custom image, blur, dimming), so live CPU, memory, GPU, storage, network and clock updates never repaint it.
