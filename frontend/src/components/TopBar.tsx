@@ -72,6 +72,7 @@ export default function TopBar() {
       </div>
 
       <TrayItems ids={tray.bar} />
+      <TrayOverflow ids={tray.overflow} />
       <div ref={viewRef} className="relative">
         <button
           onClick={() => setLayout({ panel: !viewPanel })}
@@ -89,7 +90,6 @@ export default function TopBar() {
         {now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
       </span>
 
-      <TrayOverflow ids={tray.overflow} />
       <div ref={menuRef} className="relative">
         <button
           onClick={() => setMenu((v) => !v)}
