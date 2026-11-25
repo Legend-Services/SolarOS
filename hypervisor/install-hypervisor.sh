@@ -56,9 +56,12 @@ msg "Installing hypervisor packages (KVM/libvirt, Incus, OpenZFS, disk and senso
 PKGS=(qemu-kvm qemu-utils libvirt-daemon-system libvirt-daemon-driver-qemu libvirt-clients ovmf swtpm swtpm-tools
   incus zfsutils-linux zfs-zed bridge-utils smartmontools hdparm nvme-cli lm-sensors fio websockify samba
   samba-common-bin nginx python3-venv python3-pip git curl ca-certificates gnupg openssl rsync gdisk cloud-image-utils
-  zstd acl pciutils usbutils dmidecode openssh-server jq iproute2 kmod less)
+  zstd acl pciutils usbutils dmidecode openssh-server jq iproute2 kmod less dnsmasq-base ipxe-qemu-256k-compat-efi-roms
+  qemu-block-extra parted netcat-openbsd libxml2-utils samba-vfs-modules cpu-checker)
 apt-get update -qq
 apt-get install -y -qq --no-install-recommends "${PKGS[@]}" >/dev/null
+# Tracing tools of the minimal Ubuntu base pull in LLVM/Clang (~250 MB); SolarOS does not use them.
+apt-get purge -y -qq bpftrace bpfcc-tools python3-bpfcc >/dev/null 2>&1 || true
 # snapd is part of Ubuntu Server but SolarOS uses no snaps: drop it when nothing is installed through it.
 if command -v snap >/dev/null && [[ -z "$(snap list 2>/dev/null | tail -n +2)" ]]; then
   apt-get purge -y -qq snapd >/dev/null 2>&1 && rm -rf /snap /var/snap /var/lib/snapd && ok "snapd removed (no snaps in use)"
