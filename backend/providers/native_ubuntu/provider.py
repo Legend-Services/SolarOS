@@ -119,7 +119,7 @@ class NativeUbuntuProvider(HypervisorProvider):
         """The SolarOS administrator is also a Linux administrator (sudo, plus libvirt/incus-admin when present) with the
         same password. The installer's bootstrap user is locked once a different administrator exists; root keeps no
         password (Ubuntu default), so administration always goes through this account."""
-        groups = ",".join(g for g in ("sudo", "libvirt", "incus-admin") if await ok("getent", "group", g))
+        groups = ",".join([g for g in ("sudo", "libvirt", "incus-admin") if await ok("getent", "group", g) is not None])
         if await ok("id", "-u", username) is None:
             await run("useradd", "-m", "-s", "/bin/bash", "-c", "SolarOS administrator", "-G", groups, username)
         else:

@@ -99,8 +99,9 @@ async def setup(body: SetupBody, request: Request, response: Response):
         raise HTTPException(500, "Server is not configured (JWT_SECRET missing)")
     accounts.check_setup_code(body.code)
     accounts.check_new_credentials(body.username, body.password)
-    accounts.set_admin(body.username, body.password)
+    # Linux account first: if it fails, nothing is saved and setup can simply be retried.
     await get_provider().set_host_admin(body.username, body.password)
+    accounts.set_admin(body.username, body.password)
     settings.setup_code_file.unlink(missing_ok=True)
     return _set_session(request, response, body.username)
 

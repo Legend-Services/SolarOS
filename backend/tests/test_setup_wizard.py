@@ -78,5 +78,42 @@ assert anon.post("/api/auth/login", json={"username": "ty", "password": "Moon Ro
 # ---- older installs: a plaintext ADMIN_PASSWORD still signs in until it is changed
 settings.admin_password_hash, settings.admin_password, settings.admin_username = "", "legacy-pass-1", "admin"
 assert accounts.verify_admin("admin", "legacy-pass-1") and not accounts.setup_required()
-asyncio.run(asyncio.sleep(0))
+# ---- the real SolarOS hook: builds the commands (regression: await inside a generator broke ",".join)
+from providers.native_ubuntu import provider as nu  # noqa: E402
+
+cmds = []
+
+
+async def fake_ok(*args, **kw):
+    if args[:2] == ("getent", "group"):
+        return "" if args[2] in ("sudo", "libvirt") else None  # empty output still means success
+    return "1000" if args == ("id", "-u", nu.BOOTSTRAP_USER) else None
+
+
+async def fake_run(*args, **kw):
+    cmds.append((args, kw.get("input")))
+    return ""
+
+
+nu.ok, nu.run = fake_ok, fake_run
+asyncio.run(nu.NativeUbuntuProvider.set_host_admin(object.__new__(nu.NativeUbuntuProvider), "ty", "Solar-Panel 42"))
+assert cmds[0][0] == ("useradd", "-m", "-s", "/bin/bash", "-c", "SolarOS administrator", "-G", "sudo,libvirt", "ty"), cmds
+assert cmds[1] == (("chpasswd",), "ty:Solar-Panel 42\n") and cmds[2][0] == ("usermod", "-L", "-e", "1", nu.BOOTSTRAP_USER)
+
+# ---- a failing host hook saves nothing, so setup can be retried
+settings.admin_password_hash = settings.admin_password = ""
+(tmp / "setup-code").write_text("WXYZ-2345\n")
+
+
+async def broken_host_admin(username, password):
+    raise RuntimeError("useradd failed")
+
+
+get_provider().set_host_admin = broken_host_admin
+try:
+    TestClient(app, raise_server_exceptions=True).post(
+        "/api/auth/setup", json={"code": "WXYZ-2345", "username": "ty", "password": "Solar-Panel 42"})
+except RuntimeError:
+    pass
+assert accounts.setup_required() and (tmp / "setup-code").exists()
 print("setup wizard self-check OK")

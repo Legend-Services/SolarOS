@@ -66,9 +66,9 @@ async def change_password(body: PasswordBody):
     if not accounts.verify_admin(settings.admin_username, body.current_password):
         raise HTTPException(403, "Current password is incorrect")
     accounts.check_new_credentials(settings.admin_username, body.new_password)
-    accounts.set_admin(settings.admin_username, body.new_password)
-    # The host account of the same name (if the platform has one) keeps the same password.
+    # The host account of the same name (if the platform has one) gets the same password; first, so a failure changes nothing.
     await get_provider().set_host_admin(settings.admin_username, body.new_password)
+    accounts.set_admin(settings.admin_username, body.new_password)
     return {"ok": True}
 
 
