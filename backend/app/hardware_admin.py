@@ -432,12 +432,29 @@ if grep -q '^nouveau ' /proc/modules; then
 fi
 VER=$(curl -fsSL https://download.nvidia.com/XFree86/Linux-x86_64/latest.txt | awk '{print $1}')
 [[ "$VER" =~ ^[0-9.]+$ ]] || { echo '!! Could not determine the latest NVIDIA driver version'; exit 1; }
-RUN=/var/lib/{P}/NVIDIA-Linux-x86_64-$VER.run
-echo "==> Downloading NVIDIA driver $VER"
-mkdir -p /var/lib/{P}
-curl -fsSL -o "$RUN" "https://download.nvidia.com/XFree86/Linux-x86_64/$VER/NVIDIA-Linux-x86_64-$VER.run"
-echo "==> Installing NVIDIA driver $VER (DKMS)"
-sh "$RUN" --silent --dkms || { echo '!! Installer failed; see /var/log/nvidia-installer.log'; tail -n 30 /var/log/nvidia-installer.log; exit 1; }
+CUR=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null | head -n 1 || true)
+if [ "$CUR" = "$VER" ]; then
+  echo "==> NVIDIA driver $VER is already installed and running; skipping the driver installer"
+else
+  # The installer aborts (silently answering "abort") while an older nvidia module is loaded, so unload it first.
+  if grep -q '^nvidia ' /proc/modules; then
+    echo "==> Unloading the running NVIDIA driver ${CUR:-} before installing $VER"
+    systemctl stop nvidia-persistenced 2>/dev/null || true
+    for m in nvidia_uvm nvidia_drm nvidia_modeset nvidia; do
+      if grep -q "^$m " /proc/modules; then rmmod "$m" 2>/dev/null || true; fi
+    done
+    if grep -q '^nvidia ' /proc/modules; then
+      echo "!! The running NVIDIA driver ${CUR:-} is in use by a container, VM or service, so it cannot be replaced. Stop the guests that use the GPU (for example Local AI Studio), then click Install again."
+      exit 4
+    fi
+  fi
+  RUN=/var/lib/{P}/NVIDIA-Linux-x86_64-$VER.run
+  echo "==> Downloading NVIDIA driver $VER"
+  mkdir -p /var/lib/{P}
+  curl -fsSL -o "$RUN" "https://download.nvidia.com/XFree86/Linux-x86_64/$VER/NVIDIA-Linux-x86_64-$VER.run"
+  echo "==> Installing NVIDIA driver $VER (DKMS)"
+  sh "$RUN" --silent --dkms || { echo '!! Installer failed; see /var/log/nvidia-installer.log'; tail -n 30 /var/log/nvidia-installer.log; exit 1; }
+fi
 echo '==> nvidia-container-toolkit'
 curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
 curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
