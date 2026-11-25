@@ -571,7 +571,7 @@ function BiosCard({ g, highlight }: { g: BiosGuide; highlight: boolean }) {
 
 function TutorialCard({ t, onOpen }: { t: Tutorial; onOpen: () => void }) {
   return (
-    <button onClick={onOpen} className="glass-soft flex flex-col items-start gap-1 rounded-xl p-3 text-left transition hover:bg-white/[0.08] active:scale-[0.99]">
+    <button onClick={onOpen} className="glass-soft flex flex-col items-start gap-1 rounded-xl p-3 text-left transition-[background-color,border-color,box-shadow,transform,scale,opacity] hover:bg-white/[0.08] active:scale-[0.99]">
       <span className="text-xs font-semibold text-slate-100">{t.title}</span>
       <span className="text-[11px] text-slate-400">{t.intro}</span>
       <span className="mt-1 text-[10px] text-sky-300">

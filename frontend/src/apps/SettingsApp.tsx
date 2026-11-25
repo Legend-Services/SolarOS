@@ -204,7 +204,7 @@ function Tile({ id, onOpen, dot }: { id: ModuleId; onOpen: () => void; dot?: str
     <button
       onClick={onOpen}
       title={t(`set.modDesc.${id}`)}
-      className="glass-soft relative flex items-center gap-3 rounded-2xl p-3 text-left transition hover:bg-white/[0.08] active:scale-[0.98]"
+      className="glass-soft relative flex items-center gap-3 rounded-2xl p-3 text-left transition-[background-color,border-color,box-shadow,transform,scale,opacity] hover:bg-white/[0.08] active:scale-[0.98]"
     >
       <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[30%] bg-gradient-to-br text-white shadow-lg shadow-black/30 ${m.tint}`}>
         <Icon size={19} />

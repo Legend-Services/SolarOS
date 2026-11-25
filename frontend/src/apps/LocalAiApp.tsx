@@ -635,7 +635,7 @@ function ChatView({ status, model, setModel, instructions, visible, activeId, ch
   };
 
   const composer = (
-    <form onSubmit={send} className="glass-soft rounded-2xl px-3 pt-2.5 pb-2 ring-1 ring-white/10 transition focus-within:ring-violet-300/40">
+    <form onSubmit={send} className="glass-soft rounded-2xl px-3 pt-2.5 pb-2 ring-1 ring-white/10 transition-[background-color,border-color,box-shadow,transform,scale,opacity] focus-within:ring-violet-300/40">
       <textarea
         ref={ta}
         rows={1}

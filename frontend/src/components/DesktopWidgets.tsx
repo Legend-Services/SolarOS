@@ -277,7 +277,8 @@ const BODIES: Record<WidgetId, (p: { compact: boolean; t: T }) => ReactNode> = {
 const DRAG_TYPE = "application/x-solardeck-widget";
 
 function WidgetCard({ w, editing, t }: { w: WidgetCfg; editing: boolean; t: T }) {
-  const { update, move } = useWidgets();
+  const update = useWidgets((s) => s.update);
+  const move = useWidgets((s) => s.move);
   const [over, setOver] = useState(false);
   const meta = WIDGET_META[w.id];
   const Body = BODIES[w.id];

@@ -1,5 +1,7 @@
 import { useState, type CSSProperties, type KeyboardEvent, type PointerEvent } from "react";
 import { PencilRuler } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
+import { useSmoothReorder } from "../hooks/useSmoothReorder";
 import { openLink, useDock, usePrefs, useTelemetry, useWindows } from "../lib/stores";
 import { useInsets, useLayout, useShell } from "../store/layoutStore";
 import { APP_IDS, type AppId } from "../apps/registry";
@@ -19,7 +21,16 @@ export default function Desktop() {
   const { t, appTitle } = useTranslation();
   const showWidgets = widgets || editing;
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
-  const { desktopView, iconSize, colGap, rowGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, iconClick, showDesktopIcons } = useLayout();
+  // Shallow-picked fields only: tray, panel or gallery changes in the layout store never re-render the desktop.
+  const { desktopView, iconSize, colGap, rowGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, iconClick, showDesktopIcons, desktopIconOrder, setLayout } = useLayout(
+    useShallow((s) => ({
+      desktopView: s.desktopView, iconSize: s.iconSize, colGap: s.colGap, rowGap: s.rowGap, desktopAlignment: s.desktopAlignment, desktopVerticalAlign: s.desktopVerticalAlign,
+      desktopMaxColumns: s.desktopMaxColumns, iconClick: s.iconClick, showDesktopIcons: s.showDesktopIcons, desktopIconOrder: s.desktopIconOrder, setLayout: s.set,
+    })),
+  );
+  const shortcuts = [...desktopIconOrder, ...APP_IDS.filter((id) => !desktopIconOrder.includes(id))];
+  // 2D pointer reorder of the shortcuts (grid and list view); saved once, on release.
+  const reorder = useSmoothReorder(shortcuts, (next) => setLayout({ desktopIconOrder: next }), { axis: "xy" });
   const dockSize = useDock((s) => s.baseSize);
   const { top, bottom } = useInsets();
   // Dock layout: clear the floating Dock; taskbar layout: clear the taskbar.
@@ -77,13 +88,13 @@ export default function Desktop() {
       <div className="flex h-full min-w-0 flex-1 flex-col gap-4 overflow-auto">
         {showWidgets && <WidgetSlotArea slot="grid" />}
         {showDesktopIcons && (
-        <div className="grid min-h-0 flex-1 transition-all duration-200 ease-out" style={gridStyle}>
-          {APP_IDS.map((id) =>
-            list ? (
-              <AppListRow key={id} id={id} iconSize={listIcon} title={hint(id)} {...launch(id)} />
+        <div className="grid min-h-0 flex-1 transition-[column-gap,row-gap] duration-200 ease-out" style={gridStyle}>
+          {reorder.order.map((id) => (
+            <div key={id} {...reorder.bind(id)} className={`w-full ${reorder.dragging === id ? "cursor-grabbing" : ""}`}>
+            {list ? (
+              <AppListRow id={id} iconSize={listIcon} title={hint(id)} {...launch(id)} />
             ) : (
               <button
-                key={id}
                 {...launch(id)}
                 title={hint(id)}
                 className={`group flex w-full flex-col items-center gap-1.5 rounded-xl p-2 text-center text-slate-100 hover:bg-white/10 focus:bg-white/10 focus:outline-none ${iconClick === "single" ? "cursor-pointer" : ""}`}
@@ -93,8 +104,9 @@ export default function Desktop() {
                 <AppIcon id={id} size={iconSize} className="shrink-0 transition-transform group-hover:scale-105 group-active:scale-95" />
                 <span className="line-clamp-2">{appTitle(id)}</span>
               </button>
-            ),
-          )}
+            )}
+            </div>
+          ))}
         </div>
         )}
       </div>
@@ -107,7 +119,7 @@ export default function Desktop() {
           {!editing && (
             <button
               onClick={() => openLink("settings", "general-appearance")}
-              className="glass-soft self-end rounded-full px-3 py-1 text-[11px] text-slate-300 opacity-60 transition hover:opacity-100"
+              className="glass-soft self-end rounded-full px-3 py-1 text-[11px] text-slate-300 opacity-60 transition-[background-color,border-color,box-shadow,transform,scale,opacity] hover:opacity-100"
             >
               <PencilRuler size={11} className="mr-1 inline" />
               {t("widget.editPill")}

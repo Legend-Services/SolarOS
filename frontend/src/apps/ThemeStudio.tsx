@@ -100,7 +100,7 @@ export default function ThemeStudio() {
             const on = t.id === active.id;
             const custom = !BUILT_IN_IDS.has(t.id);
             return (
-              <div key={t.id} className={`glass-soft overflow-hidden rounded-xl ring-2 transition ${on ? "ring-sky-400" : "ring-transparent hover:ring-white/20"}`}>
+              <div key={t.id} className={`glass-soft overflow-hidden rounded-xl ring-2 transition-[background-color,border-color,box-shadow,transform,scale,opacity] ${on ? "ring-sky-400" : "ring-transparent hover:ring-white/20"}`}>
                 <button onClick={() => s.setTheme(t.id)} className="grid w-full grid-cols-2 active:scale-[0.99]" aria-label={`Use ${t.name}`} aria-pressed={on}>
                   <ThemePreview theme={t} mode="dark" className="h-20" />
                   <ThemePreview theme={t} mode="light" className="h-20" />

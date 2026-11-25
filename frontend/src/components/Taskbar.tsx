@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Expand, LayoutDashboard, LayoutGrid, Search, Shrink } from "lucide-react";
 import { activateApp, activeWindow, useDock, useSpotlight, useWindows } from "../lib/stores";
 import { useClock, useDismiss, useFlip } from "../lib/hooks";
@@ -8,6 +8,7 @@ import { useTranslation } from "../i18n";
 import { AppIcon } from "./icons/AppIcons";
 import { ViewOptionsPanel } from "./ViewOptions";
 import { TrayItems, TrayOverflow, useBarMenu, useTray } from "./SystemTray";
+import { useSmoothReorder } from "../hooks/useSmoothReorder";
 
 /* One edge-to-edge bar along the bottom (the alternative to top bar + floating Dock): the App Gallery button in the
    far left corner, a divider, search and the ordered app buttons; full screen, the system tray, the overflow chevron
@@ -91,12 +92,14 @@ export default function Taskbar() {
   const now = useClock();
   const windows = useWindows((s) => s.windows);
   const { open, close, minimize, setDockIconRect } = useWindows();
-  const { pinned, pin, unpin, move, gallery, set: setDock } = useDock();
+  const { pinned: storePinned, pin, unpin, gallery, set: setDock } = useDock();
+  // Pointer reorder of pinned buttons along X; committed to useDock (+ preferences sync) once, on release.
+  const reorder = useSmoothReorder(storePinned, (next) => useDock.setState({ pinned: next }), { axis: "x" });
+  const pinned = reorder.order;
   const openSpotlight = useSpotlight((s) => s.set);
   const viewPanel = useLayout((s) => s.panel);
   const setLayout = useLayout((s) => s.set);
   const [menu, setMenu] = useState<AppId | null>(null);
-  const [drag, setDrag] = useState<AppId | null>(null);
   const toggleGallery = () => setDock({ gallery: !useDock.getState().gallery });
   useStartKey(toggleGallery);
   const [fullscreen, toggleFullscreen] = useFullscreenKeys();
@@ -127,9 +130,7 @@ export default function Taskbar() {
   }, [setDockIconRect, layoutKey]);
 
   const showDesktop = () => windows.filter((w) => !w.minimized).forEach((w) => minimize(w.key));
-  // Live drag-and-drop reorder of pinned buttons; neighbours slide aside (FLIP). Saved via useDock (+ preferences sync).
-  const flipRef = useFlip<HTMLDivElement>(pinned.join(","));
-  const onDrop = (e: DragEvent) => (e.preventDefault(), setDrag(null));
+  const flipRef = useFlip<HTMLDivElement>(pinned.join(","), reorder.settling);
 
   return (
     <footer onContextMenu={onContextMenu} className="glass fixed inset-x-0 bottom-0 z-[9000] flex h-12 items-center gap-1 border-x-0 border-b-0 bg-slate-900/75 pl-2 text-xs" aria-label={t("taskbar.label")}>
@@ -145,19 +146,14 @@ export default function Taskbar() {
           const isRunning = windows.some((w) => w.id === id);
           const focused = active?.id === id;
           const isPinned = pinned.includes(id);
+          const b = isPinned ? reorder.bind(id) : undefined;
           return (
-            <div key={id} data-flip={id} className={`relative ${drag === id ? "opacity-40" : ""}`}>
+            <div key={id} data-flip={id} {...b} className="relative touch-none">
               <button
                 ref={(el) => {
                   icons.current[id] = el;
                 }}
                 type="button"
-                draggable={isPinned}
-                onDragStart={(e) => (e.dataTransfer.setData("text/plain", id), (e.dataTransfer.effectAllowed = "move"), setDrag(id))}
-                onDragEnd={() => setDrag(null)}
-                onDragEnter={() => isPinned && drag && drag !== id && move(drag, pinned.indexOf(id))}
-                onDragOver={(e) => isPinned && drag && e.preventDefault()}
-                onDrop={onDrop}
                 onClick={() => activateApp(id)}
                 onContextMenu={(e) => (e.preventDefault(), setMenu(id))}
                 aria-label={appTitle(id)}
