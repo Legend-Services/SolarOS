@@ -6,6 +6,8 @@
 # NO_UFW=1 skips the ufw part on hosts whose platform ships its own firewall (the backend sets it there).
 # Safe to re-run: every part rewrites only its own files and never removes rules someone added.
 set -uo pipefail
+# Pipelines end in `grep ... >/dev/null`, never `grep -q`: -q stops reading early, the writer gets SIGPIPE and
+# pipefail turns a match into a failure.
 MODE="${1:-check}"; PREFIX="${2:-solardeck}"; shift 2 2>/dev/null || shift $#
 [[ "$PREFIX" =~ ^[a-z][a-z0-9-]{1,30}$ ]] || { echo "invalid prefix"; exit 2; }
 export DEBIAN_FRONTEND=noninteractive
@@ -33,15 +35,15 @@ check() {
   echo "ssh_password=$(sshd -T 2>/dev/null | awk '$1 == "passwordauthentication" {print $2}')"
   echo "ssh_root=$(sshd -T 2>/dev/null | awk '$1 == "permitrootlogin" {print $2}')"
   echo "ssh_user_keys=$(user_keys)"
-  if command -v ufw >/dev/null && ufw status verbose 2>/dev/null | grep -q '^Status: active'; then
-    kind=ufw; ufw status verbose | grep -qE '(deny|reject) \(incoming\)' && fw=active || fw=open
-  elif nft list ruleset 2>/dev/null | grep -qE 'hook input .*policy drop'; then
+  if command -v ufw >/dev/null && ufw status verbose 2>/dev/null | grep '^Status: active' >/dev/null; then
+    kind=ufw; ufw status verbose | grep -E '(deny|reject) \(incoming\)' >/dev/null && fw=active || fw=open
+  elif nft list ruleset 2>/dev/null | grep -E 'hook input .*policy drop' >/dev/null; then
     kind=nftables; fw=active
   fi
   echo "firewall=${fw}"; echo "firewall_kind=${kind}"
   local uu=0
-  dpkg-query -W -f='${Status}' unattended-upgrades 2>/dev/null | grep -q 'ok installed' \
-    && apt-config dump 2>/dev/null | grep -q 'APT::Periodic::Unattended-Upgrade "1"' && uu=1
+  dpkg-query -W -f='${Status}' unattended-upgrades 2>/dev/null | grep 'ok installed' >/dev/null \
+    && apt-config dump 2>/dev/null | grep 'APT::Periodic::Unattended-Upgrade "1"' >/dev/null && uu=1
   echo "auto_updates=${uu}"
   echo "apparmor=$(aa-enabled 2>/dev/null || echo No)"
 }
@@ -101,7 +103,7 @@ apply_firewall() {
 }
 
 apply_updates() {
-  dpkg-query -W -f='${Status}' unattended-upgrades 2>/dev/null | grep -q 'ok installed' \
+  dpkg-query -W -f='${Status}' unattended-upgrades 2>/dev/null | grep 'ok installed' >/dev/null \
     || apt-get install -y -qq --no-install-recommends unattended-upgrades >/dev/null || { echo "updates: could not install unattended-upgrades"; return 1; }
   printf 'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgrade "1";\n' >/etc/apt/apt.conf.d/20auto-upgrades
   systemctl enable -q --now unattended-upgrades 2>/dev/null || true

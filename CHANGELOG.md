@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.5.1 - Security Score: Correct Host Checks — 2026-11-25
+
+### Fixed
+- The security score reported "Automatic security updates" as missing even when they were on (and could miss an nftables default-deny firewall). The host check stopped reading early, which its strict error mode counted as a failure. Found while install-testing the v2.5.0 ISO; the fix was verified on a fresh SolarOS install.
+
 ## v2.5.0 - Phase 21: Security by Design — TOTP 2FA, Step-Up Auth, Encrypted Vault, Hash-Chained Audit Log, Security Posture Center & SolarOS Host Hardening — 2026-11-25
 
 ### Added
