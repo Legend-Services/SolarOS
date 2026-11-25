@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.9.1 - Update Test Release — 2026-11-25
+
+### Changed
+- Maintenance release with no functional changes. Install it from **Settings → Software & Repositories → SolarDeck Updates** to see the Update Progress card, the Update Ready badge and the automatic reload in action.
+
 ## v2.9.0 - Live Update Progress, Automatic Reload & Update Schedule — 2026-11-25
 
 ### Added
