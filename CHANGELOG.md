@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.4.4 - Updates Follow the Configured Branch — 2026-11-25
+
+### Fixed
+- Updates followed whatever branch the installation's checkout was on, not the configured release branch (`REPO_BRANCH` in `backend/.env`). An installation left on an old test branch therefore "updated" to that branch's outdated code. Updates now always use `REPO_BRANCH` (`main` for SolarDeck for Proxmox VE, `solaros` for SolarOS).
+
 ## v2.4.3 - SolarOS Name in the Control Panel — 2026-11-25
 
 ### Changed
