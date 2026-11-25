@@ -149,7 +149,14 @@ async def ensure_repo(branch: str) -> None:
         f = APP_DIR / ".build-commit"
         build = f.read_text().strip() if f.exists() else ""
         known = bool(build) and (await git("cat-file", "-e", f"{build}^{{commit}}"))[0] == 0
-        await git("reset", "-q", "--mixed", build if known else f"origin/{branch}")
+        if not known:
+            # An ISO records its main-branch commit, which the edition branch does not contain: the edition tag of the
+            # same version is the same release, so record that (else every fresh install reports an update).
+            version = (await source())["version"]
+            build = version and await _out("rev-parse", "--verify", "-q", f"refs/tags/{branch}-v{version}^{{commit}}")
+            if build:
+                f.write_text(build + "\n")
+        await git("reset", "-q", "--mixed", build or f"origin/{branch}")
 
 
 def _parse_log(out: str | None, current: str | None) -> list[dict]:
