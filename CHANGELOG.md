@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.2.5 - Delete VMs and Containers from the Desktop — 2026-11-25
+
+### Added
+- **Delete a VM or container** from its drawer (Options → Delete), in both editions. It is only available for a stopped guest, and you confirm by typing its name. The guest and its disks are removed (backups are kept); the task log follows the removal, then the list refreshes (`DELETE /api/pve/guests/{type}/{vmid}`).
+
 ## v2.2.4 - Windows Installs: Boot from ISO, Windows-Ready VMs on Proxmox VE, Memory Field Fix — 2026-11-25
 
 ### Added
