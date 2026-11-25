@@ -187,8 +187,8 @@ function UsersTab({ users, reload }: { users: string[]; reload: () => void }) {
   );
 }
 
-export default function SharesManager() {
-  const [tab, setTab] = useState<Tab>("shares");
+export default function SharesManager({ initialTab }: { initialTab?: Tab } = {}) {
+  const [tab, setTab] = useState<Tab>(initialTab === "users" ? "users" : "shares");
   const [shares, setShares] = useState<Share[] | null>(null);
   const [users, setUsers] = useState<string[]>([]);
   const [creating, setCreating] = useState(false);

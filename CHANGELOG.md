@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.8.0 - Global Desktop Search & Illustrated Manual — 2026-11-25
+
+### Added
+- **Global Search in the TopBar:** a Liquid Glass search field in the middle of the TopBar (`Search apps, settings, VLANs, ZFS, support...`) that expands into a results panel as you type. Open it with ⌘K / Ctrl+K, or `/` when you are not typing in a field; ↑ ↓ Enter and Esc work as usual. Results always come in seven groups, in this order, each with a match count: **Apps**, **Settings — Main Categories**, **Settings — Sub-Modules**, **Settings — Sub-Sub-Modules & Controls** (with the breadcrumb `Settings › Category › Sub-Module › Control`), **Support — Main Titles**, **Support — Subtitles** and **Support — Help Content** (with the matched words highlighted in a snippet). Live virtual machines, containers, pools, shares and quick actions follow below. The taskbar layout shows the same results in a centered panel.
+- **Deep links with a highlight:** a Settings category result scrolls the Settings hub to that category; a sub-module opens it; a sub-sub-module opens its sub-module on the right tab, scrolls to the card and pulses it with a 2-second accent ring. A help result opens the article, scrolls to the section and highlights the search words.
+- **Help & Support › Manual:** a two-pane documentation viewer with a collapsible category tree (Apps and the five Settings categories) and an instant filter on the left, and the article on the right: screenshots, numbered steps, tips and an **Open This Setting / App** button that jumps to the live screen. There is an article for every app, Settings category, sub-module and sub-sub-module.
+- **One knowledge registry** (`frontend/src/data/knowledgeRegistry.ts`) feeds the search, the Manual and the documentation in the repository, so the three always match. Apps, categories and sub-modules come from the existing app and Settings registries.
+- **Illustrated documentation:** `node scripts/generate-support-docs.mjs` starts the dev server, opens it in headless Chromium (1440×900, dark mode, 2× scale) with demo data, captures the desktop, the App Gallery, Global Search, every app, the Settings hub, every category, sub-module and major screen, and writes `docs/README.md`, `docs/apps.md` and `docs/settings-*.md`. The pictures ship with the web interface (`frontend/public/docs/screenshots/`) so the Manual works offline.
+- All new texts in English, Nederlands, Deutsch, Español and Français.
+
+### Fixed
+- Links that open a Settings sub-module directly (the CPU, memory, storage and update pills in the TopBar, retired app shortcuts) opened the Settings hub instead of the sub-module.
+
 ## v2.7.1 - Settings Without Duplicates — 2026-11-25
 
 ### Fixed

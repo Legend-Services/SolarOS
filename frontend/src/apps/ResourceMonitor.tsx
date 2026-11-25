@@ -113,8 +113,8 @@ const TABS = [
   { id: "hardware", label: "GPU & Sensors", icon: Thermometer },
 ] as const;
 
-export default function ResourceMonitor() {
-  const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("performance");
+export default function ResourceMonitor({ initialTab }: { initialTab?: (typeof TABS)[number]["id"] } = {}) {
+  const [tab, setTab] = useState<(typeof TABS)[number]["id"]>(initialTab === "hardware" ? "hardware" : "performance");
   return (
     <div className="flex h-full flex-col">
       <div className="flex gap-1 border-b border-white/10 bg-black/20 px-3 py-1.5" role="tablist">

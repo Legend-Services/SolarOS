@@ -15,7 +15,7 @@ No config files, no command-line gymnastics.
 [![Ubuntu Server](https://img.shields.io/badge/SolarOS-Ubuntu%2024.04%20%7C%2026.04-e95420)](#solaros-a-complete-server-os)
 [![License](https://img.shields.io/badge/license-AGPLv3%20%2B%20Commercial-8b5cf6)](#license)
 
-[**Install on Proxmox VE**](#solardeck-for-proxmox-ve) · [**Download SolarOS**](#solaros-a-complete-server-os) · [Screenshots](#screenshots) · [Features](#what-you-get)
+[**Install on Proxmox VE**](#solardeck-for-proxmox-ve) · [**Download SolarOS**](#solaros-a-complete-server-os) · [Screenshots](#screenshots) · [Features](#what-you-get) · [**📖 Manual**](docs/README.md)
 
 <br>
 
@@ -178,6 +178,10 @@ Security & Hardening** to see it all in one place.
 | ![Login screen](docs/screenshots/01-login-screen.png) | ![Storage & ZFS](docs/screenshots/03-storage-zfs.png) |
 | **Virtual machines & containers** | **Network & Services** |
 | ![Compute Manager](docs/screenshots/04-compute-manager.png) | ![Network & Services](docs/screenshots/05-network-services.png) |
+
+The complete illustrated manual (every app, every Settings category, sub-module and screen, with step-by-step
+instructions) is in **[docs/README.md](docs/README.md)**. The same articles are built into the desktop under
+**Help & Support → Manual**, and the TopBar search (**⌘K / Ctrl+K**) finds apps, settings and help in one place.
 
 ## Updating
 

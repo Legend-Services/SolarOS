@@ -80,6 +80,6 @@ const LEGACY_INTENT: Record<string, ModuleId> = {
 
 /** The Settings module an app id (plus intent) opens, or undefined when it is still an app of its own. */
 export function settingsModule(app: AppId, intent?: unknown): ModuleId | undefined {
-  if (app === "settings") return isModule(intent) ? intent : undefined;
+  if (app === "settings") return isModule(intent) ? intent : isModule((intent as { module?: unknown } | undefined)?.module) ? (intent as { module: ModuleId }).module : undefined;
   return LEGACY_INTENT[`${app}:${intent}`] ?? LEGACY[app];
 }
