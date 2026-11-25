@@ -26,6 +26,15 @@ export const es: Dict = {
   "login.password": "Contraseña",
   "login.signIn": "Iniciar sesión",
   "login.twoFactor": "Código de dos factores",
+  "setup.title": "Crea tu administrador",
+  "setup.intro": "Este servidor aún no tiene administrador. Introduce el código de configuración que aparece en la pantalla del servidor y elige tu usuario y contraseña.",
+  "setup.code": "Código de configuración",
+  "setup.username": "Usuario",
+  "setup.password": "Contraseña (al menos 10 caracteres)",
+  "setup.confirm": "Repite la contraseña",
+  "setup.mismatch": "Las contraseñas no coinciden",
+  "setup.create": "Crear administrador",
+  "setup.linux": "Esta cuenta también puede iniciar sesión en el propio servidor (SSH, con sudo).",
 
   // Top bar
   "top.openLauncher": "Abrir lanzador",

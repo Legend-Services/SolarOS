@@ -33,22 +33,25 @@ The installer:
    `--no-bridge` change this,
 3. initializes Incus (`incus admin init --minimal`) if needed,
 4. deploys SolarDeck to `/opt/solardeck`, writes `backend/.env` with
-   `HYPERVISOR_DRIVER=native_ubuntu` and a generated `ADMIN_PASSWORD` and `JWT_SECRET`,
+   `HYPERVISOR_DRIVER=native_ubuntu` and a generated `JWT_SECRET`, and writes a one-time setup code to
+   `/etc/solardeck/setup-code` (mode 0600),
 5. installs the root helper locally and authorizes the backend's SSH key for `root@127.0.0.1` only,
 6. builds the desktop, configures nginx (HTTP + self-signed HTTPS) and Samba, starts `solardeck-backend`,
 7. with `--with-console-tui`, replaces the tty1 login prompt with the dashboard,
-8. prints the web URL and the admin credentials (also saved in `/etc/solardeck/initial-credentials.txt`, mode 0600).
+8. prints the web URL and the setup code. The first visit to the web UI asks for that code and creates the
+   administrator (password stored only as a scrypt hash). The same user becomes a Linux administrator with sudo and
+   the same password; the ISO's bootstrap user is locked and root keeps no password.
 
 Re-running it is safe: `.env`, `data/` and `.ssh/` are kept.
 
 ## Console dashboard
 
 On the server's monitor: host name, kernel, CPU and RAM, every LAN IPv4 address with its `http://<IP>` management
-URL, the initial admin password (until you clear it), ZFS pool health, and:
+URL, the setup code (until the administrator exists), ZFS pool health, and:
 
 ```
 [1] Configure Network Interface / Static IP (Netplan)
-[2] Reset / Clear Initial Password Display (r: new admin password, c: remove the initial password from screen and disk)
+[2] Reset Administrator (new setup code; also switches two-factor sign-in off, for a lost password or phone)
 [3] Update SolarDeck from Git (main)
 [4] Open Root Diagnostic Shell
 [5] Reboot or Shut Down Server
@@ -88,7 +91,7 @@ boot `solardeck-firstboot.service` runs `firstboot-setup.sh`. It:
 3. puts the Incus `default` profile on `br0`, enables libvirtd, ZFS, smbd, nginx, `solardeck-backend` and
    `solardeck-console`, then disables itself.
 
-The tty1 console then shows the web URL and the initial `admin` password (`/etc/solardeck/initial-credentials.txt`).
+The tty1 console then shows the web URL and the setup code for creating the administrator.
 
 
 ## Updates

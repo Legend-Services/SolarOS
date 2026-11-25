@@ -19,7 +19,7 @@ REPO_BRANCH="${REPO_BRANCH:-solaros}"  # the SolarOS release branch
 APP_DIR="/opt/solardeck"
 STORAGE_ROOT="/mnt/storage"
 BRIDGE="br0"
-CREDS_FILE="/etc/solardeck/initial-credentials.txt"  # shown on the tty1 console until dismissed
+SETUP_CODE_FILE="/etc/solardeck/setup-code"  # one-time code for creating the administrator (tty1 shows it)
 WITH_TUI="" SRC="" BRIDGE_NIC="" NO_BRIDGE="" BUNDLE=""
 
 C_RESET=$'\e[0m'; C_BLUE=$'\e[1;34m'; C_GREEN=$'\e[1;32m'; C_YELLOW=$'\e[1;33m'; C_RED=$'\e[1;31m'
@@ -142,14 +142,16 @@ ok "Code in ${APP_DIR} ($(cat "${APP_DIR}/.build-commit" 2>/dev/null | cut -c1-1
 # ---------------------------------------------------------------- 6. backend/.env
 ENV_FILE="${APP_DIR}/backend/.env"
 if [[ -z "$UPGRADE" ]]; then
-  ADMIN_PASSWORD="$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 14)"
+  # No password is generated: the first visit to the web UI creates the administrator, after entering this code
+  # from the server's console (so nobody else on the network can claim the server first).
+  SETUP_CODE="$(python3 -c 'import secrets; a = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; c = "".join(secrets.choice(a) for _ in range(8)); print(c[:4] + "-" + c[4:])')"
   umask 077
   cat >"$ENV_FILE" <<EOF
 HYPERVISOR_DRIVER=native_ubuntu
 NODE_NAME=$(hostname -s)
 DEFAULT_BRIDGE=${BRIDGE}
 ADMIN_USERNAME=admin
-ADMIN_PASSWORD=${ADMIN_PASSWORD}
+ADMIN_PASSWORD=
 JWT_SECRET=$(openssl rand -hex 32)
 STORAGE_ROOT=${STORAGE_ROOT}
 HOST_SSH=
@@ -158,9 +160,8 @@ REPO_URL=${REPO_URL}
 REPO_BRANCH=${REPO_BRANCH}
 EOF
   umask 022
-  mkdir -p "$(dirname "$CREDS_FILE")" && chmod 700 "$(dirname "$CREDS_FILE")"
-  printf 'SolarOS Web UI\nUsername: admin\nPassword: %s\n' "$ADMIN_PASSWORD" >"$CREDS_FILE"
-  chmod 600 "$CREDS_FILE"
+  mkdir -p "$(dirname "$SETUP_CODE_FILE")" && chmod 700 "$(dirname "$SETUP_CODE_FILE")"
+  echo "$SETUP_CODE" >"$SETUP_CODE_FILE" && chmod 600 "$SETUP_CODE_FILE"
   ok "Wrote backend/.env"
 else
   grep -q '^HYPERVISOR_DRIVER=native_ubuntu' "$ENV_FILE" || die "${ENV_FILE} belongs to another edition (HYPERVISOR_DRIVER)"
@@ -266,9 +267,8 @@ row "HTTPS:" "https://${IP} (self-signed certificate)"
 if [[ -n "$UPGRADE" ]]; then
   row "Login:" "unchanged (your existing admin password)"
 else
-  row "Username:" "admin"
-  row "Password:" "${ADMIN_PASSWORD}"
-  row "" "(Saved in ${CREDS_FILE} and backend/.env)"
+  row "Setup code:" "${SETUP_CODE}"
+  row "" "Open the Web UI and create your administrator with this code."
 fi
 row "Edition:" "SolarOS (native_ubuntu)"
 row "Bridge:" "${BRIDGE}"

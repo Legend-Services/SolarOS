@@ -16,7 +16,10 @@ class Settings(BaseSettings):
     # Hypervisor API connection settings live in the driver package (providers/<driver id>/).
     node_name: str = socket.gethostname().split(".")[0]
     admin_username: str = "admin"
-    admin_password: str = ""
+    admin_password: str = ""  # plaintext from older installs; replaced by ADMIN_PASSWORD_HASH on the next change
+    admin_password_hash: str = ""
+    # One-time code for first-run setup, shown on the server's console (written by the installer).
+    setup_code_file: Path = Path("/etc/solardeck/setup-code")
     jwt_secret: str = ""
     jwt_ttl_hours: int = 12
     storage_root: Path = Path("/mnt/storage")

@@ -26,6 +26,15 @@ export const de: Dict = {
   "login.password": "Passwort",
   "login.signIn": "Anmelden",
   "login.twoFactor": "Zwei-Faktor-Code",
+  "setup.title": "Administrator anlegen",
+  "setup.intro": "Dieser Server hat noch keinen Administrator. Gib den Setup-Code vom Bildschirm des Servers ein und wähle Benutzername und Passwort.",
+  "setup.code": "Setup-Code",
+  "setup.username": "Benutzername",
+  "setup.password": "Passwort (mindestens 10 Zeichen)",
+  "setup.confirm": "Passwort wiederholen",
+  "setup.mismatch": "Die Passwörter stimmen nicht überein",
+  "setup.create": "Administrator anlegen",
+  "setup.linux": "Mit diesem Konto kannst du dich auch am Server selbst anmelden (SSH, mit sudo).",
 
   // Top bar
   "top.openLauncher": "Launcher öffnen",

@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.4.0 - SolarOS First-Run Setup: No Default Passwords — 2026-11-25
+
+### Added
+- **First-run setup:** a fresh SolarOS has no administrator and no generated or default password. The first visit to the web UI shows "Create your administrator".
+  - The form needs the one-time **setup code** shown on the server's own screen (tty1), so nobody else on the network can claim the server first. After 10 wrong codes the form locks for 10 minutes.
+  - You choose the user name and password (at least 10 characters, letters plus a digit or symbol).
+- **One account for the web UI and the server:** the administrator also becomes a Linux user with sudo (and `libvirt`/`incus-admin`) with the same password; a password change keeps both in sync. The ISO's bootstrap user is locked and expired once the administrator exists; root keeps no password.
+- Console option **[2] Reset Administrator** returns to first-run setup with a new setup code. It also switches two-factor sign-in off, for a forgotten password or a lost phone.
+
+### Changed
+- **Hashed passwords:** the administrator password is stored only as a scrypt hash (`ADMIN_PASSWORD_HASH`); a password change replaces an older install's plaintext `ADMIN_PASSWORD` (SolarDeck for Proxmox VE included). New passwords need at least 10 characters.
+- **No password in the ISO:** `build-iso.sh` no longer prints or shares a console password between installs. The bootstrap user gets a random password nobody knows (`--password` remains for test builds).
+
 ## v2.3.2 - SolarOS First-Boot Fix — 2026-11-25
 
 ### Fixed

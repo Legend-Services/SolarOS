@@ -26,6 +26,15 @@ export const nl: Dict = {
   "login.password": "Wachtwoord",
   "login.signIn": "Inloggen",
   "login.twoFactor": "Tweestapscode",
+  "setup.title": "Maak je beheerder aan",
+  "setup.intro": "Deze server heeft nog geen beheerder. Vul de setup-code in die op het scherm van de server zelf staat en kies je gebruikersnaam en wachtwoord.",
+  "setup.code": "Setup-code",
+  "setup.username": "Gebruikersnaam",
+  "setup.password": "Wachtwoord (minstens 10 tekens)",
+  "setup.confirm": "Herhaal wachtwoord",
+  "setup.mismatch": "De wachtwoorden zijn niet gelijk",
+  "setup.create": "Beheerder aanmaken",
+  "setup.linux": "Met dit account kun je ook op de server zelf inloggen (SSH, met sudo).",
 
   // Top bar
   "top.openLauncher": "Launcher openen",

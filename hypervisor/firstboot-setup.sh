@@ -4,9 +4,9 @@
 # 1. Bridges the primary Ethernet port into br0 (DHCP) with a clean Netplan file, replacing the installer's config.
 # 2. Runs install-hypervisor.sh in bundle mode: KVM/libvirt, Incus, OpenZFS, Samba, nginx, SolarDeck in /opt/solardeck
 #    from the bundled wheels and desktop build, backend/.env with a generated
-#    ADMIN_PASSWORD and JWT_SECRET, and the tty1 console dashboard.
+#    JWT_SECRET, a one-time setup code for the administrator, and the tty1 console dashboard.
 # 3. Puts the Incus default profile on br0, enables the hypervisor services and disables itself.
-# Initial login: /etc/solardeck/initial-credentials.txt (0600), also shown on tty1. Log: journalctl -u solardeck-firstboot
+# The setup code is on tty1 (and in /etc/solardeck/setup-code, 0600). Log: journalctl -u solardeck-firstboot
 set -Eeuo pipefail
 export LANG=C.UTF-8 LC_ALL=C.UTF-8 DEBIAN_FRONTEND=noninteractive
 
@@ -78,7 +78,6 @@ fi
 for unit in libvirtd qemu-kvm zfs-import-cache zfs-mount zfs.target smbd nginx solardeck-backend solardeck-console; do
   systemctl enable -q "$unit" 2>/dev/null || true  # qemu-kvm only exists on some releases
 done
-chmod 600 "${STATE}/initial-credentials.txt" 2>/dev/null || true
 systemctl disable -q solardeck-firstboot.service 2>/dev/null || true
 touch /var/lib/solardeck-firstboot.done
-log "done; Web UI login is shown on tty1 and stored in ${STATE}/initial-credentials.txt"
+log "done; open the Web UI and create the administrator with the setup code shown on tty1"

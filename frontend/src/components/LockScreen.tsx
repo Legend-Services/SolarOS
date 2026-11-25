@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { ArrowRight, Loader2, Server, ShieldCheck } from "lucide-react";
+import { ArrowRight, KeyRound, Loader2, Server, ShieldCheck } from "lucide-react";
 import { useAuth } from "../lib/stores";
 import { useClock } from "../lib/hooks";
 import { edition } from "@edition";
@@ -19,6 +19,20 @@ export default function LockScreen({ visible, checking }: { visible: boolean; ch
   const [needOtp, setNeedOtp] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // First-run setup: no administrator yet (null = not known yet).
+  const [setupNeeded, setSetupNeeded] = useState<boolean | null>(null);
+  const [code, setCode] = useState("");
+  const [confirm, setConfirm] = useState("");
+
+  useEffect(() => {
+    fetch("/api/auth/setup")
+      .then((r) => r.json())
+      .then((d) => {
+        setSetupNeeded(!!d.required);
+        if (d.required) setUsername("");
+      })
+      .catch(() => setSetupNeeded(false));
+  }, []);
 
   useEffect(() => {
     fetch("/api/health")
@@ -51,6 +65,27 @@ export default function LockScreen({ visible, checking }: { visible: boolean; ch
     }
   };
 
+  const createAdmin = async (e: FormEvent) => {
+    e.preventDefault();
+    if (password !== confirm) return setError(t("setup.mismatch"));
+    setBusy(true);
+    setError("");
+    try {
+      const r = await fetch("/api/auth/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, username, password }),
+      });
+      if (!r.ok) throw new Error((await r.json().catch(() => null))?.detail || r.statusText);
+      setSetupNeeded(false);
+      await login(username, password);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div
       className={`absolute inset-0 z-[10000] flex flex-col items-center justify-center gap-10 px-4 transition-all duration-700 ${
@@ -72,8 +107,49 @@ export default function LockScreen({ visible, checking }: { visible: boolean; ch
         </div>
       </div>
 
+      {setupNeeded && !checking ? (
+        <form onSubmit={createAdmin} className="glass relative w-full max-w-sm space-y-3 rounded-2xl p-6 shadow-2xl">
+          <div className="mb-2 flex flex-col items-center gap-2 text-center">
+            <ProductLogo className="h-14 max-w-full" />
+            <div className="text-sm font-medium text-white">{t("setup.title")}</div>
+            <p className="text-xs text-slate-400">{t("setup.intro")}</p>
+          </div>
+          <div>
+            <label className="mb-1 flex items-center gap-1.5 text-xs text-slate-400" htmlFor="setup-code">
+              <KeyRound size={12} /> {t("setup.code")}
+            </label>
+            <input id="setup-code" className="input w-full font-mono tracking-widest uppercase" placeholder="XXXX-XXXX" maxLength={12}
+              value={code} onChange={(e) => setCode(e.target.value)} autoComplete="off" autoFocus required />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-400" htmlFor="setup-user">{t("setup.username")}</label>
+            <input id="setup-user" className="input w-full" value={username} pattern="[a-z_][a-z0-9_-]{0,31}" placeholder="e.g. alex"
+              onChange={(e) => setUsername(e.target.value.toLowerCase())} autoComplete="username" required />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-400" htmlFor="setup-pw">{t("setup.password")}</label>
+            <input id="setup-pw" type="password" className="input w-full" minLength={10} maxLength={128}
+              value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" required />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-400" htmlFor="setup-pw2">{t("setup.confirm")}</label>
+            <input id="setup-pw2" type="password" className="input w-full" minLength={10} maxLength={128}
+              value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" required />
+          </div>
+          <p className="text-[11px] text-slate-500">{t("setup.linux")}</p>
+          {error && (
+            <p role="alert" className="text-sm text-rose-400">
+              {error}
+            </p>
+          )}
+          <button type="submit" disabled={busy || !code || !username || password.length < 10 || !confirm}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-sky-500 py-2 text-sm font-medium text-white transition hover:bg-sky-400 disabled:opacity-40">
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />} {t("setup.create")}
+          </button>
+        </form>
+      ) : (
       <form onSubmit={submit} className="glass relative w-full max-w-sm rounded-2xl p-6 shadow-2xl">
-        {checking ? (
+        {checking || setupNeeded === null ? (
           <div className="flex justify-center py-6 text-slate-400">
             <Loader2 className="animate-spin" />
           </div>
@@ -135,6 +211,7 @@ export default function LockScreen({ visible, checking }: { visible: boolean; ch
           </>
         )}
       </form>
+      )}
       {edition.trademarkNotice && (
         <p className="absolute inset-x-0 bottom-3 mx-auto max-w-2xl px-4 text-center text-[10px] leading-snug text-slate-400/70 select-none">
           {edition.trademarkNotice}

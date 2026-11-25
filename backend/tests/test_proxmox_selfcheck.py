@@ -430,7 +430,9 @@ new_pw = "N3w pass#word$"
 assert c.post("/api/system/password", json={"current_password": "pw", "new_password": new_pw}).status_code == 200
 from dotenv import dotenv_values  # noqa: E402
 
-assert dotenv_values(config.ENV_FILE) == {"NODE_NAME": "pve", "ADMIN_PASSWORD": new_pw, "JWT_SECRET": "x"}
+env = dotenv_values(config.ENV_FILE)  # the password is stored only as a scrypt hash
+assert env["ADMIN_PASSWORD"] == "" and env["ADMIN_PASSWORD_HASH"].startswith("scrypt$") and env["NODE_NAME"] == "pve", env
+assert new_pw not in config.ENV_FILE.read_text()
 assert (config.ENV_FILE.stat().st_mode & 0o777) == 0o600
 assert c.post("/api/auth/login", json={"username": "admin", "password": new_pw}).status_code == 200
 assert c.post("/api/auth/login", json={"username": "admin", "password": "pw"}).status_code == 401
@@ -621,13 +623,13 @@ assert c.post("/api/auth/2fa/enable", json={"code": "000000"}).status_code == 40
 assert c.post("/api/auth/2fa/enable", json={"code": totp()}).json() == {"enabled": True}
 assert oct(settings.security_file.stat().st_mode & 0o777) == "0o600"
 assert c.post("/api/auth/2fa/setup").status_code == 409
-r = anon.post("/api/auth/login", json={"username": "admin", "password": settings.admin_password})
+r = anon.post("/api/auth/login", json={"username": "admin", "password": new_pw})
 assert r.status_code == 401 and r.json()["detail"] == auth.OTP_REQUIRED, r.text
-assert anon.post("/api/auth/login", json={"username": "admin", "password": settings.admin_password, "otp": "123456"}).status_code == 401
+assert anon.post("/api/auth/login", json={"username": "admin", "password": new_pw, "otp": "123456"}).status_code == 401
 assert anon.post("/api/auth/login", json={"username": "admin", "password": "nope", "otp": totp()}).status_code == 401
-assert anon.post("/api/auth/login", json={"username": "admin", "password": settings.admin_password, "otp": totp()}).status_code == 200
+assert anon.post("/api/auth/login", json={"username": "admin", "password": new_pw, "otp": totp()}).status_code == 200
 assert c.post("/api/auth/2fa/disable", json={"code": "000000"}).status_code == 400
 assert c.post("/api/auth/2fa/disable", json={"code": totp()}).json() == {"enabled": False}
-assert anon.post("/api/auth/login", json={"username": "admin", "password": settings.admin_password}).status_code == 200
+assert anon.post("/api/auth/login", json={"username": "admin", "password": new_pw}).status_code == 200
 settings.security_file.unlink()
 print("selfcheck OK")
