@@ -628,13 +628,14 @@ class NativeUbuntuProvider(HypervisorProvider):
                 script = (apps.DATA / "apps/_common.sh").read_text() + "\n" + pre + \
                     (apps.DATA / f"apps/{app['id']}.sh").read_text()
                 await self.container_exec(vmid, script, timeout=3600, log=log)
+                job["phase"] = "registering"
                 job["ip"] = await self.container_ip(vmid)
                 if is_ai:
                     await local_ai.after_install(vmid, body, job["ip"], log)
                 job["phase"] = "done"
                 log("==> Installation complete")
             except Exception as e:
-                job["phase"] = "error"
+                job["failed_phase"], job["phase"] = job["phase"], "error"
                 job["error"] = e.detail if isinstance(e, HTTPException) else str(e)
                 raise
         upid = start_job("appdeploy", vmid, work)

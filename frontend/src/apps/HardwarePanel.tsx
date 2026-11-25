@@ -5,7 +5,7 @@ import { api } from "../lib/api";
 import { bytes, copyText, percent, tempColor } from "../lib/format";
 import { usePoll, useRunner } from "../lib/hooks";
 import { Bar } from "../components/charts";
-import { JobLog } from "../components/JobLog";
+import { OperationProgressCard, useJobProgress } from "../components/ui/OperationProgressCard";
 import { ConfirmModal, GlassBadge, GlassButton, Notice } from "../components/ui/GlassKit";
 
 /* ---------------- Types (GET /api/hardware/inventory) ---------------- */
@@ -301,15 +301,32 @@ function GpuCard({ g, live }: { g: Gpu; live: GpuMetrics | null }) {
   );
 }
 
+/** Stage progress of one GPU host job (driver install or mode switch); hidden until it has run on this host. */
+function GpuJob({ job, label, active, onDone, onRetry }: { job: string; label: string; active: boolean; onDone: () => void; onRetry?: () => void }) {
+  const progress = useJobProgress(`/hardware/gpu-drivers/jobs/${job}`, active, onDone);
+  const [dismissed, setDismissed] = useState<string | null>(null);
+  // A dismissed failure stays hidden until the job runs again.
+  if (!progress || (dismissed === job && progress.status === "failed" && !active)) return null;
+  return (
+    <OperationProgressCard
+      title={progress.subject ? `${label} — ${progress.subject}` : label}
+      progress={progress}
+      onRetry={onRetry}
+      onDismiss={() => setDismissed(job)}
+    />
+  );
+}
+
 function DriversCard({ inv, onChanged }: { inv: Inventory; onChanged: () => void }) {
   const [ask, setAsk] = useState<{ gpu: Gpu; action: Action } | null>(null);
   const [active, setActive] = useState<string | null>(null);
+  const [last, setLast] = useState<{ gpu: Gpu; action: Action } | null>(null); // for Retry
   const { busy, error, run } = useRunner();
   const p = inv.packages;
   const start = async () => {
     if (!ask) return;
     const ok = await run(() => api(`/hardware/gpu-drivers/${ask.action}`, { method: "POST", json: { gpu: ask.gpu.id } }));
-    if (ok) (setActive(ACTIONS[ask.action].job), setAsk(null));
+    if (ok) (setActive(ACTIONS[ask.action].job), setLast(ask), setAsk(null));
   };
   const done = useCallback(() => (setActive(null), onChanged()), [onChanged]);
   const actionsFor = (g: Gpu): Action[] => [
@@ -361,7 +378,14 @@ function DriversCard({ inv, onChanged }: { inv: Inventory; onChanged: () => void
           </div>
         ))}
         {(["gpu-nvidia-install", "gpu-intel-install", "gpu-amd-install", "gpu-mode"] as const).map((j) => (
-          <JobLog key={j} name={j} active={active === j} onDone={done} />
+          <GpuJob
+            key={j}
+            job={j}
+            label={last && ACTIONS[last.action].job === j ? ACTIONS[last.action].label : j === "gpu-mode" ? "Switch GPU mode" : Object.values(ACTIONS).find((a) => a.job === j)!.label}
+            active={active === j}
+            onDone={done}
+            onRetry={last && ACTIONS[last.action].job === j && !active ? () => setAsk(last) : undefined}
+          />
         ))}
         <Notice error={error} />
       </div>

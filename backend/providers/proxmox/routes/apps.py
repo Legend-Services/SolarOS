@@ -97,6 +97,7 @@ async def _finish(vmid: int, upid: str, app: dict, body: DeployBody) -> None:
         job["phase"] = "installing"
         script = (DATA / "apps/_common.sh").read_bytes() + b"\n" + pre + (DATA / f"apps/{app['id']}.sh").read_bytes()
         await host.run(["app-provision", str(vmid)], stdin=script, on_line=log, timeout=3600)
+        job["phase"] = "registering"
         ifaces = await _safe(_node(f"/lxc/{vmid}/interfaces"), []) or []
         inet = next((i.get("inet", "") for i in ifaces if i.get("name") == "eth0"), "")
         job["ip"] = inet.split("/")[0] or None
@@ -105,7 +106,7 @@ async def _finish(vmid: int, upid: str, app: dict, body: DeployBody) -> None:
         job["phase"] = "done"
         log("==> Installation complete")
     except Exception as e:  # noqa: BLE001 - surfaced to the UI
-        job["phase"] = "error"
+        job["failed_phase"], job["phase"] = job["phase"], "error"
         job["error"] = e.detail if isinstance(e, HTTPException) else str(e)
         log(f"==> Failed: {job['error']}")
 

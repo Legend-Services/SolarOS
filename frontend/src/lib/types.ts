@@ -87,6 +87,23 @@ export interface ConsoleTarget {
 
 export type TaskState = "running" | "ok" | "error";
 
+/** Unified stage progress of a long-running job (backend app/task_progress.py). */
+export interface JobProgress {
+  job_id: string;
+  kind: "gpu" | "app" | "os" | "ai";
+  /** GPU name, app name or model tag. */
+  subject: string;
+  status: "running" | "completed" | "failed";
+  progress_percent: number;
+  /** English stage label; the UI translates `progress.<stage_key>` when it exists. */
+  current_stage: string;
+  stage_key: string;
+  stage_index: number;
+  stages: { key: string; label: string; percent: number }[];
+  logs: string[];
+  error_message: string | null;
+}
+
 export interface HostTask {
   upid: string;
   type: string;
@@ -201,12 +218,13 @@ export interface AiStatus {
 export interface Deployment {
   vmid: number;
   upid: string;
-  phase: "creating" | "configuring" | "starting" | "installing" | "done" | "error";
+  phase: "creating" | "configuring" | "starting" | "installing" | "registering" | "done" | "error";
   error: string | null;
   ip: string | null;
   web_port: number | null;
   web_scheme: string;
   log: string[];
+  progress: JobProgress;
 }
 
 export interface Share {
@@ -320,6 +338,8 @@ export interface UpgradeStatus {
   running: boolean;
   exit_code: number | null;
   log: string[];
+  /** null when no upgrade has run on this host yet. */
+  progress: JobProgress | null;
 }
 
 export interface FileEntry {
