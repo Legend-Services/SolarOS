@@ -24,12 +24,12 @@ IMAGES = Path("/var/lib/libvirt/images")
 NVRAM = Path("/var/lib/libvirt/qemu/nvram")
 OVMF = {"code": "/usr/share/OVMF/OVMF_CODE_4M.fd", "vars": "/usr/share/OVMF/OVMF_VARS_4M.fd",
         "code_sb": "/usr/share/OVMF/OVMF_CODE_4M.secboot.fd", "vars_sb": "/usr/share/OVMF/OVMF_VARS_4M.ms.fd"}
-GUEST_TAG = "proxmox-os-guest"
+GUEST_TAG = settings.name("guest")
 Log = Callable[[str], None]
 
 
 def node() -> str:
-    return settings.pve_node
+    return settings.node_name
 
 
 # ---------------------------------------------------------------- Commands

@@ -1,6 +1,6 @@
 """Local users, groups, roles, ACLs and resource pools for the standalone driver (no external realms).
 
-Persisted in backend/data/local_rbac.json in the same shapes the Proxmox access API returns, so Datacenter ->
+Persisted in backend/data/local_rbac.json in the shapes app.access describes, so Datacenter ->
 Permissions renders unchanged. Passwords are stored as scrypt hashes.
 """
 import hashlib
@@ -10,7 +10,7 @@ from pathlib import Path
 
 from fastapi import HTTPException
 
-from app import pve_access as pa
+from app import access as pa
 
 FILE = Path(__file__).resolve().parents[2] / "data" / "local_rbac.json"
 REALM = "solardeck"

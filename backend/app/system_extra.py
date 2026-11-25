@@ -12,8 +12,8 @@ from pydantic import BaseModel, Field
 from . import apps, shares
 from .auth import require_user
 from .config import settings
-from .pve import _node, _safe
 from .storage_admin import datasets
+from providers.registry import get_provider
 
 router = APIRouter(tags=["system-extra"], dependencies=[Depends(require_user)])
 
@@ -22,7 +22,7 @@ PER_KIND = 8
 # Control Panel sections, matched on title + keywords.
 SECTIONS = [
     ("security", "User & Security", "password two-factor 2fa totp authenticator api token login"),
-    ("network", "Network & DNS", "interfaces bridge vmbr dns resolver ip gateway"),
+    ("network", "Network & DNS", "interfaces bridge br dns resolver ip gateway"),
     ("appearance", "Appearance & Layout", "wallpaper widgets theme background layout grid list view icon size spacing dock"),
     ("power", "System & Updates", "reboot shutdown version update upgrade downgrade rollback kernel bug report"),
 ]
@@ -79,9 +79,9 @@ def build_results(q: str, qemu: list, lxc: list, pools: list, ds: list, share_li
 
 @router.get("/api/search")
 async def search(q: str = Query(min_length=1, max_length=100)):
-    qemu, lxc, pools, ds = await asyncio.gather(
-        _safe(_node("/qemu"), []), _safe(_node("/lxc"), []), _safe(_node("/disks/zfs"), []), _datasets())
-    return {"query": q, "results": build_results(q, qemu or [], lxc or [], pools or [], ds, _shares())}
+    guests, pools, ds = await asyncio.gather(get_provider().guest_rows(), get_provider().zfs_pool_list(), _datasets())
+    qemu, lxc = ([g for g in guests if g["type"] == k] for k in ("qemu", "lxc"))
+    return {"query": q, "results": build_results(q, qemu, lxc, pools or [], ds, _shares())}
 
 
 # ---------------------------------------------------------------- App usage

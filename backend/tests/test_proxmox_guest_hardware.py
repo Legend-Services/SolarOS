@@ -1,4 +1,4 @@
-"""Guest hardware helpers self-check. Run: python -m tests.test_guest_hardware (from backend/)."""
+"""Guest hardware helpers self-check. Run: python -m tests.test_proxmox_guest_hardware (from backend/)."""
 import os
 
 os.environ.update(ADMIN_USERNAME="admin", ADMIN_PASSWORD="pw", JWT_SECRET="x" * 32)
@@ -7,7 +7,9 @@ from fastapi import HTTPException  # noqa: E402
 from pydantic import ValidationError  # noqa: E402
 
 from app import guest_hardware as g  # noqa: E402
-from app.provisioning import PciPassthrough, UsbPassthrough, hostpci_value, pci_category, usb_value  # noqa: E402
+from app.provisioning import PciPassthrough, UsbPassthrough, pci_category  # noqa: E402
+from providers.proxmox.routes import guest_hardware as pg  # noqa: E402
+from providers.proxmox.routes.provisioning import hostpci_value, usb_value  # noqa: E402
 
 # Passthrough property strings.
 assert hostpci_value(PciPassthrough(id="01:00.0", x_vga=True)) == "01:00,pcie=1,rombar=1,x-vga=1"
@@ -49,20 +51,20 @@ assert ci["sshkeys"] == "ssh-ed25519 AAA me" and ci["password_set"] and ci["driv
 assert "cipassword" not in ci
 
 # Builders.
-assert g.net_value("qemu", 0, g.NetBody(bridge="vmbr0", tag=20, macaddr="BC:24:11:00:00:01")) == \
+assert pg.net_value("qemu", 0, g.NetBody(bridge="vmbr0", tag=20, macaddr="BC:24:11:00:00:01")) == \
     "virtio=BC:24:11:00:00:01,bridge=vmbr0,firewall=1,tag=20"
-assert g.net_value("lxc", 1, g.NetBody(bridge="vmbr1", firewall=False, ip="10.0.0.5/24", gw="10.0.0.1")) == \
+assert pg.net_value("lxc", 1, g.NetBody(bridge="vmbr1", firewall=False, ip="10.0.0.5/24", gw="10.0.0.1")) == \
     "name=eth1,bridge=vmbr1,firewall=0,ip=10.0.0.5/24,gw=10.0.0.1"
-assert g.net_value("lxc", 0, g.NetBody(bridge="vmbr0", gw="10.0.0.1")) == "name=eth0,bridge=vmbr0,firewall=1,ip=dhcp"
-p = g.cloudinit_params(g.CloudInitBody(ciuser="ubuntu", cipassword="", sshkeys="ssh-ed25519 AAA me", nameserver="",
+assert pg.net_value("lxc", 0, g.NetBody(bridge="vmbr0", gw="10.0.0.1")) == "name=eth0,bridge=vmbr0,firewall=1,ip=dhcp"
+p = pg.cloudinit_params(g.CloudInitBody(ciuser="ubuntu", cipassword="", sshkeys="ssh-ed25519 AAA me", nameserver="",
                                        ipconfig={"ipconfig0": "ip=10.0.0.9/24,gw=10.0.0.1"}, add_drive_storage="local-lvm"),
                        {"ide2": "none,media=cdrom"})
 assert p == {"ciuser": "ubuntu", "ipconfig0": "ip=10.0.0.9/24,gw=10.0.0.1", "sshkeys": "ssh-ed25519%20AAA%20me",
              "ide0": "local-lvm:cloudinit", "delete": "nameserver"}, p
-assert "ide0" not in g.cloudinit_params(g.CloudInitBody(add_drive_storage="local-lvm"), cfg)  # drive exists
-assert g.options_params("qemu", g.OptionsBody(onboot=True, startup="", cpu="host")) == {"onboot": 1, "cpu": "host", "delete": "startup"}
+assert "ide0" not in pg.cloudinit_params(g.CloudInitBody(add_drive_storage="local-lvm"), cfg)  # drive exists
+assert pg.options_params("qemu", g.OptionsBody(onboot=True, startup="", cpu="host")) == {"onboot": 1, "cpu": "host", "delete": "startup"}
 try:
-    g.options_params("lxc", g.OptionsBody(bios="ovmf"))
+    pg.options_params("lxc", g.OptionsBody(bios="ovmf"))
     raise AssertionError("qemu option accepted for lxc")
 except HTTPException as e:
     assert e.status_code == 400

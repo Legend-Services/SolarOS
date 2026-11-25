@@ -1,4 +1,5 @@
 import type { AppId } from "../apps/registry";
+import { edition } from "@edition";
 import type { Intents } from "../lib/stores";
 
 /* Plain-English, jargon-free guides for every app and major workflow, shown by GuidedWizardModal.
@@ -287,7 +288,7 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     ],
     how: [
       "Users: add a person and set their password.",
-      "Permissions: grant a role (for example PVEVMUser) on a path such as /vms/101.",
+      `Permissions: grant a role (for example ${edition.vmUserRole}) on a path such as /vms/101.`,
       "Firewall: add rules for the whole cluster, the host or a single guest.",
       "Logs: read the system journal and task history.",
     ],
@@ -672,7 +673,7 @@ const SUB_GUIDES: Guide[] = [
     how: [
       "Certificates tab: add an ACME account with your email (Let's Encrypt).",
       "If your server isn't reachable from the internet, add a DNS plugin for your domain provider (for example Cloudflare API token).",
-      "Add your domain (for example pve.example.com) and press Order.",
+      `Add your domain (for example ${edition.hostExample}) and press Order.`,
       "Or choose Custom certificate and paste your certificate and private key.",
       "Reload the page using the domain name; the padlock should appear.",
     ],

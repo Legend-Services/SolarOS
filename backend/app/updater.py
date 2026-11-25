@@ -19,13 +19,14 @@ from pydantic import BaseModel, Field
 from .auth import require_user
 from .config import settings
 from .system import parse_upgrade_status
+from providers import registry
 
 router = APIRouter(prefix="/api/system/updates", tags=["updater"], dependencies=[Depends(require_user)])
 log = logging.getLogger(__name__)
 
 APP_DIR = Path(__file__).resolve().parents[2]
-UNIT = "proxmox-os-self-update"
-LOG = Path("/var/log/proxmox-os-self-update.log")
+UNIT = settings.name("self-update")
+LOG = Path(f"/var/log/{UNIT}.log")
 REF_RE = r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$"
 SEP = "\x1f"
 DEFAULTS = {"mode": "notify", "schedule_frequency": "daily", "schedule_time": "03:00", "schedule_day": 0,
@@ -134,8 +135,10 @@ async def ensure_repo(branch: str) -> None:
     if not await _out("remote", "get-url", "origin"):
         await git("remote", "add", "origin", settings.repo_url)
     unshallow = ["--unshallow"] if (APP_DIR / ".git/shallow").exists() else []
-    rc, out = await git("fetch", "-q", "--tags", "--force", *unshallow, "origin",
-                        f"+refs/heads/{branch}:refs/remotes/origin/{branch}", timeout=120)
+    # main carries every release tag; an edition release branch only its own <branch>-* tags (nothing else is fetched).
+    tags = (["--tags"], []) if branch == "main" else (["--no-tags"], [f"+refs/tags/{branch}-*:refs/tags/{branch}-*"])
+    rc, out = await git("fetch", "-q", *tags[0], "--force", *unshallow, "origin",
+                        f"+refs/heads/{branch}:refs/remotes/origin/{branch}", *tags[1], timeout=120)
     if rc and ("could not read Username" in out or "Authentication failed" in out):
         raise HTTPException(502, "GitHub refused access to the update source (private repository or invalid token). "
                                  "Set GITHUB_TOKEN in backend/.env or make the repository public.")
@@ -197,18 +200,16 @@ async def job() -> dict:
 
 def edition() -> dict:
     """Both editions track the same branch of the same repository; only the driver (backend/.env) differs."""
-    native = settings.hypervisor_driver.strip().lower() == "native_ubuntu"
-    return {"driver": "native_ubuntu" if native else "proxmox",
-            "edition": "SolarOS" if native else "SolarDeck for Proxmox VE",
-            "service": "solardeck-backend" if native else "proxmox-os-backend",
-            "supports_system_packages": native}
+    pkg = registry.driver_package()
+    return {"driver": registry.driver_id(), "edition": pkg.EDITION, "service": settings.name("backend"),
+            "supports_system_packages": pkg.SYSTEM_PACKAGES}
 
 
 async def start(target: str, branch: str, system_packages: bool = False) -> None:
     if (await job())["running"]:
         raise HTTPException(409, "An update is already running")
     # Run a copy: git reset rewrites deploy/self-update.sh while bash is still reading it.
-    script = Path("/tmp/proxmox-os-self-update.sh")
+    script = Path(f"/tmp/{UNIT}.sh")
     shutil.copy(APP_DIR / "deploy/self-update.sh", script)
     await _cmd("systemctl", "reset-failed", UNIT)
     # Detached transient unit: the script restarts this backend, which must not kill the update midway.
@@ -279,7 +280,7 @@ class ApplyBody(BaseModel):
 async def apply(body: ApplyBody | None = None):
     system_packages = bool(body and body.include_system_packages)
     if system_packages and not edition()["supports_system_packages"]:
-        raise HTTPException(400, "System package upgrades run from Proxmox VE itself on this edition")
+        raise HTTPException(400, "This edition upgrades host packages from the hypervisor host itself")
     src = await source()
     await ensure_repo(src["branch"])
     target = await resolve((body and body.target_ref) or f"origin/{src['branch']}")
@@ -289,7 +290,7 @@ async def apply(body: ApplyBody | None = None):
 
 # ---------------------------------------------------------------- SolarOS installer ISO
 
-ISO_BUILD_COMMAND = "sudo bash /opt/proxmox-os/hypervisor/build-iso.sh"
+ISO_BUILD_COMMAND = f"sudo bash {APP_DIR}/hypervisor/build-iso.sh"
 _iso_sums: dict[tuple[str, int, int], str] = {}  # (path, size, mtime) -> sha256: an ISO is hashed once
 
 
@@ -327,7 +328,9 @@ async def hypervisor_iso():
                 log.warning("cannot hash %s: %s", f, e)
         out.append({"name": f.name, "path": str(f), "size": st.st_size, "modified": int(st.st_mtime),
                     "sha256": _iso_sums.get(key)})
-    return {"build_command": ISO_BUILD_COMMAND, "test_command": "bash /opt/proxmox-os/hypervisor/test-in-proxmox-vm.sh",
+    # The nested-VM test script ships only where a hypervisor to test on exists.
+    test = next(iter(sorted(APP_DIR.glob("hypervisor/test-in-*-vm.sh"))), None)
+    return {"build_command": ISO_BUILD_COMMAND, "test_command": f"bash {test}" if test else None,
             "search_paths": [str(d) for d in dirs], "isos": out}
 
 

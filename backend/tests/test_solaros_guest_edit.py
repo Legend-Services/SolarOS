@@ -4,7 +4,7 @@ import json
 import os
 
 os.environ["HYPERVISOR_DRIVER"] = "native_ubuntu"
-os.environ["PVE_BRIDGE"] = "br0"  # as written by install-hypervisor.sh
+os.environ["DEFAULT_BRIDGE"] = "br0"  # as written by install-hypervisor.sh
 os.environ.setdefault("ADMIN_PASSWORD", "ci")
 os.environ.setdefault("JWT_SECRET", "ci-secret-ci-secret-ci-secret-ci-secret")
 
@@ -18,14 +18,14 @@ XML = host.domain_xml(name="win", vmid=100, cores=2, sockets=1, memory_mb=2048, 
                       disks=[{"path": "/x/vm-100-disk-0.qcow2", "type": "file", "format": "qcow2"}], cdroms=[],
                       bridge="br0", ostype="l26", hostpci=["01:00.0"], usb=["046d:c52b"], tpm=False)
 
-# ---- devices read back in the Proxmox shapes
+# ---- devices read back in the shared property-string shapes
 dv = ge.vm_devices(XML)
 assert [(n["key"], n["bridge"], n["model"]) for n in dv["net"]] == [("net0", "br0", "virtio")], dv
 assert dv["hostpci"][0]["id"] == "01:00.0" and dv["usb"][0]["host"] == "046d:c52b", dv
 
 # ---- NIC edit keeps the MAC, adds VLAN + rate; append; delete; missing index
 with_mac = ge.set_interface(XML.replace("<model type=\"virtio\" />", "<mac address=\"52:54:00:aa:bb:cc\" /><model type=\"virtio\" />"),
-                            0, NetBody(bridge="vmbr0", rate=12.5, model="e1000"))
+                            0, NetBody(bridge="br0", rate=12.5, model="e1000"))
 n0 = ge.vm_devices(with_mac)["net"][0]
 assert (n0["bridge"], n0["macaddr"], n0["tag"], n0["rate"], n0["model"]) == ("br0", "52:54:00:AA:BB:CC", None, 12.5, "e1000"), n0
 two = ge.set_interface(with_mac, 1, NetBody(bridge="br1"))
@@ -68,7 +68,7 @@ inst = {"config": {"volatile.eth0.hwaddr": "00:16:3e:01:02:03"},
                              "root": {"type": "disk"}, "eth1": {"type": "none"}}}
 assert ge.lxc_nets(inst) == [{"key": "net0", "index": 0, "raw": "", "name": "eth0", "macaddr": "00:16:3E:01:02:03", "ip": "dhcp",
                               "gw": None, "ip6": None, "gw6": None, "bridge": "br0", "tag": 5, "firewall": False, "rate": 10.0}]
-assert ge.lxc_nic_args(1, NetBody(bridge="vmbr0", tag=7, rate=2)) == [
+assert ge.lxc_nic_args(1, NetBody(bridge="br0", tag=7, rate=2)) == [
     "eth1", "nic", "nictype=bridged", "parent=br0", "name=eth1", "vlan=7", "limits.max=16Mbit"]
 
 # ---- install CD-ROM: load, swap, eject; seed drive is never the install drive; Windows gets SATA + e1000e
@@ -123,14 +123,14 @@ with tempfile.TemporaryDirectory() as d:
         pass
     assert sorted(p.name for p in (Path(d) / "isos").iterdir()) == ["win11.iso"], "partial upload left behind"
 
-# ---- the SolarOS routes come before the Proxmox-only ones
+# ---- the SolarOS routes come before the shared ones
 from app.main import app  # noqa: E402
 order = [(r.path, r.endpoint.__module__) for r in app.routes if isinstance(r, APIRoute)]
 first = {}
 for path, mod in order:
     first.setdefault(path, mod)
-for p in ("/api/pve/guests/{guest_type}/{vmid}/hardware", "/api/pve/guests/{guest_type}/{vmid}/net/{idx}",
-          "/api/pve/guests/qemu/{vmid}/cloudinit", "/api/pve/guests/{guest_type}/{vmid}/options",
-          "/api/pve/guests/qemu/{vmid}/hostpci/{idx}", "/api/pve/guests/qemu/{vmid}/cdrom"):
+for p in ("/api/v1/guests/{guest_type}/{vmid}/hardware", "/api/v1/guests/{guest_type}/{vmid}/net/{idx}",
+          "/api/v1/guests/qemu/{vmid}/cloudinit", "/api/v1/guests/{guest_type}/{vmid}/options",
+          "/api/v1/guests/qemu/{vmid}/hostpci/{idx}", "/api/v1/guests/qemu/{vmid}/cdrom"):
     assert first[p] == "providers.native_ubuntu.guest_edit", (p, first[p])
 print("SolarOS guest editing self-check OK")

@@ -32,8 +32,6 @@ export const nl: Dict = {
   "top.desktop": "Bureaublad",
   "top.search": "Zoeken (Ctrl+K)",
   "top.hostShell": "Host-shell (root op de {platform}-host)",
-  "driver.proxmox": "Proxmox VE",
-  "driver.standalone": "SolarOS",
   "about.title": "Over {product}",
   "about.driver": "Hypervisor-driver",
   "about.platform": "Platform",

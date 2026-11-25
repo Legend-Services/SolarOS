@@ -46,7 +46,7 @@ function ShareForm({ users, onDone }: { users: string[]; onDone: () => void }) {
   const base = parents.includes(parent) ? parent : (parents[0] ?? "");
 
   useEffect(() => {
-    api<ZfsDatasetInfo[]>("/pve/zfs/datasets").then(
+    api<ZfsDatasetInfo[]>("/v1/zfs/datasets").then(
       (d) => setParents(d.filter((x) => x.type === "filesystem" && !x.guest_volume).map((x) => x.name)),
       () => {},
     );

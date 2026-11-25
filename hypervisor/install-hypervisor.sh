@@ -2,23 +2,21 @@
 # SolarOS installer: turns a clean Ubuntu Server 24.04 / 26.04 LTS machine into a SolarOS
 # host (HYPERVISOR_DRIVER=native_ubuntu) with QEMU/KVM + libvirt, Incus containers, OpenZFS and the SolarDeck desktop.
 # Run as root:
-#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/main/hypervisor/install-hypervisor.sh)" -- --with-console-tui
+#   bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/solaros/hypervisor/install-hypervisor.sh)" -- --with-console-tui
 # Options:
 #   --with-console-tui   show the SolarDeck console dashboard on tty1 (the server's own monitor)
 #   --src <dir>          install from a local source tree instead of cloning REPO_URL
 #   --bundle <dir>       install from a SolarDeck ISO bundle: source tree + prebuilt frontend/dist + wheels/ (offline
 #                        Python packages and no desktop build; APT packages still come from the Ubuntu mirrors)
 #   --bridge-nic <nic>   NIC to enslave to br0 (default: the NIC of the default route)
-#   --no-bridge          do not create br0 (guests then need an existing bridge named in PVE_BRIDGE)
+#   --no-bridge          do not create br0 (guests then need an existing bridge named in DEFAULT_BRIDGE)
 # Re-running is safe: backend/.env, backend/data/ and backend/.ssh/ are kept; code, dependencies and the build refresh.
-# The Proxmox VE edition keeps using ../install.sh; both editions update from the same branch.
 set -Eeuo pipefail
 export LANG=C.UTF-8 LC_ALL=C.UTF-8 DEBIAN_FRONTEND=noninteractive
 
 REPO_URL="${REPO_URL:-https://github.com/Legend-Services/SolarOS.git}"
-REPO_BRANCH="${REPO_BRANCH:-main}"
+REPO_BRANCH="${REPO_BRANCH:-solaros}"  # the SolarOS release branch
 APP_DIR="/opt/solardeck"
-LEGACY_LINK="/opt/proxmox-os"  # paths shared with the Proxmox edition (nginx root, updater, helper) keep working
 STORAGE_ROOT="/mnt/storage"
 BRIDGE="br0"
 CREDS_FILE="/etc/solardeck/initial-credentials.txt"  # shown on the tty1 console until dismissed
@@ -45,7 +43,6 @@ done
 
 # ---------------------------------------------------------------- 1. Checks
 [[ $EUID -eq 0 ]] || die "Run as root."
-command -v pveversion >/dev/null && die "This is a Proxmox VE host: use install.sh (SolarDeck for Proxmox VE) instead."
 . /etc/os-release
 [[ "${ID:-}" == ubuntu ]] || die "SolarOS needs Ubuntu Server LTS (found ${PRETTY_NAME:-unknown})."
 case "${VERSION_ID:-}" in 24.04|26.04) ok "${PRETTY_NAME}" ;; *) warn "Tested on Ubuntu 24.04 / 26.04 LTS; found ${VERSION_ID}" ;; esac
@@ -77,7 +74,7 @@ if [[ -z "$NO_BRIDGE" && ! -d "/sys/class/net/${BRIDGE}" ]]; then
   # No default route yet: the first physical Ethernet port.
   [[ -n "$NIC" ]] || NIC="$(for n in /sys/class/net/en* /sys/class/net/eth*; do [[ -e "$n/device" ]] && basename "$n"; done | head -n1)"
   [[ -n "$NIC" && -e "/sys/class/net/${NIC}" ]] || die "Could not find the uplink NIC; pass --bridge-nic <nic>"
-  [[ -d "/sys/class/net/${NIC}/bridge" ]] && die "${NIC} is already a bridge; rerun with --no-bridge and set PVE_BRIDGE"
+  [[ -d "/sys/class/net/${NIC}/bridge" ]] && die "${NIC} is already a bridge; rerun with --no-bridge and set DEFAULT_BRIDGE"
   msg "Creating bridge ${BRIDGE} on ${NIC} (the IP address moves to the bridge)"
   # Keep a static address static; otherwise the bridge asks DHCP (same MAC, so usually the same lease).
   ADDR="$(ip -j -4 addr show dev "$NIC" | jq -r '[.[0].addr_info[] | select(.dynamic != true)][0] | "\(.local)/\(.prefixlen)" // empty' 2>/dev/null || true)"
@@ -127,14 +124,15 @@ if [[ -n "$SRC" && "$(realpath "$SRC")" != "$(realpath -m "$APP_DIR")" ]]; then
   if [[ -n "$COMMIT" ]]; then echo "$COMMIT" >"${APP_DIR}/.build-commit"; fi
 elif [[ -d "${APP_DIR}/.git" ]]; then
   # Re-run on a git checkout: move to the tip of the branch (untracked state files are untouched).
-  git -C "$APP_DIR" -c safe.directory='*' fetch -q --tags origin "+refs/heads/${REPO_BRANCH}:refs/remotes/origin/${REPO_BRANCH}"
+  git -C "$APP_DIR" -c safe.directory='*' fetch -q --no-tags origin "+refs/heads/${REPO_BRANCH}:refs/remotes/origin/${REPO_BRANCH}" \
+    "+refs/tags/${REPO_BRANCH}-*:refs/tags/${REPO_BRANCH}-*"
   git -C "$APP_DIR" -c safe.directory='*' checkout -q -f -B "$REPO_BRANCH" "origin/${REPO_BRANCH}"
   git -C "$APP_DIR" rev-parse HEAD >"${APP_DIR}/.build-commit"
 else
-  git clone -q --branch "$REPO_BRANCH" "$REPO_URL" "$APP_DIR"
+  git clone -q --single-branch --no-tags --branch "$REPO_BRANCH" "$REPO_URL" "$APP_DIR"
+  git -C "$APP_DIR" fetch -q --no-tags origin "+refs/tags/${REPO_BRANCH}-*:refs/tags/${REPO_BRANCH}-*" || true
   git -C "$APP_DIR" rev-parse HEAD >"${APP_DIR}/.build-commit"
 fi
-[[ -e "$LEGACY_LINK" ]] || ln -s "$APP_DIR" "$LEGACY_LINK"
 mkdir -p "${STORAGE_ROOT}"/{isos,templates,backups,ai-models}
 ok "Code in ${APP_DIR} ($(cat "${APP_DIR}/.build-commit" 2>/dev/null | cut -c1-12))"
 
@@ -145,8 +143,8 @@ if [[ -z "$UPGRADE" ]]; then
   umask 077
   cat >"$ENV_FILE" <<EOF
 HYPERVISOR_DRIVER=native_ubuntu
-PVE_NODE=$(hostname -s)
-PVE_BRIDGE=${BRIDGE}
+NODE_NAME=$(hostname -s)
+DEFAULT_BRIDGE=${BRIDGE}
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=${ADMIN_PASSWORD}
 JWT_SECRET=$(openssl rand -hex 32)
@@ -168,7 +166,7 @@ bash "${APP_DIR}/deploy/merge-env.sh" "$ENV_FILE" "${APP_DIR}/deploy/env-default
 
 # ---------------------------------------------------------------- 7. Root helper + local SSH bridge
 msg "Installing the root helper and the local SSH bridge"
-install -m 755 "${APP_DIR}/deploy/proxmox-os-helper.sh" /usr/local/sbin/proxmox-os-helper
+install -m 755 "${APP_DIR}/deploy/solardeck-helper.sh" /usr/local/sbin/solardeck-helper
 KEY="${APP_DIR}/backend/.ssh/id_ed25519"
 mkdir -p "$(dirname "$KEY")" && chmod 700 "$(dirname "$KEY")"
 [[ -f "$KEY" ]] || ssh-keygen -q -t ed25519 -N '' -C solardeck-root -f "$KEY"
@@ -198,18 +196,18 @@ else
   msg "Building the desktop"
   cd "${APP_DIR}/frontend"
   npm ci --no-audit --no-fund --loglevel=error
-  npm run build >/dev/null
+  VITE_EDITION=solaros npm run build >/dev/null
   ok "Desktop built"
 fi
 
 # ---------------------------------------------------------------- 9. Samba, nginx, services
-touch /etc/samba/proxmox-os-shares.conf
-grep -q 'proxmox-os-shares.conf' /etc/samba/smb.conf || printf '\n# SolarDeck Network Shares\ninclude = /etc/samba/proxmox-os-shares.conf\n' >>/etc/samba/smb.conf
+touch /etc/samba/solardeck-shares.conf
+grep -q 'solardeck-shares.conf' /etc/samba/smb.conf || printf '\n# SolarDeck Network Shares\ninclude = /etc/samba/solardeck-shares.conf\n' >>/etc/samba/smb.conf
 systemctl enable -q smbd && systemctl restart smbd
 
 msg "Configuring nginx"
-install -m 644 "${APP_DIR}/deploy/nginx.conf" /etc/nginx/sites-available/proxmox-os
-ln -sf /etc/nginx/sites-available/proxmox-os /etc/nginx/sites-enabled/proxmox-os
+install -m 644 "${APP_DIR}/deploy/nginx.conf" /etc/nginx/sites-available/solardeck
+ln -sf /etc/nginx/sites-available/solardeck /etc/nginx/sites-enabled/solardeck
 rm -f /etc/nginx/sites-enabled/default
 bash "${APP_DIR}/deploy/selfsigned-cert.sh" || warn "Could not create the HTTPS certificate; SolarDeck stays on http"
 nginx -t -q

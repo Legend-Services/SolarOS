@@ -1,19 +1,18 @@
-"""Hardware telemetry: disk SMART/temperatures from the PVE API, GPUs from the host helper (or locally)."""
+"""Hardware telemetry: disk SMART/temperatures from the active provider, GPUs from the host helper (or locally)."""
 import asyncio
 import glob
 import re
 import shutil
 import time
 from pathlib import Path
-from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from . import host
 from .auth import require_user
-from .pve import _node, _safe
+from providers.registry import get_provider
 
-router = APIRouter(prefix="/api/pve/telemetry", tags=["telemetry"], dependencies=[Depends(require_user)])
+router = APIRouter(prefix="/api/v1/telemetry", tags=["telemetry"], dependencies=[Depends(require_user)])
 
 NVIDIA_QUERY = ["nvidia-smi", "--query-gpu=name,temperature.gpu,utilization.gpu,memory.used,memory.total,power.draw",
                 "--format=csv,noheader,nounits"]
@@ -24,7 +23,7 @@ _cache: tuple[float, dict] | None = None
 
 
 def smart_temp(smart: dict) -> int | None:
-    """Temperature in °C from a PVE /disks/smart result (NVMe text output or ATA attribute table)."""
+    """Temperature in °C from a SMART result (NVMe text output or ATA attribute table)."""
     m = re.search(r"^Temperature:\s+(\d+)\s*Celsius", smart.get("text") or "", re.M)
     if m:
         return int(m.group(1))
@@ -95,9 +94,9 @@ async def gpu_info() -> dict:
 
 
 async def disk_info() -> list[dict]:
-    disks = await _safe(_node("/disks/list"), []) or []
-    smarts = await asyncio.gather(*[_safe(_node(f"/disks/smart?disk={quote(d['devpath'], safe='')}"), {})
-                                    for d in disks])
+    p = get_provider()
+    disks = await p.raw_disks() or []
+    smarts = await asyncio.gather(*[p.disk_smart_raw(d["devpath"]) for d in disks])
     out = []
     for d, s in zip(disks, smarts):
         s = s or {}
@@ -105,7 +104,7 @@ async def disk_info() -> list[dict]:
         out.append({
             "devpath": d["devpath"], "model": d.get("model"), "serial": d.get("serial"), "type": d.get("type"),
             "size": d.get("size", 0), "health": s.get("health") or d.get("health") or "UNKNOWN",
-            # PVE's wearout is the remaining rated life in % (100 - NVMe percentage_used), "N/A" for HDDs.
+            # wearout is the remaining rated life in % (100 - NVMe percentage_used), "N/A" for HDDs.
             "life_left_pct": wear if isinstance(wear, (int, float)) else None,
             "temp_c": smart_temp(s),
         })

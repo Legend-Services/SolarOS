@@ -18,7 +18,7 @@ const BADGE: Record<Status, string> = {
 };
 
 const wsUrl = (kind: "vnc" | "terminal", t: ConsoleTarget, session: string) =>
-  `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/pve/ws/${kind}/${t.type}/${t.vmid}?session=${encodeURIComponent(session)}`;
+  `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/v1/ws/${kind}/${t.type}/${t.vmid}?session=${encodeURIComponent(session)}`;
 
 export default function ConsoleApp({ params }: { params?: ConsoleTarget }) {
   const t = params!;
@@ -40,7 +40,7 @@ export default function ConsoleApp({ params }: { params?: ConsoleTarget }) {
     (async () => {
       try {
         if (t.mode === "vnc") {
-          const { session, password } = await api<{ session: string; password: string }>(`/pve/guests/${t.type}/${t.vmid}/vnc`, { method: "POST" });
+          const { session, password } = await api<{ session: string; password: string }>(`/v1/guests/${t.type}/${t.vmid}/vnc`, { method: "POST" });
           if (cancelled) return;
           const r = new RFB(el, wsUrl("vnc", t, session), { credentials: { password }, wsProtocols: ["binary"] });
           r.scaleViewport = true;
@@ -58,8 +58,8 @@ export default function ConsoleApp({ params }: { params?: ConsoleTarget }) {
           // Host shells open a root PTY over the SSH bridge directly; guests get a single-use session first.
           const url =
             t.type === "node"
-              ? `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/pve/ws/host-shell`
-              : wsUrl("terminal", t, (await api<{ session: string }>(`/pve/guests/${t.type}/${t.vmid}/terminal`, { method: "POST" })).session);
+              ? `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/api/v1/ws/host-shell`
+              : wsUrl("terminal", t, (await api<{ session: string }>(`/v1/guests/${t.type}/${t.vmid}/terminal`, { method: "POST" })).session);
           if (cancelled) return;
           const term = new Terminal({
             cursorBlink: true,
@@ -74,7 +74,7 @@ export default function ConsoleApp({ params }: { params?: ConsoleTarget }) {
           ws.binaryType = "arraybuffer";
           const enc = new TextEncoder();
           const send = (m: string) => ws.readyState === WebSocket.OPEN && ws.send(m);
-          // Proxmox termproxy framing: "0:<bytes>:<data>" input, "1:<cols>:<rows>:" resize, "2" keepalive.
+          // Terminal proxy framing: "0:<bytes>:<data>" input, "1:<cols>:<rows>:" resize, "2" keepalive.
           const resize = () => {
             fit.fit();
             send(`1:${term.cols}:${term.rows}:`);
@@ -120,7 +120,7 @@ export default function ConsoleApp({ params }: { params?: ConsoleTarget }) {
     setBooting(true);
     // The console drops while the VM resets; reconnect right away so the installer shows up.
     setTimeout(() => setAttempt((n) => n + 1), 1500);
-    api(`/pve/guests/qemu/${t.vmid}/boot-iso`, { method: "POST" })
+    api(`/v1/guests/qemu/${t.vmid}/boot-iso`, { method: "POST" })
       .catch((e: Error) => setDetail(e.message))
       .finally(() => setBooting(false));
   };
@@ -160,8 +160,8 @@ export default function ConsoleApp({ params }: { params?: ConsoleTarget }) {
   );
 }
 
-/** "Host Shell" app: an instant root@pve prompt over the SSH key bridge. */
+/** "Host Shell" app: an instant root prompt on the host over the SSH key bridge. */
 export function HostShell() {
-  const node = useTelemetry((s) => s.overview?.node) ?? "pve";
+  const node = useTelemetry((s) => s.overview?.node) ?? "host";
   return <ConsoleApp params={{ type: "node", vmid: 0, name: node, mode: "shell" }} />;
 }

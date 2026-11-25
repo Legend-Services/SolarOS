@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { edition } from "@edition";
 import { Bug, ChevronDown, Copy, ExternalLink, Send } from "lucide-react";
 import { api } from "../lib/api";
 import { useRunner } from "../lib/hooks";
@@ -8,10 +9,10 @@ import { Field, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, N
 const CATEGORIES = ["UI & Desktop", "Storage & ZFS", "VMs & Containers", "Network & VPN", "Hardware & GPU", "Installer & Updates"] as const;
 
 interface Diagnostics {
-  proxmox_os_version: string | null;
-  proxmox_os_tag: string | null;
+  solardeck_version: string | null;
+  solardeck_tag: string | null;
   commit: string | null;
-  pve_version: string | null;
+  platform_version: string | null;
   kernel: string;
   cpu: string;
   memory_gb: number | null;
@@ -128,8 +129,8 @@ export default function BugReportModal() {
             <pre className="mt-2 max-h-48 overflow-auto rounded-lg bg-black/40 p-2 font-mono text-[10px] whitespace-pre-wrap text-slate-300">
               {diag
                 ? [
-                    `SolarDeck ${diag.proxmox_os_version ?? "?"} (${diag.proxmox_os_tag ?? "untagged"}, ${diag.commit ?? "?"})`,
-                    `Proxmox VE ${diag.pve_version ?? "?"} · kernel ${diag.kernel}`,
+                    `SolarDeck ${diag.solardeck_version ?? "?"} (${diag.solardeck_tag ?? "untagged"}, ${diag.commit ?? "?"})`,
+                    `${edition.platformLabel} ${diag.platform_version ?? "?"} · kernel ${diag.kernel}`,
                     `${diag.cpu} · ${diag.memory_gb ?? "?"} GB RAM`,
                     `Browser: ${navigator.userAgent}`,
                     "",

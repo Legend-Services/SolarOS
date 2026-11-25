@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { edition } from "@edition";
 import { Boxes, FileText, Globe, KeyRound, Pencil, Plus, RefreshCw, Shield, ShieldCheck, Trash2, User, Users, UserCog, Flame } from "lucide-react";
 import { api } from "../lib/api";
 import { usePoll, useRunner } from "../lib/hooks";
@@ -8,7 +9,7 @@ import { useCapabilities } from "../store/capabilitiesStore";
 
 /* ---------------- Types (local to this app) ---------------- */
 
-interface PveUser {
+interface AccessUser {
   userid: string;
   enable?: number;
   expire?: number;
@@ -150,9 +151,9 @@ function DeleteButton({ what, onDelete, disabled }: { what: string; onDelete: ()
 const emptyUser = { userid: "", password: "", email: "", firstname: "", lastname: "", comment: "", expire: "", enable: true, groups: [] as string[] };
 
 function UsersTab({ service }: { service: string }) {
-  const users = useLoad<PveUser[]>("/pve/access/users");
-  const groups = useLoad<Group[]>("/pve/access/groups");
-  const [edit, setEdit] = useState<PveUser | "new" | null>(null);
+  const users = useLoad<AccessUser[]>("/v1/access/users");
+  const groups = useLoad<Group[]>("/v1/access/groups");
+  const [edit, setEdit] = useState<AccessUser | "new" | null>(null);
   const [pw, setPw] = useState<string | null>(null);
   const [f, setF] = useState(emptyUser);
   const [newPw, setNewPw] = useState("");
@@ -173,8 +174,8 @@ function UsersTab({ service }: { service: string }) {
     const body = { email: f.email, firstname: f.firstname, lastname: f.lastname, comment: f.comment, expire: epochOf(f.expire), enable: f.enable, groups: f.groups };
     const ok = await run(() =>
       edit === "new"
-        ? api("/pve/access/users", { method: "POST", json: { ...body, userid: f.userid, password: f.password || undefined } })
-        : api(`/pve/access/users/${enc(f.userid)}`, { method: "PUT", json: body }),
+        ? api("/v1/access/users", { method: "POST", json: { ...body, userid: f.userid, password: f.password || undefined } })
+        : api(`/v1/access/users/${enc(f.userid)}`, { method: "PUT", json: body }),
     );
     if (ok) setEdit(null);
   };
@@ -210,7 +211,7 @@ function UsersTab({ service }: { service: string }) {
                 <GlassButton variant="ghost" size="xs" disabled={locked} onClick={() => (setPw(u.userid), setNewPw(""), setError(""))} aria-label={`Set password for ${u.userid}`}>
                   <KeyRound size={12} />
                 </GlassButton>
-                <DeleteButton what={`user ${u.userid}`} disabled={locked || u.userid === "root@pam"} onDelete={() => api(`/pve/access/users/${enc(u.userid)}`, { method: "DELETE" }).then(users.load)} />
+                <DeleteButton what={`user ${u.userid}`} disabled={locked || u.userid === "root@pam"} onDelete={() => api(`/v1/access/users/${enc(u.userid)}`, { method: "DELETE" }).then(users.load)} />
               </Td>
             </tr>
           );
@@ -221,11 +222,11 @@ function UsersTab({ service }: { service: string }) {
         <form onSubmit={submit} className="space-y-3">
           {edit === "new" && (
             <div className="grid gap-3 sm:grid-cols-2">
-              <Field label="User ID" hint="name@realm, e.g. alice@pve">
+              <Field label="User ID" hint={`name@realm, e.g. alice@${edition.localRealm}`}>
                 <GlassInput className="w-full font-mono" value={f.userid} pattern="[A-Za-z0-9._\-]+@[A-Za-z0-9._\-]+" onChange={(e) => setF({ ...f, userid: e.target.value })} required />
               </Field>
-              <Field label="Password" hint="Only for the @pve realm (min. 8)">
-                <GlassInput type="password" className="w-full" minLength={8} value={f.password} disabled={!f.userid.endsWith("@pve")} onChange={(e) => setF({ ...f, password: e.target.value })} autoComplete="new-password" />
+              <Field label="Password" hint={`Only for the @${edition.localRealm} realm (min. 8)`}>
+                <GlassInput type="password" className="w-full" minLength={8} value={f.password} disabled={!f.userid.endsWith(`@${edition.localRealm}`)} onChange={(e) => setF({ ...f, password: e.target.value })} autoComplete="new-password" />
               </Field>
             </div>
           )}
@@ -280,7 +281,7 @@ function UsersTab({ service }: { service: string }) {
         <form
           onSubmit={async (e) => {
             e.preventDefault();
-            if (await run(() => api(`/pve/access/users/${enc(pw!)}/password`, { method: "PUT", json: { password: newPw } }))) setPw(null);
+            if (await run(() => api(`/v1/access/users/${enc(pw!)}/password`, { method: "PUT", json: { password: newPw } }))) setPw(null);
           }}
           className="space-y-3"
         >
@@ -303,7 +304,7 @@ function UsersTab({ service }: { service: string }) {
 /* ---------------- Groups ---------------- */
 
 function GroupsTab() {
-  const groups = useLoad<Group[]>("/pve/access/groups");
+  const groups = useLoad<Group[]>("/v1/access/groups");
   const [f, setF] = useState({ groupid: "", comment: "" });
   const { busy, error, run } = useRunner(groups.load);
   return (
@@ -313,7 +314,7 @@ function GroupsTab() {
         className="mb-3 flex flex-wrap items-end gap-2"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (await run(() => api("/pve/access/groups", { method: "POST", json: f }))) setF({ groupid: "", comment: "" });
+          if (await run(() => api("/v1/access/groups", { method: "POST", json: f }))) setF({ groupid: "", comment: "" });
         }}
       >
         <Field label="Group ID">
@@ -334,7 +335,7 @@ function GroupsTab() {
             <Td>{g.users || "—"}</Td>
             <Td>{g.comment || "—"}</Td>
             <Td className="text-right">
-              <DeleteButton what={`group ${g.groupid}`} onDelete={() => api(`/pve/access/groups/${enc(g.groupid)}`, { method: "DELETE" }).then(groups.load)} />
+              <DeleteButton what={`group ${g.groupid}`} onDelete={() => api(`/v1/access/groups/${enc(g.groupid)}`, { method: "DELETE" }).then(groups.load)} />
             </Td>
           </tr>
         ))}
@@ -346,8 +347,8 @@ function GroupsTab() {
 /* ---------------- Roles ---------------- */
 
 function RolesTab() {
-  const roles = useLoad<Role[]>("/pve/access/roles");
-  const privs = useLoad<string[]>("/pve/access/privileges");
+  const roles = useLoad<Role[]>("/v1/access/roles");
+  const privs = useLoad<string[]>("/v1/access/privileges");
   const [edit, setEdit] = useState<Role | "new" | null>(null);
   const [id, setId] = useState("");
   const [sel, setSel] = useState<string[]>([]);
@@ -364,7 +365,7 @@ function RolesTab() {
   }, [privs.data]);
   const save = async () => {
     const ok = await run(() =>
-      edit === "new" ? api("/pve/access/roles", { method: "POST", json: { roleid: id, privs: sel } }) : api(`/pve/access/roles/${enc(id)}`, { method: "PUT", json: { privs: sel } }),
+      edit === "new" ? api("/v1/access/roles", { method: "POST", json: { roleid: id, privs: sel } }) : api(`/v1/access/roles/${enc(id)}`, { method: "PUT", json: { privs: sel } }),
     );
     if (ok) setEdit(null);
   };
@@ -393,7 +394,7 @@ function RolesTab() {
                 <GlassButton variant="ghost" size="xs" disabled={!!r.special} onClick={() => setEdit(r)} aria-label={`Edit ${r.roleid}`}>
                   <Pencil size={12} />
                 </GlassButton>
-                <DeleteButton what={`role ${r.roleid}`} disabled={!!r.special} onDelete={() => api(`/pve/access/roles/${enc(r.roleid)}`, { method: "DELETE" }).then(roles.load)} />
+                <DeleteButton what={`role ${r.roleid}`} disabled={!!r.special} onDelete={() => api(`/v1/access/roles/${enc(r.roleid)}`, { method: "DELETE" }).then(roles.load)} />
               </Td>
             </tr>
           ))}
@@ -441,16 +442,16 @@ function RolesTab() {
 /* ---------------- Permissions (ACL) ---------------- */
 
 function AclTab({ service }: { service: string }) {
-  const acl = useLoad<Acl[]>("/pve/access/acl");
-  const users = useLoad<PveUser[]>("/pve/access/users");
-  const groups = useLoad<Group[]>("/pve/access/groups");
-  const roles = useLoad<Role[]>("/pve/access/roles");
-  const tokens = useLoad<Token[]>("/pve/access/tokens");
-  const guests = useLoad<Guest[]>("/pve/guests");
-  const storages = useLoad<StorageCfg[]>("/pve/storage-config");
-  const pools = useLoad<Pool[]>("/pve/pools");
+  const acl = useLoad<Acl[]>("/v1/access/acl");
+  const users = useLoad<AccessUser[]>("/v1/access/users");
+  const groups = useLoad<Group[]>("/v1/access/groups");
+  const roles = useLoad<Role[]>("/v1/access/roles");
+  const tokens = useLoad<Token[]>("/v1/access/tokens");
+  const guests = useLoad<Guest[]>("/v1/guests");
+  const storages = useLoad<StorageCfg[]>("/v1/storage-config");
+  const pools = useLoad<Pool[]>("/v1/pools");
   const [open, setOpen] = useState(false);
-  const [f, setF] = useState({ path: "/", type: "user" as Acl["type"], ugid: "", roleid: "PVEVMUser", propagate: true });
+  const [f, setF] = useState({ path: "/", type: "user" as Acl["type"], ugid: "", roleid: edition.vmUserRole, propagate: true });
   const { busy, error, run } = useRunner(acl.load);
   const paths = ["/", "/vms", "/storage", "/pool", "/nodes", "/access", "/sdn"]
     .concat(guests.data?.map((g) => `/vms/${g.vmid}`) ?? [], storages.data?.map((s) => `/storage/${s.storage}`) ?? [], pools.data?.map((p) => `/pool/${p.poolid}`) ?? []);
@@ -477,7 +478,7 @@ function AclTab({ service }: { service: string }) {
                 <DeleteButton
                   what={`${a.roleid} on ${a.path} for ${a.ugid}`}
                   disabled={locked}
-                  onDelete={() => api(`/pve/access/acl?${new URLSearchParams({ path: a.path, roleid: a.roleid, type: a.type, ugid: a.ugid })}`, { method: "DELETE" }).then(acl.load)}
+                  onDelete={() => api(`/v1/access/acl?${new URLSearchParams({ path: a.path, roleid: a.roleid, type: a.type, ugid: a.ugid })}`, { method: "DELETE" }).then(acl.load)}
                 />
               </Td>
             </tr>
@@ -489,7 +490,7 @@ function AclTab({ service }: { service: string }) {
           className="space-y-3"
           onSubmit={async (e) => {
             e.preventDefault();
-            if (await run(() => api("/pve/access/acl", { method: "POST", json: f }))) setOpen(false);
+            if (await run(() => api("/v1/access/acl", { method: "POST", json: f }))) setOpen(false);
           }}
         >
           <Field label="Path" hint="/ (everything), /vms/<id>, /storage/<id>, /pool/<name>, …">
@@ -545,17 +546,17 @@ function AclTab({ service }: { service: string }) {
 /* ---------------- Pools ---------------- */
 
 function PoolsTab() {
-  const pools = useLoad<Pool[]>("/pve/pools");
-  const guests = useLoad<Guest[]>("/pve/guests");
-  const storages = useLoad<StorageCfg[]>("/pve/storage-config");
+  const pools = useLoad<Pool[]>("/v1/pools");
+  const guests = useLoad<Guest[]>("/v1/guests");
+  const storages = useLoad<StorageCfg[]>("/v1/storage-config");
   const [sel, setSel] = useState<string | null>(null);
-  const detail = useLoad<Pool>(sel ? `/pve/pools/${enc(sel)}` : null);
+  const detail = useLoad<Pool>(sel ? `/v1/pools/${enc(sel)}` : null);
   const [f, setF] = useState({ poolid: "", comment: "" });
   const [addVm, setAddVm] = useState("");
   const [addSt, setAddSt] = useState("");
   const { busy, error, run } = useRunner();
   const members = (vms: number[], storage: string[], remove = false) =>
-    run(() => api(`/pve/pools/${enc(sel!)}/members`, { method: "PUT", json: { vms, storage, remove } }).then(detail.load));
+    run(() => api(`/v1/pools/${enc(sel!)}/members`, { method: "PUT", json: { vms, storage, remove } }).then(detail.load));
   return (
     <div>
       <Header title="Resource pools" onRefresh={pools.load} />
@@ -563,7 +564,7 @@ function PoolsTab() {
         className="mb-3 flex flex-wrap items-end gap-2"
         onSubmit={async (e) => {
           e.preventDefault();
-          if (await run(() => api("/pve/pools", { method: "POST", json: f }).then(pools.load))) setF({ poolid: "", comment: "" });
+          if (await run(() => api("/v1/pools", { method: "POST", json: f }).then(pools.load))) setF({ poolid: "", comment: "" });
         }}
       >
         <Field label="Pool ID">
@@ -586,7 +587,7 @@ function PoolsTab() {
               <GlassButton size="xs" onClick={() => setSel(p.poolid)}>
                 Members
               </GlassButton>
-              <DeleteButton what={`pool ${p.poolid}`} onDelete={() => api(`/pve/pools/${enc(p.poolid)}`, { method: "DELETE" }).then(() => (setSel(null), pools.load()))} />
+              <DeleteButton what={`pool ${p.poolid}`} onDelete={() => api(`/v1/pools/${enc(p.poolid)}`, { method: "DELETE" }).then(() => (setSel(null), pools.load()))} />
             </Td>
           </tr>
         ))}
@@ -654,8 +655,8 @@ function PoolsTab() {
 /* ---------------- API tokens ---------------- */
 
 function TokensTab() {
-  const tokens = useLoad<Token[]>("/pve/access/tokens");
-  const users = useLoad<PveUser[]>("/pve/access/users");
+  const tokens = useLoad<Token[]>("/v1/access/tokens");
+  const users = useLoad<AccessUser[]>("/v1/access/users");
   const [open, setOpen] = useState(false);
   const [f, setF] = useState({ userid: "", tokenid: "", comment: "", expire: "", privsep: true });
   const [secret, setSecret] = useState<{ full_tokenid: string; value: string } | null>(null);
@@ -678,7 +679,7 @@ function TokensTab() {
             <Td>{t.privsep ? "Yes" : "No (full user rights)"}</Td>
             <Td>{dateOf(t.expire) || "Never"}</Td>
             <Td className="text-right">
-              <DeleteButton what={`token ${t.userid}!${t.tokenid}`} disabled={t.service} onDelete={() => api(`/pve/access/tokens/${enc(t.userid)}/${enc(t.tokenid)}`, { method: "DELETE" }).then(tokens.load)} />
+              <DeleteButton what={`token ${t.userid}!${t.tokenid}`} disabled={t.service} onDelete={() => api(`/v1/access/tokens/${enc(t.userid)}/${enc(t.tokenid)}`, { method: "DELETE" }).then(tokens.load)} />
             </Td>
           </tr>
         ))}
@@ -686,7 +687,7 @@ function TokensTab() {
       <GlassModal open={open} onClose={() => setOpen(false)} title="Add API token">
         {secret ? (
           <div className="space-y-3 text-xs text-slate-300">
-            <p>Copy the secret now; Proxmox will not show it again.</p>
+            <p>Copy the secret now; {edition.platform} will not show it again.</p>
             <Field label="Token ID">
               <code className="block rounded-lg bg-black/30 px-3 py-2 font-mono text-sky-200 select-all">{secret.full_tokenid}</code>
             </Field>
@@ -705,7 +706,7 @@ function TokensTab() {
             onSubmit={(e) => {
               e.preventDefault();
               run(() =>
-                api<{ full_tokenid: string; value: string }>("/pve/access/tokens", { method: "POST", json: { ...f, expire: epochOf(f.expire) } }).then(setSecret),
+                api<{ full_tokenid: string; value: string }>("/v1/access/tokens", { method: "POST", json: { ...f, expire: epochOf(f.expire) } }).then(setSecret),
               );
             }}
           >
@@ -748,7 +749,7 @@ function TokensTab() {
 /* ---------------- Realms ---------------- */
 
 function RealmsTab() {
-  const realms = useLoad<Realm[]>("/pve/access/domains");
+  const realms = useLoad<Realm[]>("/v1/access/domains");
   return (
     <div>
       <Header title="Authentication realms" onRefresh={realms.load} />
@@ -764,7 +765,7 @@ function RealmsTab() {
           </tr>
         ))}
       </Table>
-      <p className="mt-3 text-[11px] text-slate-500">Realms (LDAP, AD, OpenID) are configured in the Proxmox web UI.</p>
+      {edition.realmsNote && <p className="mt-3 text-[11px] text-slate-500">{edition.realmsNote}</p>}
     </div>
   );
 }
@@ -773,13 +774,14 @@ function RealmsTab() {
 
 type FwScope = "cluster" | "node" | "guest";
 const emptyRule = { type: "in" as Rule["type"], action: "ACCEPT", enable: true, macro: "", proto: "", source: "", dest: "", sport: "", dport: "", iface: "", log: "", comment: "" };
-const allowsMgmt = (rules: Rule[]) => rules.some((r) => r.enable && r.type === "in" && r.action === "ACCEPT" && (/(^|,)(22|8006)(,|$|:)/.test(r.dport ?? "") || /SSH/i.test(r.macro ?? "")));
+const mgmtPort = new RegExp(`(^|,)(22|${edition.webUiPort})(,|$|:)`);
+const allowsMgmt = (rules: Rule[]) => rules.some((r) => r.enable && r.type === "in" && r.action === "ACCEPT" && (mgmtPort.test(r.dport ?? "") || /SSH/i.test(r.macro ?? "")));
 
 function FirewallTab() {
   const [scope, setScope] = useState<FwScope>("cluster");
-  const guests = useLoad<Guest[]>("/pve/guests");
+  const guests = useLoad<Guest[]>("/v1/guests");
   const [guest, setGuest] = useState<Guest | null>(null);
-  const base = scope === "guest" ? (guest ? `/pve/firewall/${guest.type}` : null) : `/pve/firewall/${scope}`;
+  const base = scope === "guest" ? (guest ? `/v1/firewall/${guest.type}` : null) : `/v1/firewall/${scope}`;
   const q = scope === "guest" && guest ? `?vmid=${guest.vmid}` : "";
   const rules = useLoad<Rule[]>(base && `${base}/rules${q}`);
   const opts = useLoad<FwOptions>(base && `${base}/options${q}`);
@@ -805,7 +807,7 @@ function FirewallTab() {
   const setOpts = (patch: FwOptions) => run(() => api(`${base}/options${q}`, { method: "PUT", json: Object.fromEntries(Object.entries(patch).map(([k, v]) => [k, k === "enable" ? !!v : v])) }).then(opts.load));
   const requestOpts = (patch: FwOptions) => {
     const next = { ...opts.data, ...patch };
-    // Cluster default inbound policy is DROP; enabling without an SSH/8006 allow rule risks locking the host out.
+    // Cluster default inbound policy is DROP; enabling without an SSH or web UI allow rule risks locking the host out.
     const dropping = (next.policy_in ?? (scope === "cluster" ? "DROP" : "ACCEPT")) !== "ACCEPT";
     if (scope !== "guest" && next.enable && dropping && !allowsMgmt(rules.data ?? [])) setWarn(patch);
     else setOpts(patch);
@@ -930,7 +932,7 @@ function FirewallTab() {
             <Field label="Source port">
               <GlassInput className="w-full font-mono" value={f.sport} onChange={(e) => setF({ ...f, sport: e.target.value })} />
             </Field>
-            <Field label="Destination port" hint="22, 80:443, 8006,5900">
+            <Field label="Destination port" hint={edition.destPortHint}>
               <GlassInput className="w-full font-mono" value={f.dport} onChange={(e) => setF({ ...f, dport: e.target.value })} />
             </Field>
             <Field label="Interface">
@@ -966,12 +968,7 @@ function FirewallTab() {
         error={error}
         title="Risk of locking yourself out"
         confirmLabel="Enable anyway"
-        message={
-          <>
-            The inbound policy will drop traffic and no enabled rule accepts SSH (22) or the Proxmox web UI (8006). You may lose access to the host and to SolarDeck.
-            Add an ACCEPT rule for <span className="font-mono">8006</span> and <span className="font-mono">22</span> first.
-          </>
-        }
+        message={edition.firewallLockout}
         onConfirm={async () => {
           await setOpts(warn!);
           setWarn(null);
@@ -982,10 +979,10 @@ function FirewallTab() {
 }
 
 function AliasesAndIpsets() {
-  const aliases = useLoad<{ name: string; cidr: string; comment?: string }[]>("/pve/firewall/cluster/aliases");
-  const ipsets = useLoad<{ name: string; comment?: string }[]>("/pve/firewall/cluster/ipsets");
+  const aliases = useLoad<{ name: string; cidr: string; comment?: string }[]>("/v1/firewall/cluster/aliases");
+  const ipsets = useLoad<{ name: string; comment?: string }[]>("/v1/firewall/cluster/ipsets");
   const [set, setSet] = useState<string | null>(null);
-  const entries = useLoad<{ cidr: string; comment?: string; nomatch?: number }[]>(set ? `/pve/firewall/cluster/ipsets/${enc(set)}` : null);
+  const entries = useLoad<{ cidr: string; comment?: string; nomatch?: number }[]>(set ? `/v1/firewall/cluster/ipsets/${enc(set)}` : null);
   const [a, setA] = useState({ name: "", cidr: "", comment: "" });
   const [s, setS] = useState("");
   const [cidr, setCidr] = useState("");
@@ -998,7 +995,7 @@ function AliasesAndIpsets() {
           className="mb-2 flex flex-wrap gap-2"
           onSubmit={async (e) => {
             e.preventDefault();
-            if (await run(() => api("/pve/firewall/cluster/aliases", { method: "POST", json: a }).then(aliases.load))) setA({ name: "", cidr: "", comment: "" });
+            if (await run(() => api("/v1/firewall/cluster/aliases", { method: "POST", json: a }).then(aliases.load))) setA({ name: "", cidr: "", comment: "" });
           }}
         >
           <GlassInput className="w-28" placeholder="name" value={a.name} onChange={(e) => setA({ ...a, name: e.target.value })} required aria-label="Alias name" />
@@ -1012,7 +1009,7 @@ function AliasesAndIpsets() {
             <li key={x.name} className="flex items-center gap-2 rounded-lg bg-black/20 px-3 py-1">
               <span className="w-28 font-mono text-slate-200">{x.name}</span>
               <span className="flex-1 font-mono text-slate-400">{x.cidr}</span>
-              <DeleteButton what={`alias ${x.name}`} onDelete={() => api(`/pve/firewall/cluster/aliases/${enc(x.name)}`, { method: "DELETE" }).then(aliases.load)} />
+              <DeleteButton what={`alias ${x.name}`} onDelete={() => api(`/v1/firewall/cluster/aliases/${enc(x.name)}`, { method: "DELETE" }).then(aliases.load)} />
             </li>
           ))}
         </ul>
@@ -1023,7 +1020,7 @@ function AliasesAndIpsets() {
           className="mb-2 flex gap-2"
           onSubmit={async (e) => {
             e.preventDefault();
-            if (await run(() => api("/pve/firewall/cluster/ipsets", { method: "POST", json: { name: s } }).then(ipsets.load))) setS("");
+            if (await run(() => api("/v1/firewall/cluster/ipsets", { method: "POST", json: { name: s } }).then(ipsets.load))) setS("");
           }}
         >
           <GlassInput className="w-36" placeholder="name" value={s} onChange={(e) => setS(e.target.value)} required aria-label="IP set name" />
@@ -1037,7 +1034,7 @@ function AliasesAndIpsets() {
               <button className="flex-1 text-left font-mono text-slate-200" onClick={() => setSet(x.name)}>
                 {x.name}
               </button>
-              <DeleteButton what={`IP set ${x.name}`} onDelete={() => api(`/pve/firewall/cluster/ipsets/${enc(x.name)}`, { method: "DELETE" }).then(() => (setSet(null), ipsets.load()))} />
+              <DeleteButton what={`IP set ${x.name}`} onDelete={() => api(`/v1/firewall/cluster/ipsets/${enc(x.name)}`, { method: "DELETE" }).then(() => (setSet(null), ipsets.load()))} />
             </li>
           ))}
         </ul>
@@ -1047,7 +1044,7 @@ function AliasesAndIpsets() {
               className="mb-2 flex gap-2"
               onSubmit={async (e) => {
                 e.preventDefault();
-                if (await run(() => api(`/pve/firewall/cluster/ipsets/${enc(set)}`, { method: "POST", json: { cidr } }).then(entries.load))) setCidr("");
+                if (await run(() => api(`/v1/firewall/cluster/ipsets/${enc(set)}`, { method: "POST", json: { cidr } }).then(entries.load))) setCidr("");
               }}
             >
               <GlassInput className="w-40 font-mono" placeholder="192.168.1.0/24" value={cidr} onChange={(e) => setCidr(e.target.value)} required aria-label="IP set entry" />
@@ -1059,7 +1056,7 @@ function AliasesAndIpsets() {
               {entries.data?.map((x) => (
                 <li key={x.cidr} className="flex items-center gap-2 rounded-lg bg-black/20 px-3 py-1">
                   <span className="flex-1 font-mono text-slate-300">{x.cidr}</span>
-                  <DeleteButton what={x.cidr} onDelete={() => api(`/pve/firewall/cluster/ipsets/${enc(set)}/entry?cidr=${enc(x.cidr)}`, { method: "DELETE" }).then(entries.load)} />
+                  <DeleteButton what={x.cidr} onDelete={() => api(`/v1/firewall/cluster/ipsets/${enc(set)}/entry?cidr=${enc(x.cidr)}`, { method: "DELETE" }).then(entries.load)} />
                 </li>
               ))}
             </ul>
@@ -1085,8 +1082,8 @@ function LogsTab() {
     const today = new Date().toISOString().slice(0, 10);
     const p =
       src === "cluster"
-        ? api<ClusterLog[]>("/pve/logs/cluster?max=500").then((r) => r.map((x) => `${new Date(x.time * 1000).toLocaleString()}  ${x.user}  [${x.tag}]  ${x.msg}`))
-        : api<{ lines: string[] }>(src === "syslog" ? `/pve/logs/syslog?limit=5000&since=${today}` : "/pve/logs/journal?lastentries=2000").then((r) => r.lines);
+        ? api<ClusterLog[]>("/v1/logs/cluster?max=500").then((r) => r.map((x) => `${new Date(x.time * 1000).toLocaleString()}  ${x.user}  [${x.tag}]  ${x.msg}`))
+        : api<{ lines: string[] }>(src === "syslog" ? `/v1/logs/syslog?limit=5000&since=${today}` : "/v1/logs/journal?lastentries=2000").then((r) => r.lines);
     p.then((l) => (setLines(l), setError("")), (e) => setError(e.message));
   }, [src]);
   useEffect(load, [load]);
@@ -1125,8 +1122,8 @@ function LogsTab() {
 export default function DatacenterApp() {
   const [tab, setTab] = useState<Tab>("users");
   const caps = useCapabilities((s) => s.capabilities);
-  const tokens = useLoad<Token[]>("/pve/access/tokens");
-  const service = tokens.data?.find((t) => t.service)?.userid ?? "pve-desktop@pve";
+  const tokens = useLoad<Token[]>("/v1/access/tokens");
+  const service = tokens.data?.find((t) => t.service)?.userid ?? edition.serviceUserFallback;
   return (
     <div className="flex h-full">
       <nav className="w-44 shrink-0 space-y-1 border-r border-white/10 bg-black/20 p-2 max-sm:w-14">

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { edition } from "@edition";
 import { Archive, CalendarClock, Container, Monitor, Plus, RefreshCw, RotateCcw, Trash2, UploadCloud } from "lucide-react";
 import { api } from "../lib/api";
 import type { BackupArchive, BackupsInfo, Guest, TaskState } from "../lib/types";
@@ -76,7 +77,7 @@ function BackupNowModal({ open, onClose, storages, guests, onDone }: { open: boo
   }, [open, storages]);
   const start = () =>
     run(async () => {
-      const r = await api<{ upid: string }>("/pve/backups/run", { method: "POST", json: { vmid: vmid === "all" ? "all" : Number(vmid), storage, mode, compress: "zstd" } });
+      const r = await api<{ upid: string }>("/v1/backups/run", { method: "POST", json: { vmid: vmid === "all" ? "all" : Number(vmid), storage, mode, compress: "zstd" } });
       setUpid(r.upid);
     });
   return (
@@ -143,11 +144,11 @@ function RestoreModal({ archive, onClose, guests, onDone }: { archive: BackupArc
     setStorage(stores.find((s) => s !== "local") ?? stores[0] ?? "");
   }, [archive]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const nextFree = () => api<{ vmid: number }>("/pve/nextid").then((r) => setVmid(r.vmid));
+  const nextFree = () => api<{ vmid: number }>("/v1/nextid").then((r) => setVmid(r.vmid));
   const start = () =>
     archive &&
     run(async () => {
-      const r = await api<{ upid: string }>("/pve/backups/restore", { method: "POST", json: { volid: archive.volid, type: kind, vmid, storage, force } });
+      const r = await api<{ upid: string }>("/v1/backups/restore", { method: "POST", json: { volid: archive.volid, type: kind, vmid, storage, force } });
       setUpid(r.upid);
     });
 
@@ -221,7 +222,7 @@ function Backups({ data, guests, reload, backupNow, setBackupNow }: { data: Back
   const shown = data.archives.filter((a) => !filter || `${a.name} ${a.vmid}`.toLowerCase().includes(filter.toLowerCase()));
   const total = data.archives.reduce((n, a) => n + a.size, 0);
   const remove = () =>
-    del && run(() => api(`/pve/storage/${del.storage}/content?volume=${encodeURIComponent(del.volid)}`, { method: "DELETE" }).then(() => (setDel(null), setTimeout(reload, 1500))));
+    del && run(() => api(`/v1/storage/${del.storage}/content?volume=${encodeURIComponent(del.volid)}`, { method: "DELETE" }).then(() => (setDel(null), setTimeout(reload, 1500))));
 
   return (
     <div className="space-y-4">
@@ -325,14 +326,14 @@ function Schedules({ data, guests, reload }: { data: BackupsInfo; guests: Guest[
     e.preventDefault();
     run(
       () =>
-        api("/pve/backups/schedules", {
+        api("/v1/backups/schedules", {
           method: "POST",
           json: { schedule: preset === "custom" ? custom : preset, storage, vmids: all ? "all" : picked, mode, compress: "zstd", keep_last: keep },
         }),
       "Backup job created.",
     );
   };
-  const toggle = (id: string, enabled: boolean) => run(() => api(`/pve/backups/schedules/${id}`, { method: "PUT", json: { enabled } }));
+  const toggle = (id: string, enabled: boolean) => run(() => api(`/v1/backups/schedules/${id}`, { method: "PUT", json: { enabled } }));
 
   return (
     <div className="space-y-4">
@@ -374,7 +375,7 @@ function Schedules({ data, guests, reload }: { data: BackupsInfo; guests: Guest[
             </GlassSelect>
           </Field>
           {preset === "custom" && (
-            <Field label="Calendar event" hint='Proxmox syntax, e.g. "sat 04:30"'>
+            <Field label="Calendar event" hint={edition.calendarHint}>
               <GlassInput className="w-full font-mono" value={custom} onChange={(e) => setCustom(e.target.value)} required />
             </Field>
           )}
@@ -418,7 +419,7 @@ function Schedules({ data, guests, reload }: { data: BackupsInfo; guests: Guest[
       <ConfirmModal
         open={!!del}
         onClose={() => setDel(null)}
-        onConfirm={() => del && run(() => api(`/pve/backups/schedules/${del}`, { method: "DELETE" }).then(() => setDel(null)))}
+        onConfirm={() => del && run(() => api(`/v1/backups/schedules/${del}`, { method: "DELETE" }).then(() => setDel(null)))}
         busy={busy}
         title="Delete backup job"
         confirmLabel="Delete job"
@@ -436,8 +437,8 @@ export default function BackupCenterApp() {
   const [guests, setGuests] = useState<Guest[]>([]);
   const [error, setError] = useState("");
   const load = useCallback(() => {
-    api<BackupsInfo>("/pve/backups").then((d) => (setData(d), setError("")), (e) => setError(e.message));
-    api<Guest[]>("/pve/guests").then(setGuests, () => {});
+    api<BackupsInfo>("/v1/backups").then((d) => (setData(d), setError("")), (e) => setError(e.message));
+    api<Guest[]>("/v1/guests").then(setGuests, () => {});
   }, []);
   useEffect(load, [load]);
 

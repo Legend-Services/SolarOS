@@ -1,6 +1,6 @@
 """Guest editing on SolarOS: NICs, PCI/USB passthrough, cloud-init and options for libvirt VMs and Incus containers.
 
-Shadows the Proxmox-only app.guest_hardware routes with the same paths, request models and response shapes, so the
+Implements the guest hardware routes (request models in app.guest_hardware) with the same paths, request models and response shapes, so the
 VM / container drawer works unchanged. VM changes are written to the persistent libvirt definition and apply at the
 next start of a running VM; container changes go through `incus config`.
 """
@@ -23,7 +23,7 @@ from . import host
 from .host import run, run_json
 from .provider import LOCAL, _bridge, _store_dir, _volume_file
 
-router = APIRouter(prefix="/api/pve/guests", dependencies=[Depends(require_user)], tags=["native_ubuntu"])
+router = APIRouter(prefix="/api/v1/guests", dependencies=[Depends(require_user)], tags=["native_ubuntu"])
 AGENT = "org.qemu.guest_agent.0"
 USB_ID_RE = re.compile(r"^[0-9a-fA-F]{4}:[0-9a-fA-F]{4}$")
 
@@ -209,7 +209,7 @@ def vm_options(xml: str, autostart: bool, meta: dict) -> dict:
 
 
 def parse_ipconfig(v: str) -> dict:
-    """Proxmox-style "ip=dhcp" / "ip=10.0.0.5/24,gw=10.0.0.1" -> {"ip": ..., "gw": ...}."""
+    """Property-string "ip=dhcp" / "ip=10.0.0.5/24,gw=10.0.0.1" -> {"ip": ..., "gw": ...}."""
     return dict(p.split("=", 1) for p in v.split(",") if "=" in p)
 
 
@@ -374,7 +374,7 @@ async def set_hostpci(vmid: VMID, body: PciPassthrough, idx: int = Path(ge=0, le
     name = host.name_of(vmid, "qemu")
     fn = body.id if "." in body.id else f"{body.id}.0"
     xml = set_hostdev(await _xml(name), "pci", idx, host.hostdev_pci(fn))
-    if body.include_audio and fn.endswith(".0"):  # GPU + its HDMI audio function, like the Proxmox driver's slot pass
+    if body.include_audio and fn.endswith(".0"):  # GPU + its HDMI audio function (whole-slot passthrough)
         audio = fn[:-1] + "1"
         if FsPath(f"/sys/bus/pci/devices/{audio if audio.count(':') == 2 else '0000:' + audio}").exists() \
                 and audio not in [p["id"] for p in vm_devices(xml)["hostpci"]]:

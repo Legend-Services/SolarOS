@@ -1,5 +1,29 @@
 # Changelog
 
+## v2.3.0 - Separate Editions: SolarOS Without Any Proxmox VE Code, Neutral API and System Names — 2026-11-25
+
+### Changed
+- **One API path:** every route is `/api/v1/...`; `/api/pve/...` and its mirror are gone (frontend, nginx websocket location and installers follow).
+- **Neutral settings:** `NODE_NAME` and `DEFAULT_BRIDGE` replace `PVE_NODE` / `PVE_BRIDGE`; existing `.env` files are migrated automatically. The default bridge comes from the backend (`capabilities.default_bridge`).
+- **System names from `SYSTEM_PREFIX`:** everything SolarDeck creates on a host uses one prefix: helper, units, logs, Samba include, nginx site and certificate, network-service files, router unit and nftables table, driver files, guest and app tags.
+  - SolarOS uses `solardeck`.
+  - SolarDeck for Proxmox VE keeps its existing names through `SYSTEM_PREFIX=proxmox-os` (added automatically). A test checks every name against the previous release.
+- **Backend split by driver:** all Proxmox VE code lives in `backend/providers/proxmox/`: the REST client and settings, its routes, help checks and platform constants. Shared modules talk to the hypervisor only through the provider.
+  - The registry imports the active driver package by name and picks the only driver of a distribution on its own.
+  - On SolarOS, the 33 routes that exist only for Proxmox VE answer "Not available on SolarOS".
+- **Frontend editions:** edition-specific texts, help pages, product names, logos and the trademark notice live in `frontend/src/editions/<edition>/`, selected with `VITE_EDITION`. The SolarOS build contains no Proxmox reference. The API field `platform_version` replaces `pveversion` / `pve_version`.
+- **Host helper split:** shared commands are in `deploy/solardeck-helper.sh`; the pct/qm commands are in an edition file that only the Proxmox VE installer adds.
+- `build-iso.sh --copy-to <dir>` replaces `--deploy-to-pve`.
+
+### Added
+- **SolarOS distribution:** `deploy/make-edition-tree.sh` builds an edition's own source tree: it removes the other editions, adds edition-specific README, license and examples, and fails on any leftover reference. CI checks it on every push.
+  - The ISO is built from the SolarOS tree.
+  - Releases publish it to the `solaros` branch (tag `solaros-<version>`). SolarOS installs and updates fetch only that branch and its tags.
+
+### Fixed
+- On SolarOS, the hardware inventory and telemetry list the physical disks, and the network status shows the interfaces (they were empty).
+- The NVIDIA driver install on SolarOS installs `linux-headers-$K` (it asked for headers that do not exist on Ubuntu).
+
 ## v2.2.5 - Delete VMs and Containers from the Desktop — 2026-11-25
 
 ### Added

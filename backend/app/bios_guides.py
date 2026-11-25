@@ -128,7 +128,7 @@ def guide_steps(topic: str, vendor: str, cpu: str) -> list[str]:
             f"As soon as the start-up logo appears, press {key} repeatedly until the BIOS/UEFI setup opens.",
             *menu,
             "Press F10 (or go to Save & Exit → Save Changes and Reset) and confirm with Yes.",
-            "Wait 2–3 minutes for Proxmox to start, then sign in to SolarDeck again."]
+            "Wait 2–3 minutes for the server to start, then sign in to SolarDeck again."]
 
 
 def guide_text(title: str, vendor: str, steps: list[str], verify: str, board: str = "") -> str:

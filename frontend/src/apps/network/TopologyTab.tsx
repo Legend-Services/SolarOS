@@ -80,7 +80,7 @@ export default function TopologyTab({ onTab }: { onTab: (tab: "router" | "wg") =
   const [error, setError] = useState("");
   const [sel, setSel] = useState<string | null>(null);
   const load = useCallback(() => {
-    api<Topology>("/pve/network/topology").then((x) => (setTopo(x), setError("")), (e) => setError(e.message));
+    api<Topology>("/v1/network/topology").then((x) => (setTopo(x), setError("")), (e) => setError(e.message));
   }, []);
   usePoll(load, 30000);
   const pos = useMemo(() => (topo ? layout(topo) : new Map()), [topo]);

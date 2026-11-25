@@ -25,10 +25,10 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
 }
 
 /** Upload one ISO image to a storage (raw body, streamed to disk by the backend), reporting progress. */
-export function uploadIso(storage: string, file: File, onProgress: (pct: number) => void): Promise<void> {
+export function uploadIso(storage: string, file: File, onProgress: (percent: number) => void): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `/api/pve/storage/${encodeURIComponent(storage)}/upload?filename=${encodeURIComponent(file.name)}`);
+    xhr.open("POST", `/api/v1/storage/${encodeURIComponent(storage)}/upload?filename=${encodeURIComponent(file.name)}`);
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(Math.round((e.loaded / e.total) * 100));
     xhr.onload = () => {
       if (xhr.status < 300) return resolve();
@@ -47,7 +47,7 @@ export function uploadIso(storage: string, file: File, onProgress: (pct: number)
 }
 
 // XHR instead of fetch so we can report upload progress.
-export function uploadFiles(dir: string, files: File[], onProgress: (pct: number) => void): Promise<void> {
+export function uploadFiles(dir: string, files: File[], onProgress: (percent: number) => void): Promise<void> {
   return new Promise((resolve, reject) => {
     const form = new FormData();
     form.append("path", dir);

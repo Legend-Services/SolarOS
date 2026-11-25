@@ -16,7 +16,7 @@ disks = [{"devpath": "/dev/nvme0n1", "model": "Samsung SSD", "serial": "S1", "si
 inv = h.build_inventory(s, probe, disks)
 
 assert inv["system"]["manufacturer"] == "TOPC" and inv["system"]["bios_version"] == "E1.5D", inv["system"]
-assert inv["system"]["bios_date"] == "01/14/2026" and inv["system"]["kernel"] == "7.0.14-30-pve"
+assert inv["system"]["bios_date"] == "01/14/2026" and inv["system"]["kernel"] == "7.0.14-30-generic"
 assert inv["virtualization"]["cpu"] == "VT-x"
 c = inv["cpu"]
 assert c["model"] == "Intel(R) Core(TM) i9-14900HX" and (c["sockets"], c["cores"], c["threads"]) == (1, 24, 32), c
@@ -35,8 +35,8 @@ drives = {d["devpath"]: d for d in inv["storage"]["drives"]}
 assert drives["/dev/nvme0n1"]["temp_c"] == 34 and drives["/dev/sdb"]["temp_c"] is None
 nics = {n["name"]: n for n in inv["network"]}
 assert nics["nic0"]["physical"] and nics["nic0"]["driver"] == "r8169" and nics["nic0"]["speed_mbps"] == 1000
-assert "lo" not in nics and nics["vmbr0"]["addresses"], nics["vmbr0"]
-assert inv["packages"]["pve-firmware"] is None and inv["packages"]["lm-sensors"] is None
+assert "lo" not in nics and nics["br0"]["addresses"], nics["br0"]
+assert all(inv["packages"][p] is None for p in ("lm-sensors", *h.PLATFORM.HOST_PACKAGES)), inv["packages"]
 
 # Parsers with outputs not present on this host.
 nv = h.parse_nvidia("00000000:01:00.0, NVIDIA GeForce RTX 3090, 570.153.02, 24576, 512, 7, 41, 23.45\nbad")
@@ -52,7 +52,7 @@ assert h.parse_dimms("Handle 0x1, DMI type 17\nMemory Device\n\tSize: No Module 
 # vfio-pci mode files.
 conf = h.vfio_files(["10de:1aef", "10de:2204"], {"nvidia"})
 assert h.parse_vfio_ids(conf[h.VFIO_CONF]) == ["10de:1aef", "10de:2204"]
-assert "blacklist nouveau" in conf["/etc/modprobe.d/proxmox-os-blacklist.conf"]
+assert "blacklist nouveau" in conf[h.BLACKLIST_CONF]
 assert all(v is None for v in h.vfio_files([], set()).values())
 gpu = {**g["01:00.0"], "driver": "nouveau"}
 assert h.gpu_mode(gpu, ["10de:2204"], False) == {"mode": "passthrough", "reboot_required": True}
@@ -64,7 +64,7 @@ assert all(a.split("-")[0] in ("nvidia", "intel", "amd") for a in h.SCRIPTS)
 assert "__PROBE_PKG__" not in h.SCRIPTS["intel-install"]
 # `apt-cache show` exits 0 for a package with no candidate, which skipped enabling non-free (trixie hosts).
 assert "apt-cache show" not in h.NONFREE and "apt-cache madison" in h.NONFREE
-# Debian firmware-* packages conflict with pve-firmware: installing one removes proxmox-ve.
+# Debian firmware-* packages can conflict with the host's own firmware package.
 installs = [ln for s in h.SCRIPTS.values() for ln in s.splitlines() if "apt-get install" in ln]
 assert installs and not any("firmware-" in ln for ln in installs), "a GPU script installs a Debian firmware-* package"
 print("hardware_admin self-check OK")

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Camera, Pencil, Plus, RefreshCw, RotateCcw, Trash2 } from "lucide-react";
 import { api } from "../lib/api";
+import { useCapabilities } from "../store/capabilitiesStore";
 import type { Guest, GuestConfig, StorageVolume, SystemInfo } from "../lib/types";
 import { bytes } from "../lib/format";
 import { useRunner } from "../lib/hooks";
@@ -92,7 +93,7 @@ function ResourcesTab({ guest, onSaved }: { guest: Guest; onSaved: () => void })
   const { busy, error, notice, run, setError } = useRunner();
 
   const load = useCallback(() => {
-    api<GuestConfig>(`/pve/guests/${guest.type}/${guest.vmid}/config`).then((c) => {
+    api<GuestConfig>(`/v1/guests/${guest.type}/${guest.vmid}/config`).then((c) => {
       setCfg(c);
       setF({ cores: c.cores, memory: c.memory, swap: c.swap ?? 0, onboot: c.onboot, description: c.description, tags: c.tags });
       setDisk(c.disks.find((d) => d.resizable)?.key ?? "");
@@ -109,7 +110,7 @@ function ResourcesTab({ guest, onSaved }: { guest: Guest; onSaved: () => void })
     if (guest.type === "lxc" && f.swap !== (cfg.swap ?? 0)) json.swap = f.swap;
     if (grow > 0 && disk) Object.assign(json, { resize_disk: disk, resize_to: `+${grow}G` });
     if (!Object.keys(json).length) return;
-    if (await run(() => api(`/pve/guests/${guest.type}/${guest.vmid}/config`, { method: "PATCH", json }), "Saved.")) {
+    if (await run(() => api(`/v1/guests/${guest.type}/${guest.vmid}/config`, { method: "PATCH", json }), "Saved.")) {
       setGrow(0);
       load();
       onSaved();
@@ -173,7 +174,7 @@ function ResourcesTab({ guest, onSaved }: { guest: Guest; onSaved: () => void })
 
 /* ---------------- CD/DVD drive (QEMU) ---------------- */
 
-/** Load an ISO into the VM's install drive or eject it (applies at once on SolarOS, at the next start on Proxmox VE if running). */
+/** Load an ISO into the VM's install drive or eject it (applies at once on the native driver, otherwise at the next start if running). */
 function CdromCard({ guest, hw, reload }: { guest: Guest; hw: Hardware; reload: () => void }) {
   const targets = useTelemetry((s) => s.storage?.targets ?? []);
   const stores = targets.filter((t) => t.active && t.content.split(",").includes("iso")).map((t) => t.storage).join(",");
@@ -184,12 +185,12 @@ function CdromCard({ guest, hw, reload }: { guest: Guest; hw: Hardware; reload: 
   useEffect(() => setPick(current), [current]);
   useEffect(() => {
     if (!stores) return;
-    Promise.all(stores.split(",").map((s) => api<StorageVolume[]>(`/pve/storage/${s}/content?content=iso`).catch(() => []))).then((l) => setIsos(l.flat()));
+    Promise.all(stores.split(",").map((s) => api<StorageVolume[]>(`/v1/storage/${s}/content?content=iso`).catch(() => []))).then((l) => setIsos(l.flat()));
   }, [stores]);
   const [restart, setRestart] = useState(false);
   const set = (iso: string | null) =>
     run(async () => {
-      const r = await api<{ restart_required?: boolean }>(`/pve/guests/qemu/${guest.vmid}/cdrom`, { method: "PUT", json: { iso_volume: iso } });
+      const r = await api<{ restart_required?: boolean }>(`/v1/guests/qemu/${guest.vmid}/cdrom`, { method: "PUT", json: { iso_volume: iso } });
       setRestart(!!r.restart_required);
     }, iso ? "ISO loaded." : "Drive ejected.");
 
@@ -230,7 +231,7 @@ function HardwareTab({ guest, hw, reload }: { guest: Guest; hw: Hardware; reload
   const [warnings, setWarnings] = useState<string[]>([]);
   const devices = usePassthroughDevices(adding !== null);
   const { busy, error, notice, run } = useRunner(reload);
-  const base = `/pve/guests/qemu/${guest.vmid}`;
+  const base = `/v1/guests/qemu/${guest.vmid}`;
   const { hostpci, usb } = hw.devices;
 
   const open = (kind: "pci" | "usb") => (setPciSel([]), setUsbSel([]), setAdding(kind));
@@ -353,9 +354,10 @@ const MODELS = ["virtio", "e1000", "e1000e", "rtl8139", "vmxnet3"];
 
 function NetworkTab({ guest, hw, reload }: { guest: Guest; hw: Hardware; reload: () => void }) {
   const lxc = guest.type === "lxc";
-  const [bridges, setBridges] = useState<string[]>(["vmbr0"]);
+  const dflt = useCapabilities((s) => s.capabilities.default_bridge);
+  const [bridges, setBridges] = useState<string[]>([dflt].filter(Boolean));
   const [edit, setEdit] = useState<{ index: number; isNew: boolean } | null>(null);
-  const [f, setF] = useState({ model: "virtio", bridge: "vmbr0", tag: "", firewall: true, macaddr: "", rate: "", name: "", static: false, cidr: "", gw: "", ip6: "" });
+  const [f, setF] = useState({ model: "virtio", bridge: dflt, tag: "", firewall: true, macaddr: "", rate: "", name: "", static: false, cidr: "", gw: "", ip6: "" });
   const { busy, error, notice, run } = useRunner(reload);
   const nics = hw.devices.net;
 
@@ -384,7 +386,7 @@ function NetworkTab({ guest, hw, reload }: { guest: Guest; hw: Hardware; reload:
       bridge: f.bridge, tag: f.tag ? Number(f.tag) : null, firewall: f.firewall, macaddr: f.macaddr || null, rate: f.rate ? Number(f.rate) : null,
       ...(lxc ? { name: f.name, ip: f.static ? f.cidr : "dhcp", gw: f.static && f.gw ? f.gw : null, ip6: f.ip6 || null } : { model: f.model }),
     };
-    if (await run(() => api(`/pve/guests/${guest.type}/${guest.vmid}/net/${edit.index}`, { method: "PUT", json }), `net${edit.index} saved.`)) setEdit(null);
+    if (await run(() => api(`/v1/guests/${guest.type}/${guest.vmid}/net/${edit.index}`, { method: "PUT", json }), `net${edit.index} saved.`)) setEdit(null);
   };
 
   return (
@@ -427,7 +429,7 @@ function NetworkTab({ guest, hw, reload }: { guest: Guest; hw: Hardware; reload:
                     <GlassButton size="xs" variant="ghost" onClick={() => openEdit(n)} aria-label={`Edit ${n.key}`}>
                       <Pencil size={12} />
                     </GlassButton>
-                    <GlassButton size="xs" variant="ghost" disabled={busy} onClick={() => run(() => api(`/pve/guests/${guest.type}/${guest.vmid}/net/${n.index}`, { method: "DELETE" }), `${n.key} removed.`)} aria-label={`Remove ${n.key}`}>
+                    <GlassButton size="xs" variant="ghost" disabled={busy} onClick={() => run(() => api(`/v1/guests/${guest.type}/${guest.vmid}/net/${n.index}`, { method: "DELETE" }), `${n.key} removed.`)} aria-label={`Remove ${n.key}`}>
                       <Trash2 size={12} />
                     </GlassButton>
                   </td>
@@ -531,7 +533,7 @@ function CloudInitTab({ guest, ci, reload }: { guest: Guest; ci: CloudInit; relo
       searchdomain: ci.searchdomain ?? "", citype: ci.citype ?? "", storage: "",
     });
   }, [ci]);
-  const base = `/pve/guests/qemu/${guest.vmid}/cloudinit`;
+  const base = `/v1/guests/qemu/${guest.vmid}/cloudinit`;
   const save = (e: FormEvent) => {
     e.preventDefault();
     run(
@@ -611,7 +613,7 @@ function SnapshotsTab({ guest }: { guest: Guest }) {
   const [f, setF] = useState({ name: "", description: "", vmstate: false });
   const [ask, setAsk] = useState<{ snap: string; action: "rollback" | "delete" } | null>(null);
   const [upid, setUpid] = useState("");
-  const base = `/pve/guests/${guest.type}/${guest.vmid}/snapshots`;
+  const base = `/v1/guests/${guest.type}/${guest.vmid}/snapshots`;
   const load = useCallback(() => {
     api<Snapshot[]>(base).then(setItems, () => setItems([]));
   }, [base]);
@@ -731,7 +733,7 @@ function OptionsTab({ guest, hw, reload }: { guest: Guest; hw: Hardware; reload:
     const json: Record<string, unknown> = {};
     keys.forEach((k) => f[k] !== start[k] && (json[k === "name" && !qemu ? "hostname" : k] = f[k]));
     if (!Object.keys(json).length) return;
-    run(() => api(`/pve/guests/${guest.type}/${guest.vmid}/options`, { method: "PATCH", json }), "Options saved.");
+    run(() => api(`/v1/guests/${guest.type}/${guest.vmid}/options`, { method: "PATCH", json }), "Options saved.");
   };
   const text = (k: keyof ReturnType<typeof initial>, label: string, hint?: string) => (
     <Field label={label} hint={hint}>
@@ -803,7 +805,7 @@ function DeleteCard({ guest, onDeleted }: { guest: Guest; onDeleted: () => void 
   const stopped = guest.status === "stopped";
   const remove = () =>
     run(async () => {
-      const r = await api<{ upid?: string | null; task?: string | null }>(`/pve/guests/${guest.type}/${guest.vmid}`, { method: "DELETE" });
+      const r = await api<{ upid?: string | null; task?: string | null }>(`/v1/guests/${guest.type}/${guest.vmid}`, { method: "DELETE" });
       setAsk(false);
       if (r.upid || r.task) setTask(r.upid || r.task || null);
       else onDeleted();
@@ -844,7 +846,7 @@ export default function GuestDrawer({ guest, onClose, onSaved }: { guest: Guest 
   const [error, setError] = useState("");
   const load = useCallback(() => {
     if (!guest) return;
-    api<Hardware>(`/pve/guests/${guest.type}/${guest.vmid}/hardware`).then((h) => (setHw(h), setError("")), (e) => setError(e.message));
+    api<Hardware>(`/v1/guests/${guest.type}/${guest.vmid}/hardware`).then((h) => (setHw(h), setError("")), (e) => setError(e.message));
   }, [guest]);
   useEffect(() => {
     setHw(null);

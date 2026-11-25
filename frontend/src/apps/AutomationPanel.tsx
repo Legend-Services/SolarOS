@@ -336,7 +336,7 @@ function RulesTab({ t, language }: { t: T; language: string }) {
   }, []);
   usePoll(load, 15000);
   useEffect(() => {
-    api<Guest[]>("/pve/guests").then(setGuests, () => {});
+    api<Guest[]>("/v1/guests").then(setGuests, () => {});
   }, []);
   const fmt = (ts: number) => new Date(ts * 1000).toLocaleString(language, { dateStyle: "short", timeStyle: "short" });
   const toggle = (r: Rule, enabled: boolean) =>

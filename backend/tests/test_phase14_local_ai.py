@@ -37,20 +37,6 @@ assert nv == [{"index": 0, "pci": "01:00.0", "name": "NVIDIA GeForce RTX 3090", 
                "vram_free_mb": 23800, "driver_version": "595.104.02"}], nv
 assert ai.parse_majors("/dev/nvidiactl c3\n/dev/nvidia-uvm 1f9\n") == {"/dev/nvidiactl": 195, "/dev/nvidia-uvm": 505}
 
-# LXC config rewrite: idempotent, removes old GPU lines, never touches snapshot sections.
-conf = "arch: amd64\ncores: 8\ndev0: /dev/dri/renderD128,mode=0666\nlxc.cgroup2.devices.allow: c 10:200 rwm\n" \
-       "\n[before-upgrade]\narch: amd64\nlxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file\n"
-lines = ai.nvidia_lxc_lines(0, 195, 505)
-assert lines[:2] == ["lxc.cgroup2.devices.allow: c 195:* rwm", "lxc.cgroup2.devices.allow: c 505:* rwm"]
-assert "lxc.mount.entry: /dev/nvidia-uvm-tools dev/nvidia-uvm-tools none bind,optional,create=file" in lines
-on = ai.set_gpu_lines(conf, lines, {195, 505})
-assert ai.set_gpu_lines(on, lines, {195, 505}) == on
-main, snap = on.split("\n[", 1)
-assert all(x in main for x in lines) and "c 10:200 rwm" in main and snap.endswith("create=file\n"), on
-off = ai.set_gpu_lines(on, [], {195, 505})
-assert "nvidia" not in off.split("\n[")[0] and "c 10:200 rwm" in off and off.count("/dev/nvidia0") == 1, off
-assert ai.dri_devs(conf) == {0: "/dev/dri/renderD128"}
-
 # Ollama environment drop-in per target.
 assert 'CUDA_VISIBLE_DEVICES=-1' in ai.ollama_env("cpu", True, False)
 assert f"OLLAMA_CONTEXT_LENGTH={ai.CONTEXT_LENGTH}" in ai.ollama_env("nvidia:0", True, False)
@@ -61,7 +47,7 @@ assert "OLLAMA_FLASH_ATTENTION=1" in gpu and "OLLAMA_KV_CACHE_TYPE=q8_0" in gpu 
 assert "KV_CACHE" not in ai.ollama_env("nvidia:0", False, True)  # q8 KV cache needs flash attention
 assert "OLLAMA_VULKAN=1" in ai.ollama_env("intel:/dev/dri/renderD128", False, False)
 
-# Deploy body validation: compute targets and starter model names are embedded in shell / PVE config.
+# Deploy body validation: compute targets and starter model names are embedded in shell / guest config.
 base = {"app_id": "local-ai", "hostname": "local-ai", "cores": 8, "memory": 16384, "disk_gb": 64}
 for ok in ("cpu", "nvidia:0", "nvidia:01:00.0", "nvidia:0000:01:00.0", "intel:/dev/dri/renderD128"):
     apps.DeployBody(**base, compute_target=ok)
@@ -77,21 +63,8 @@ try:
 except ValidationError:
     pass
 assert apps.BY_ID["local-ai"]["category"] == "AI & Compute" and (apps.DATA / "apps/local-ai.sh").exists()
-assert apps.installed_map([{"vmid": 105, "tags": "proxmox-os-app;pos-ollama", "name": "ollama"}])["local-ai"][0]["vmid"] == 105
+assert apps.installed_map([{"vmid": 105, "tags": f"{apps.TAG};pos-ollama", "name": "ollama"}])["local-ai"][0]["vmid"] == 105
 assert ai.LocalAiDeployBody(ip_config={"cidr": "10.0.0.9/24", "gateway": "10.0.0.1"}).ip_config.cidr == "10.0.0.9/24"
-
-# Model storage location: only below /mnt or /srv, no traversal or shell characters.
-for ok in ("/mnt/storage/ai-models", "/srv/models", "/mnt/tank/ai_models.v2"):
-    ai.StorageBody(path=ok)
-for bad in ("/etc", "/", "/mnt", "/mnt/../etc", "/mnt/a/..", "/mnt/x;rm -rf /", "/mnt/a b", "/root/models", "mnt/x", "/mnt/.hidden"):
-    try:
-        ai.StorageBody(path=bad)
-        raise AssertionError(f"storage path accepted: {bad}")
-    except ValidationError:
-        pass
-mv = ai.storage_script("/mnt/storage/ai-models", "/mnt/tank/models", True)
-assert "cp -a --reflink=auto /mnt/storage/ai-models/. /mnt/tank/models/" in mv and "chown 100000:100000 /mnt/tank/models" in mv
-assert "cp -a" not in ai.storage_script("/mnt/a", "/mnt/b", False) and "cp -a" not in ai.storage_script(None, "/mnt/b", True)
 
 # Chat history: stored server-side (temp file here), newest first, capped, validated.
 import asyncio  # noqa: E402

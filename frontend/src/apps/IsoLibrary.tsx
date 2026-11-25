@@ -23,14 +23,14 @@ export default function IsoLibrary() {
   const [del, setDel] = useState<StorageVolume | null>(null);
   const { busy, error, notice, run } = useRunner();
   const [progress, setProgress] = useState<number | null>(null);
-  // SolarOS streams uploads into its own storage; on Proxmox VE the Proxmox web UI handles uploads.
+  // Only the native driver streams uploads into its own storage; other platforms upload through their own tools.
   const canUpload = useDriver() === "native_ubuntu" && content === "iso";
   const stores = targets.filter((t) => t.active && t.content.split(",").includes(content)).map((t) => t.storage);
   const storeKey = stores.join(",");
 
   const load = useCallback(() => {
     if (!storeKey) return setItems([]);
-    Promise.all(storeKey.split(",").map((s) => api<StorageVolume[]>(`/pve/storage/${s}/content?content=${content}`).catch(() => [])))
+    Promise.all(storeKey.split(",").map((s) => api<StorageVolume[]>(`/v1/storage/${s}/content?content=${content}`).catch(() => [])))
       .then((l) => setItems(l.flat().sort((a, b) => b.ctime - a.ctime)));
   }, [content, storeKey]);
   useEffect(load, [load]);
@@ -41,7 +41,7 @@ export default function IsoLibrary() {
   const download = (e: FormEvent) => {
     e.preventDefault();
     run(async () => {
-      const r = await api<{ upid: string }>(`/pve/storage/${store}/download-url`, { method: "POST", json: { url, content, filename: filename || undefined } });
+      const r = await api<{ upid: string }>(`/v1/storage/${store}/download-url`, { method: "POST", json: { url, content, filename: filename || undefined } });
       setTask(r.upid);
       setUrl("");
       setFilename("");
@@ -60,7 +60,7 @@ export default function IsoLibrary() {
     }, `${file.name} uploaded.`);
   const remove = () =>
     del &&
-    run(() => api(`/pve/storage/${del.storage}/content?volume=${encodeURIComponent(del.volid)}`, { method: "DELETE" }).then(() => (setDel(null), setTimeout(load, 1500))), "Volume deleted.");
+    run(() => api(`/v1/storage/${del.storage}/content?volume=${encodeURIComponent(del.volid)}`, { method: "DELETE" }).then(() => (setDel(null), setTimeout(load, 1500))), "Volume deleted.");
 
   return (
     <div className="space-y-4 p-4">

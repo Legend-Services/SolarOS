@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Container, Monitor, MonitorPlay, Play, Plus, Power, RotateCw, Search, SlidersHorizontal, Square, SquareTerminal } from "lucide-react";
 import { api } from "../lib/api";
 import type { Guest } from "../lib/types";
-import { bytes, pct, uptime } from "../lib/format";
+import { bytes, percent, uptime } from "../lib/format";
 import { usePoll } from "../lib/hooks";
 import { GlassBadge, GlassButton, Segmented } from "../components/ui/GlassKit";
 import { useCapabilities } from "../store/capabilitiesStore";
@@ -47,7 +47,7 @@ export default function ComputeManager() {
   const openConsole = (g: Guest, mode: "vnc" | "shell") => openWindow("console", { type: g.type, vmid: g.vmid, name: g.name, mode });
 
   const load = useCallback(() => {
-    api<Guest[]>("/pve/guests")
+    api<Guest[]>("/v1/guests")
       .then((g) => {
         setGuests(g);
         setError("");
@@ -68,7 +68,7 @@ export default function ComputeManager() {
     const key = `${g.type}/${g.vmid}`;
     setBusy((b) => ({ ...b, [key]: true }));
     try {
-      await api(`/pve/guests/${g.type}/${g.vmid}/action`, { method: "POST", json: { action } });
+      await api(`/v1/guests/${g.type}/${g.vmid}/action`, { method: "POST", json: { action } });
       setTimeout(load, 1500);
     } catch (e) {
       setError((e as Error).message);
@@ -201,7 +201,7 @@ export default function ComputeManager() {
                       <div className="mt-1">CPU {cpu.toFixed(1)}% · {g.maxcpu} vCPU</div>
                     </div>
                     <div>
-                      <Bar value={pct(g.mem, g.maxmem)} className="bg-violet-400" />
+                      <Bar value={percent(g.mem, g.maxmem)} className="bg-violet-400" />
                       <div className="mt-1">
                         {bytes(g.mem)} / {bytes(g.maxmem)}
                       </div>
@@ -270,7 +270,7 @@ export default function ComputeManager() {
                     </div>
                   </td>
                   <td className="px-2">
-                    <Bar value={pct(g.mem, g.maxmem)} className="bg-violet-400" />
+                    <Bar value={percent(g.mem, g.maxmem)} className="bg-violet-400" />
                     <div className="mt-1 text-[11px] text-slate-400 tabular-nums">
                       {bytes(g.mem)} / {bytes(g.maxmem)}
                     </div>

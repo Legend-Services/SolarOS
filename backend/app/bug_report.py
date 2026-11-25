@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from . import updater
 from .auth import require_user
 from .config import settings
-from .pve import _safe
+from providers.registry import driver_package, get_provider
 
 router = APIRouter(prefix="/api/system/bug-report", tags=["bug-report"], dependencies=[Depends(require_user)])
 
@@ -27,7 +27,7 @@ REDACTIONS = [
     (re.compile(r"\b(ssh-(?:ed25519|rsa|dss)|ecdsa-sha2-\S+|sk-ssh-\S+) [A-Za-z0-9+/=]{16,}"), r"\1 [SSH KEY]"),
     (re.compile(r"\beyJ[\w-]+\.[\w-]+\.[\w-]+"), "[JWT]"),
     (re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_\w{20,})"), "[GITHUB TOKEN]"),
-    (re.compile(r"PVEAPIToken=\S+"), "PVEAPIToken=[TOKEN]"),
+    *((re.compile(rx), repl) for rx, repl in driver_package().REDACTIONS),  # the platform's own token formats
     (re.compile(r"(?i)\bBearer\s+\S+"), "Bearer [TOKEN]"),
     (re.compile(r"(?i)\b([\w-]*(?:password|passwd|secret|token|api[_-]?key|authorization)[\w-]*)([\"']?\s*[:=]\s*[\"']?)[^\s\"',;&]+"),
      r"\1\2[REDACTED]"),
@@ -60,18 +60,18 @@ def _read(path: str) -> str:
 
 
 async def _journal() -> list[str]:
-    rc, out = await updater._cmd("journalctl", "-u", "proxmox-os-backend", "-n", "30", "--no-pager", "-o", "cat")
+    rc, out = await updater._cmd("journalctl", "-u", settings.name("backend"), "-n", "30", "--no-pager", "-o", "cat")
     return redact(out).splitlines() if rc == 0 else [f"(journal unavailable: {redact(out)[:200]})"]
 
 
 @router.get("/diagnostics")
 async def diagnostics():
-    src, pve_version, logs = await asyncio.gather(updater.source(), _safe("/version", {}), _journal())
+    src, platform_version, logs = await asyncio.gather(updater.source(), get_provider().platform_version(), _journal())
     cpu = re.search(r"^model name\s*:\s*(.+)$", _read("/proc/cpuinfo"), re.M)
     mem = re.search(r"^MemTotal:\s*(\d+)", _read("/proc/meminfo"), re.M)
     return {
-        "proxmox_os_version": src["version"], "proxmox_os_tag": src["tag"], "commit": (src["commit"] or "")[:12] or None,
-        "pve_version": (pve_version or {}).get("version"), "kernel": platform.release(),
+        "solardeck_version": src["version"], "solardeck_tag": src["tag"], "commit": (src["commit"] or "")[:12] or None,
+        "platform_version": (platform_version or {}).get("version"), "kernel": platform.release(),
         "cpu": f"{cpu.group(1).strip() if cpu else platform.machine()} ({os.cpu_count()} threads)",
         "memory_gb": round(int(mem.group(1)) / 1024 ** 2, 1) if mem else None,
         "user_agent": "(filled in by your browser)", "logs": logs,
@@ -93,8 +93,8 @@ def format_body(r: BugReport, diag: dict | None) -> str:
     if r.steps_to_reproduce.strip():
         parts += ["", "### Steps to reproduce", r.steps_to_reproduce.strip()]
     if diag:
-        rows = [("SolarDeck", f"{diag['proxmox_os_version'] or '?'} ({diag['proxmox_os_tag'] or 'untagged'}, {diag['commit'] or '?'})"),
-                ("Proxmox VE", diag["pve_version"]), ("Kernel", diag["kernel"]), ("CPU", diag["cpu"]),
+        rows = [("SolarDeck", f"{diag['solardeck_version'] or '?'} ({diag['solardeck_tag'] or 'untagged'}, {diag['commit'] or '?'})"),
+                (get_provider().get_capabilities().platform_label, diag["platform_version"]), ("Kernel", diag["kernel"]), ("CPU", diag["cpu"]),
                 ("Memory", f"{diag['memory_gb']} GB" if diag["memory_gb"] else None),
                 ("Browser", redact(r.user_agent) or diag["user_agent"])]
         parts += ["", "### System diagnostics", "| | |", "|---|---|", *[f"| {k} | {v or '?'} |" for k, v in rows],

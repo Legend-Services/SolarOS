@@ -1,5 +1,6 @@
 import type { AppId } from "../registry";
 import type { Intents } from "../../lib/stores";
+import { edition } from "@edition";
 
 /** Where a "Show me" button goes: an app, optionally a section / wizard inside it (see useIntent). */
 export interface HelpLink {
@@ -21,6 +22,8 @@ export interface Tutorial {
 }
 
 export interface Faq {
+  /** Lets an edition replace this entry (Edition.help.faqs). */
+  id?: string;
   q: string;
   a: string;
   keywords: string;
@@ -30,7 +33,7 @@ export interface Faq {
 export const CATEGORIES = ["Getting started", "Virtual machines & containers", "Storage & files", "Backups", "Network & internet", "Graphics cards", "Security & users", "System & updates"] as const;
 export type Category = (typeof CATEGORIES)[number];
 
-export const TUTORIALS: Tutorial[] = [
+const BASE_TUTORIALS: Tutorial[] = [
   {
     id: "tour",
     title: "Find your way around the desktop",
@@ -87,7 +90,7 @@ export const TUTORIALS: Tutorial[] = [
     steps: [
       { text: "VM screen: in Compute Manager, click 'Console' on a running VM. Use the Ctrl+Alt+Del button for Windows logins.", link: { app: "compute" } },
       { text: "Container shell: click 'Shell' on a running container. You are root inside it immediately.", link: { app: "compute" } },
-      { text: "Host Shell: the green terminal icon in the Dock or the top bar opens a root prompt on the Proxmox server itself. Be careful: commands here affect everything.", link: { app: "terminal" } },
+      { text: `Host Shell: the green terminal icon in the Dock or the top bar opens a root prompt on the ${edition.platform} server itself. Be careful: commands here affect everything.`, link: { app: "terminal" } },
     ],
   },
   {
@@ -157,11 +160,11 @@ export const TUTORIALS: Tutorial[] = [
   },
   {
     id: "storage-backends",
-    title: "Use a NAS or extra disk as Proxmox storage (NFS, SMB, LVM, directory)",
+    title: `Use a NAS or extra disk as ${edition.platform} storage (NFS, SMB, LVM, directory)`,
     category: "Storage & files",
     minutes: 3,
     keywords: "nfs cifs smb nas storage add directory lvm thin mount iso backup location",
-    intro: "Proxmox can keep VM disks, ISOs and backups on many kinds of storage.",
+    intro: `${edition.platform} can keep VM disks, ISOs and backups on many kinds of storage.`,
     steps: [
       { text: "Open Storage & ZFS → Storage backends → Add storage.", link: { app: "storage" } },
       { text: "Pick the type: NFS or CIFS/SMB for a NAS, Directory for a mounted folder, LVM/ZFS for local disks." },
@@ -182,7 +185,7 @@ export const TUTORIALS: Tutorial[] = [
       { text: "Remove the disk with the matching serial and insert the new one. Hot-swap bays allow this while the server runs; otherwise shut down first (the disk stays offline)." },
       { text: "Press Refresh, then Replace Disk on the offline member. Pick the new drive (it must be at least as large as the old one), type its device path to confirm and start." },
       { text: "ZFS resilvers: the pool card shows a progress bar. When it reaches 100% and the pool is ONLINE again, you are protected again. Run a Scrub afterwards to double-check." },
-      { text: "Boot pool (rpool)? Keep 'Copy the old disk's partition layout' switched on so the new disk gets the same partitions, then make it bootable with proxmox-boot-tool format and init on its EFI partition." },
+      { text: "Boot pool (rpool)? Keep 'Copy the old disk's partition layout' switched on so the new disk gets the same partitions, then install the boot loader on its EFI partition." },
     ],
   },
   {
@@ -268,8 +271,8 @@ export const TUTORIALS: Tutorial[] = [
     intro: "The DNS AdBlocker filters ads and trackers for every device that uses your server as its DNS server.",
     steps: [
       { text: "Open Network & Services → DNS & AdBlock and press Install.", link: { app: "netservices" } },
-      { text: "Choose the network bridge to listen on (your LAN, e.g. vmbr0), enable DNS and turn on the StevenBlack and OISD lists. Press 'Update now'." },
-      { text: "In your router's settings, set the DNS server to the Proxmox host's IP address. Devices pick it up after reconnecting." },
+      { text: "Choose the network bridge to listen on (your LAN bridge), enable DNS and turn on the StevenBlack and OISD lists. Press 'Update now'." },
+      { text: `In your router's settings, set the DNS server to ${edition.host}'s IP address. Devices pick it up after reconnecting.` },
     ],
   },
   {
@@ -283,7 +286,7 @@ export const TUTORIALS: Tutorial[] = [
       { text: "Open Network & Services → WireGuard Server, press Install, then Enable.", link: { app: "netservices" } },
       { text: "Add a peer (one per device) and press the QR button." },
       { text: "Install the WireGuard app on your phone and scan the QR code." },
-      { text: "In your internet router, forward UDP port 51820 to the Proxmox host's IP." },
+      { text: `In your internet router, forward UDP port 51820 to ${edition.host}'s IP.` },
     ],
   },
   {
@@ -296,7 +299,7 @@ export const TUTORIALS: Tutorial[] = [
     steps: [
       { text: "Open Network & Services → Router & NAT.", link: { app: "netservices" } },
       { text: "Add a port forward: external port, the VM's IP address and port, and TCP/UDP. Press Apply." },
-      { text: "If traffic comes from the internet, forward the same port in your home router to the Proxmox host." },
+      { text: `If traffic comes from the internet, forward the same port in your home router to ${edition.host}.` },
     ],
   },
   {
@@ -309,7 +312,7 @@ export const TUTORIALS: Tutorial[] = [
     steps: [
       { text: "Open Network & Services → Certificates.", link: { app: "netservices" } },
       { text: "Let's Encrypt: register an account, add your domain (and a DNS plugin if the host isn't reachable from the internet) and press Order." },
-      { text: "Own certificate: paste the certificate and private key and apply them to Proxmox and/or SolarDeck." },
+      { text: "Own certificate: paste the certificate and private key and apply them to SolarDeck." },
     ],
   },
   {
@@ -330,11 +333,11 @@ export const TUTORIALS: Tutorial[] = [
     category: "Security & users",
     minutes: 4,
     keywords: "user users account group role permission acl access family colleague token api pool",
-    intro: "Proxmox users can log in to the Proxmox web UI with only the rights you give them.",
+    intro: "Other people get only the rights you give them.",
     steps: [
-      { text: "Open Datacenter → Users and press 'Add user' (realm 'pve', set a password).", link: { app: "datacenter" } },
+      { text: `Open Datacenter → Users and press 'Add user' (realm '${edition.localRealm}', set a password).`, link: { app: "datacenter" } },
       { text: "Optional: put users in a Group and VMs in a Pool to manage many at once." },
-      { text: "Datacenter → Permissions → Add: choose the user or group, a path (e.g. /vms/101 or /pool/family) and a role such as PVEVMUser." },
+      { text: `Datacenter → Permissions → Add: choose the user or group, a path (e.g. /vms/101 or /pool/family) and a role such as ${edition.vmUserRole}.` },
     ],
   },
   {
@@ -343,10 +346,10 @@ export const TUTORIALS: Tutorial[] = [
     category: "Security & users",
     minutes: 4,
     keywords: "firewall rule block allow port security incoming",
-    intro: "The Proxmox firewall filters traffic to the host and to each VM.",
+    intro: `The ${edition.platform} firewall filters traffic to the host and to each VM.`,
     steps: [
       { text: "Open Datacenter → Firewall.", link: { app: "datacenter" } },
-      { text: "First add rules that ALLOW TCP 8006 (Proxmox), 22 (SSH) and 80/443 (SolarDeck) from your network." },
+      { text: "First add rules that ALLOW TCP 22 (SSH) and 80/443 (SolarDeck) from your network." },
       { text: "Only then enable the firewall. SolarDeck warns you if you are about to lock yourself out." },
     ],
   },
@@ -355,12 +358,10 @@ export const TUTORIALS: Tutorial[] = [
     title: "Update the server and SolarDeck",
     category: "System & updates",
     minutes: 3,
-    keywords: "update upgrade apt packages security patch new version solardeck repository 401 enterprise",
-    intro: "There are two kinds of updates: the Proxmox host itself and the SolarDeck desktop.",
-    fix: "repos",
+    keywords: "update upgrade apt packages security patch new version solardeck repository",
+    intro: `There are two kinds of updates: ${edition.host} itself and the SolarDeck desktop.`,
     steps: [
       { text: "Host: open System → Updates, press Refresh, then Upgrade.", link: { app: "system" } },
-      { text: "Seeing '401 Unauthorized'? Your server uses the paid Enterprise source — the Help Center fix switches to the free one." },
       { text: "SolarDeck: Control Panel → System & Power → 'Check & Install Updates'.", link: { app: "controlpanel", intent: "power" } },
     ],
   },
@@ -398,10 +399,13 @@ export const TUTORIALS: Tutorial[] = [
   },
 ];
 
-export const FAQS: Faq[] = [
-  { q: "I forgot the SolarDeck password. What now?", a: "On the Proxmox host, run: pct exec <container-id> -- grep ADMIN_PASSWORD /opt/proxmox-os/backend/.env — or set a new one in that file and restart the backend (systemctl restart proxmox-os-backend inside the container).", keywords: "forgot password reset login locked out" },
-  { q: "I lost my 2FA phone and can't sign in.", a: "On the Proxmox host run: pct exec <container-id> -- rm /opt/proxmox-os/backend/data/security.json — this turns 2FA off. Set it up again afterwards.", keywords: "2fa lost phone code locked out authenticator" },
-  { q: "Updates fail with '401 Unauthorized'.", a: "The paid Enterprise update source is enabled without a subscription. Use Fix problems → 'Update sources' to switch to the free No-Subscription source in one click.", keywords: "update 401 unauthorized enterprise repository apt error" },
+/** A Help Center entry only an edition provides; the shared list just reserves its place. */
+type Slot = { slot: string };
+
+const BASE_FAQS: (Faq | Slot)[] = [
+  { id: "password", q: "I forgot the SolarDeck password. What now?", a: "On the server, run: grep ADMIN_PASSWORD /opt/solardeck/backend/.env — or set a new one in that file and restart the backend (systemctl restart solardeck-backend).", keywords: "forgot password reset login locked out" },
+  { id: "2fa", q: "I lost my 2FA phone and can't sign in.", a: "On the server run: rm /opt/solardeck/backend/data/security.json — this turns 2FA off. Set it up again afterwards.", keywords: "2fa lost phone code locked out authenticator" },
+  { slot: "repo-401" },
   { q: "My VM doesn't start after adding a graphics card.", a: "Usually IOMMU is off or the card is still used by the host. Check Fix problems for an IOMMU warning, and switch the card to VM Passthrough Mode in Control Panel → Hardware & System, then reboot.", keywords: "gpu passthrough vm not start error iommu vfio", link: { app: "controlpanel", intent: "hardware" } },
   { q: "The VM console is black.", a: "The VM may be off or still booting. Start it in Compute Manager. With a passed-through 'Primary GPU' the picture goes to the card's own monitor output instead of the console.", keywords: "console black screen vnc nothing", link: { app: "compute" } },
   { q: "The container Shell button asks for nothing — is that safe?", a: "Yes, it opens a root shell over SolarDeck's own key. Only people signed in to SolarDeck can do this, so keep your password strong and 2FA on.", keywords: "shell container root login password safe security" },
@@ -409,10 +413,18 @@ export const FAQS: Faq[] = [
   { q: "How much RAM and CPU should I give a VM?", a: "Start with 2 cores and 4 GB for Linux, 4 cores and 8 GB for Windows. Watch Resource Monitor and adjust later in the guest's Resources tab.", keywords: "ram memory cpu cores how much size vm" },
   { q: "Where are my files stored?", a: "ZFS datasets on your data pools appear under /mnt/storage in File Station and can be shared with Network Shares.", keywords: "files where stored location storage path", link: { app: "files", intent: "/" } },
   { q: "My disk is almost full.", a: "Delete old snapshots (Storage & ZFS → Snapshots), old backups (Backup Center) and unused ISOs (Compute Manager → ISO & Templates), or add disks.", keywords: "disk full space capacity storage almost", link: { app: "storage" } },
-  { q: "Ads still show after enabling the AdBlocker.", a: "Devices must use the Proxmox host as DNS server: set it in your router's DHCP settings and reconnect the devices. Browsers with 'secure DNS' (DoH) bypass it; turn that off.", keywords: "adblock ads still showing dns not working", link: { app: "netservices" } },
-  { q: "My VPN connects but I can't reach anything.", a: "Forward UDP 51820 in your home router to the Proxmox host, and make sure the WAN interface in WireGuard Server settings is your LAN bridge (e.g. vmbr0).", keywords: "vpn wireguard connected no internet cannot reach", link: { app: "netservices" } },
-  { q: "Will SolarDeck break my Proxmox server?", a: "SolarDeck uses the official Proxmox API and standard tools. Risky actions always ask for confirmation, and every Help Center fix shows exactly what it changes and how to undo it.", keywords: "safe break damage risk" },
+  { q: "Ads still show after enabling the AdBlocker.", a: `Devices must use ${edition.host} as DNS server: set it in your router's DHCP settings and reconnect the devices. Browsers with 'secure DNS' (DoH) bypass it; turn that off.`, keywords: "adblock ads still showing dns not working", link: { app: "netservices" } },
+  { q: "My VPN connects but I can't reach anything.", a: `Forward UDP 51820 in your home router to ${edition.host}, and make sure the WAN interface in WireGuard Server settings is your LAN bridge (e.g. ${edition.bridgePrefix}0).`, keywords: "vpn wireguard connected no internet cannot reach", link: { app: "netservices" } },
+  { id: "break", q: "Will SolarDeck break my server?", a: "SolarDeck uses standard tools. Risky actions always ask for confirmation, and every Help Center fix shows exactly what it changes and how to undo it.", keywords: "safe break damage risk" },
   { q: "How do I update SolarDeck itself?", a: "Control Panel → System & Power → Check & Install Updates. Your settings are kept.", keywords: "update solardeck new version upgrade desktop", link: { app: "controlpanel", intent: "power" } },
-  { q: "Can I still use the normal Proxmox web interface?", a: "Yes. Open https://<host-ip>:8006. Both work side by side.", keywords: "proxmox web ui 8006 normal interface both" },
-  { q: "How do I get more help?", a: "Run Fix problems first. For anything else, the Proxmox forum (forum.proxmox.com) and documentation (pve.proxmox.com/wiki) are excellent.", keywords: "help support forum contact more" },
+  { slot: "web-ui" },
+  { id: "more-help", q: "How do I get more help?", a: "Run Fix problems first. For anything else, use Report a Bug in Control Panel → System & Power to reach the SolarDeck developers.", keywords: "help support forum contact more" },
 ];
+
+/** Shared entries, replaced (or removed with null) by the edition's own with the same id; slots appear only when the edition fills them. */
+export const TUTORIALS: Tutorial[] = BASE_TUTORIALS.map((t) => (t.id in edition.help.tutorials ? edition.help.tutorials[t.id] : t)).filter((t) => t !== null);
+export const FAQS: Faq[] = BASE_FAQS.map((f) => {
+  const id = "slot" in f ? f.slot : f.id;
+  return id !== undefined && id in edition.help.faqs ? edition.help.faqs[id] : "slot" in f ? null : f;
+}).filter((f) => f !== null);
+

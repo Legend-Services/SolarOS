@@ -1,6 +1,6 @@
 """Domains: your own domain names, their host names on the local network, and Let's Encrypt for SolarDeck.
 
-- Domains and host names live with the other network state on the host (/etc/proxmox-os/net/domains.json). Host names
+- Domains and host names live with the other network state on the host (/etc/<prefix>/net/domains.json). Host names
   become local DNS records in the DNS service (dnsmasq) whenever it is installed and on (see net_services.apply_dnsmasq).
 - Let's Encrypt runs in this container with acme.sh and a DNS-01 challenge, so SolarDeck never has to be reachable from
   the internet. The DNS provider credentials are handed to acme.sh as environment variables and kept only in its
@@ -33,8 +33,8 @@ EMAIL_RE = r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$"
 ACME_VERSION = "3.1.7"
 ACME_HOME = "/root/.acme.sh"
 ACME = f"{ACME_HOME}/acme.sh"
-CRT = ns.NGINX_SSL_DIR / "proxmox-os.crt"
-KEY = ns.NGINX_SSL_DIR / "proxmox-os.key"
+CRT = ns.NGINX_SSL_DIR / f"{ns.P}.crt"
+KEY = ns.NGINX_SSL_DIR / f"{ns.P}.key"
 SELFSIGNED_SCRIPT = FsPath(__file__).resolve().parents[2] / "deploy" / "selfsigned-cert.sh"
 DEFAULT: dict = {"domains": [], "certificate": None}
 
@@ -290,7 +290,7 @@ async def remove_certificate():
     log: list[str] = []
     if cert and FsPath(ACME).exists():
         await _run([ACME, "--remove", "-d", cert["fqdn"], "--ecc"], {}, log.append, [])
-    for p in (CRT, KEY, ns.NGINX_SSL_DIR / "proxmox-os.san"):
+    for p in (CRT, KEY, ns.NGINX_SSL_DIR / f"{ns.P}.san"):
         p.unlink(missing_ok=True)
     code = await _run(["bash", "-c", f"bash {SELFSIGNED_SCRIPT} && nginx -t -q && systemctl reload nginx"], {}, log.append, [])
     if code:

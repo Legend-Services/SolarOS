@@ -99,7 +99,7 @@ Prefer scripts? `hypervisor/test-in-proxmox-vm.sh` creates and starts a ready-ma
 On a clean Ubuntu Server 24.04 or 26.04 LTS machine, as root:
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/main/hypervisor/install-hypervisor.sh)" -- --with-console-tui
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/solaros/hypervisor/install-hypervisor.sh)" -- --with-console-tui
 ```
 
 ---

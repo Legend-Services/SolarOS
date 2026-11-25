@@ -32,7 +32,7 @@ assert d.domain_records(state) == [
     {"type": "A", "name": "legendhosting.nl", "value": "192.168.68.220"},
     {"type": "AAAA", "name": "nas.lan.legendhosting.nl", "value": "fd00::5"},
 ], d.domain_records(state)
-conf = ns.render_dnsmasq_dns({**ns.DNS_DEFAULT, "enabled": True, "interfaces": ["vmbr0"], "records": d.domain_records(state)})
+conf = ns.render_dnsmasq_dns({**ns.DNS_DEFAULT, "enabled": True, "interfaces": ["br0"], "records": d.domain_records(state)})
 assert "host-record=solardeck.legendhosting.nl,192.168.68.230" in conf and "host-record=legendhosting.nl,192.168.68.220" in conf
 
 # Validation of everything that reaches dnsmasq, a shell or acme.sh.
@@ -75,7 +75,7 @@ ss = d.cert_info(make_cert("SolarDeck self-signed", "SolarDeck self-signed", Non
 assert ss["self_signed"] and not ss["lets_encrypt"] and ss["expires"] > le["expires"], ss
 
 # Integration: changing host names re-renders dnsmasq with them (host SSH faked).
-files: dict[str, str] = {"/etc/proxmox-os/net/dns.json": '{"enabled": true, "interfaces": ["vmbr0"]}'}
+files: dict[str, str] = {f"{ns.STATE_DIR}/dns.json": '{"enabled": true, "interfaces": ["br0"]}'}
 
 
 async def fake_read(path, default=""):

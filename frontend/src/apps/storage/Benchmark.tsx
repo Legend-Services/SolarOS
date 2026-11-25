@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BookOpen, Gauge, Play, ShieldCheck, Square } from "lucide-react";
 import { api } from "../../lib/api";
-import type { BenchJob, BenchMetric, BenchProfile, PveDisk, ZfsDatasetInfo } from "../../lib/types";
+import type { BenchJob, BenchMetric, BenchProfile, PhysicalDisk, ZfsDatasetInfo } from "../../lib/types";
 import { usePoll, useRunner } from "../../lib/hooks";
 import { useWizard } from "../../store/wizardStore";
 import { Bar } from "../../components/charts";
@@ -37,7 +37,7 @@ function Cell({ m, unit, max, active }: { m: BenchMetric | null | undefined; uni
   );
 }
 
-export default function Benchmark({ disks }: { disks: PveDisk[] | null }) {
+export default function Benchmark({ disks }: { disks: PhysicalDisk[] | null }) {
   const [mounts, setMounts] = useState<string[]>([]);
   const [target, setTarget] = useState("");
   const [size, setSize] = useState(1024);
@@ -51,11 +51,11 @@ export default function Benchmark({ disks }: { disks: PveDisk[] | null }) {
   const showGuide = useWizard((s) => s.show);
 
   const loadHistory = useCallback(() => {
-    api<BenchJob[]>("/pve/disks/benchmark/history").then((h) => setHistory([...h].reverse()), () => {});
+    api<BenchJob[]>("/v1/disks/benchmark/history").then((h) => setHistory([...h].reverse()), () => {});
   }, []);
   useEffect(() => {
     loadHistory();
-    api<ZfsDatasetInfo[]>("/pve/zfs/datasets").then(
+    api<ZfsDatasetInfo[]>("/v1/zfs/datasets").then(
       (d) => setMounts(d.filter((x) => x.type === "filesystem" && !x.guest_volume && x.mountpoint.startsWith("/")).map((x) => x.mountpoint)),
       () => {},
     );
@@ -75,7 +75,7 @@ export default function Benchmark({ disks }: { disks: PveDisk[] | null }) {
 
   const poll = useCallback(() => {
     if (job?.status === "running")
-      api<BenchJob>(`/pve/disks/benchmark/${job.id}`).then((j) => {
+      api<BenchJob>(`/v1/disks/benchmark/${job.id}`).then((j) => {
         setJob(j);
         if (j.status !== "running") loadHistory();
       }, () => {});
@@ -87,7 +87,7 @@ export default function Benchmark({ disks }: { disks: PveDisk[] | null }) {
     setConfirmRaw(null);
     return run(async () =>
       setJob(
-        await api<BenchJob>("/pve/disks/benchmark", {
+        await api<BenchJob>("/v1/disks/benchmark", {
           method: "POST",
           json: {
             target_type: targetType,
@@ -167,7 +167,7 @@ export default function Benchmark({ disks }: { disks: PveDisk[] | null }) {
           />
         </Field>
         {running ? (
-          <GlassButton variant="danger" size="md" onClick={() => run(async () => setJob(await api<BenchJob>(`/pve/disks/benchmark/${job!.id}`, { method: "DELETE" })))}>
+          <GlassButton variant="danger" size="md" onClick={() => run(async () => setJob(await api<BenchJob>(`/v1/disks/benchmark/${job!.id}`, { method: "DELETE" })))}>
             <Square size={14} /> Stop
           </GlassButton>
         ) : (

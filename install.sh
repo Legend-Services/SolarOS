@@ -291,8 +291,11 @@ fi
 # ZFS snapshots, bind mounts, /dev/dri passthrough and app provisioning (pct exec) are not possible with the API
 # token, so the container gets an SSH key that can only run the allowlisted helper on this host.
 msg "Installing host helper"
-pct pull "$CTID" "${APP_DIR}/deploy/proxmox-os-helper.sh" /usr/local/sbin/proxmox-os-helper
+pct pull "$CTID" "${APP_DIR}/deploy/solardeck-helper.sh" /usr/local/sbin/proxmox-os-helper
+# The pct/qm commands of this edition, sourced by the helper.
+pct pull "$CTID" "${APP_DIR}/deploy/solardeck-helper-proxmox.sh" /usr/local/sbin/proxmox-os-helper-edition
 chmod 755 /usr/local/sbin/proxmox-os-helper
+chmod 644 /usr/local/sbin/proxmox-os-helper-edition
 ct "mkdir -p /root/.ssh && chmod 700 /root/.ssh
 [ -f /root/.ssh/proxmox-os-helper ] || ssh-keygen -q -t ed25519 -N '' -C proxmox-os-helper -f /root/.ssh/proxmox-os-helper"
 PUB_FILE="$(mktemp)"
@@ -355,9 +358,10 @@ ENV_FILE="$(mktemp)"
 chmod 600 "$ENV_FILE"
 cat >"$ENV_FILE" <<EOF
 HYPERVISOR_DRIVER=proxmox
+SYSTEM_PREFIX=proxmox-os
 PVE_HOST=${PVE_HOST}
 PVE_PORT=${PVE_PORT}
-PVE_NODE=${PVE_NODE}
+NODE_NAME=${PVE_NODE}
 PVE_TOKEN_ID=${PVE_USER}!${TOKEN_NAME}
 PVE_TOKEN_SECRET=${PVE_TOKEN_SECRET}
 PVE_VERIFY_SSL=false
@@ -365,7 +369,7 @@ ADMIN_USERNAME=admin
 ADMIN_PASSWORD=${ADMIN_PASSWORD}
 JWT_SECRET=${JWT_SECRET}
 STORAGE_ROOT=${STORAGE_ROOT}
-PVE_BRIDGE=${PVE_BRIDGE:-vmbr0}
+DEFAULT_BRIDGE=${PVE_BRIDGE:-vmbr0}
 HOST_SSH=root@${HOST_IP}
 REPO_URL=${REPO_URL}
 REPO_BRANCH=${REPO_BRANCH}
@@ -396,7 +400,7 @@ msg "Configuring nginx"
 ct "install -m 644 ${APP_DIR}/deploy/nginx.conf /etc/nginx/sites-available/proxmox-os
 ln -sf /etc/nginx/sites-available/proxmox-os /etc/nginx/sites-enabled/proxmox-os
 rm -f /etc/nginx/sites-enabled/default
-bash ${APP_DIR}/deploy/selfsigned-cert.sh || echo '!! Could not create the HTTPS certificate; SolarDeck stays on http'
+SYSTEM_PREFIX=proxmox-os bash ${APP_DIR}/deploy/selfsigned-cert.sh || echo '!! Could not create the HTTPS certificate; SolarDeck stays on http'
 nginx -t -q
 systemctl enable -q nginx
 systemctl reload nginx || systemctl restart nginx"
@@ -423,7 +427,7 @@ if [[ -z "$API_TOKEN" ]]; then
   SELFTEST="skipped (sign-in needs a 2FA code)"
   warn "Self-test skipped: could not sign in without a 2FA code"
 else
-  for ep in /api/pve/bios/status /api/hardware/inventory; do
+  for ep in /api/v1/bios/status /api/hardware/inventory; do
     BODY="$(mktemp)"
     CODE="$(curl -sS -m 90 -o "$BODY" -w '%{http_code}' -H "Authorization: Bearer ${API_TOKEN}" "http://${CT_IP}${ep}" 2>/dev/null || true)"
     if [[ "$CODE" == 200 ]]; then

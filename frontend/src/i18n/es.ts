@@ -32,8 +32,6 @@ export const es: Dict = {
   "top.desktop": "Escritorio",
   "top.search": "Buscar (Ctrl+K)",
   "top.hostShell": "Shell del host (root en el host {platform})",
-  "driver.proxmox": "Proxmox VE",
-  "driver.standalone": "SolarOS",
   "about.title": "Acerca de {product}",
   "about.driver": "Controlador del hipervisor",
   "about.platform": "Plataforma",

@@ -1,4 +1,4 @@
-"""Datacenter parity: firewall, logs and storage backends."""
+"""Proxmox Datacenter parity: firewall, logs and storage backends."""
 import re
 from typing import Literal
 from urllib.parse import quote
@@ -6,9 +6,10 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, Field
 
-from .auth import require_user
-from .pve import _node, pve
-from .storage_admin import STORAGE_RE
+from app.auth import require_user
+from app.storage_admin import STORAGE_RE
+
+from ..api import _node, pve
 
 router = APIRouter(tags=["pve_datacenter"], dependencies=[Depends(require_user)])
 
@@ -72,35 +73,35 @@ class FwOptions(BaseModel):
     tcpflags: bool | None = None
 
 
-@router.get("/api/pve/firewall/{scope}/rules")
+@router.get("/api/v1/firewall/{scope}/rules")
 async def fw_rules(scope: Scope, vmid: int | None = None):
     return await pve("GET", f"{fw_base(scope, vmid)}/rules") or []
 
 
-@router.post("/api/pve/firewall/{scope}/rules")
+@router.post("/api/v1/firewall/{scope}/rules")
 async def fw_add_rule(scope: Scope, body: RuleBody, vmid: int | None = None):
     await pve("POST", f"{fw_base(scope, vmid)}/rules", data=rule_params(body))
     return {"ok": True}
 
 
-@router.put("/api/pve/firewall/{scope}/rules/{pos}")
+@router.put("/api/v1/firewall/{scope}/rules/{pos}")
 async def fw_update_rule(scope: Scope, body: RuleBody, pos: int = Path(ge=0, le=9999), vmid: int | None = None):
     await pve("PUT", f"{fw_base(scope, vmid)}/rules/{pos}", data=rule_params(body, update=True))
     return {"ok": True}
 
 
-@router.delete("/api/pve/firewall/{scope}/rules/{pos}")
+@router.delete("/api/v1/firewall/{scope}/rules/{pos}")
 async def fw_delete_rule(scope: Scope, pos: int = Path(ge=0, le=9999), vmid: int | None = None):
     await pve("DELETE", f"{fw_base(scope, vmid)}/rules/{pos}")
     return {"ok": True}
 
 
-@router.get("/api/pve/firewall/{scope}/options")
+@router.get("/api/v1/firewall/{scope}/options")
 async def fw_options(scope: Scope, vmid: int | None = None):
     return await pve("GET", f"{fw_base(scope, vmid)}/options") or {}
 
 
-@router.put("/api/pve/firewall/{scope}/options")
+@router.put("/api/v1/firewall/{scope}/options")
 async def fw_set_options(scope: Scope, body: FwOptions, vmid: int | None = None):
     data = {k: int(v) if isinstance(v, bool) else v for k, v in body.model_dump(exclude_none=True).items()}
     if data:
@@ -128,52 +129,52 @@ def _clean(d: dict) -> dict:
     return {k: v for k, v in d.items() if v != ""}
 
 
-@router.get("/api/pve/firewall/cluster/aliases")
+@router.get("/api/v1/firewall/cluster/aliases")
 async def fw_aliases():
     return await pve("GET", "/cluster/firewall/aliases") or []
 
 
-@router.post("/api/pve/firewall/cluster/aliases")
+@router.post("/api/v1/firewall/cluster/aliases")
 async def fw_add_alias(body: AliasBody):
     await pve("POST", "/cluster/firewall/aliases", data=_clean(body.model_dump()))
     return {"ok": True}
 
 
-@router.delete("/api/pve/firewall/cluster/aliases/{name}")
+@router.delete("/api/v1/firewall/cluster/aliases/{name}")
 async def fw_delete_alias(name: str = Path(pattern=NAME_RE)):
     await pve("DELETE", f"/cluster/firewall/aliases/{name}")
     return {"ok": True}
 
 
-@router.get("/api/pve/firewall/cluster/ipsets")
+@router.get("/api/v1/firewall/cluster/ipsets")
 async def fw_ipsets():
     return await pve("GET", "/cluster/firewall/ipset") or []
 
 
-@router.post("/api/pve/firewall/cluster/ipsets")
+@router.post("/api/v1/firewall/cluster/ipsets")
 async def fw_add_ipset(body: IpsetBody):
     await pve("POST", "/cluster/firewall/ipset", data=_clean(body.model_dump()))
     return {"ok": True}
 
 
-@router.delete("/api/pve/firewall/cluster/ipsets/{name}")
+@router.delete("/api/v1/firewall/cluster/ipsets/{name}")
 async def fw_delete_ipset(name: str = Path(pattern=NAME_RE)):
     await pve("DELETE", f"/cluster/firewall/ipset/{name}")
     return {"ok": True}
 
 
-@router.get("/api/pve/firewall/cluster/ipsets/{name}")
+@router.get("/api/v1/firewall/cluster/ipsets/{name}")
 async def fw_ipset_entries(name: str = Path(pattern=NAME_RE)):
     return await pve("GET", f"/cluster/firewall/ipset/{name}") or []
 
 
-@router.post("/api/pve/firewall/cluster/ipsets/{name}")
+@router.post("/api/v1/firewall/cluster/ipsets/{name}")
 async def fw_add_ipset_entry(body: IpsetEntry, name: str = Path(pattern=NAME_RE)):
     await pve("POST", f"/cluster/firewall/ipset/{name}", data=_clean(body.model_dump()))
     return {"ok": True}
 
 
-@router.delete("/api/pve/firewall/cluster/ipsets/{name}/entry")
+@router.delete("/api/v1/firewall/cluster/ipsets/{name}/entry")
 async def fw_delete_ipset_entry(name: str = Path(pattern=NAME_RE), cidr: str = Query(pattern=CIDR_RE)):
     await pve("DELETE", f"/cluster/firewall/ipset/{name}/{quote(cidr, safe='')}")
     return {"ok": True}
@@ -185,20 +186,20 @@ DATE_RE = r"^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}(:\d{2})?)?$"
 CURSOR_RE = re.compile(r"^s=[0-9a-f]+;i=")
 
 
-@router.get("/api/pve/logs/syslog")
+@router.get("/api/v1/logs/syslog")
 async def syslog(limit: int = Query(500, ge=1, le=5000), start: int = Query(0, ge=0),
                  since: str | None = Query(None, pattern=DATE_RE), until: str | None = Query(None, pattern=DATE_RE)):
     params = {"limit": limit, "start": start, **({"since": since} if since else {}), **({"until": until} if until else {})}
     return {"lines": [x.get("t", "") for x in await pve("GET", _node("/syslog"), params=params) or []]}
 
 
-@router.get("/api/pve/logs/journal")
+@router.get("/api/v1/logs/journal")
 async def journal(lastentries: int = Query(500, ge=1, le=5000)):
     lines = await pve("GET", _node("/journal"), params={"lastentries": lastentries}) or []
     return {"lines": [x for x in lines if not CURSOR_RE.match(x)]}  # drop the start/end journal cursors
 
 
-@router.get("/api/pve/logs/cluster")
+@router.get("/api/v1/logs/cluster")
 async def cluster_log(max: int = Query(200, ge=1, le=5000)):
     return await pve("GET", "/cluster/log", params={"max": max}) or []
 
@@ -257,18 +258,18 @@ class StorageUpdate(BaseModel):
     content: list[Content] | None = Field(None, min_length=1)
 
 
-@router.get("/api/pve/storage-config")
+@router.get("/api/v1/storage-config")
 async def storage_config():
     return await pve("GET", "/storage") or []
 
 
-@router.post("/api/pve/storage-config")
+@router.post("/api/v1/storage-config")
 async def add_storage(body: StorageBody):
     await pve("POST", "/storage", data=storage_params(body))
     return {"ok": True}
 
 
-@router.put("/api/pve/storage-config/{storage}")
+@router.put("/api/v1/storage-config/{storage}")
 async def update_storage(body: StorageUpdate, storage: str = Path(pattern=STORAGE_RE)):
     data: dict = {}
     if body.enable is not None:
@@ -280,14 +281,14 @@ async def update_storage(body: StorageUpdate, storage: str = Path(pattern=STORAG
     return {"ok": True}
 
 
-@router.delete("/api/pve/storage-config/{storage}")
+@router.delete("/api/v1/storage-config/{storage}")
 async def remove_storage(storage: str = Path(pattern=STORAGE_RE)):
     # Removes the storage definition only; PVE never deletes data on the backend here.
     await pve("DELETE", f"/storage/{storage}")
     return {"ok": True}
 
 
-@router.get("/api/pve/storage-scan/{kind}")
+@router.get("/api/v1/storage-scan/{kind}")
 async def storage_scan(kind: Literal["nfs", "cifs", "lvm", "lvmthin", "zfs"],
                        server: str | None = Query(None, pattern=HOST_RE), vg: str | None = Query(None, pattern=r"^[A-Za-z0-9_.+-]{1,128}$"),
                        username: str | None = Query(None, pattern=r"^[^\s,]{1,100}$"),

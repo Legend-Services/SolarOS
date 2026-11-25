@@ -13,7 +13,7 @@ It finds everything by itself: the node name, the next free container ID, the be
 - sets up passwordless SSH from the container to the host (for the Host Shell, ZFS snapshots, drivers and network services),
 - installs Python, Node 22, nginx and Samba, builds the app and runs a health check,
 - enables HTTPS on port 443 with a self-signed certificate for the container's IP and hostname (`deploy/selfsigned-cert.sh`, renewed automatically). Your browser warns about it once; get a Let's Encrypt certificate for your own domain in Network & Services → Domains (DNS-01, renewed automatically) or upload one in Certificates, and updates will keep that one. Plain http keeps working,
-- runs a self-test that signs in and calls `/api/pve/bios/status` and `/api/hardware/inventory`, and prints the result in the final box.
+- runs a self-test that signs in and calls `/api/v1/bios/status` and `/api/hardware/inventory`, and prints the result in the final box.
 
 ## SolarOS on an existing Ubuntu Server
 
@@ -37,7 +37,7 @@ nested VM on any Proxmox VE host. Run as root on the Proxmox host:
 # 1. Build the ISO with an extra unattended entry for the test VM's first disk and copy it to local:iso
 git clone https://github.com/Legend-Services/SolarOS.git && cd SolarOS
 apt install -y xorriso                  # + Node.js 22 and python3-pip to bundle the desktop and Python wheels
-bash hypervisor/build-iso.sh --auto-disk /dev/sda --deploy-to-pve
+bash hypervisor/build-iso.sh --auto-disk /dev/sda --copy-to /var/lib/vz/template/iso
 
 # 2. Create and start the test VM (q35, OVMF, host CPU, 4 cores, 8 GiB, 32 GB OS disk + two 32 GB data disks)
 bash hypervisor/test-in-proxmox-vm.sh   # --vmid 950 --storage local-zfs --bridge vmbr0 --enable-nested --dry-run
@@ -102,11 +102,12 @@ Found a problem? Click **Report a Bug**. It's in the **?** Help menu and the use
 ```
 install.sh                 zero-touch installer and upgrader (runs on the PVE host)
 deploy.sh                  push a local checkout to a PVE host over SSH and run install.sh there
-deploy/                    systemd unit, nginx site, self-update.sh, merge-env.sh + env-defaults, proxmox-os-helper.sh
+deploy/                    systemd unit, nginx site, self-update.sh, merge-env.sh + env-defaults, solardeck-helper.sh (+ -proxmox edition part),
+                           make-edition-tree.sh + editions/ (per-edition source trees)
 backend/providers/         hypervisor driver layer: base.py (contract + domain models), registry.py, proxmox/, native_ubuntu/
-backend/app/               one FastAPI router per area: pve, files, console, apps, shares, storage_admin, provisioning,
-                           backups, net_services, hardware_admin, guest_hardware, pve_access, updater, bug_report,
-                           local_ai, ...
+backend/app/               shared, driver-neutral routers: hypervisor, files, console, apps, shares, storage_admin,
+                           provisioning, backups, net_services, hardware_admin, guest_hardware, access, updater, ...
+backend/providers/proxmox/ Proxmox VE driver: REST client, routes/, help checks (not shipped with SolarOS)
 backend/tests/             self-check scripts (python -m tests.<name>)
 frontend/src/apps/         one component per desktop app
 frontend/src/theme/        theme engine: built-in themes, procedural wallpaper art, palette variables (palette.css)
@@ -128,8 +129,8 @@ same repository and desktop can manage different platforms. `HYPERVISOR_DRIVER` 
   backends, API tokens, ACME certificates) answer HTTP 501 there. See `hypervisor/README.md`.
 
 `GET /api/system/capabilities` (also `/api/v1/system/capabilities`) returns the active driver, its platform label and
-feature flags. The desktop uses them for labels and to show only supported features. Every `/api/pve/...` route is
-also available at the driver-neutral `/api/v1/...` path, with the same handler, sign-in and validation. Updates,
+feature flags. The desktop uses them for labels and to show only supported features. Every route lives under
+`/api/v1/...` (the `/api/pve/...` paths were removed in v2.3.0). Updates,
 downgrades and re-installs keep `HYPERVISOR_DRIVER` like every other `.env` value.
 
 ### Themes and Light / Dark Mode
@@ -168,7 +169,7 @@ The backend checks the rules every minute. API: `GET|PUT /api/automation/channel
 
 ### Network Topology
 
-Network & Services → **Topology** draws `GET /api/pve/network/topology`, a `nodes[]` / `edges[]` graph built from the host's interfaces (`/nodes/{node}/network` plus `ip -j link` for MACs and link state), every VM and container's `net0..netN` bridge bindings and IPs (container interfaces, or the QEMU guest agent), the WireGuard server and its peers, and the router's port forwards. Click a node to highlight its connections and see its IP, MAC and link status, with **Open Console**, **Configure Bridge**, **Edit Port Forward** or **Configure VPN**.
+Network & Services → **Topology** draws `GET /api/v1/network/topology`, a `nodes[]` / `edges[]` graph built from the host's interfaces (`/nodes/{node}/network` plus `ip -j link` for MACs and link state), every VM and container's `net0..netN` bridge bindings and IPs (container interfaces, or the QEMU guest agent), the WireGuard server and its peers, and the router's port forwards. Click a node to highlight its connections and see its IP, MAC and link status, with **Open Console**, **Configure Bridge**, **Edit Port Forward** or **Configure VPN**.
 
 ### Widgets and languages
 
@@ -226,3 +227,11 @@ cd frontend && npm ci && npm run dev
 - NVIDIA GPU sharing binds the host's device nodes into the container, so the host driver must stay installed (not in VM passthrough mode). After a host driver upgrade, switch Local AI to CPU and back to the GPU in Hardware & Performance to reinstall matching user-space libraries.
 
 See [CHANGELOG.md](../CHANGELOG.md) for the full feature history.
+
+## Editions
+
+One repository builds two products. `HYPERVISOR_DRIVER` picks the backend driver package under
+`backend/providers/`, `VITE_EDITION` picks `frontend/src/editions/<edition>/`, and `SYSTEM_PREFIX` names everything
+created on a host (`proxmox-os` for SolarDeck for Proxmox VE, `solardeck` for SolarOS).
+`deploy/make-edition-tree.sh solaros . <out>` builds the SolarOS source tree: CI checks it on every push, the ISO is
+built from it, and each release publishes it to the `solaros` branch, which SolarOS installs update from.

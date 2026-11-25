@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { ArrowRight, Loader2, Server, ShieldCheck } from "lucide-react";
 import { useAuth } from "../lib/stores";
 import { useClock } from "../lib/hooks";
-import { TRADEMARK_NOTICE } from "../lib/brand";
+import { edition } from "@edition";
 import { useTranslation } from "../i18n";
 import LanguagePill from "./LanguagePill";
 import ProductLogo from "./ProductLogo";
@@ -135,9 +135,11 @@ export default function LockScreen({ visible, checking }: { visible: boolean; ch
           </>
         )}
       </form>
-      <p className="absolute inset-x-0 bottom-3 mx-auto max-w-2xl px-4 text-center text-[10px] leading-snug text-slate-400/70 select-none">
-        {TRADEMARK_NOTICE}
-      </p>
+      {edition.trademarkNotice && (
+        <p className="absolute inset-x-0 bottom-3 mx-auto max-w-2xl px-4 text-center text-[10px] leading-snug text-slate-400/70 select-none">
+          {edition.trademarkNotice}
+        </p>
+      )}
     </div>
   );
 }

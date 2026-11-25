@@ -5,7 +5,7 @@ export function bytes(n: number, digits = 1): string {
   return `${(n / 1024 ** i).toFixed(i === 0 ? 0 : digits)} ${units[i]}`;
 }
 
-export const pct = (used: number, total: number) => (total > 0 ? (used / total) * 100 : 0);
+export const percent = (used: number, total: number) => (total > 0 ? (used / total) * 100 : 0);
 
 export function uptime(s: number): string {
   if (!s) return "—";

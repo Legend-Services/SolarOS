@@ -1,6 +1,6 @@
 """Storage benchmark: four classic fio profiles (SEQ1M Q8T1, SEQ128K Q32T1, RND4K Q32T1, RND4K Q1T1), read and write.
 
-Runs on the PVE host over the root SSH bridge. Read-only runs skip the write tests; physical disks are opened read-only (`fio --readonly`) unless the disk is
+Runs on the hypervisor host over the root SSH bridge. Read-only runs skip the write tests; physical disks are opened read-only (`fio --readonly`) unless the disk is
 unused and the caller confirms its device path. Mountpoints use a temporary `.solardeck-bench.tmp` file that is
 removed when the run ends. Finished runs are kept in data/benchmarks.json for side-by-side comparison.
 """
@@ -21,7 +21,7 @@ from .auth import require_user
 from .config import settings
 from .storage_admin import _dev, disk_info, ensure_tool, probe_host_disks
 
-router = APIRouter(prefix="/api/pve/disks/benchmark", tags=["disk-benchmark"], dependencies=[Depends(require_user)])
+router = APIRouter(prefix="/api/v1/disks/benchmark", tags=["disk-benchmark"], dependencies=[Depends(require_user)])
 
 PROFILES = {
     "SEQ1M_Q8T1": {"bs": "1m", "iodepth": 8, "seq": True},

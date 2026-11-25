@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { edition } from "@edition";
 import { Copy, Cpu, Download, MonitorCog, RefreshCw, Repeat } from "lucide-react";
 import { api } from "../lib/api";
-import { bytes, copyText, pct, tempColor } from "../lib/format";
+import { bytes, copyText, percent, tempColor } from "../lib/format";
 import { usePoll, useRunner } from "../lib/hooks";
 import { Bar } from "../components/charts";
 import { JobLog } from "../components/JobLog";
@@ -70,7 +71,7 @@ interface Inventory {
   ssh_setup_command: string | null;
 }
 
-/** Bridge status; when the key isn't authorized yet, a 1-click copy of the command to paste into the Proxmox host shell. */
+/** Bridge status; when the key isn't authorized yet, a 1-click copy of the command to paste into the host shell. */
 function BridgeStatus({ inv }: { inv: Inventory }) {
   const [copied, setCopied] = useState(false);
   if (inv.ssh_bridge_connected) return <GlassBadge tone="success">SSH BRIDGE CONNECTED</GlassBadge>;
@@ -78,12 +79,12 @@ function BridgeStatus({ inv }: { inv: Inventory }) {
     <div className="space-y-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-200 ring-1 ring-amber-400/20 ring-inset">
       <div className="flex items-center gap-2">
         <GlassBadge tone="warning">SSH BRIDGE NOT CONNECTED</GlassBadge>
-        <span className="flex-1">Showing what the Proxmox API reports. Sensors, DIMMs, BIOS details and GPU drivers need the SSH bridge.</span>
+        <span className="flex-1">Showing what {edition.platformApi} reports. Sensors, DIMMs, BIOS details and GPU drivers need the SSH bridge.</span>
       </div>
       <p className="font-mono text-[10px] break-all text-amber-300/80">{inv.ssh_bridge_message}</p>
       {inv.ssh_setup_command && (
         <div className="flex items-center gap-2">
-          <span className="flex-1">Run this once in the Proxmox host shell (as root), then click Refresh:</span>
+          <span className="flex-1">Run this once in {edition.host} shell (as root), then click Refresh:</span>
           <GlassButton size="xs" onClick={() => copyText(inv.ssh_setup_command!).then(() => setCopied(true))}>
             <Copy size={12} /> {copied ? "Copied" : "Copy SSH Setup Command"}
           </GlassButton>
@@ -99,17 +100,17 @@ const ACTIONS: Record<Action, { label: string; job: string; message: string }> =
   "nvidia-install": {
     label: "Install / update NVIDIA driver + CUDA tools",
     job: "gpu-nvidia-install",
-    message: "Installs Proxmox kernel headers, blacklists nouveau, installs the latest official NVIDIA driver (DKMS) with nvidia-smi, and nvidia-container-toolkit. A reboot may be needed if nouveau is still loaded.",
+    message: `Installs ${edition.kernelHeaders}, blacklists nouveau, installs the latest official NVIDIA driver (DKMS) with nvidia-smi, and nvidia-container-toolkit. A reboot may be needed if nouveau is still loaded.`,
   },
   "intel-install": {
     label: "Install Intel media / Quick Sync + GuC/HuC",
     job: "gpu-intel-install",
-    message: "Installs intel-media-va-driver-non-free (enabling Debian non-free if needed), intel-gpu-tools and vainfo, and sets i915.enable_guc=3. The GuC/HuC firmware comes with Proxmox (pve-firmware). Reboot afterwards.",
+    message: `Installs intel-media-va-driver-non-free (enabling Debian non-free if needed), intel-gpu-tools and vainfo, and sets i915.enable_guc=3. The GuC/HuC firmware comes with ${edition.firmwareSource}. Reboot afterwards.`,
   },
   "amd-install": {
     label: "Install AMD tools / ROCm",
     job: "gpu-amd-install",
-    message: "Installs radeontop, plus rocminfo / rocm-smi when available. The amdgpu firmware comes with Proxmox (pve-firmware).",
+    message: `Installs radeontop, plus rocminfo / rocm-smi when available. The amdgpu firmware comes with ${edition.firmwareSource}.`,
   },
   "mode-passthrough": {
     label: "Switch to VM Passthrough Mode (vfio-pci)",
@@ -220,11 +221,11 @@ function CpuCard({ cpu, virt }: { cpu: Inventory["cpu"]; virt: Inventory["virtua
 function MemoryCard({ m }: { m: Inventory["memory"] }) {
   return (
     <Card title="Memory" action={<span className="text-xs text-slate-300">{bytes(m.total)}</span>}>
-      <Bar value={pct(m.used, m.total)} className="bg-violet-400" />
+      <Bar value={percent(m.used, m.total)} className="bg-violet-400" />
       <div className="mt-3">
         <Rows
           rows={[
-            ["Used", `${bytes(m.used)} (${pct(m.used, m.total).toFixed(0)}%)`],
+            ["Used", `${bytes(m.used)} (${percent(m.used, m.total).toFixed(0)}%)`],
             ["Available", bytes(m.available)],
             ["Page cache", bytes(m.cached)],
             ["ZFS ARC", bytes(m.arc)],
@@ -282,7 +283,7 @@ function GpuCard({ g, live }: { g: Gpu; live: GpuMetrics | null }) {
             <div className="text-slate-400">
               VRAM {m.vram_used_mib ?? "—"} / {m.vram_total_mib ?? "—"} MiB
             </div>
-            <Bar value={pct(m.vram_used_mib ?? 0, m.vram_total_mib ?? 0)} className="bg-violet-400" />
+            <Bar value={percent(m.vram_used_mib ?? 0, m.vram_total_mib ?? 0)} className="bg-violet-400" />
           </div>
           <div className="text-slate-400">Temperature {C(m.temp_c)}</div>
           <div className="text-slate-400">Power {m.power_w != null ? `${m.power_w.toFixed(0)} W` : "—"}</div>
@@ -339,12 +340,12 @@ function DriversCard({ inv, onChanged }: { inv: Inventory; onChanged: () => void
                 <>
                   <span>Media driver {pkg("intel-media-va-driver-non-free")}</span>
                   <span>intel-gpu-tools {pkg("intel-gpu-tools")}</span>
-                  <span>Firmware {pkg("pve-firmware")}</span>
+                  <span>Firmware {pkg(edition.firmwarePackage)}</span>
                 </>
               )}
               {g.vendor === "amd" && (
                 <>
-                  <span>Firmware {pkg("pve-firmware")}</span>
+                  <span>Firmware {pkg(edition.firmwarePackage)}</span>
                   <span>radeontop {pkg("radeontop")}</span>
                   <span>ROCm {pkg("rocminfo")}</span>
                 </>
@@ -376,7 +377,7 @@ function DriversCard({ inv, onChanged }: { inv: Inventory; onChanged: () => void
           ask && (
             <>
               <p>{ACTIONS[ask.action].message}</p>
-              <p className="mt-2 text-amber-300">This changes kernel modules on the Proxmox host and needs a host reboot to take effect.</p>
+              <p className="mt-2 text-amber-300">This changes kernel modules on {edition.host} and needs a host reboot to take effect.</p>
             </>
           )
         }
@@ -408,7 +409,7 @@ export default function HardwarePanel() {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Cpu size={15} className="text-slate-400" />
-        <span className="flex-1 text-xs text-slate-400">Read live from the Proxmox host over the SSH bridge.</span>
+        <span className="flex-1 text-xs text-slate-400">Read live from {edition.host} over the SSH bridge.</span>
         {inv.ssh_bridge_connected && <BridgeStatus inv={inv} />}
         <GlassButton size="xs" onClick={load} disabled={busy}>
           <RefreshCw size={12} /> Refresh

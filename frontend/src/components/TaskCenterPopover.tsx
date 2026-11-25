@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, ListChecks, LoaderCircle } from "lucide-react";
 import { api } from "../lib/api";
-import type { PveTask, TaskState } from "../lib/types";
+import type { HostTask, TaskState } from "../lib/types";
 import { useDismiss, usePoll } from "../lib/hooks";
 
 export const TASK_BADGE: Record<TaskState, { label: string; tone: string }> = {
@@ -33,7 +33,7 @@ const LABELS: Record<string, string> = {
   imgdel: "Delete volume",
 };
 
-/** Live PVE task log; polls while the task runs. */
+/** Live host task log; polls while the task runs. */
 export function TaskLog({ upid, onDone, className = "h-48" }: { upid: string; onDone?: (s: TaskState) => void; className?: string }) {
   const [lines, setLines] = useState<string[]>([]);
   const [error, setError] = useState("");
@@ -48,8 +48,8 @@ export function TaskLog({ upid, onDone, className = "h-48" }: { upid: string; on
     const tick = async () => {
       try {
         const [s, l] = await Promise.all([
-          api<{ state: TaskState }>(`/pve/tasks/${id}/status`),
-          api<{ lines: string[] }>(`/pve/tasks/${id}/log`),
+          api<{ state: TaskState }>(`/v1/tasks/${id}/status`),
+          api<{ lines: string[] }>(`/v1/tasks/${id}/log`),
         ]);
         if (stop) return;
         setLines(l.lines);
@@ -79,14 +79,14 @@ export function TaskLog({ upid, onDone, className = "h-48" }: { upid: string; on
 }
 
 export default function TaskCenterPopover({ up = false }: { up?: boolean }) {
-  const [tasks, setTasks] = useState<PveTask[]>([]);
+  const [tasks, setTasks] = useState<HostTask[]>([]);
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const close = useCallback(() => setOpen(false), []);
   const ref = useDismiss(open, close);
 
   const load = useCallback(() => {
-    api<PveTask[]>("/pve/tasks").then(setTasks).catch(() => {});
+    api<HostTask[]>("/v1/tasks").then(setTasks).catch(() => {});
   }, []);
   usePoll(load, open ? 3000 : 8000);
 

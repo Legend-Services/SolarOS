@@ -11,7 +11,7 @@ from app import disk_benchmark as b, storage_admin as s  # noqa: E402
 
 FIX = Path(__file__).parent / "fixtures"
 
-# ---- Disk list normalization on real PVE /disks/list rows (HDD reports rpm -1 and wearout "N/A").
+# ---- Disk list normalization on real disk list rows (HDD reports rpm -1 and wearout "N/A").
 hdd = s.normalize_disk({"devpath": "/dev/sda", "rpm": -1, "wearout": "N/A", "type": "unknown", "vendor": "ATA",
                         "by_id_link": "/dev/disk/by-id/ata-WDC_WD20EFRX-68AX9N0_WD-WMC300635480"}, None, None)
 assert hdd["rotational"] and hdd["rpm"] is None and hdd["rpm_label"] == "HDD" and hdd["wearout_pct"] is None, hdd
@@ -91,7 +91,8 @@ rules = s.render_rules({bid: {"by_id": bid, "apm_level": 127, "spindown_minutes"
 assert 'RUN+="/usr/sbin/hdparm -B 127 -S 240 -W 1 /dev/%k"' in rules and "-f 2 -v 2" in rules, rules
 assert f'ENV{{DEVLINKS}}=="{bid}|{bid} *|* {bid}|* {bid} *"' in rules
 assert s.parse_rules(rules)[bid]["spindown_minutes"] == 20 and len(s.parse_rules(rules + "\n# solardeck {bad")) == 2
-assert s.parse_rules(rules.replace("# solardeck ", "# proxmoxos "))[bid]["apm_level"] == 127  # pre-rename rules files still load
+if s.LEGACY_NAME:  # pre-rename rules files still load
+    assert s.parse_rules(rules.replace("# solardeck ", f"# {s.LEGACY_NAME} "))[bid]["apm_level"] == 127
 assert "hdparm" not in s.render_rules({bid: {"by_id": bid}})
 
 smart_i = json.dumps({"smart_support": {"available": True, "enabled": True}})
@@ -127,7 +128,7 @@ nrun = s.parse_selftest({"nvme_self_test_log": {"current_self_test_operation": {
 assert nrun["running"] and nrun["progress_pct"] == 50 and nrun["eta_seconds"] == 60 and nrun["history"][0]["passed"]
 bb = s.parse_badblocks("active", "Checking for bad blocks (read-only test): \n  1.00% done, 0:10 elapsed. (0/0/0 errors)\n 25.00% done, 1:00 elapsed. (1/0/0 errors)\n", "1\n")
 assert bb["running"] and bb["progress_pct"] == 25.0 and bb["eta_seconds"] == 180 and bb["errors"] == 1 and bb["bad_blocks"] == 1, bb
-done = s.parse_badblocks("inactive", "Pass completed, 0 bad blocks found. (0/0/0 errors)\nproxmox-os: exit 0\n", "")
+done = s.parse_badblocks("inactive", "Pass completed, 0 bad blocks found. (0/0/0 errors)\nsolardeck: exit 0\n", "")
 assert not done["running"] and done["exit_code"] == 0 and done["bad_blocks"] == 0
 assert s._scan_job("/dev/nvme0n1") == "scan-nvme0n1" and s._scan_job("/dev/disk/by-id/ata-X_Y.1")[:5] == "scan-"
 
@@ -151,19 +152,19 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app.main import app  # noqa: E402
 
 paths = {r.path for r in app.routes}
-for p in ("/api/pve/disks/{disk:path}/settings", "/api/pve/disks/{disk:path}/scan", "/api/pve/disks/benchmark",
-          "/api/pve/disks/benchmark/history", "/api/pve/disks/benchmark/{job_id}",
-          "/api/pve/zfs/pools/{pool}/members/offline", "/api/pve/zfs/pools/{pool}/members/replace"):
+for p in ("/api/v1/disks/{disk:path}/settings", "/api/v1/disks/{disk:path}/scan", "/api/v1/disks/benchmark",
+          "/api/v1/disks/benchmark/history", "/api/v1/disks/benchmark/{job_id}",
+          "/api/v1/zfs/pools/{pool}/members/offline", "/api/v1/zfs/pools/{pool}/members/replace"):
     assert p in paths, p
 cl = TestClient(app)
-assert cl.get("/api/pve/disks/benchmark/history").status_code == 401
+assert cl.get("/api/v1/disks/benchmark/history").status_code == 401
 cl.post("/api/auth/login", json={"username": "admin", "password": "pw"})
 b.history_file = Path(tempfile.mkdtemp()) / "benchmarks.json"
-assert cl.get("/api/pve/disks/benchmark/history").json() == []
+assert cl.get("/api/v1/disks/benchmark/history").json() == []
 b.save_result({"id": "a"})
-assert cl.get("/api/pve/disks/benchmark/history").json() == [{"id": "a"}]
-assert cl.post("/api/pve/disks/benchmark", json={"target_type": "mountpoint", "target": "/../etc"}).status_code == 422
-assert cl.post("/api/pve/disks/benchmark", json={"target_type": "disk", "target": "/dev/sda", "test_size_mb": 7}).status_code == 422
-assert cl.post("/api/pve/zfs/pools/bad name/members/offline", json={"device": "sda"}).status_code == 422
-assert cl.put("/api/pve/disks/sda/settings", json={"spindown_minutes": 7}).status_code == 422
+assert cl.get("/api/v1/disks/benchmark/history").json() == [{"id": "a"}]
+assert cl.post("/api/v1/disks/benchmark", json={"target_type": "mountpoint", "target": "/../etc"}).status_code == 422
+assert cl.post("/api/v1/disks/benchmark", json={"target_type": "disk", "target": "/dev/sda", "test_size_mb": 7}).status_code == 422
+assert cl.post("/api/v1/zfs/pools/bad name/members/offline", json={"device": "sda"}).status_code == 422
+assert cl.put("/api/v1/disks/sda/settings", json={"spindown_minutes": 7}).status_code == 422
 print("phase 9 storage self-check OK")

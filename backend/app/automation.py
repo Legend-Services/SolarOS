@@ -18,15 +18,15 @@ import httpx
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, Field, ValidationError, model_validator
 
-from . import host, host_ssh, net_services, telemetry
+from . import host, net_services, telemetry
 from .auth import require_user
 from .config import settings
-from .pve import _node, _safe, parse_zfs_list, pve
+from .hypervisor import parse_zfs_list
 from .schedules import AUTO_PREFIX, LEGACY_AUTO_PREFIX
+from providers.registry import get_provider
 
 router = APIRouter(prefix="/api/automation", tags=["automation"], dependencies=[Depends(require_user)])
-topology_router = APIRouter(prefix="/api/pve/network", tags=["automation"], dependencies=[Depends(require_user)])
-log = logging.getLogger("proxmox-os.automation")
+log = logging.getLogger("solardeck.automation")
 
 TICK_S = 60
 SCHEDULE_GRACE_S = 600  # a scheduled rule still fires if the tick lands up to 10 minutes late
@@ -151,7 +151,7 @@ async def send_one(name: str, cfg: dict, title: str, message: str, severity: str
     """Deliver one alert; returns {channel, ok, detail} and never raises (secrets are scrubbed from errors)."""
     try:
         if name == "telegram":
-            text = f"<b>{html.escape(title)}</b>\n{html.escape(message)}\n<i>SolarDeck · {html.escape(settings.pve_node)}</i>"
+            text = f"<b>{html.escape(title)}</b>\n{html.escape(message)}\n<i>SolarDeck · {html.escape(settings.node_name)}</i>"
             r = await _http("POST", f"https://api.telegram.org/bot{cfg['bot_token']}/sendMessage",
                             json={"chat_id": cfg["chat_id"], "text": text, "parse_mode": "HTML"})
             ok = r.status_code == 200 and r.json().get("ok") is True
@@ -159,12 +159,12 @@ async def send_one(name: str, cfg: dict, title: str, message: str, severity: str
         elif name == "discord":
             embed = {"title": title[:256], "description": message[:4000], "color": SEVERITY_COLOR.get(severity, 0x38BDF8),
                      "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-                     "footer": {"text": f"SolarDeck · {settings.pve_node}"}}
+                     "footer": {"text": f"SolarDeck · {settings.node_name}"}}
             r = await _http("POST", cfg["webhook_url"], json={"username": "SolarDeck", "embeds": [embed]})
             ok, detail = r.status_code in (200, 204), f"HTTP {r.status_code}"
         elif name == "webhook":
             headers = {"Authorization": f"Bearer {cfg['bearer_token']}"} if cfg.get("bearer_token") else {}
-            payload = {"source": "SolarDeck", "node": settings.pve_node, "severity": severity, "title": title,
+            payload = {"source": "SolarDeck", "node": settings.node_name, "severity": severity, "title": title,
                        "message": message, "timestamp": int(time.time())}
             r = await _http(cfg.get("method") or "POST", cfg["url"], json=payload, headers=headers)
             ok, detail = r.is_success, f"HTTP {r.status_code}"
@@ -179,7 +179,7 @@ async def send_one(name: str, cfg: dict, title: str, message: str, severity: str
 def _send_email(cfg: dict, title: str, message: str) -> None:
     msg = EmailMessage()
     msg["Subject"], msg["From"], msg["To"] = f"[SolarDeck] {title}", cfg["from_email"], cfg["to_email"]
-    msg.set_content(f"{message}\n\n-- SolarDeck on {settings.pve_node}")
+    msg.set_content(f"{message}\n\n-- SolarDeck on {settings.node_name}")
     ctx = ssl.create_default_context()
     implicit = cfg["use_tls"] and cfg["smtp_port"] == 465  # port 465 = TLS from the start, others upgrade with STARTTLS
     cls = smtplib.SMTP_SSL if implicit else smtplib.SMTP
@@ -330,7 +330,7 @@ def get_logs():
 
 # ---------------------------------------------------------------- Evaluation
 
-def _pct(used, total) -> float:
+def _percent(used, total) -> float:
     return used / total * 100 if total else 0.0
 
 
@@ -360,9 +360,9 @@ def evaluate(rule: dict, ctx: dict, now: float) -> str | None:
                if (p.get("health") or "UNKNOWN").upper() != "ONLINE"]
         return "ZFS pool " + ", ".join(bad) if bad else None
     if t == "storage_usage_above":
-        full = [(p["name"], _pct(p.get("alloc") or 0, p.get("size") or 0)) for p in ctx.get("pools", [])]
+        full = [(p["name"], _percent(p.get("alloc") or 0, p.get("size") or 0)) for p in ctx.get("pools", [])]
         rootfs = ctx.get("rootfs") or {}
-        full.append(("host root filesystem", _pct(rootfs.get("used") or 0, rootfs.get("total") or 0)))
+        full.append(("host root filesystem", _percent(rootfs.get("used") or 0, rootfs.get("total") or 0)))
         over = [f"{n} {v:.0f}%" for n, v in full if v > th]
         return f"Storage above {th:.0f}%: {', '.join(over)}" if over else None
     if t == "guest_stopped_unexpectedly":
@@ -385,32 +385,17 @@ async def gather_context(rules: list[dict]) -> dict:
     if need & {"gpu_temp_above", "disk_temp_above"}:
         jobs["hw"] = telemetry.hardware()
     if need & {"zfs_pool_degraded", "storage_usage_above"} or any(r["action"] == "prune_old_snapshots" for r in rules):
-        jobs["pools"] = _safe(_node("/disks/zfs"), [])
-        jobs["status"] = _safe(_node("/status"), {})
+        jobs["pools"] = get_provider().zfs_pool_list()
+        jobs["status"] = get_provider().host_status()
     if "guest_stopped_unexpectedly" in need:
-        jobs["qemu"], jobs["lxc"] = _safe(_node("/qemu"), []), _safe(_node("/lxc"), [])
+        jobs["guests"] = get_provider().guest_rows()
     res = dict(zip(jobs, await asyncio.gather(*jobs.values())))
     if "hw" in res:
         ctx["gpu"], ctx["disks"] = res["hw"].get("gpu"), res["hw"].get("disks", [])
     ctx["pools"] = res.get("pools") or []
     ctx["rootfs"] = (res.get("status") or {}).get("rootfs") or {}
-    ctx["guests"] = {(k, int(g["vmid"])): g for k in ("qemu", "lxc") for g in (res.get(k) or [])}
+    ctx["guests"] = {(g["type"], int(g["vmid"])): g for g in (res.get("guests") or [])}
     return ctx
-
-
-async def _guest_power(target: dict, action: str) -> str:
-    base = _node(f"/{target['type']}/{target['vmid']}/status")
-    cur = (await pve("GET", f"{base}/current")).get("status")
-    if action == "stop_guest":
-        if cur == "stopped":
-            return "Already stopped"
-        await pve("POST", f"{base}/shutdown", data={"forceStop": 1})
-        return "Shutdown sent"
-    verb = "reboot" if action == "restart_guest" and cur == "running" else "start"
-    if verb == "start" and cur == "running":
-        return "Already running"
-    await pve("POST", f"{base}/{verb}")
-    return "Restart sent" if verb == "reboot" else "Start sent"
 
 
 async def prune_snapshots(pools: list[str] | None, older_than_days: int, now: float) -> str:
@@ -434,10 +419,10 @@ async def run_action(rule: dict, summary: str, ctx: dict, now: float) -> tuple[s
         good = sum(r["ok"] for r in results)
         return ("ok" if good == len(results) else "partial" if good else "error"), "; ".join(parts)
     if a in GUEST_ACTIONS:
-        return "ok", await _guest_power(rule["target"], a)
+        return "ok", await get_provider().guest_rule_power(rule["target"]["type"], int(rule["target"]["vmid"]), a)
     over = None
     if rule["trigger"] == "storage_usage_above":
-        over = [p["name"] for p in ctx.get("pools", []) if _pct(p.get("alloc") or 0, p.get("size") or 0) > rule["threshold"]]
+        over = [p["name"] for p in ctx.get("pools", []) if _percent(p.get("alloc") or 0, p.get("size") or 0) > rule["threshold"]]
     return "ok", await prune_snapshots(over, rule.get("prune_older_than_days", 7), now)
 
 
@@ -502,7 +487,7 @@ MAC_RE = re.compile(r"([0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5})")
 
 
 def parse_guest_nets(kind: str, cfg: dict) -> list[dict]:
-    """net0..netN of a QEMU (`virtio=MAC,bridge=vmbr0,tag=10`) or LXC (`name=eth0,hwaddr=MAC,bridge=vmbr0,ip=…`) config."""
+    """net0..netN of a QEMU (`virtio=MAC,bridge=br0,tag=10`) or LXC (`name=eth0,hwaddr=MAC,bridge=br0,ip=…`) config."""
     out = []
     for k, v in sorted(cfg.items(), key=lambda kv: kv[0]):
         m = NET_KEY_RE.match(k)
@@ -619,27 +604,3 @@ def build_topology(network: list[dict], links: dict[str, dict], guests: list[dic
     known = {x["id"] for x in nodes}
     edges = [e for e in edges if e["source"] in known and e["target"] in known]
     return {"nodes": nodes, "edges": list({e["id"]: e for e in edges}.values()), "generated_at": int(time.time())}
-
-
-@topology_router.get("/topology")
-async def topology():
-    network, qemu, lxc, links, wg, wg_live, router_cfg = await asyncio.gather(
-        _safe(_node("/network"), []), _safe(_node("/qemu"), []), _safe(_node("/lxc"), []),
-        host_ssh.run("ip -j link show", check=False, timeout=15),
-        net_services.load("wg", net_services.WG_DEFAULT), net_services.wg_dump(),
-        net_services.load("router", net_services.ROUTER_DEFAULT), return_exceptions=True)
-    ok = lambda v, d: d if isinstance(v, BaseException) else (v or d)  # noqa: E731 - host bridge down: still show PVE data
-    items = [(k, g) for k, lst in (("qemu", ok(qemu, [])), ("lxc", ok(lxc, []))) for g in lst]
-    cfgs = await asyncio.gather(*[_safe(_node(f"/{k}/{g['vmid']}/config"), {}) for k, g in items])
-
-    async def live(k, g):
-        if g.get("status") != "running":
-            return None
-        path = f"/lxc/{g['vmid']}/interfaces" if k == "lxc" else f"/qemu/{g['vmid']}/agent/network-get-interfaces"
-        return await _safe(_node(path), None)
-
-    lives = await asyncio.gather(*[live(k, g) for k, g in items])
-    guests = [{"type": k, "vmid": int(g["vmid"]), "name": g.get("name"), "status": g.get("status"),
-               "nets": parse_guest_nets(k, c or {}), "ips": guest_ips(k, lv)} for (k, g), c, lv in zip(items, cfgs, lives)]
-    return build_topology(ok(network, []), parse_ip_links(ok(links, "")), sorted(guests, key=lambda g: g["vmid"]),
-                          ok(wg, {}), ok(wg_live, {}), ok(router_cfg, {}))

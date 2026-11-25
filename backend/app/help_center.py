@@ -13,13 +13,14 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from . import bios_guides, host, host_ssh, notifications, pci
+from .config import settings
 from .auth import load_security, require_user
-from .backups import ScheduleBody, schedule_params
-from .pve import _node, _safe, pve
-from .system import flatten
+from providers.registry import driver_package, get_provider
 
 router = APIRouter(prefix="/api/help", tags=["help"], dependencies=[Depends(require_user)])
 FixId = Literal["repos", "iommu", "time", "updates", "backups"]
+# systemd-boot entry tool of this platform ("" = GRUB only).
+BOOT_TOOL = driver_package().BOOT_TOOL
 
 
 def item(id_: str, title: str, status: str, summary: str, details: str = "", fix: dict | None = None,
@@ -30,42 +31,15 @@ def item(id_: str, title: str, status: str, summary: str, details: str = "", fix
 
 def check_bridge(error: str | None) -> dict:
     if not error:
-        return item("bridge", "Host connection (SSH key bridge)", "ok", "SolarDeck can run admin tasks on your Proxmox host.")
+        return item("bridge", "Host connection (SSH key bridge)", "ok", "SolarDeck can run admin tasks on your host.")
     return item("bridge", "Host connection (SSH key bridge)", "error",
-                "SolarDeck cannot log in to your Proxmox host, so Host Shell, drivers, network services and fixes won't work.",
+                "SolarDeck cannot log in to your host, so Host Shell, drivers, network services and fixes won't work.",
                 error, None,
-                ["On your computer, open a terminal in the SolarDeck folder and run ./deploy.sh (or run install.sh on the "
-                 "Proxmox host as root). It re-creates and authorizes the SolarDeck key.",
+                ["On your computer, open a terminal in the SolarDeck folder and run ./deploy.sh (or run the installer on the "
+                 "host as root). It re-creates and authorizes the SolarDeck key.",
                  "Make sure the host allows root logins with keys: in /etc/ssh/sshd_config, PermitRootLogin must not be 'no'.",
                  "Come back here and press 'Check again'."],
                 {"app": "controlpanel", "intent": "security"})
-
-
-def check_repos(repos: dict, subscription: dict) -> dict:
-    flat = flatten(repos or {})["repositories"]
-    has_sub = (subscription or {}).get("status") == "active"
-    enterprise = [r for r in flat if r["enabled"] and (r["handle"] or "").endswith("enterprise")]
-    no_sub = any(r["enabled"] and r["handle"] == "no-subscription" for r in flat)
-    manual = ["Open the System app and go to Repositories.",
-              "Switch OFF every repository marked 'enterprise' (Proxmox VE and Ceph).",
-              "Click 'Add' next to 'No-Subscription' so updates still arrive.",
-              "Go to Updates and press 'Refresh' — the 401 errors are gone."]
-    if has_sub or not enterprise:
-        status = "ok" if no_sub or has_sub else "warning"
-        return item("repos", "Update sources (APT repositories)", status,
-                    "Your update sources are set up correctly." if status == "ok" else
-                    "No Proxmox update source is enabled, so the host never receives updates.",
-                    fix=None if status == "ok" else {"label": "Add the free No-Subscription source",
-                                                     "changes": ["Adds the Proxmox 'no-subscription' repository"], "reboot": False},
-                    manual=[] if status == "ok" else manual, link={"app": "system"})
-    return item("repos", "Update sources (APT repositories)", "warning",
-                "The paid 'Enterprise' update source is on, but this server has no subscription. Updates fail with "
-                "'401 Unauthorized' and you miss security fixes.",
-                f"Enabled enterprise sources: {', '.join(sorted({r['path'] for r in enterprise}))}",
-                {"label": "Switch to the free No-Subscription updates",
-                 "changes": [f"Turns off {len(enterprise)} enterprise source(s)"] +
-                            ([] if no_sub else ["Adds the Proxmox 'no-subscription' repository"]), "reboot": False},
-                manual, {"app": "system"})
 
 
 def check_iommu(enabled: bool, has_gpu: bool, cpu_vendor: str) -> dict:
@@ -80,8 +54,8 @@ def check_iommu(enabled: bool, has_gpu: bool, cpu_vendor: str) -> dict:
                              "Loads the vfio modules at boot and rebuilds the boot images"], "reboot": True},
                 ["Reboot the server and enter the BIOS/UEFI setup (usually Del or F2 while it starts).",
                  "Find 'Intel VT-d' (Intel) or 'AMD-Vi / IOMMU' (AMD), set it to Enabled, save and exit.",
-                 f"Open Host Shell. If the host boots with systemd-boot (ZFS on UEFI), add '{flag} iommu=pt' to the end of "
-                 "the single line in /etc/kernel/cmdline and run: proxmox-boot-tool refresh",
+                 *([f"Open Host Shell. If the host boots with systemd-boot (ZFS on UEFI), add '{flag} iommu=pt' to the end "
+                    f"of the single line in /etc/kernel/cmdline and run: {BOOT_TOOL} refresh"] if BOOT_TOOL else []),
                  f"Otherwise (GRUB), add '{flag} iommu=pt' inside GRUB_CMDLINE_LINUX_DEFAULT in /etc/default/grub and "
                  "run: update-grub",
                  "Reboot. Back here, 'Check again' should turn green."],
@@ -135,26 +109,6 @@ def check_updates(updates: list) -> dict:
                 manual=["Open the System app → Updates.", "Press 'Refresh', then 'Upgrade'.",
                         "If a new kernel was installed, reboot the host when convenient (Control Panel → System & Power)."],
                 link={"app": "system"})
-
-
-def backup_storage(storages: list) -> str | None:
-    return next((s["storage"] for s in storages or [] if s.get("enabled", 1) and s.get("active", 1)
-                 and "backup" in (s.get("content") or "")), None)
-
-
-def check_backups(jobs: list, storages: list) -> dict:
-    if any(j.get("enabled", 1) for j in jobs or []):
-        return item("backups", "Automatic backups", "ok", "At least one automatic backup job is active.", link={"app": "backup"})
-    target = backup_storage(storages)
-    return item("backups", "Automatic backups", "warning",
-                "No automatic backups are scheduled. If a disk dies or an update goes wrong, your VMs and containers are lost.",
-                f"Suggested storage: {target}" if target else "No storage accepts backups yet.",
-                {"label": f"Back up every guest each Sunday at 02:00 to '{target}'",
-                 "changes": ["Creates a Proxmox backup job for all VMs and containers (snapshot mode, zstd)",
-                             "Keeps the last 4 backups of each guest"], "reboot": False} if target else None,
-                ["Open Backup Center → Schedules → 'New schedule'.", "Choose 'All guests', a storage and a time (e.g. Sunday 02:00).",
-                 "Set 'Keep last' to 4 or more and save.", "Tip: store backups on a different disk than your VMs."],
-                {"app": "backup"})
 
 
 def check_gpu_drivers(devices: list) -> list[dict]:
@@ -231,16 +185,10 @@ async def _probe() -> dict | None:
 
 @router.get("/diagnostics")
 async def diagnostics():
-    bridge_err, (synced, vendor), probe, repos, sub, updates, jobs, stores, alerts = await asyncio.gather(
-        _bridge_error(), _host_facts(), _probe(), _safe(_node("/apt/repositories")), _safe(_node("/subscription"), {}),
-        _safe(_node("/apt/update")), _safe("/cluster/backup"), _safe(_node("/storage"), [], params={"content": "backup"}),
-        notifications.notifications(),
+    bridge_err, (synced, vendor), probe, platform, alerts = await asyncio.gather(
+        _bridge_error(), _host_facts(), _probe(), get_provider().help_diagnostics(), notifications.notifications(),
     )
-    # A None result means the Proxmox API call failed: skip that check instead of reporting a false problem.
-    items = [check_bridge(bridge_err), check_twofa(bool(load_security().get("totp_enabled")))]
-    items += [check_repos(repos, sub)] if repos is not None else []
-    items += [check_updates(updates)] if updates is not None else []
-    items += [check_backups(jobs, stores)] if jobs is not None else []
+    items = [check_bridge(bridge_err), check_twofa(bool(load_security().get("totp_enabled"))), *platform]
     if synced is not None:
         items.append(check_time(synced))
     if probe:
@@ -281,15 +229,16 @@ async def bios(vendor: str | None = Query(None, pattern=r"^[a-z]{2,12}$")):
 IOMMU_SCRIPT = r"""
 P="__FLAG__ iommu=pt"
 # Never pipe into grep -q here: jobs run with pipefail and its early exit SIGPIPEs the writer, failing the test.
-if [ -d /sys/firmware/efi ] && [ -f /etc/kernel/cmdline ] && [[ "$(proxmox-boot-tool status 2>/dev/null)" == *uefi* ]]; then
-  echo "==> systemd-boot detected: editing /etc/kernel/cmdline (backup: /etc/kernel/cmdline.proxmox-os.bak)"
-  cp -n /etc/kernel/cmdline /etc/kernel/cmdline.proxmox-os.bak
+BT="__BOOT_TOOL__"
+if [ -n "$BT" ] && [ -d /sys/firmware/efi ] && [ -f /etc/kernel/cmdline ] && [[ "$($BT status 2>/dev/null)" == *uefi* ]]; then
+  echo "==> systemd-boot detected: editing /etc/kernel/cmdline (backup: /etc/kernel/cmdline.{P}.bak)"
+  cp -n /etc/kernel/cmdline /etc/kernel/cmdline.{P}.bak
   for p in $P; do grep -qw -- "$p" /etc/kernel/cmdline || sed -i "1 s/[[:space:]]*\$/ $p/" /etc/kernel/cmdline; done
   cat /etc/kernel/cmdline
-  proxmox-boot-tool refresh
+  $BT refresh
 else
-  echo "==> GRUB detected: editing /etc/default/grub (backup: /etc/default/grub.proxmox-os.bak)"
-  cp -n /etc/default/grub /etc/default/grub.proxmox-os.bak
+  echo "==> GRUB detected: editing /etc/default/grub (backup: /etc/default/grub.{P}.bak)"
+  cp -n /etc/default/grub /etc/default/grub.{P}.bak
   for p in $P; do
     grep -q "^GRUB_CMDLINE_LINUX_DEFAULT=.*$p" /etc/default/grub \
       || sed -i "s/^GRUB_CMDLINE_LINUX_DEFAULT=\"\(.*\)\"/GRUB_CMDLINE_LINUX_DEFAULT=\"\1 $p\"/" /etc/default/grub
@@ -297,25 +246,16 @@ else
   grep ^GRUB_CMDLINE_LINUX_DEFAULT /etc/default/grub
   update-grub
 fi
-printf 'vfio\nvfio_iommu_type1\nvfio_pci\n' > /etc/modules-load.d/proxmox-os-iommu.conf
+printf 'vfio\nvfio_iommu_type1\nvfio_pci\n' > /etc/modules-load.d/{P}-iommu.conf
 update-initramfs -u -k all
 echo "==> Done. Reboot the host. If IOMMU is still off afterwards, enable VT-d / AMD-Vi in the BIOS/UEFI setup."
 """
+IOMMU_SCRIPT = IOMMU_SCRIPT.replace("{P}", settings.system_prefix).replace("__BOOT_TOOL__", BOOT_TOOL)
 
 
 @router.post("/fix/{fix_id}")
 async def fix(fix_id: FixId):
     """Apply a fix. Returns {message, job?}; a job streams its log at /api/host/jobs/{job}."""
-    if fix_id == "repos":
-        data = await pve("GET", _node("/apt/repositories")) or {}
-        flat = flatten(data)
-        for r in flat["repositories"]:
-            if r["enabled"] and (r["handle"] or "").endswith("enterprise"):
-                await pve("POST", _node("/apt/repositories"), data={"path": r["path"], "index": r["index"], "enabled": 0})
-        if not any(r["enabled"] and r["handle"] == "no-subscription" for r in flat["repositories"]):
-            await pve("PUT", _node("/apt/repositories"), data={"handle": "no-subscription"})
-        await pve("POST", _node("/apt/update"))
-        return {"message": "Enterprise sources are off and the free No-Subscription source is on. The update list is refreshing."}
     if fix_id == "iommu":
         _, vendor = await _host_facts()
         await host_ssh.start_job("help-iommu", IOMMU_SCRIPT.replace("__FLAG__", "amd_iommu=on" if vendor == "amd" else "intel_iommu=on"))
@@ -326,10 +266,4 @@ async def fix(fix_id: FixId):
     if fix_id == "updates":
         await host.run(["apt-upgrade"])
         return {"message": "Updates are installing in the background. Follow the progress in System → Updates."}
-    stores = await _safe(_node("/storage"), [], params={"content": "backup"})
-    target = backup_storage(stores)
-    if not target:
-        raise HTTPException(409, "No storage accepts backups. Add one in Storage & ZFS → Storage backends first.")
-    await pve("POST", "/cluster/backup", data=schedule_params(ScheduleBody(
-        schedule="sun 02:00", storage=target, keep_last=4, comment="Created by the SolarDeck Help Center")))
-    return {"message": f"Every VM and container is now backed up each Sunday at 02:00 to '{target}' (last 4 kept)."}
+    return await get_provider().help_fix(fix_id)  # repos, backups: the platform's update sources and backup jobs

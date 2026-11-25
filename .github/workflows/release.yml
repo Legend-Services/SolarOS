@@ -43,7 +43,7 @@ jobs:
           from fastapi.routing import APIRoute
           from app.main import app
           paths = {r.path for r in app.routes if isinstance(r, APIRoute)}
-          assert {'/api/pve/guests', '/api/v1/guests', '/api/system/updates/apply', '/api/system/updates/iso', '/api/v1/system/capabilities'} <= paths
+          assert {'/api/v1/guests', '/api/v1/guests', '/api/system/updates/apply', '/api/system/updates/iso', '/api/v1/system/capabilities'} <= paths
           print('$driver:', len(paths), 'routes')"
           done
       - name: Backend self-checks
@@ -53,6 +53,9 @@ jobs:
         run: |
           for f in install.sh deploy.sh deploy/*.sh hypervisor/*.sh; do bash -n "$f"; done
           python3 hypervisor/solardeck-console-tui.py --self-test
+          bash deploy/test-helper-proxmox.sh
+          # The SolarOS tree must not contain anything of the other edition (fails with the offending files).
+          bash deploy/make-edition-tree.sh solaros . "$RUNNER_TEMP/solaros-check"
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
@@ -75,3 +78,20 @@ jobs:
             && gh release upload "$GITHUB_REF_NAME" --clobber install.sh hypervisor/install-hypervisor.sh hypervisor/build-iso.sh \
             || gh release create "$GITHUB_REF_NAME" --title "SolarDeck ${GITHUB_REF_NAME}" --notes-file notes.md \
                  install.sh hypervisor/install-hypervisor.sh hypervisor/build-iso.sh
+      - name: Publish the SolarOS release branch
+        # SolarOS installs update from the "solaros" branch: the SolarOS edition tree only (deploy/make-edition-tree.sh
+        # removes every other edition and fails if a trace is left), one commit per release, tagged solaros-<version>.
+        run: |
+          bash deploy/make-edition-tree.sh solaros . "$RUNNER_TEMP/solaros"
+          git config user.name "SolarDeck release" && git config user.email "release@users.noreply.github.com"
+          git fetch -q --no-tags origin solaros:refs/remotes/origin/solaros || true
+          git worktree add -q --detach "$RUNNER_TEMP/branch"
+          cd "$RUNNER_TEMP/branch"
+          if git rev-parse -q --verify origin/solaros >/dev/null; then git checkout -q -B solaros origin/solaros; else git checkout -q --orphan solaros; fi
+          git rm -rq --cached . >/dev/null 2>&1 || true
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a "$RUNNER_TEMP/solaros/." .
+          git add -A
+          git commit -q -m "SolarOS ${GITHUB_REF_NAME}" || echo "no changes"
+          git tag -f "solaros-${GITHUB_REF_NAME}"
+          git push -q origin solaros "refs/tags/solaros-${GITHUB_REF_NAME}" --force-with-lease=solaros

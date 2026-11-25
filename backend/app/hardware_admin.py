@@ -14,15 +14,19 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from . import host_ssh, pci
+from .config import settings
 from .auth import require_user
-from .pve import _node, _safe
+from providers.registry import driver_package, get_provider
 
 router = APIRouter(tags=["hardware_admin"], dependencies=[Depends(require_user)])
 log = logging.getLogger(__name__)
 
-PKGS = ("nvidia-container-toolkit", "intel-media-va-driver-non-free", "intel-gpu-tools", "vainfo", "pve-firmware",
+PLATFORM = driver_package()
+PKGS = ("nvidia-container-toolkit", "intel-media-va-driver-non-free", "intel-gpu-tools", "vainfo", *PLATFORM.HOST_PACKAGES,
         "radeontop", "rocminfo", "rocm-smi", "lm-sensors")
-VFIO_CONF = "/etc/modprobe.d/proxmox-os-vfio.conf"
+VFIO_CONF = f"/etc/modprobe.d/{settings.name('vfio')}.conf"
+BLACKLIST_CONF = f"/etc/modprobe.d/{settings.name('blacklist')}.conf"
+VFIO_MODULES = f"/etc/modules-load.d/{settings.name('vfio')}.conf"
 NVIDIA_Q = "pci.bus_id,name,driver_version,memory.total,memory.used,utilization.gpu,temperature.gpu,power.draw"
 NVIDIA_CMD = f"command -v nvidia-smi >/dev/null && nvidia-smi --query-gpu={NVIDIA_Q} --format=csv,noheader,nounits 2>/dev/null"
 AMD_CMD = "for f in /sys/bus/pci/devices/*/mem_info_vram_total; do [ -e \"$f\" ] && echo \"$f $(cat $f)\"; done"
@@ -214,29 +218,29 @@ def gpu_mode(gpu: dict, vfio_ids: list[str], nvidia_built: bool) -> dict:
 def vfio_files(ids: list[str], vendors: set[str]) -> dict[str, str | None]:
     """Contents of the managed modprobe/modules files for a set of passthrough ids (None = delete the file)."""
     if not ids:
-        return {VFIO_CONF: None, "/etc/modprobe.d/proxmox-os-blacklist.conf": None,
-                "/etc/modules-load.d/proxmox-os-vfio.conf": None}
+        return {VFIO_CONF: None, BLACKLIST_CONF: None,
+                VFIO_MODULES: None}
     mods = {"nvidia": ["nouveau", "nvidia", "nvidiafb", "nvidia_drm"], "amd": ["amdgpu", "radeon"]}
     black = [m for v in sorted(vendors) for m in mods.get(v, [])]
     soft = "".join(f"softdep {m} pre: vfio-pci\n" for m in ["nouveau", "nvidia", "amdgpu", "radeon", "snd_hda_intel", "i915"])
     return {VFIO_CONF: f"# Managed by SolarDeck (GPU passthrough)\noptions vfio-pci ids={','.join(ids)}\n{soft}",
-            "/etc/modprobe.d/proxmox-os-blacklist.conf": "# Managed by SolarDeck\n" + "".join(f"blacklist {m}\n" for m in black)
+            BLACKLIST_CONF: "# Managed by SolarDeck\n" + "".join(f"blacklist {m}\n" for m in black)
             if black else None,
-            "/etc/modules-load.d/proxmox-os-vfio.conf": "vfio\nvfio_iommu_type1\nvfio_pci\n"}
+            VFIO_MODULES: "vfio\nvfio_iommu_type1\nvfio_pci\n"}
 
 
 # ---------------------------------------------------------------- Inventory
 
 
 async def _pci() -> dict:
-    """lspci over the bridge, else the Proxmox API PCI list (no drivers or kernel cmdline from that source)."""
+    """lspci over the bridge, else the provider's PCI list (no drivers or kernel cmdline from that source)."""
     try:
         probe = await pci.probe()
         if probe["devices"]:
             return probe
     except HTTPException:
         pass
-    return pci.parse(pci.from_pve(await _safe(_node("/hardware/pci"), []) or []))
+    return pci.parse(pci.from_api(await get_provider().pci_devices_raw() or []))
 
 
 async def _collect() -> tuple[dict[str, str], dict, bool, str]:
@@ -246,8 +250,8 @@ async def _collect() -> tuple[dict[str, str], dict, bool, str]:
     return split_sections(out), probe, connected, "Connected" if connected else (err.strip() or "No response from host")
 
 
-def fill_from_pve(inv: dict, st: dict) -> dict:
-    """Fill CPU, memory and kernel gaps (no SSH bridge, no dmidecode/lscpu) from PVE /nodes/{node}/status."""
+def fill_from_status(inv: dict, st: dict) -> dict:
+    """Fill CPU, memory and kernel gaps (no SSH bridge, no dmidecode/lscpu) from the provider's host status."""
     ci, mem, swap = st.get("cpuinfo") or {}, st.get("memory") or {}, st.get("swap") or {}
     c, m, flags = inv["cpu"], inv["memory"], str(ci.get("flags", "")).split()
     c["model"] = c["model"] or ci.get("model")
@@ -339,15 +343,15 @@ def safe_inventory(s: dict[str, str], probe: dict, disks: list[dict]) -> dict:
     try:
         return build_inventory(s, probe, disks)
     except Exception:  # unexpected host output must degrade to API data, never an HTTP 500
-        log.exception("hardware inventory parse failed; using Proxmox API data only")
+        log.exception("hardware inventory parse failed; using the hypervisor API data only")
         return build_inventory({}, probe, [])
 
 
 @router.get("/api/hardware/inventory")
 async def inventory():
     (s, probe, connected, message), disks, st = await asyncio.gather(
-        _collect(), _safe(_node("/disks/list"), []), _safe(_node("/status"), {}))
-    inv = fill_from_pve(safe_inventory(s, probe, disks or []), st or {})
+        _collect(), get_provider().raw_disks(), get_provider().host_status())
+    inv = fill_from_status(safe_inventory(s, probe, disks or []), st or {})
     pub = host_ssh.public_key_or_none()
     return {**inv, "ssh_bridge_connected": connected, "ssh_bridge_message": message,
             "ssh_setup_command": None if connected or not pub else host_ssh.setup_command(pub)}
@@ -361,18 +365,18 @@ async def gpu_metrics():
     return {"nvidia": parse_nvidia(s.get("nvidia", "")), "amd_vram": parse_amd_vram(s.get("amd", ""))}
 
 
-@router.get("/api/pve/bios/status")
+@router.get("/api/v1/bios/status")
 async def bios_status():
-    """Board/BIOS facts: dmidecode, then /sys/devices/virtual/dmi/id, then Proxmox API node info. Never a 500."""
+    """Board/BIOS facts: dmidecode, then /sys/devices/virtual/dmi/id, then the provider's host status. Never a 500."""
     from . import help_center  # lazy: help_center -> backups -> storage_admin imports this module
     (ok, out, err), st = await asyncio.gather(host_ssh.run_host_cmd(help_center.BIOS_PROBE, timeout=20),
-                                              _safe(_node("/status"), {}))
+                                              get_provider().host_status())
     facts = help_center.parse_bios_facts(out)
     ci = (st or {}).get("cpuinfo") or {}
     if not out.strip():  # bridge down: CPU vendor and VT-x/AMD-V from the API's /proc/cpuinfo flags
         flags = str(ci.get("flags", "")).split()
         facts.update(virtualization="vmx" in flags or "svm" in flags, cpu="amd" if "AMD" in str(ci.get("model")) else "intel")
-    return {**facts, "cpu_model": ci.get("model"), "pve_version": (st or {}).get("pveversion"),
+    return {**facts, "cpu_model": ci.get("model"), "platform_version": (st or {}).get("platform_version"),
             "ssh_bridge_connected": bool(out.strip()), "ssh_bridge_message": "Connected" if out.strip() else
             (err.strip() or "No response from host")}
 
@@ -384,7 +388,7 @@ APT_UPDATE = 'apt-get update || echo "!! apt-get update reported errors (an unli
 NONFREE = APT_UPDATE + """if [ -z "$(apt-cache madison __PROBE_PKG__ 2>/dev/null)" ]; then
   CODENAME=$(. /etc/os-release; echo $VERSION_CODENAME)
   echo "==> Enabling the Debian non-free component for $CODENAME"
-  cat > /etc/apt/sources.list.d/proxmox-os-nonfree.sources <<EOF
+  cat > /etc/apt/sources.list.d/{P}-nonfree.sources <<EOF
 Types: deb
 URIs: http://deb.debian.org/debian
 Suites: $CODENAME $CODENAME-updates
@@ -397,19 +401,19 @@ fi
 
 SCRIPTS = {
     "nvidia-install": "set -e\necho '==> Kernel headers and build tools'\n" + APT_UPDATE + r"""K=$(uname -r)
-apt-get install -y "proxmox-headers-$K" || apt-get install -y "pve-headers-$K"
+__KERNEL_HEADERS__
 apt-get install -y build-essential dkms pkg-config libglvnd-dev curl gpg
 echo '==> Blacklisting nouveau'
-printf 'blacklist nouveau\noptions nouveau modeset=0\n' > /etc/modprobe.d/proxmox-os-nouveau.conf
+printf 'blacklist nouveau\noptions nouveau modeset=0\n' > /etc/modprobe.d/{P}-nouveau.conf
 update-initramfs -u
 if grep -q '^nouveau ' /proc/modules; then
   rmmod nouveau 2>/dev/null || { echo '!! nouveau is still loaded and in use. Reboot the host, then click Install NVIDIA driver again.'; exit 3; }
 fi
 VER=$(curl -fsSL https://download.nvidia.com/XFree86/Linux-x86_64/latest.txt | awk '{print $1}')
 [[ "$VER" =~ ^[0-9.]+$ ]] || { echo '!! Could not determine the latest NVIDIA driver version'; exit 1; }
-RUN=/var/lib/proxmox-os/NVIDIA-Linux-x86_64-$VER.run
+RUN=/var/lib/{P}/NVIDIA-Linux-x86_64-$VER.run
 echo "==> Downloading NVIDIA driver $VER"
-mkdir -p /var/lib/proxmox-os
+mkdir -p /var/lib/{P}
 curl -fsSL -o "$RUN" "https://download.nvidia.com/XFree86/Linux-x86_64/$VER/NVIDIA-Linux-x86_64-$VER.run"
 echo "==> Installing NVIDIA driver $VER (DKMS)"
 sh "$RUN" --silent --dkms || { echo '!! Installer failed; see /var/log/nvidia-installer.log'; tail -n 30 /var/log/nvidia-installer.log; exit 1; }
@@ -426,19 +430,22 @@ echo '==> Done. Reboot the host if nvidia-smi above did not list the GPU.'
     "intel-install": "set -e\n" + NONFREE.replace("__PROBE_PKG__", "intel-media-va-driver-non-free") + """
 apt-get install -y intel-media-va-driver-non-free \\
   || { echo '!! intel-media-va-driver-non-free is unavailable; installing the free intel-media-va-driver (no low-power encode)'; apt-get install -y intel-media-va-driver; }
-# GuC/HuC firmware ships in pve-firmware; Debian firmware-* packages conflict with it and would remove proxmox-ve.
+# GuC/HuC firmware comes with the host's firmware package; Debian firmware-* packages may conflict with it.
 apt-get install -y intel-gpu-tools vainfo
 echo 'options i915 enable_guc=3' > /etc/modprobe.d/i915.conf
 update-initramfs -u
 echo '==> Done. Reboot the host to load the GuC/HuC firmware (Quick Sync low-power encoding).'
 """,
-    # amdgpu firmware ships in pve-firmware (firmware-amd-graphics conflicts with it and would remove proxmox-ve).
+    # amdgpu firmware comes with the host's firmware package (firmware-amd-graphics may conflict with it).
     "amd-install": "set -e\n" + APT_UPDATE + """apt-get install -y radeontop
 apt-get install -y rocminfo rocm-smi || echo '!! ROCm tools are not available in the configured repositories; skipped.'
 update-initramfs -u
 echo '==> Done.'
 """,
 }
+# Host-side file names carry the system prefix (solardeck-nouveau.conf, /var/lib/solardeck, ...).
+SCRIPTS = {k: v.replace("{P}", settings.system_prefix).replace("__KERNEL_HEADERS__", PLATFORM.KERNEL_HEADERS)
+           for k, v in SCRIPTS.items()}
 
 
 def mode_script(files: dict[str, str | None]) -> str:

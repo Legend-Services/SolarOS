@@ -6,7 +6,7 @@ export interface Overview {
   swap: { used: number; total: number };
   uptime: number;
   kernel: string;
-  pveversion: string;
+  platform_version: string;
   cpuinfo: { model: string; cpus: number; sockets: number; cores: number };
   net: { in: number; out: number };
   vms: { running: number; stopped: number; total: number };
@@ -79,7 +79,7 @@ export interface StorageInfo {
 }
 
 export interface ConsoleTarget {
-  type: "qemu" | "lxc" | "node"; // "node" = Proxmox host shell (vmid 0, mode "shell" only)
+  type: "qemu" | "lxc" | "node"; // "node" = host shell (vmid 0, mode "shell" only)
   vmid: number;
   name: string;
   mode: "vnc" | "shell";
@@ -87,7 +87,7 @@ export interface ConsoleTarget {
 
 export type TaskState = "running" | "ok" | "error";
 
-export interface PveTask {
+export interface HostTask {
   upid: string;
   type: string;
   id: string;
@@ -330,7 +330,7 @@ export interface FileEntry {
   mtime: number;
 }
 
-export interface PveDisk {
+export interface PhysicalDisk {
   devpath: string;
   by_id: string;
   model: string;
@@ -474,7 +474,7 @@ export interface NetIface {
 export interface SystemInfo {
   node: string;
   version: { version?: string; release?: string; repoid?: string };
-  pveversion: string;
+  platform_version: string;
   kernel: string;
   uptime: number;
   cpu_model: string;
@@ -576,7 +576,7 @@ export interface HypervisorIsoFile {
 
 export interface HypervisorIsoStatus {
   build_command: string;
-  test_command: string;
+  test_command: string | null;
   search_paths: string[];
   isos: HypervisorIsoFile[];
 }
@@ -588,7 +588,7 @@ export interface UpdateStatus {
   branch: string;
   remote: string;
   version: string | null;
-  driver: "proxmox" | "native_ubuntu";
+  driver: string;
   edition: string;
   service: string;
   supports_system_packages: boolean;

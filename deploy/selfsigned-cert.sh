@@ -7,12 +7,23 @@
 # container's addresses or hostname changed. SSL_DIR / SSL_SNIPPET override the paths (tests).
 set -euo pipefail
 
+# Callers from older releases do not pass SYSTEM_PREFIX: read it from backend/.env next to this script.
+PREFIX="${SYSTEM_PREFIX:-$(sed -n 's/^SYSTEM_PREFIX=//p' "$(dirname "$0")/../backend/.env" 2>/dev/null | tail -n1 | tr -d "'\"")}"
+PREFIX="${PREFIX:-solardeck}"
 DIR="${SSL_DIR:-/etc/nginx/ssl}"
-CRT="$DIR/proxmox-os.crt"
-KEY="$DIR/proxmox-os.key"
-SANS_FILE="$DIR/proxmox-os.san"
-SNIPPET="${SSL_SNIPPET:-/etc/nginx/proxmox-os-ssl.conf}"
+CRT="$DIR/${PREFIX}.crt"
+KEY="$DIR/${PREFIX}.key"
+SANS_FILE="$DIR/${PREFIX}.san"
+SNIPPET="${SSL_SNIPPET:-/etc/nginx/${PREFIX}-ssl.conf}"
 CN="SolarDeck self-signed"
+# nginx includes every /etc/nginx/*-ssl.conf: never add a second one next to an existing snippet (duplicate listen 443).
+if [[ -z "${SSL_SNIPPET:-}" && ! -e "$SNIPPET" ]]; then
+  for other in /etc/nginx/*-ssl.conf; do
+    [[ -e "$other" ]] || continue
+    echo "https: keeping the existing ${other}"
+    exit 0
+  done
+fi
 
 command -v openssl >/dev/null || { apt-get install -y -qq openssl >/dev/null; }
 

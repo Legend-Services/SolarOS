@@ -1,9 +1,9 @@
-"""Self-check for auth + File Station sandbox. Run: python -m tests.test_selfcheck (from backend/)."""
+"""Self-check for auth + File Station sandbox. Run: python -m tests.test_proxmox_selfcheck (from backend/)."""
 import os
 import tempfile
 
 tmp = tempfile.mkdtemp()
-os.environ.update(STORAGE_ROOT=tmp, ADMIN_USERNAME="admin", ADMIN_PASSWORD="pw", JWT_SECRET="x" * 32)
+os.environ.update(NODE_NAME="pve", DEFAULT_BRIDGE="vmbr0", STORAGE_ROOT=tmp, ADMIN_USERNAME="admin", ADMIN_PASSWORD="pw", JWT_SECRET="x" * 32)
 os.makedirs(os.path.join(tmp, ".hidden"))
 outside = tempfile.mkdtemp()
 os.symlink(outside, os.path.join(tmp, "escape"))
@@ -31,12 +31,12 @@ assert c.patch("/api/files/rename", json={"path": "/docs/a.txt", "new_name": "c.
 assert c.delete("/api/files/delete", params={"path": "/"}).status_code == 403
 assert c.delete("/api/files/delete", params={"path": "/docs"}).status_code == 200
 assert not os.path.exists(os.path.join(tmp, "docs"))
-assert c.post("/api/pve/guests/qemu/100/action", json={"action": "destroy"}).status_code == 422
+assert c.post("/api/v1/guests/qemu/100/action", json={"action": "destroy"}).status_code == 422
 
 # Mock Proxmox API to check aggregation logic.
 import httpx  # noqa: E402
 
-from app import pve  # noqa: E402
+from providers.proxmox import api as pve  # noqa: E402
 
 FAKE = {
     "/status": {"cpu": 0.1234, "loadavg": ["0.5", "0.4", "0.3"], "memory": {"used": 8, "total": 16, "free": 8},
@@ -62,15 +62,15 @@ def handler(req: httpx.Request) -> httpx.Response:
 
 
 pve._client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="https://pve/api2/json")
-o = c.get("/api/pve/overview").json()
+o = c.get("/api/v1/overview").json()
 assert o["cpu"] == 12.34 and o["memory"]["arc"] == 3 and o["net"] == {"in": 10, "out": 20}, o
 assert o["vms"] == {"running": 1, "stopped": 1, "total": 2} and o["containers"]["running"] == 1, o
-g = c.get("/api/pve/guests").json()
+g = c.get("/api/v1/guests").json()
 assert [x["vmid"] for x in g] == [100, 101, 102] and g[0]["type"] == "lxc" and g[2]["name"] == "qemu-102", g
 assert [x["maxcpu"] for x in g] == [2, 4, 0], g  # node lists say "cpus", cluster resources "maxcpu"
-assert c.post("/api/pve/guests/lxc/100/action", json={"action": "reboot"}).status_code == 200
+assert c.post("/api/v1/guests/lxc/100/action", json={"action": "reboot"}).status_code == 200
 assert posted == ["/lxc/100/status/reboot"], posted
-st = c.get("/api/pve/storage").json()
+st = c.get("/api/v1/storage").json()
 assert st["pools"][0]["detail"]["name"] == "tank" and st["disks"][0]["devpath"] == "/dev/nvme0n1", st
 
 # ---------------- Phase 2 ----------------
@@ -78,13 +78,14 @@ assert st["pools"][0]["detail"]["name"] == "tank" and st["disks"][0]["devpath"] 
 from starlette.websockets import WebSocketDisconnect  # noqa: E402
 
 from app import apps, host, shares  # noqa: E402
+from providers.proxmox.routes import apps as papps  # noqa: E402
 from app.config import settings  # noqa: E402
 
 FAKE2 = {
     "/tasks": [{"upid": "UPID:pve:1:2:3:vzcreate:105:root@pam:", "type": "vzcreate", "id": "105", "starttime": 5},
                {"upid": "UPID:pve:1:2:3:qmstart:101:root@pam:", "status": "OK", "endtime": 9},
                {"upid": "UPID:pve:1:2:3:qmstop:101:root@pam:", "status": "command failed", "endtime": 9}],
-    "/lxc": [{"vmid": 110, "name": "jf", "status": "running", "tags": "proxmox-os-app;pos-jellyfin"},
+    "/lxc": [{"vmid": 110, "name": "jf", "status": "running", "tags": f"{apps.TAG};pos-jellyfin"},
              {"vmid": 111, "name": "other", "tags": "pos-jellyfin"}],
 }
 calls = []
@@ -100,9 +101,9 @@ def handler2(req: httpx.Request) -> httpx.Response:
 
 pve._client = httpx.AsyncClient(transport=httpx.MockTransport(handler2), base_url="https://pve/api2/json")
 
-t = c.get("/api/pve/tasks").json()
+t = c.get("/api/v1/tasks").json()
 assert [x["state"] for x in t] == ["running", "ok", "error"] and t[0]["id"] == "105", t
-assert c.get("/api/pve/tasks/not-a-upid/status").status_code == 400
+assert c.get("/api/v1/tasks/not-a-upid/status").status_code == 400
 
 cat = {a["id"]: a for a in c.get("/api/apps/catalog").json()}
 assert len(cat) == 7 and [i["vmid"] for i in cat["jellyfin"]["installed"]] == [110], cat["jellyfin"]
@@ -110,12 +111,12 @@ assert all((apps.DATA / f"apps/{i}.sh").exists() for i in cat), "missing install
 body = apps.DeployBody(app_id="jellyfin", hostname="jf", cores=2, memory=2048, disk_gb=16,
                        ip_config={"cidr": "192.168.1.50/24", "gateway": "192.168.1.1"},
                        mount_storage=True, enable_igpu=True)
-cp_ = apps.create_params(120, apps.BY_ID["jellyfin"], body, "local:vztmpl/debian-12-standard_12.7-1.tar.zst", "tank")
+cp_ = papps.create_params(120, apps.BY_ID["jellyfin"], body, "local:vztmpl/debian-12-standard_12.7-1.tar.zst", "tank")
 assert cp_["net0"] == "name=eth0,bridge=vmbr0,ip=192.168.1.50/24,gw=192.168.1.1" and cp_["unprivileged"] == 1, cp_
-assert cp_["tags"] == "proxmox-os-app;pos-jellyfin" and cp_["rootfs"] == "tank:16", cp_
-assert apps.configure_opts(apps.BY_ID["jellyfin"], body) == ["storage", "igpu"]
-assert apps.configure_opts(apps.BY_ID["adguard-home"], body) == []  # unsupported options are dropped
-assert sorted(["a_12.10-1", "a_12.7-1"], key=apps._natural)[-1] == "a_12.10-1"
+assert cp_["tags"] == f"{apps.TAG};pos-jellyfin" and cp_["rootfs"] == "tank:16", cp_
+assert papps.configure_opts(apps.BY_ID["jellyfin"], body) == ["storage", "igpu"]
+assert papps.configure_opts(apps.BY_ID["adguard-home"], body) == []  # unsupported options are dropped
+assert sorted(["a_12.10-1", "a_12.7-1"], key=papps._natural)[-1] == "a_12.10-1"
 bad = {"app_id": "jellyfin", "hostname": "Bad_Host", "cores": 1, "memory": 512, "disk_gb": 4}
 assert c.post("/api/apps/deploy", json=bad).status_code == 422
 assert c.post("/api/apps/deploy", json={**bad, "hostname": "ok", "ip_config": {"cidr": "10.0.0.5", "gateway": "10.0.0.1"}}).status_code == 422
@@ -130,15 +131,15 @@ async def fake_run(args, stdin=None, on_line=None, timeout=120):
 
 
 host.run = fake_run
-z = c.get("/api/pve/zfs/snapshots").json()
+z = c.get("/api/v1/zfs/snapshots").json()
 assert z["datasets"][0]["name"] == "tank" and z["snapshots"][0] == {
     "name": "tank@snap1", "dataset": "tank", "snapshot": "snap1", "used": 1, "refer": 50, "creation": 1700000100}, z
-assert c.post("/api/pve/zfs/snapshots", json={"dataset": "tank/media", "name": "daily-1"}).status_code == 200
-assert c.post("/api/pve/zfs/snapshots", json={"dataset": "-o x", "name": "a"}).status_code == 422
-assert c.post("/api/pve/zfs/snapshots", json={"dataset": "tank", "name": "a;rm"}).status_code == 422
-assert c.post("/api/pve/zfs/snapshots/rollback", json={"snapshot": "tank@snap1", "force": True}).status_code == 200
-assert c.delete("/api/pve/zfs/snapshots", params={"snapshot": "tank"}).status_code == 422  # never a dataset
-assert c.delete("/api/pve/zfs/snapshots", params={"snapshot": "tank@snap1"}).status_code == 200
+assert c.post("/api/v1/zfs/snapshots", json={"dataset": "tank/media", "name": "daily-1"}).status_code == 200
+assert c.post("/api/v1/zfs/snapshots", json={"dataset": "-o x", "name": "a"}).status_code == 422
+assert c.post("/api/v1/zfs/snapshots", json={"dataset": "tank", "name": "a;rm"}).status_code == 422
+assert c.post("/api/v1/zfs/snapshots/rollback", json={"snapshot": "tank@snap1", "force": True}).status_code == 200
+assert c.delete("/api/v1/zfs/snapshots", params={"snapshot": "tank"}).status_code == 422  # never a dataset
+assert c.delete("/api/v1/zfs/snapshots", params={"snapshot": "tank@snap1"}).status_code == 200
 assert helper[1:] == [["zfs-snapshot", "tank/media@daily-1"], ["zfs-rollback", "tank@snap1", "force"],
                       ["zfs-destroy", "tank@snap1"]], helper
 
@@ -161,10 +162,10 @@ assert c.post("/api/shares/users", json={"username": "root;x", "password": "pw12
 settings.samba_conf.unlink()
 
 # Console tickets + WebSocket auth.
-v = c.post("/api/pve/guests/qemu/101/vnc").json()
+v = c.post("/api/v1/guests/qemu/101/vnc").json()
 assert v["password"] == "PVEVNC:t" and v["session"], v
 anon = TestClient(app)
-for url in (f"/api/pve/ws/vnc/qemu/101?session={v['session']}", "/api/pve/ws/terminal/lxc/100"):
+for url in (f"/api/v1/ws/vnc/qemu/101?session={v['session']}", "/api/v1/ws/terminal/lxc/100"):
     try:
         with anon.websocket_connect(url):
             raise AssertionError("unauthenticated websocket accepted")
@@ -172,7 +173,7 @@ for url in (f"/api/pve/ws/vnc/qemu/101?session={v['session']}", "/api/pve/ws/ter
         assert e.code == 4401, e.code
 tok = c.post("/api/auth/login", json={"username": "admin", "password": "pw"}).json()["token"]
 try:
-    with c.websocket_connect(f"/api/pve/ws/vnc/lxc/101?session={v['session']}&token={tok}"):  # wrong guest
+    with c.websocket_connect(f"/api/v1/ws/vnc/lxc/101?session={v['session']}&token={tok}"):  # wrong guest
         raise AssertionError("session for another guest accepted")
 except WebSocketDisconnect as e:
     assert e.code == 4403, e.code
@@ -214,7 +215,7 @@ async def no_hw(args, stdin=None, on_line=None, timeout=120):
 
 
 host.run = no_hw
-hw = c.get("/api/pve/telemetry/hardware").json()
+hw = c.get("/api/v1/telemetry/hardware").json()
 assert hw["gpu"]["available"] is False and hw["disks"][0]["temp_c"] == 61, hw
 assert hw["disks"][0]["life_left_pct"] == 97 and hw["disks"][1]["life_left_pct"] is None, hw
 
@@ -282,12 +283,13 @@ settings.schedules_file.unlink()
 # ---------------- System app ----------------
 
 from app import system  # noqa: E402
+from providers.proxmox.routes import system as psystem  # noqa: E402
 
-assert system.repo_handle("https://enterprise.proxmox.com/debian/pve", ["pve-enterprise"]) == "enterprise"
-assert system.repo_handle("http://download.proxmox.com/debian/pve", ["pve-no-subscription"]) == "no-subscription"
-assert system.repo_handle("https://enterprise.proxmox.com/debian/ceph-squid", ["enterprise"]) == "ceph-squid-enterprise"
-assert system.repo_handle("http://deb.debian.org/debian/", ["main"]) is None
-fl = system.flatten({"digest": "ab", "files": [{"path": "/etc/apt/sources.list.d/pve-enterprise.sources", "repositories": [
+assert psystem.repo_handle("https://enterprise.proxmox.com/debian/pve", ["pve-enterprise"]) == "enterprise"
+assert psystem.repo_handle("http://download.proxmox.com/debian/pve", ["pve-no-subscription"]) == "no-subscription"
+assert psystem.repo_handle("https://enterprise.proxmox.com/debian/ceph-squid", ["enterprise"]) == "ceph-squid-enterprise"
+assert psystem.repo_handle("http://deb.debian.org/debian/", ["main"]) is None
+fl = psystem.flatten({"digest": "ab", "files": [{"path": "/etc/apt/sources.list.d/pve-enterprise.sources", "repositories": [
     {"Enabled": 1, "Types": ["deb"], "URIs": ["https://enterprise.proxmox.com/debian/pve"], "Suites": ["trixie"],
      "Components": ["pve-enterprise"]}]}],
     "standard-repos": [{"handle": "enterprise", "name": "Enterprise", "status": 1},
@@ -296,8 +298,8 @@ assert fl["repositories"] == [{"path": "/etc/apt/sources.list.d/pve-enterprise.s
                                "types": ["deb"], "uris": ["https://enterprise.proxmox.com/debian/pve"],
                                "suites": ["trixie"], "components": ["pve-enterprise"], "handle": "enterprise"}], fl
 assert fl["available"] == [{"handle": "no-subscription", "name": "No-Subscription", "description": "free"}], fl
-st = system.parse_upgrade_status("state:inactive\nReading package lists...\nproxmox-os: exit 0")
-assert st == {"running": False, "exit_code": 0, "log": ["Reading package lists...", "proxmox-os: exit 0"]}, st
+st = system.parse_upgrade_status("state:inactive\nReading package lists...\nsolardeck: exit 0")
+assert st == {"running": False, "exit_code": 0, "log": ["Reading package lists...", "solardeck: exit 0"]}, st
 assert system.parse_upgrade_status("state:active\nUnpacking x")["running"] is True
 
 sys_calls = []
@@ -321,9 +323,9 @@ assert c.post("/api/system/power", json={"command": "destroy"}).status_code == 4
 assert c.post("/api/system/power", json={"command": "reboot"}).status_code == 200
 assert sys_calls[-1] == ("POST", "/status", "command=reboot")
 n = len(sys_calls)
-assert c.post("/api/pve/guests/node/0/terminal").json()["session"]  # host shell: SSH bridge session, no termproxy
-assert c.post("/api/pve/guests/lxc/101/terminal").json()["session"] and len(sys_calls) == n  # pct enter, no ticket
-assert c.post("/api/pve/guests/node/0/vnc").status_code == 422  # graphical console stays guests-only
+assert c.post("/api/v1/guests/node/0/terminal").json()["session"]  # host shell: SSH bridge session, no termproxy
+assert c.post("/api/v1/guests/lxc/101/terminal").json()["session"] and len(sys_calls) == n  # pct enter, no ticket
+assert c.post("/api/v1/guests/node/0/vnc").status_code == 422  # graphical console stays guests-only
 
 # ---------------- Phase 4 ----------------
 
@@ -370,57 +372,57 @@ def handler5(req: httpx.Request) -> httpx.Response:
 
 
 pve._client = httpx.AsyncClient(transport=httpx.MockTransport(handler5), base_url="https://pve/api2/json")
-assert c.get("/api/pve/disks").json()[0] == {"devpath": "/dev/sda", "by_id": "/dev/disk/by-id/ata-WD", "model": "", "serial": "",
+assert c.get("/api/v1/disks").json()[0] == {"devpath": "/dev/sda", "by_id": "/dev/disk/by-id/ata-WD", "model": "", "serial": "",
                                              "vendor": "", "size": 4, "type": "hdd", "bus": "SATA", "rotational": True,
                                              "rpm": None, "rpm_label": "HDD", "used": "", "gpt": False, "health": "PASSED",
                                              "wearout_pct": None, "pool_name": None, "vdev_name": None, "member_device": None,
                                              "member_state": None, "read_errors": None, "write_errors": None,
                                              "cksum_errors": None}
-assert c.get("/api/pve/disks/sda/smart").json()["temperature_c"] == 40
+assert c.get("/api/v1/disks/sda/smart").json()["temperature_c"] == 40
 assert p4[-1][2] == "disk=%2Fdev%2Fsda", p4[-1]
-assert c.get("/api/pve/disks/%2Fdev%2Fnvme0n1/smart").status_code == 200 and p4[-1][2] == "disk=%2Fdev%2Fnvme0n1", p4[-1]
-assert c.get("/api/pve/disks/..%2Fetc/smart").status_code == 422
-assert c.post("/api/pve/disks/wipe", json={"disk": "/dev/sda", "confirm_device": "/dev/sdb"}).status_code == 400
-assert c.post("/api/pve/disks/wipe", json={"disk": "/dev/sda;x", "confirm_device": "/dev/sda;x"}).status_code == 422
-assert c.post("/api/pve/disks/wipe", json={"disk": "/dev/sda", "confirm_device": "/dev/sda"}).json() == {"task": "UPID:x"}
+assert c.get("/api/v1/disks/%2Fdev%2Fnvme0n1/smart").status_code == 200 and p4[-1][2] == "disk=%2Fdev%2Fnvme0n1", p4[-1]
+assert c.get("/api/v1/disks/..%2Fetc/smart").status_code == 422
+assert c.post("/api/v1/disks/wipe", json={"disk": "/dev/sda", "confirm_device": "/dev/sdb"}).status_code == 400
+assert c.post("/api/v1/disks/wipe", json={"disk": "/dev/sda;x", "confirm_device": "/dev/sda;x"}).status_code == 422
+assert c.post("/api/v1/disks/wipe", json={"disk": "/dev/sda", "confirm_device": "/dev/sda"}).json() == {"task": "UPID:x"}
 assert p4[-1][:2] == ("PUT", "/disks/wipedisk") and p4[-1][3] == "disk=%2Fdev%2Fsda", p4[-1]
-assert c.post("/api/pve/disks/initgpt", json={"disk": "/dev/sda"}).status_code == 200 and p4[-1][1] == "/disks/initgpt"
-assert c.post("/api/pve/disks/directory", json={"device": "/dev/sda", "name": "backup", "filesystem": "xfs"}).status_code == 200
+assert c.post("/api/v1/disks/initgpt", json={"disk": "/dev/sda"}).status_code == 200 and p4[-1][1] == "/disks/initgpt"
+assert c.post("/api/v1/disks/directory", json={"device": "/dev/sda", "name": "backup", "filesystem": "xfs"}).status_code == 200
 assert "filesystem=xfs" in p4[-1][3] and "add_storage=1" in p4[-1][3], p4[-1]
-assert c.post("/api/pve/disks/lvm", json={"device": "/dev/sda", "name": "thin1", "thin": True}).status_code == 200
+assert c.post("/api/v1/disks/lvm", json={"device": "/dev/sda", "name": "thin1", "thin": True}).status_code == 200
 assert p4[-1][1] == "/disks/lvmthin", p4[-1]
-assert c.post("/api/pve/disks/lvm", json={"device": "/dev/sda", "name": "Bad Name"}).status_code == 422
+assert c.post("/api/v1/disks/lvm", json={"device": "/dev/sda", "name": "Bad Name"}).status_code == 422
 
 pool = {"name": "tank2", "raidlevel": "mirror", "devices": ["/dev/disk/by-id/ata-A", "/dev/disk/by-id/ata-B"]}
-assert c.post("/api/pve/zfs/pools", json=pool).status_code == 200
+assert c.post("/api/v1/zfs/pools", json=pool).status_code == 200
 assert p4[-1][:2] == ("POST", "/disks/zfs") and "devices=%2Fdev%2Fdisk%2Fby-id%2Fata-A%2C%2Fdev%2Fdisk%2Fby-id%2Fata-B" in p4[-1][3], p4[-1]
 assert "ashift=12" in p4[-1][3] and "compression=lz4" in p4[-1][3], p4[-1]
-assert c.post("/api/pve/zfs/pools", json={**pool, "raidlevel": "raidz2"}).status_code == 400  # too few disks
-assert c.post("/api/pve/zfs/pools", json={**pool, "devices": ["/dev/sda", "/dev/sda"]}).status_code == 400
-assert c.post("/api/pve/zfs/pools", json={**pool, "raidlevel": "raid5"}).status_code == 422
-assert c.delete("/api/pve/zfs/pools/tank2", params={"confirm": "tank"}).status_code == 400
-assert c.delete("/api/pve/zfs/pools/tank2", params={"confirm": "tank2"}).status_code == 200
+assert c.post("/api/v1/zfs/pools", json={**pool, "raidlevel": "raidz2"}).status_code == 400  # too few disks
+assert c.post("/api/v1/zfs/pools", json={**pool, "devices": ["/dev/sda", "/dev/sda"]}).status_code == 400
+assert c.post("/api/v1/zfs/pools", json={**pool, "raidlevel": "raid5"}).status_code == 422
+assert c.delete("/api/v1/zfs/pools/tank2", params={"confirm": "tank"}).status_code == 400
+assert c.delete("/api/v1/zfs/pools/tank2", params={"confirm": "tank2"}).status_code == 200
 assert p4[-1][:3] == ("DELETE", "/disks/zfs/tank2", "cleanup-config=1&cleanup-disks=1"), p4[-1]
 
 # Guest resource editor.
-gc = c.get("/api/pve/guests/qemu/101/config").json()
+gc = c.get("/api/v1/guests/qemu/101/config").json()
 assert gc["memory"] == 4096 and gc["onboot"] is True and [d["key"] for d in gc["disks"]] == ["efidisk0", "scsi0"], gc
 assert gc["disks"][1]["size"] == "32G" and gc["disks"][1]["resizable"] and not gc["disks"][0]["resizable"], gc
-r = c.patch("/api/pve/guests/qemu/101/config", json={"cores": 4, "memory": 8192, "onboot": False, "description": "",
+r = c.patch("/api/v1/guests/qemu/101/config", json={"cores": 4, "memory": 8192, "onboot": False, "description": "",
                                                     "resize_disk": "scsi0", "resize_to": "+10G"})
 assert r.json() == {"ok": True, "task": "UPID:x"}, r.text
 assert p4[-2] == ("PUT", "/qemu/101/config", "", "cores=4&memory=8192&onboot=0&delete=description"), p4[-2]
 assert p4[-1] == ("PUT", "/qemu/101/resize", "", "disk=scsi0&size=%2B10G"), p4[-1]
-assert c.patch("/api/pve/guests/qemu/101/config", json={"swap": 512}).status_code == 400
-assert c.patch("/api/pve/guests/lxc/100/config", json={"resize_disk": "rootfs"}).status_code == 400
-assert c.patch("/api/pve/guests/lxc/100/config", json={"resize_disk": "rootfs", "resize_to": "-5G"}).status_code == 422
+assert c.patch("/api/v1/guests/qemu/101/config", json={"swap": 512}).status_code == 400
+assert c.patch("/api/v1/guests/lxc/100/config", json={"resize_disk": "rootfs"}).status_code == 400
+assert c.patch("/api/v1/guests/lxc/100/config", json={"resize_disk": "rootfs", "resize_to": "-5G"}).status_code == 422
 
 # Control Panel: system info + admin password persisted to .env.
 si = c.get("/api/system/info").json()
 assert si["api"]["connected"] and si["version"]["version"] == "8.4.1" and si["network"][0]["iface"] == "vmbr0", si
 assert si["dns"]["dns1"] == "1.1.1.1", si
 config.ENV_FILE = __import__("pathlib").Path(tmp).parent / f"env-{os.getpid()}"
-config.ENV_FILE.write_text("PVE_NODE=pve\nADMIN_PASSWORD=pw\nJWT_SECRET=x\n")
+config.ENV_FILE.write_text("NODE_NAME=pve\nADMIN_PASSWORD=pw\nJWT_SECRET=x\n")
 assert c.post("/api/system/password", json={"current_password": "nope", "new_password": "longenough1"}).status_code == 403
 assert c.post("/api/system/password", json={"current_password": "pw", "new_password": "short"}).status_code == 422
 assert c.post("/api/system/password", json={"current_password": "pw", "new_password": "it's bad'"}).status_code == 422
@@ -428,7 +430,7 @@ new_pw = "N3w pass#word$"
 assert c.post("/api/system/password", json={"current_password": "pw", "new_password": new_pw}).status_code == 200
 from dotenv import dotenv_values  # noqa: E402
 
-assert dotenv_values(config.ENV_FILE) == {"PVE_NODE": "pve", "ADMIN_PASSWORD": new_pw, "JWT_SECRET": "x"}
+assert dotenv_values(config.ENV_FILE) == {"NODE_NAME": "pve", "ADMIN_PASSWORD": new_pw, "JWT_SECRET": "x"}
 assert (config.ENV_FILE.stat().st_mode & 0o777) == 0o600
 assert c.post("/api/auth/login", json={"username": "admin", "password": new_pw}).status_code == 200
 assert c.post("/api/auth/login", json={"username": "admin", "password": "pw"}).status_code == 401
@@ -446,24 +448,24 @@ async def ds_run(args, stdin=None, on_line=None, timeout=120):
 
 
 host.run = ds_run
-assert c.get("/api/pve/zfs/datasets").json()[0]["name"] == "tank"
-r = c.post("/api/pve/zfs/datasets", json={"name": "tank/media", "compression": "zstd", "atime": "off", "quota": "500G"})
+assert c.get("/api/v1/zfs/datasets").json()[0]["name"] == "tank"
+r = c.post("/api/v1/zfs/datasets", json={"name": "tank/media", "compression": "zstd", "atime": "off", "quota": "500G"})
 assert r.json()["path"] == "/tank/media" and h4[-2:] == [["zfs-create", "tank/media", "compression=zstd", "quota=500G", "atime=off"],
                                                           ["storage-map", "tank/media"]], h4
-c.post("/api/pve/zfs/datasets", json={"name": "tank/vol1", "kind": "volume", "volsize": "32G", "atime": "off"})
+c.post("/api/v1/zfs/datasets", json={"name": "tank/vol1", "kind": "volume", "volsize": "32G", "atime": "off"})
 assert h4[-1] == ["zfs-create", "tank/vol1", "volsize=32G"], h4  # no fs-only props, no mapping for ZVOLs
-assert c.post("/api/pve/zfs/datasets", json={"name": "tank/vol2", "kind": "volume"}).status_code == 400
-assert c.post("/api/pve/zfs/datasets", json={"name": "tank"}).status_code == 422  # pool root
-assert c.post("/api/pve/zfs/datasets", json={"name": "tank/x", "recordsize": "3K"}).status_code == 422
-assert c.post("/api/pve/zfs/datasets", json={"name": "tank/x", "mountpoint": "/a b"}).status_code == 422
-assert c.patch("/api/pve/zfs/datasets", json={"name": "tank/media", "recordsize": "1M"}).status_code == 200
+assert c.post("/api/v1/zfs/datasets", json={"name": "tank/vol2", "kind": "volume"}).status_code == 400
+assert c.post("/api/v1/zfs/datasets", json={"name": "tank"}).status_code == 422  # pool root
+assert c.post("/api/v1/zfs/datasets", json={"name": "tank/x", "recordsize": "3K"}).status_code == 422
+assert c.post("/api/v1/zfs/datasets", json={"name": "tank/x", "mountpoint": "/a b"}).status_code == 422
+assert c.patch("/api/v1/zfs/datasets", json={"name": "tank/media", "recordsize": "1M"}).status_code == 200
 assert h4[-1] == ["zfs-set", "tank/media", "recordsize=1M"], h4
-assert c.patch("/api/pve/zfs/datasets", json={"name": "tank/media"}).status_code == 400
-assert c.delete("/api/pve/zfs/datasets", params={"name": "tank/media", "confirm": "tank"}).status_code == 400
-assert c.delete("/api/pve/zfs/datasets", params={"name": "tank", "confirm": "tank"}).status_code == 422
-assert c.delete("/api/pve/zfs/datasets", params={"name": "tank/media", "confirm": "tank/media", "recursive": True}).status_code == 200
+assert c.patch("/api/v1/zfs/datasets", json={"name": "tank/media"}).status_code == 400
+assert c.delete("/api/v1/zfs/datasets", params={"name": "tank/media", "confirm": "tank"}).status_code == 400
+assert c.delete("/api/v1/zfs/datasets", params={"name": "tank", "confirm": "tank"}).status_code == 422
+assert c.delete("/api/v1/zfs/datasets", params={"name": "tank/media", "confirm": "tank/media", "recursive": True}).status_code == 200
 assert h4[-1] == ["zfs-destroy-dataset", "tank/media", "recursive"], h4
-assert c.post("/api/pve/zfs/pools/tank/scrub").status_code == 200 and h4[-1] == ["zpool-scrub", "tank"]
+assert c.post("/api/v1/zfs/pools/tank/scrub").status_code == 200 and h4[-1] == ["zpool-scrub", "tank"]
 
 # Shares: dataset-backed share + Samba options.
 settings.samba_conf = __import__("pathlib").Path(tmp).parent / f"smb4-{os.getpid()}.conf"
@@ -485,6 +487,7 @@ from urllib.parse import parse_qs  # noqa: E402
 import pyotp  # noqa: E402
 
 from app import auth, backups, provisioning, system_extra  # noqa: E402
+from providers.proxmox.routes import backups as pbackups, provisioning as pprovisioning  # noqa: E402
 
 p5, h5 = [], []
 UPID = "UPID:pve:1:2:3:x:1:root@pam:"
@@ -523,18 +526,18 @@ host.run = fake_run5
 pve._client = httpx.AsyncClient(transport=httpx.MockTransport(handler6), base_url="https://pve/api2/json")
 form = lambda: {k: v[0] for k, v in parse_qs(p5[-1][2]).items()}  # noqa: E731
 
-sc = c.get("/api/pve/storage/local/content").json()
+sc = c.get("/api/v1/storage/local/content").json()
 assert [v["content"] for v in sc] == ["backup", "vztmpl", "iso"] and sc[0]["vmid"] == 100, sc  # images dropped, newest first
-assert c.get("/api/pve/storage/Bad;x/content").status_code == 422
-assert c.post("/api/pve/storage/local/download-url", json={"url": "https://x.org/a/debian-12.iso"}).status_code == 200
+assert c.get("/api/v1/storage/Bad;x/content").status_code == 422
+assert c.post("/api/v1/storage/local/download-url", json={"url": "https://x.org/a/debian-12.iso"}).status_code == 200
 assert form() == {"url": "https://x.org/a/debian-12.iso", "content": "iso", "filename": "debian-12.iso", "verify-certificates": "1"}, form()
-assert c.post("/api/pve/storage/local/download-url", json={"url": "file:///etc/passwd.iso"}).status_code == 422
-assert c.post("/api/pve/storage/local/download-url", json={"url": "https://x.org/download"}).status_code == 422
-assert c.post("/api/pve/storage/local/download-url", json={"url": "https://x.org/a.iso", "filename": "../a.iso"}).status_code == 422
-assert c.delete("/api/pve/storage/local/content", params={"volume": "local:iso/debian.iso"}).status_code == 200
+assert c.post("/api/v1/storage/local/download-url", json={"url": "file:///etc/passwd.iso"}).status_code == 422
+assert c.post("/api/v1/storage/local/download-url", json={"url": "https://x.org/download"}).status_code == 422
+assert c.post("/api/v1/storage/local/download-url", json={"url": "https://x.org/a.iso", "filename": "../a.iso"}).status_code == 422
+assert c.delete("/api/v1/storage/local/content", params={"volume": "local:iso/debian.iso"}).status_code == 200
 assert p5[-1][0] == "DELETE" and p5[-1][1].startswith("/storage/local/content/local"), p5[-1]
-assert c.delete("/api/pve/storage/local/content", params={"volume": "other:iso/x.iso"}).status_code == 400
-assert c.delete("/api/pve/storage/local/content", params={"volume": "local:100/vm-100-disk-0.raw"}).status_code == 422
+assert c.delete("/api/v1/storage/local/content", params={"volume": "other:iso/x.iso"}).status_code == 400
+assert c.delete("/api/v1/storage/local/content", params={"volume": "local:100/vm-100-disk-0.raw"}).status_code == 422
 from fastapi import HTTPException  # noqa: E402
 
 from app import host_ssh  # noqa: E402
@@ -550,49 +553,49 @@ async def fake_ssh5(cmd, **kw):
 
 
 host_ssh.run = fake_ssh5
-pci = c.get("/api/pve/hardware/pci").json()
+pci = c.get("/api/v1/hardware/pci").json()
 assert [d["gpu"] for d in pci] == [False, True] and pci[1]["iommugroup"] == 14, pci
-assert c.get("/api/pve/nextid").json() == {"vmid": 105}
+assert c.get("/api/v1/nextid").json() == {"vmid": 105}
 
 vm = {"vmid": 105, "name": "win", "storage": "local-zfs", "bios": "ovmf", "ostype": "win11", "iso_volume": "local:iso/w.iso"}
-qp = provisioning.qemu_params(provisioning.QemuBody(**vm))
+qp = pprovisioning.qemu_params(provisioning.QemuBody(**vm))
 assert qp["efidisk0"].startswith("local-zfs:1,") and qp["tpmstate0"] and qp["machine"] == "q35", qp
-assert qp["ide2"] == "local:iso/w.iso,media=cdrom" and qp["tags"] == "proxmox-os-guest", qp
-assert "efidisk0" not in provisioning.qemu_params(provisioning.QemuBody(**{**vm, "bios": "seabios", "ostype": "l26"}))
-wq = provisioning.qemu_params(provisioning.QemuBody(**{**vm, "ostype": "win11"}))
+assert qp["ide2"] == "local:iso/w.iso,media=cdrom" and qp["tags"] == provisioning.GUEST_TAG, qp
+assert "efidisk0" not in pprovisioning.qemu_params(provisioning.QemuBody(**{**vm, "bios": "seabios", "ostype": "l26"}))
+wq = pprovisioning.qemu_params(provisioning.QemuBody(**{**vm, "ostype": "win11"}))
 assert "sata0" in wq and "scsi0" not in wq and wq["net0"].startswith("e1000e,") and wq["boot"] == "order=sata0;ide2;net0", wq
-lq = provisioning.qemu_params(provisioning.QemuBody(**{**vm, "ostype": "l26"}))
+lq = pprovisioning.qemu_params(provisioning.QemuBody(**{**vm, "ostype": "l26"}))
 assert "scsi0" in lq and lq["net0"].startswith("virtio,"), lq
-assert c.post("/api/pve/guests/qemu", json={**vm, "iso_volume": "local:iso/a.iso,file=/etc"}).status_code == 422
-assert c.post("/api/pve/guests/qemu", json={**vm, "hostpci": [{"id": "01:00.0;rm"}]}).status_code == 422
-r = c.post("/api/pve/guests/qemu", json={**vm, "hostpci": [{"id": "0000:01:00.0", "x_vga": True}], "usb": [{"host": "1532:025d"}]})
+assert c.post("/api/v1/guests/qemu", json={**vm, "iso_volume": "local:iso/a.iso,file=/etc"}).status_code == 422
+assert c.post("/api/v1/guests/qemu", json={**vm, "hostpci": [{"id": "01:00.0;rm"}]}).status_code == 422
+r = c.post("/api/v1/guests/qemu", json={**vm, "hostpci": [{"id": "0000:01:00.0", "x_vga": True}], "usb": [{"host": "1532:025d"}]})
 assert r.status_code == 200 and ssh5[-1] == ("qm set 105 -hostpci0 0000:01:00,pcie=1,rombar=1,x-vga=1 -usb0 host=1532:025d"), (r.text, ssh5)
 ct = {"vmid": 106, "hostname": "box", "ostemplate": "local:vztmpl/deb.tar.zst", "storage": "local-zfs", "password": "secret1"}
-assert c.post("/api/pve/guests/lxc", json={**ct, "ip_config": {"cidr": "10.0.0.9/24", "gateway": "10.0.0.1"}}).status_code == 200
+assert c.post("/api/v1/guests/lxc", json={**ct, "ip_config": {"cidr": "10.0.0.9/24", "gateway": "10.0.0.1"}}).status_code == 200
 assert form()["net0"] == "name=eth0,bridge=vmbr0,ip=10.0.0.9/24,gw=10.0.0.1" and form()["features"] == "nesting=1", form()
 n = len(h5)
-assert c.post("/api/pve/guests/lxc", json={**ct, "bind_dataset": "tank/media"}).status_code == 200
+assert c.post("/api/v1/guests/lxc", json={**ct, "bind_dataset": "tank/media"}).status_code == 200
 assert h5[n:] == [["guest-bindmount", "106", "tank/media"]], h5
-assert c.post("/api/pve/guests/lxc", json={**ct, "password": "1"}).status_code == 422
+assert c.post("/api/v1/guests/lxc", json={**ct, "password": "1"}).status_code == 422
 
-b = c.get("/api/pve/backups").json()
+b = c.get("/api/v1/backups").json()
 assert b["storages"] == ["local"] and len(b["archives"]) == 1, b
 assert b["archives"][0]["type"] == "lxc" and b["archives"][0]["name"] == "dns", b
 assert b["schedules"][0]["keep_last"] == 3 and b["schedules"][0]["enabled"] and b["schedules"][0]["all"], b
-assert c.post("/api/pve/backups/run", json={"vmid": "all", "storage": "local"}).status_code == 200
+assert c.post("/api/v1/backups/run", json={"vmid": "all", "storage": "local"}).status_code == 200
 assert p5[-1][1] == "/vzdump" and form() == {"all": "1", "storage": "local", "mode": "snapshot", "compress": "zstd"}, form()
-assert c.post("/api/pve/backups/run", json={"vmid": "x", "storage": "local"}).status_code == 422
-assert backups.restore_params(backups.RestoreBody(volid="local:backup/vzdump-lxc-100.tar.zst", type="lxc", vmid=120,
+assert c.post("/api/v1/backups/run", json={"vmid": "x", "storage": "local"}).status_code == 422
+assert pbackups.restore_params(backups.RestoreBody(volid="local:backup/vzdump-lxc-100.tar.zst", type="lxc", vmid=120,
                                                   storage="tank", force=True)) == {
     "vmid": 120, "storage": "tank", "ostemplate": "local:backup/vzdump-lxc-100.tar.zst", "restore": 1, "force": 1}
-assert c.post("/api/pve/backups/restore", json={"volid": "local:backup/x.vma.zst", "type": "qemu", "vmid": 121, "storage": "tank"}).status_code == 200
+assert c.post("/api/v1/backups/restore", json={"volid": "local:backup/x.vma.zst", "type": "qemu", "vmid": 121, "storage": "tank"}).status_code == 200
 assert p5[-1][1] == "/qemu" and form()["archive"] == "local:backup/x.vma.zst" and "force" not in form(), form()
-assert c.post("/api/pve/backups/schedules", json={"schedule": "daily 02:00", "storage": "local", "vmids": [100, 101], "keep_last": 5}).status_code == 200
+assert c.post("/api/v1/backups/schedules", json={"schedule": "daily 02:00", "storage": "local", "vmids": [100, 101], "keep_last": 5}).status_code == 200
 assert p5[-1][1] == "/cluster/backup" and form()["vmid"] == "100,101" and form()["prune-backups"] == "keep-last=5", form()
-assert c.post("/api/pve/backups/schedules", json={"schedule": "daily; rm", "storage": "local"}).status_code == 422
-assert c.post("/api/pve/backups/schedules", json={"schedule": "daily", "storage": "local", "vmids": []}).status_code == 422
-assert c.put("/api/pve/backups/schedules/backup-abc", json={"enabled": False}).status_code == 200 and form() == {"enabled": "0"}
-assert c.delete("/api/pve/backups/schedules/backup-abc").status_code == 200 and p5[-1][:2] == ("DELETE", "/cluster/backup/backup-abc")
+assert c.post("/api/v1/backups/schedules", json={"schedule": "daily; rm", "storage": "local"}).status_code == 422
+assert c.post("/api/v1/backups/schedules", json={"schedule": "daily", "storage": "local", "vmids": []}).status_code == 422
+assert c.put("/api/v1/backups/schedules/backup-abc", json={"enabled": False}).status_code == 200 and form() == {"enabled": "0"}
+assert c.delete("/api/v1/backups/schedules/backup-abc").status_code == 200 and p5[-1][:2] == ("DELETE", "/cluster/backup/backup-abc")
 
 # Spotlight search.
 system_extra._ds_cache = (0.0, [])

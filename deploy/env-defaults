@@ -3,5 +3,3 @@
 REPO_URL=https://github.com/Legend-Services/SolarOS.git
 REPO_BRANCH=main
 GITHUB_TOKEN=
-# Hypervisor driver behind the provider-neutral API (proxmox | native_ubuntu).
-HYPERVISOR_DRIVER=proxmox

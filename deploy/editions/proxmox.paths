@@ -1,0 +1,13 @@
+# Paths that belong only to SolarDeck for Proxmox VE (in addition to every path whose name contains "proxmox").
+# deploy/make-edition-tree.sh removes them from the trees of the other editions.
+install.sh
+deploy.sh
+deploy/env-renames
+CHANGELOG.md
+README.md
+COMMERCIAL_LICENSE.md
+backend/.env.example
+docs
+screenshots
+deploy/env-defaults-legacy
+frontend/scripts/generate-logos.py
