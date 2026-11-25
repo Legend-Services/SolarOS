@@ -102,9 +102,9 @@ fi
 # ---------------------------------------------------------------- 4. Incus
 if [[ -z "$(incus storage list --format csv 2>/dev/null)" ]]; then
   msg "Initializing Incus"
-  incus admin init --minimal
+  # A half-finished earlier init (e.g. its network exists) makes --minimal fail: then add the missing pieces.
+  incus admin init --minimal 2>/dev/null || true
 fi
-ok "Incus ready ($(incus storage list --format csv | cut -d, -f1 | paste -sd, -))"
 
 # ---------------------------------------------------------------- 5. SolarDeck code
 PREBUILT=""; [[ -n "$BUNDLE" && -f "${SRC%/}/frontend/dist/index.html" ]] && PREBUILT=1
@@ -138,6 +138,8 @@ else
 fi
 mkdir -p "${STORAGE_ROOT}"/{isos,templates,backups,ai-models}
 ok "Code in ${APP_DIR} ($(cat "${APP_DIR}/.build-commit" 2>/dev/null | cut -c1-12))"
+bash "${APP_DIR}/hypervisor/ensure-incus-pool.sh"
+ok "Incus ready ($(incus storage list --format csv | cut -d, -f1 | paste -sd, -))"
 
 # ---------------------------------------------------------------- 6. backend/.env
 ENV_FILE="${APP_DIR}/backend/.env"
