@@ -10,8 +10,8 @@ import { ViewOptionsPanel } from "./ViewOptions";
 import { TrayItems, TrayOverflow, useBarMenu, useTray } from "./SystemTray";
 
 /* One edge-to-edge bar along the bottom (the alternative to top bar + floating Dock): the App Gallery button in the
-   far left corner, a divider, search and the ordered app buttons; view options, full screen, the system tray and the
-   clock on the right (tray left of the clock by default, overflow chevron on the tray's inner side). Popovers open upwards. */
+   far left corner, a divider, search and the ordered app buttons; full screen, the system tray, the overflow chevron
+   and View Settings, and the clock on the right (tray left of the clock by default). Popovers open upwards. */
 
 const START_KEYS = new Set(["Meta", "OS"]); // the Start / logo key as browsers report it
 
@@ -187,18 +187,6 @@ export default function Taskbar() {
         })}
       </div>
       <div className="flex flex-1 items-center justify-end gap-1">
-        <div ref={viewRef} className="relative max-sm:hidden">
-          <button
-            onClick={() => setLayout({ panel: !viewPanel })}
-            className={`rounded-md p-1 text-slate-200 hover:bg-white/10 ${viewPanel ? "bg-white/10" : ""}`}
-            aria-expanded={viewPanel}
-            aria-label={t("top.viewSettings")}
-            title={t("top.viewSettings")}
-          >
-            <LayoutDashboard size={14} />
-          </button>
-          {viewPanel && <ViewOptionsPanel up />}
-        </div>
         <button
           onClick={toggleFullscreen}
           className="rounded-md p-1 text-slate-200 hover:bg-white/10 max-sm:hidden"
@@ -215,8 +203,23 @@ export default function Taskbar() {
         </button>
         <span className="mx-0.5 h-6 w-px shrink-0 bg-white/15" aria-hidden />
         <div className={`flex items-center gap-1 ${clockLeft ? "flex-row-reverse" : ""}`}>
-          <TrayOverflow ids={tray.overflow} up />
           <TrayItems ids={tray.bar} up />
+          {/* Chevron + View Settings stay one unit (chevron on the left), also when the clock side flips the row. */}
+          <div className="flex items-center gap-1">
+            <TrayOverflow ids={tray.overflow} up />
+            <div ref={viewRef} className="relative max-sm:hidden">
+              <button
+                onClick={() => setLayout({ panel: !viewPanel })}
+                className={`rounded-md p-1 text-slate-200 hover:bg-white/10 ${viewPanel ? "bg-white/10" : ""}`}
+                aria-expanded={viewPanel}
+                aria-label={t("top.viewSettings")}
+                title={t("top.viewSettings")}
+              >
+                <LayoutDashboard size={14} />
+              </button>
+              {viewPanel && <ViewOptionsPanel up />}
+            </div>
+          </div>
           <span className={`flex flex-col px-2 leading-tight tabular-nums text-slate-200 ${clockLeft ? "items-start" : "items-end"}`}>
             <span>{now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
             <span className="text-[10px] text-slate-400">{now.toLocaleDateString()}</span>
