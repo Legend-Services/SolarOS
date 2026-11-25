@@ -13,7 +13,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from . import host_ssh, pci
+from . import host_ssh, pci, task_progress
 from .config import settings
 from .auth import require_step_up_auth, require_user
 from providers.registry import driver_package, get_provider
@@ -399,13 +399,34 @@ EOF
 fi
 """
 
+def _stage(i: int) -> str:
+    return task_progress.marker("gpu", i) + "\n"
+
+
+CHECK = _stage(0) + """echo "==> Checking PCI hardware, kernel $(uname -r) & active driver bindings"
+lspci -nnk | grep -A3 -iE 'vga|3d controller|display controller' || true
+"""
+
+# Runs after the drivers are installed: a failing update-initramfs or a warning from lsinitramfs must not fail the
+# whole install. The check reads the initramfs of the running kernel (uname -r) and only reports what it found.
+INITRAMFS = _stage(3) + """K=$(uname -r)
+echo "==> Updating the initramfs for kernel $K"
+update-initramfs -u -k "$K" || echo "!! update-initramfs reported a problem; the drivers are installed, reboot and check again"
+if command -v lsinitramfs >/dev/null && [ -e "/boot/initrd.img-$K" ]; then
+  echo "==> /boot/initrd.img-$K: $( { lsinitramfs "/boot/initrd.img-$K" 2>/dev/null || true; } | grep -cE '__MODS__' || true) matching file(s) for __MODS__"
+fi
+"""
+
+RENDER_CHECK = """ls -l /dev/dri/renderD* 2>/dev/null || echo '!! No /dev/dri render node yet; reboot the host to load the driver.'
+"""
+
 SCRIPTS = {
-    "nvidia-install": "set -e\necho '==> Kernel headers and build tools'\n" + APT_UPDATE + r"""K=$(uname -r)
+    "nvidia-install": "set -e\n" + CHECK + _stage(1) + "echo '==> Kernel headers and build tools'\n" + APT_UPDATE + r"""K=$(uname -r)
 __KERNEL_HEADERS__
 apt-get install -y build-essential dkms pkg-config libglvnd-dev curl gpg
-echo '==> Blacklisting nouveau'
+""" + _stage(2) + r"""echo '==> Blacklisting nouveau'
 printf 'blacklist nouveau\noptions nouveau modeset=0\n' > /etc/modprobe.d/{P}-nouveau.conf
-update-initramfs -u
+update-initramfs -u -k "$K" || echo '!! update-initramfs reported a problem; continuing'
 if grep -q '^nouveau ' /proc/modules; then
   rmmod nouveau 2>/dev/null || { echo '!! nouveau is still loaded and in use. Reboot the host, then click Install NVIDIA driver again.'; exit 3; }
 fi
@@ -417,7 +438,6 @@ mkdir -p /var/lib/{P}
 curl -fsSL -o "$RUN" "https://download.nvidia.com/XFree86/Linux-x86_64/$VER/NVIDIA-Linux-x86_64-$VER.run"
 echo "==> Installing NVIDIA driver $VER (DKMS)"
 sh "$RUN" --silent --dkms || { echo '!! Installer failed; see /var/log/nvidia-installer.log'; tail -n 30 /var/log/nvidia-installer.log; exit 1; }
-nvidia-smi || true
 echo '==> nvidia-container-toolkit'
 curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor --yes -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
 curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
@@ -425,21 +445,23 @@ curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-contai
   > /etc/apt/sources.list.d/nvidia-container-toolkit.list
 apt-get update || true
 apt-get install -y nvidia-container-toolkit
-echo '==> Done. Reboot the host if nvidia-smi above did not list the GPU.'
+""" + INITRAMFS.replace("__MODS__", "nouveau|nvidia") + _stage(4) + """echo '==> Verifying the GPU'
+nvidia-smi || echo '!! nvidia-smi does not list the GPU yet; reboot the host.'
+echo '==> Done.'
 """,
-    "intel-install": "set -e\n" + NONFREE.replace("__PROBE_PKG__", "intel-media-va-driver-non-free") + """
-apt-get install -y intel-media-va-driver-non-free \\
+    "intel-install": "set -e\n" + CHECK + _stage(1) + NONFREE.replace("__PROBE_PKG__", "intel-media-va-driver-non-free")
+    + _stage(2) + """apt-get install -y intel-media-va-driver-non-free \\
   || { echo '!! intel-media-va-driver-non-free is unavailable; installing the free intel-media-va-driver (no low-power encode)'; apt-get install -y intel-media-va-driver; }
 # GuC/HuC firmware comes with the host's firmware package; Debian firmware-* packages may conflict with it.
 apt-get install -y intel-gpu-tools vainfo
 echo 'options i915 enable_guc=3' > /etc/modprobe.d/i915.conf
-update-initramfs -u
+""" + INITRAMFS.replace("__MODS__", "i915") + _stage(4) + "echo '==> Verifying the GPU'\n" + RENDER_CHECK + """
 echo '==> Done. Reboot the host to load the GuC/HuC firmware (Quick Sync low-power encoding).'
 """,
     # amdgpu firmware comes with the host's firmware package (firmware-amd-graphics may conflict with it).
-    "amd-install": "set -e\n" + APT_UPDATE + """apt-get install -y radeontop
+    "amd-install": "set -e\n" + CHECK + _stage(1) + APT_UPDATE + _stage(2) + """apt-get install -y radeontop
 apt-get install -y rocminfo rocm-smi || echo '!! ROCm tools are not available in the configured repositories; skipped.'
-update-initramfs -u
+""" + INITRAMFS.replace("__MODS__", "amdgpu") + _stage(4) + "echo '==> Verifying the GPU'\n" + RENDER_CHECK + """
 echo '==> Done.'
 """,
 }
@@ -449,13 +471,18 @@ SCRIPTS = {k: v.replace("{P}", settings.system_prefix).replace("__KERNEL_HEADERS
 
 
 def mode_script(files: dict[str, str | None]) -> str:
-    lines = ["set -e"]
+    lines = ["set -e", CHECK.rstrip()]
     for path, content in files.items():
         if content is None:
             lines.append(f"rm -f {path} && echo 'removed {path}'")
         else:
             lines.append(f"cat > {path} <<'SOLARDECK_EOF'\n{content}SOLARDECK_EOF\necho 'wrote {path}'; cat {path}")
-    lines += ["echo '==> update-initramfs -u -k all'", "update-initramfs -u -k all",
+    # Unlike a driver install, the initramfs is the change itself here, so a failing update-initramfs fails the job.
+    lines += [_stage(3).rstrip(), "echo '==> update-initramfs -u -k all'", "update-initramfs -u -k all",
+              _stage(4).rstrip(), 'K=$(uname -r)',
+              'if command -v lsinitramfs >/dev/null && [ -e "/boot/initrd.img-$K" ]; then',
+              '  echo "==> /boot/initrd.img-$K: $( { lsinitramfs "/boot/initrd.img-$K" 2>/dev/null || true; } '
+              '| grep -c vfio || true) vfio file(s)"', 'fi',
               "echo '==> Done. Reboot the host to apply the new GPU driver binding.'"]
     return "\n".join(lines) + "\n"
 
@@ -489,6 +516,7 @@ async def gpu_driver_action(action: Action, body: GpuBody):
             raise HTTPException(400, f"{action} does not apply to a {gpu['vendor']} GPU")
         job = f"gpu-{action}"
         await host_ssh.start_job(job, SCRIPTS[action])
+        task_progress.watch(job, gpu["name"])
         return {"job": job}
     # Mode switch: recompute the full passthrough id set (other GPUs keep their mode).
     vfio = parse_vfio_ids(await host_ssh.read_file(VFIO_CONF))
@@ -496,4 +524,11 @@ async def gpu_driver_action(action: Action, body: GpuBody):
     ids = sorted(set(vfio) | slot) if action == "mode-passthrough" else sorted(set(vfio) - slot)
     vendors = {d["vendor"] for d in probe["devices"] if d["gpu"] and f"{d['vendor_id']}:{d['device_id']}" in ids}
     await host_ssh.start_job("gpu-mode", mode_script(vfio_files(ids, vendors)))
+    task_progress.watch("gpu-mode", gpu["name"])
     return {"job": "gpu-mode", "vfio_ids": ids}
+
+
+@router.get("/api/hardware/gpu-drivers/jobs/{job}")
+async def gpu_job(job: Literal["gpu-nvidia-install", "gpu-intel-install", "gpu-amd-install", "gpu-mode"]):
+    """Stage progress of a GPU job (null if it never ran on this host)."""
+    return task_progress.from_host_job(job, "gpu", await host_ssh.job_status(job), task_progress._watch.get(job, {}).get("subject", ""))

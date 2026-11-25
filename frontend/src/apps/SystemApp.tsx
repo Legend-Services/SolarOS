@@ -2,8 +2,46 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { edition } from "@edition";
 import { Download, Plus, RefreshCw, TriangleAlert } from "lucide-react";
 import { api } from "../lib/api";
-import { TaskLog } from "../components/TaskCenter";
-import type { AptUpdate, RepoInfo, UpgradeStatus } from "../lib/types";
+import { OperationProgressCard } from "../components/ui/OperationProgressCard";
+import { useTranslation } from "../i18n";
+import type { AptUpdate, JobProgress, RepoInfo, TaskState, UpgradeStatus } from "../lib/types";
+
+const REFRESH_STAGES: JobProgress["stages"] = [
+  { key: "os.lists", label: "Fetching package lists", percent: 15 },
+  { key: "os.listsDone", label: "Package lists refreshed", percent: 100 },
+];
+
+/** The `apt-get update` host task (polled like TaskLog) as a one-step progress view. */
+function useRefreshProgress(upid: string | null, onDone: () => void): JobProgress | null {
+  const [p, setP] = useState<JobProgress | null>(null);
+  const done = useRef(onDone);
+  done.current = onDone;
+  useEffect(() => {
+    setP(null);
+    if (!upid) return;
+    let stop = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const id = encodeURIComponent(upid);
+    const tick = async () => {
+      const [s, l] = await Promise.all([api<{ state: TaskState; status?: string }>(`/v1/tasks/${id}/status`), api<{ lines: string[] }>(`/v1/tasks/${id}/log`)]).catch(() => [null, null]);
+      if (stop || !s || !l) return;
+      const status = s.state === "running" ? "running" : s.state === "ok" ? "completed" : "failed";
+      setP({
+        job_id: upid, kind: "os", subject: "", status, progress_percent: status === "completed" ? 100 : 15,
+        current_stage: REFRESH_STAGES[status === "completed" ? 1 : 0].label, stage_key: REFRESH_STAGES[status === "completed" ? 1 : 0].key,
+        stage_index: status === "completed" ? 1 : 0, stages: REFRESH_STAGES, logs: l.lines, error_message: status === "failed" ? (s.status ?? null) : null,
+      });
+      if (status === "running") timer = setTimeout(tick, 2000);
+      else if (status === "completed") done.current();
+    };
+    tick();
+    return () => {
+      stop = true;
+      clearTimeout(timer);
+    };
+  }, [upid]);
+  return p;
+}
 
 function useAction(reload: () => void) {
   const [busy, setBusy] = useState(false);
@@ -114,7 +152,8 @@ function Updates() {
   const [list, setList] = useState<AptUpdate[] | null>(null);
   const [refreshTask, setRefreshTask] = useState<string | null>(null);
   const [upgrade, setUpgrade] = useState<UpgradeStatus | null>(null);
-  const pre = useRef<HTMLPreElement>(null);
+  const [hideUpgrade, setHideUpgrade] = useState(false);
+  const { t } = useTranslation();
   const load = useCallback(() => {
     api<AptUpdate[]>("/system/updates").then(setList, () => setList([]));
   }, []);
@@ -136,20 +175,20 @@ function Updates() {
       load();
     };
   }, [upgrade?.running, pollUpgrade, load]);
-  useEffect(() => {
-    pre.current?.scrollTo(0, pre.current.scrollHeight);
-  }, [upgrade?.log.length]);
+  const refresh = useRefreshProgress(refreshTask, load);
+  const refreshing = !!refreshTask && refresh?.status !== "completed" && refresh?.status !== "failed";
 
   const startUpgrade = () => {
     if (!window.confirm(`Install ${list?.length ?? 0} update(s) on ${edition.host} (apt dist-upgrade)? Running guests keep running; a kernel update needs a reboot to take effect.`)) return;
-    run(() => api("/system/upgrade", { method: "POST" }).then(pollUpgrade));
+    setHideUpgrade(false);
+    run(() => api("/system/os-updates/apply", { method: "POST" }).then(pollUpgrade));
   };
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <button className="btn" disabled={busy || !!refreshTask} onClick={() => run(() => api<{ task: string }>("/system/updates/refresh", { method: "POST" }).then((r) => setRefreshTask(r.task)))}>
-          <RefreshCw size={12} className={refreshTask ? "animate-spin" : ""} /> Check for updates
+        <button className="btn" disabled={busy || refreshing} onClick={() => run(() => api<{ task: string }>("/system/updates/refresh", { method: "POST" }).then((r) => setRefreshTask(r.task)))}>
+          <RefreshCw size={12} className={refreshing ? "animate-spin" : ""} /> Check for updates
         </button>
         <button className="btn border-sky-400/40 bg-sky-500/25 text-white" disabled={busy || upgrade?.running || !list?.length} onClick={startUpgrade}>
           <Download size={12} /> {upgrade?.running ? "Upgrading…" : `Upgrade all (${list?.length ?? 0})`}
@@ -157,23 +196,9 @@ function Updates() {
         <span className="ml-auto text-[11px] text-slate-400">{list ? (list.length ? `${list.length} update(s) available` : "System is up to date") : "Loading…"}</span>
       </div>
       <Err text={error} />
-      {refreshTask && <TaskLog upid={refreshTask} className="h-32" onDone={() => (setRefreshTask(null), load())} />}
-      {upgrade && upgrade.log.length > 0 && (
-        <div>
-          <div className="mb-1 text-[11px] text-slate-400">
-            Last upgrade:{" "}
-            {upgrade.running ? (
-              <span className="text-sky-300">running</span>
-            ) : upgrade.exit_code === 0 ? (
-              <span className="text-emerald-400">completed</span>
-            ) : (
-              <span className="text-rose-400">failed (exit {upgrade.exit_code ?? "?"})</span>
-            )}
-          </div>
-          <pre ref={pre} className="h-48 overflow-auto rounded-lg bg-black/50 p-2 font-mono text-[11px] whitespace-pre-wrap text-slate-300">
-            {upgrade.log.join("\n")}
-          </pre>
-        </div>
+      {refresh && <OperationProgressCard title={t("progress.title.osRefresh")} progress={refresh} onDismiss={() => setRefreshTask(null)} />}
+      {upgrade?.progress && !hideUpgrade && (
+        <OperationProgressCard title={t("progress.title.osUpgrade")} progress={upgrade.progress} onRetry={startUpgrade} onDismiss={() => setHideUpgrade(true)} />
       )}
       {list && list.length > 0 && (
         <table className="w-full min-w-[640px] text-left text-xs">

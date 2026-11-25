@@ -5,7 +5,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from . import (apps, audit_log, auth, automation, branding, bug_report, capabilities, console, disk_benchmark, domains, files, hardware_admin, help_center, host_services, host_ssh, hypervisor, local_ai, net_services, network_switch, notifications,
-               provisioning, schedules, security, shares, storage_admin, system, system_extra,
+               provisioning, schedules, security, shares, storage_admin, system, system_extra, task_progress,
                telemetry, themes, updater)
 from .config import settings
 from providers import registry
@@ -44,6 +44,7 @@ app.include_router(system.router)
 app.include_router(storage_admin.router)
 app.include_router(provisioning.router)
 app.include_router(system_extra.router)
+app.include_router(task_progress.router)
 for module in (host_ssh, net_services, hardware_admin, help_center, disk_benchmark, updater, bug_report, local_ai, domains,
                themes, branding, automation, security, host_services, network_switch):
     app.include_router(module.router)

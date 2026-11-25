@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
-  BrainCircuit, Check, Clapperboard, Container, Cpu, ExternalLink, FolderTree, HardDrive, Images, LayoutGrid, Network, Package,
+  BrainCircuit, Clapperboard, Container, Cpu, ExternalLink, FolderTree, HardDrive, Images, LayoutGrid, Network, Package,
   Search, Server, ShieldCheck, Sparkles, Waypoints, X, Zap, type LucideIcon,
 } from "lucide-react";
 import { api } from "../lib/api";
-import type { AiHardware, CatalogApp, Deployment } from "../lib/types";
+import type { AiHardware, CatalogApp, Deployment, JobProgress } from "../lib/types";
+import { usePoll } from "../lib/hooks";
+import { useTranslation } from "../i18n";
+import { OperationProgressCard } from "../components/ui/OperationProgressCard";
 import { TaskLog } from "../components/TaskCenter";
 import { ViewToggle } from "../components/ViewOptions";
 import { useAppView } from "../store/layoutStore";
@@ -19,16 +22,6 @@ const CATEGORIES: { id: string; label: string; icon: LucideIcon; color: string }
   { id: "AI & Compute", label: "AI & Compute", icon: Cpu, color: "from-violet-400 to-fuchsia-600" },
 ];
 
-const PHASES: Deployment["phase"][] = ["creating", "configuring", "starting", "installing", "done"];
-const PHASE_LABEL: Record<Deployment["phase"], string> = {
-  creating: "Create container",
-  configuring: "Host options",
-  starting: "Start",
-  installing: "Install app",
-  done: "Done",
-  error: "Failed",
-};
-
 function AppIcon({ app, size = 22 }: { app: CatalogApp; size?: number }) {
   const Icon = ICONS[app.icon] ?? Package;
   const color = CATEGORIES.find((c) => c.id === app.category)?.color || "from-slate-400 to-slate-600";
@@ -42,7 +35,7 @@ function AppIcon({ app, size = 22 }: { app: CatalogApp; size?: number }) {
 function Progress({ app, vmid, upid, onClose }: { app: CatalogApp; vmid: number; upid: string; onClose: () => void }) {
   const [dep, setDep] = useState<Deployment | null>(null);
   const [error, setError] = useState("");
-  const log = useRef<HTMLPreElement>(null);
+  const { t } = useTranslation();
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
@@ -62,12 +55,6 @@ function Progress({ app, vmid, upid, onClose }: { app: CatalogApp; vmid: number;
     };
   }, [vmid]);
 
-  // Braces matter: newer Chrome returns a Promise from scroll methods, and React would call it as a cleanup.
-  useEffect(() => {
-    if (log.current) log.current.scrollTop = log.current.scrollHeight;
-  }, [dep?.log.length]);
-
-  const current = dep ? PHASES.indexOf(dep.phase) : 0;
   const url = dep?.ip && dep.web_port ? `${dep.web_scheme}://${dep.ip}:${dep.web_port}` : null;
 
   return (
@@ -75,34 +62,16 @@ function Progress({ app, vmid, upid, onClose }: { app: CatalogApp; vmid: number;
       <div className="flex items-center gap-3">
         <AppIcon app={app} size={18} />
         <div>
-          <h3 className="text-sm font-semibold text-white">Installing {app.name}</h3>
+          <h3 className="text-sm font-semibold text-white">{t("progress.title.appInstall", { name: app.name })}</h3>
           <p className="text-[11px] text-slate-400">Container {vmid}</p>
         </div>
       </div>
-      <ol className="flex flex-wrap gap-1.5 text-[11px]">
-        {PHASES.map((p, i) => {
-          const failed = dep?.phase === "error";
-          const state = failed ? "text-slate-500" : i < current || dep?.phase === "done" ? "text-emerald-300" : i === current ? "text-sky-300" : "text-slate-500";
-          return (
-            <li key={p} className={`flex items-center gap-1 rounded-full bg-white/5 px-2 py-0.5 ${state}`}>
-              {i < current || dep?.phase === "done" ? <Check size={11} /> : <span className="h-1.5 w-1.5 rounded-full bg-current" />}
-              {PHASE_LABEL[p]}
-            </li>
-          );
-        })}
-        {dep?.phase === "error" && <li className="rounded-full bg-rose-500/15 px-2 py-0.5 text-rose-300">Failed</li>}
-      </ol>
-      <div>
-        <p className="mb-1 text-[11px] text-slate-400">Host task</p>
-        <TaskLog upid={upid} className="h-28" />
-      </div>
-      <div>
-        <p className="mb-1 text-[11px] text-slate-400">Installer output</p>
-        <pre ref={log} className="h-40 overflow-auto rounded-lg bg-black/50 p-2 font-mono text-[11px] whitespace-pre-wrap text-slate-300">
-          {dep?.log.join("\n") || "Waiting for the container…"}
-        </pre>
-      </div>
-      {(error || dep?.error) && <p className="text-xs text-rose-300">{error || dep?.error}</p>}
+      {dep && <OperationProgressCard title={app.name} progress={dep.progress} onDismiss={onClose} />}
+      <details className="text-[11px] text-slate-400">
+        <summary className="cursor-pointer select-none hover:text-slate-200">{t("progress.hostTask")}</summary>
+        <TaskLog upid={upid} className="mt-1 h-28" />
+      </details>
+      {error && <p className="text-xs text-rose-300">{error}</p>}
       <div className="flex justify-end gap-2">
         {url && (
           <a className="btn border-sky-400/40 bg-sky-500/20" href={url} target="_blank" rel="noreferrer">
@@ -400,6 +369,20 @@ export default function AppCenter() {
   }, []);
   useEffect(load, [load]);
 
+  // Install progress on the app tiles (in-memory App Center jobs only, so polling is cheap); the catalog reloads when
+  // a job reaches 100 % so the new container shows as installed.
+  const [jobs, setJobs] = useState<JobProgress[]>([]);
+  const running = useRef(new Set<string>());
+  const pollJobs = useCallback(() => {
+    api<{ tasks: JobProgress[] }>("/system/tasks?kind=app").then(({ tasks }) => {
+      if (tasks.some((j) => j.status === "completed" && running.current.has(j.job_id))) load();
+      running.current = new Set(tasks.filter((j) => j.status === "running").map((j) => j.job_id));
+      setJobs(tasks);
+    }, () => {});
+  }, [load]);
+  usePoll(pollJobs, 3000);
+  const jobFor = (a: CatalogApp) => jobs.find((j) => j.subject === a.name);
+
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (apps ?? [])
@@ -452,6 +435,7 @@ export default function AppCenter() {
                       {a.installed.length > 0 && <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-medium text-emerald-300">Installed</span>}
                     </div>
                     <p className="truncate text-[11px] text-slate-400">{a.description}</p>
+                    {jobFor(a) && <OperationProgressCard compact className="mt-1.5" title={a.name} progress={jobFor(a)!} />}
                   </div>
                   <span className="hidden shrink-0 text-[10px] text-slate-400 tabular-nums md:block">
                     {a.cores} vCPU · {a.memory_mb / 1024} GB · {a.disk_gb} GB{a.supports_igpu && " · iGPU"}
@@ -484,6 +468,7 @@ export default function AppCenter() {
                   )}
                 </div>
                 <p className="mt-3 line-clamp-3 flex-1 text-xs text-slate-300">{a.description}</p>
+                {jobFor(a) && <OperationProgressCard compact className="mt-3" title={a.name} progress={jobFor(a)!} />}
                 <div className="mt-3 flex flex-wrap gap-1 text-[10px] text-slate-400">
                   <span className="rounded bg-white/5 px-1.5 py-0.5">{a.cores} vCPU</span>
                   <span className="rounded bg-white/5 px-1.5 py-0.5">{a.memory_mb / 1024} GB RAM</span>

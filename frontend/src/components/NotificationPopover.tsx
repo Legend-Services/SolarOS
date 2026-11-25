@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AlertOctagon, AlertTriangle, Bell, CheckCircle2, Info, LoaderCircle } from "lucide-react";
 import { api } from "../lib/api";
-import type { Alert, HostTask, Severity } from "../lib/types";
+import type { Alert, HostTask, JobProgress, Severity } from "../lib/types";
 import { useDismiss, usePoll } from "../lib/hooks";
 import { useTranslation } from "../i18n";
 import { TaskCenterPanel } from "./TaskCenter";
@@ -29,6 +29,7 @@ export default function NotificationPopover({ up = false }: { up?: boolean }) {
   const { t } = useTranslation();
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [tasks, setTasks] = useState<HostTask[]>([]);
+  const [jobs, setJobs] = useState<JobProgress[]>([]);
   const [seen, setSeen] = useState<string[]>(readSeen);
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("notifications");
@@ -41,6 +42,7 @@ export default function NotificationPopover({ up = false }: { up?: boolean }) {
   usePoll(load, 30000);
   const loadTasks = useCallback(() => {
     api<HostTask[]>("/v1/tasks").then(setTasks).catch(() => {});
+    api<{ tasks: JobProgress[] }>("/system/tasks").then((r) => setJobs(r.tasks), () => {});
   }, []);
   usePoll(loadTasks, open && tab === "tasks" ? 3000 : 8000);
 
@@ -57,7 +59,7 @@ export default function NotificationPopover({ up = false }: { up?: boolean }) {
   }, [open, tab, alerts]);
 
   const unread = alerts.filter((a) => !seen.includes(a.id));
-  const running = tasks.filter((x) => x.state === "running").length;
+  const running = tasks.filter((x) => x.state === "running").length + jobs.filter((j) => j.status === "running").length;
   const worst = unread.some((a) => a.severity === "critical") ? "bg-rose-500" : unread.some((a) => a.severity === "warning") ? "bg-amber-500" : "bg-sky-500";
   const label = [unread.length ? t("notif.unread", { count: unread.length }) : t("notif.title"), running ? t("notif.tasksRunning", { count: running }) : ""]
     .filter(Boolean)
@@ -112,7 +114,7 @@ export default function NotificationPopover({ up = false }: { up?: boolean }) {
             </span>
           </div>
           {tab === "tasks" ? (
-            <TaskCenterPanel tasks={tasks} reload={loadTasks} />
+            <TaskCenterPanel tasks={tasks} jobs={jobs} reload={loadTasks} />
           ) : (
             <ul className="max-h-[60vh] space-y-1 overflow-auto">
               {alerts.length === 0 && (

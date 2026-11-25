@@ -9,7 +9,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from . import config, host
+from . import config, host, task_progress
 from .auth import require_user
 from .config import settings
 
@@ -26,14 +26,17 @@ def parse_upgrade_status(out: str) -> dict:
 
 @router.get("/upgrade")
 async def upgrade_status():
-    return parse_upgrade_status(await host.run(["apt-upgrade-status"]))
+    st = parse_upgrade_status(await host.run(["apt-upgrade-status"]))
+    return {**st, "progress": task_progress.from_apt("os-upgrade", st)}
 
 
 @router.post("/upgrade")
+@router.post("/os-updates/apply")
 async def start_upgrade():
     # The helper starts apt in a transient systemd unit on the host, so a dropped SSH session can't interrupt dpkg.
     await host.run(["apt-upgrade"])
-    return {"ok": True}
+    task_progress.watch("os-upgrade")
+    return {"ok": True, "job": "os-upgrade"}
 
 
 class PowerBody(BaseModel):

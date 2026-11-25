@@ -1,4 +1,4 @@
-import { memo, useState, type CSSProperties } from "react";
+import { memo, useEffect, useRef, useState, type CSSProperties } from "react";
 import { Check, Moon, Palette, SlidersHorizontal, Sun } from "lucide-react";
 import { useDismiss } from "../lib/hooks";
 import { useAuth, useIntent } from "../lib/stores";
@@ -7,14 +7,70 @@ import { useBranding, useProduct } from "../store/capabilitiesStore";
 import { allThemes, useActiveTheme, useTheme } from "../store/themeStore";
 import { customBackground, type BrandOverlay, type BrandPosition, type ColorMode, type Theme } from "../theme/themeTypes";
 import { al } from "../theme/wallpaperArt";
+import { rasterizeWallpaper } from "../theme/wallpaperBitmap";
 import { Segmented } from "./ui/GlassKit";
 
-// Own compositor layer that never repaints during widget / telemetry updates (the glass above samples a stable texture).
-const STABLE_LAYER: CSSProperties = { transform: "translate3d(0, 0, 0)", backfaceVisibility: "hidden", contain: "strict" };
+// Own fixed compositor layer under everything; strict containment keeps its paint isolated from the desktop above.
+const STABLE_LAYER: CSSProperties = { position: "fixed", inset: 0, zIndex: 0, pointerEvents: "none", transform: "translate3d(0, 0, 0)", backfaceVisibility: "hidden", contain: "strict" };
+
+/** Viewport size, updated 250 ms after the last resize (the bitmap is re-rendered for the new size). */
+function useViewport() {
+  const [size, setSize] = useState(() => [window.innerWidth, window.innerHeight]);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const onResize = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setSize([window.innerWidth, window.innerHeight]), 250);
+    };
+    window.addEventListener("resize", onResize);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("resize", onResize);
+    };
+  }, []);
+  return size;
+}
 
 /**
- * The desktop background: the active theme's wallpaper (or the custom one), with blur, dimming and scanlines.
- * Memoized with one selector per wallpaper field, so telemetry, clock and window updates never re-render it.
+ * The active wallpaper (theme art or custom image, blur and dimming) as one cached bitmap object URL, rendered
+ * off-screen only when a wallpaper setting or the viewport size changes. `null` = not ready yet, or not rasterizable
+ * in this browser (the caller shows the live CSS layer). The previous bitmap stays visible until the next one is ready.
+ */
+function useWallpaperBitmap(background: string, blur: number, dim: number, base: string): string | null {
+  const [width, height] = useViewport();
+  const [url, setUrl] = useState<string | null>(null);
+  const current = useRef<string | null>(null);
+  useEffect(() => {
+    let live = true;
+    // Debounced, so dragging the blur / dim sliders renders once when they settle.
+    const timer = setTimeout(() => {
+      rasterizeWallpaper({ background, blur, dim, base }, width, height, window.devicePixelRatio || 1)
+        .then((blob) => URL.createObjectURL(blob))
+        .catch(() => null)
+        .then((next) => {
+          if (!live) return void (next && URL.revokeObjectURL(next));
+          if (current.current) URL.revokeObjectURL(current.current);
+          current.current = next;
+          setUrl(next);
+        });
+    }, 120);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+    };
+  }, [background, blur, dim, base, width, height]);
+  useEffect(
+    () => () => {
+      if (current.current) URL.revokeObjectURL(current.current);
+    },
+    [],
+  );
+  return url;
+}
+
+/**
+ * The desktop background: the active theme's wallpaper (or the custom one) as a cached bitmap, plus scanlines and the
+ * brand badge. Memoized with one selector per wallpaper field, so telemetry, clock and window updates never re-render it.
  */
 export const DesktopWallpaperLayer = memo(function DesktopWallpaperLayer() {
   const colorMode = useTheme((s) => s.colorMode);
@@ -29,12 +85,19 @@ export const DesktopWallpaperLayer = memo(function DesktopWallpaperLayer() {
   const size = useTheme((s) => s.brandSizePct);
   const unlocked = useAuth((s) => s.status === "unlocked"); // the lock screen keeps its own centered logo
   const background = customWallpaperUrl ? customBackground(customWallpaperUrl) : theme.wallpapers[selectedWallpaperIndex][colorMode];
+  const bitmap = useWallpaperBitmap(background, blur, dim, theme[colorMode].bg);
   return (
-    <div className="wallpaper absolute inset-0 overflow-hidden" style={STABLE_LAYER} aria-hidden>
-      {/* Bleeds past the edges so the blur never shows a soft border. */}
-      <div className="absolute transition-[filter] duration-300" style={{ inset: -blur * 2, background, filter: blur ? `blur(${blur}px)` : undefined }} />
+    <div className="wallpaper overflow-hidden" style={STABLE_LAYER} aria-hidden>
+      {bitmap ? (
+        <img src={bitmap} alt="" draggable={false} decoding="async" className="absolute inset-0 h-full w-full object-cover select-none" />
+      ) : (
+        <>
+          {/* Live CSS fallback until the first bitmap is ready. Bleeds past the edges so the blur never shows a soft border. */}
+          <div className="absolute" style={{ inset: -blur * 2, background, filter: blur ? `blur(${blur}px)` : undefined }} />
+          {dim > 0 && <div className="absolute inset-0 bg-black" style={{ opacity: dim / 100 }} />}
+        </>
+      )}
       {theme.style.scanlines && <div className="sd-scanlines absolute inset-0" />}
-      {dim > 0 && <div className="absolute inset-0 bg-black" style={{ opacity: dim / 100 }} />}
       {unlocked && <BrandBadge overlay={overlay} position={position} opacityPct={opacity} sizePct={size} />}
     </div>
   );

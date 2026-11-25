@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased - Zero-Flicker Bitmap Wallpaper & Universal Progress Bars
+
+### Added
+- **Operation progress cards:** one Liquid Glass progress card for every long-running job: title and status badge (*Running*, *Completed*, *Failed*), an animated 0–100% bar with a bold percentage, the current step with a *Step 3 of 5* counter, a 4-line log tail that expands to the full log with one click, and **Retry** / **Dismiss** when a job fails.
+  - **Settings → System → Hardware & GPU:** Intel media / Quick Sync, NVIDIA driver + CUDA toolkit and AMD tool installs, and switches to or from vfio-pci passthrough mode, show the card instead of a raw log. The GPU badges refresh when the job reaches 100%; **Retry** reopens the same confirmation.
+  - **App Center:** the install drawer and the app's card (grid and list view) show live progress; the catalog reloads at 100%, so the new container shows as installed. The host task log stays available under *Host task log*.
+  - **Settings → System → Software & Repositories → OS Updates:** *Check for updates* and *Upgrade all* show their progress, parsed from the apt output.
+  - **Notifications → Task Center:** progress cards for all running (and, for 10 minutes, finished) GPU, App Center, OS update and AI model jobs above the host task list; running backups show their percentage when the backup log reports one. Running jobs count towards the Task Center badge.
+- **Unified job progress API** (`backend/app/task_progress.py`): every job reports `job_id`, `status` (`running` / `completed` / `failed`), `progress_percent`, `current_stage`, `stages[]`, `logs[]` and `error_message`, with weighted stages:
+  - GPU: hardware check 10%, repositories 30%, drivers + container toolkit 60%, initramfs 85%, verification (nvidia-smi / render node) 95%, done 100%.
+  - App Center: validation 10%, template download 30%, container provisioning + GPU / storage mounts 55%, application install 80%, health check + registration 95%, ready 100%.
+  - OS updates: package lists 15%, downloads 45%, unpack + configure 75%, clean-up 95%, up to date 100%.
+- New endpoints: `GET /api/system/tasks` (optional `?kind=gpu|app|os|ai`), `GET /api/tasks/{job_id}`, `GET /api/apps/jobs/{vmid}`, `GET /api/hardware/gpu-drivers/jobs/{job}` and `POST /api/system/os-updates/apply` (same as `POST /api/system/upgrade`). `GET /api/apps/deployments/{vmid}` and `GET /api/system/upgrade` now include `progress`.
+- All new texts in English, Nederlands, Deutsch, Español and Français.
+
+### Fixed
+- **Desktop flicker, for good:** the wallpaper (theme art or custom image, blur and dimming) is painted once into an off-screen canvas and shown as one cached bitmap (`Blob` object URL in a single `<img>`), re-rendered only when a wallpaper setting or the window size changes. No live SVG filters or gradients stay mounted next to the 1 s telemetry widgets; old bitmaps are released on every change. Until the first bitmap is ready (or if a custom image cannot be read), the previous live layer is shown.
+- The wallpaper layer is fixed under everything (`position: fixed; inset: 0; z-index: 0; pointer-events: none; contain: strict`), and `html`, `body` and the app root use the theme's base color, so a compositor tile dropped on a large display shows that color instead of a white or black flash.
+- Glass cards inside an already blurred window or dialog no longer add a second backdrop blur.
+- **GPU driver installs no longer fail at the very end:** after the drivers and container toolkit are installed, a warning from `update-initramfs` or `lsinitramfs` is reported in the log instead of failing the job. The initramfs check now reads the running kernel's image (`/boot/initrd.img-$(uname -r)`). A vfio-pci mode switch still fails when the initramfs cannot be rebuilt, because that rebuild is the change itself.
+
 ## v2.11.0 - Themed Generative Wallpapers, Server-Name Branding & Flicker-Free Desktop — 2026-11-26
 
 ### Added
