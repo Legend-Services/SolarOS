@@ -53,6 +53,7 @@ jobs:
         run: |
           for f in install.sh deploy.sh deploy/*.sh hypervisor/*.sh; do bash -n "$f"; done
           python3 hypervisor/solardeck-console-tui.py --self-test
+          bash deploy/test-helper-proxmox.sh
           # The SolarOS tree must not contain anything of the other edition (fails with the offending files).
           bash deploy/make-edition-tree.sh solaros . "$RUNNER_TEMP/solaros-check"
 
