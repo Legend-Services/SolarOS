@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { edition } from "@edition";
 import { Download, Plus, RefreshCw, TriangleAlert } from "lucide-react";
 import { api } from "../lib/api";
-import { TaskLog } from "../components/TaskCenterPopover";
+import { TaskLog } from "../components/TaskCenter";
 import type { AptUpdate, RepoInfo, UpgradeStatus } from "../lib/types";
 
 function useAction(reload: () => void) {

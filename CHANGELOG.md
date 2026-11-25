@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.10.0 - Compact Customizable Top Bar & Taskbar Tray, Search Tip — 2026-11-25
+
+### Added
+- **Customizable tray:** the status and quick-action icons (CPU, memory, storage health, Host Shell, App Gallery, language, light / dark mode, theme, help, updates, notifications) can be reordered by dragging them on the bar or in Settings, hidden one by one, and limited to 2–12 icons on the bar. The rest move behind an overflow chevron: **▾** next to the user menu in the `floating-dock` layout, **▴** on the inner side of the tray in the `bottom-taskbar` layout. Its popover shows the extra icons and a **Customize Bar... / Customize Taskbar...** link.
+- **Top Bar & Taskbar Tray card** in **Settings → System → General & Appearance**, right below Desktop Layout: bar layout mode, a **Max visible tray icons** slider with a live preview of what sits on the bar and what goes behind the chevron, the drag-and-drop item list with a show / hide switch and move up / down buttons per item, the clock position for the bottom taskbar (right or left of the tray) and **Reset Search Tip Balloon**. Global Search finds it as *Top Bar & Taskbar Tray*.
+- **Customize Bar & Tray...** shortcut in the right-click menu of the top bar, the taskbar and the Dock, and in the View Options popover; it opens the card and highlights it.
+- **"Type to begin" tip:** a Liquid Glass balloon under the TopBar search field (*Search apps, settings, VLANs, storage & support guides (⌘K)*) with **Don't show me again** and **Got it**. It closes when the search field is used; with *Don't show me again* checked it stays away on every device.
+- New `layout` preferences in `/api/system/preferences`, validated by the backend with defaults for older clients: `trayItemOrder`, `hiddenTrayItems`, `maxVisibleTrayItems` (2–12, default 6), `taskbarClockSide` (`right` / `left`) and `hideSearchIntroBalloon`.
+- All new texts in English, Nederlands, Deutsch, Español and Français.
+
+### Changed
+- **Notifications and Task Center share the bell:** the separate Task Center icon is gone; the bell popover has **Notifications** and **Task Center** tabs. The bell shows the unread count and a pulsing dot while background tasks (scrubs, downloads, backups, updates) run; task progress and live logs stay in the Task Center tab.
+- Tighter spacing in the top bar and the taskbar tray, and a wider TopBar search field (up to 2xl) so long queries stay readable.
+
+### Fixed
+- The documentation generator's update fixture now includes the update log, so the Software Updates screenshot renders again.
+
 ## v2.9.1 - Update Test Release — 2026-11-25
 
 ### Changed

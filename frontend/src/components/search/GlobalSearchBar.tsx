@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject } from "react";
-import { BookOpen, Container, CornerDownLeft, Database, FileText, Folder, Heading, Monitor, Plus, Search, Settings2, Share2, Store } from "lucide-react";
+import { BookOpen, Container, CornerDownLeft, Database, FileText, Folder, Heading, Monitor, Plus, Search, Settings2, Share2, Store, X } from "lucide-react";
 import { api } from "../../lib/api";
 import type { SearchKind, SearchResult } from "../../lib/types";
 import { navigate, useIntent, useSpotlight, useWindows, type Intents } from "../../lib/stores";
@@ -8,6 +8,8 @@ import { CATEGORY_META, MODULES } from "../../apps/settings/modules";
 import { searchKnowledge, type Hit, type Tier } from "../../data/knowledgeRegistry";
 import { useTranslation, type TKey } from "../../i18n";
 import { useCapabilities } from "../../store/capabilitiesStore";
+import { useLayout } from "../../store/layoutStore";
+import { GlassButton, GlassCheckbox } from "../ui/GlassKit";
 
 export interface Item {
   key: string;
@@ -192,6 +194,41 @@ export function SearchFooter() {
 
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
+/**
+ * "Type to begin" balloon under the search field until it is focused or dismissed. "Don't show me again" persists
+ * hideSearchIntroBalloon (localStorage + /api/system/preferences via the layout store).
+ */
+function SearchTip() {
+  const { t } = useTranslation();
+  const set = useLayout((s) => s.set);
+  const [never, setNever] = useState(false);
+  const dismiss = () => set({ searchTipDismissed: true, ...(never ? { hideSearchIntroBalloon: true } : {}) });
+  return (
+    <div
+      role="note"
+      className="glass-panel absolute top-9 left-1/2 z-10 w-72 -translate-x-1/2 rounded-2xl p-3 text-xs shadow-2xl shadow-black/40"
+      style={{ animation: "sd-search-in 220ms ease-out" }}
+    >
+      <span className="glass-panel absolute -top-1.5 left-1/2 h-3 w-3 -translate-x-1/2 rotate-45 rounded-[3px] border-r-0 border-b-0" aria-hidden />
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-white">{t("search.tipTitle")}</p>
+          <p className="mt-0.5 text-[11px] text-slate-300">{t("search.tipBody", { key: isMac ? "⌘K" : "Ctrl+K" })}</p>
+        </div>
+        <GlassButton variant="ghost" size="xs" onClick={dismiss} aria-label={t("search.tipClose")}>
+          <X size={12} />
+        </GlassButton>
+      </div>
+      <div className="mt-2.5 flex items-center justify-between gap-2">
+        <GlassCheckbox checked={never} onChange={setNever} label={t("search.tipDontShow")} />
+        <GlassButton size="xs" variant="primary" onClick={dismiss}>
+          {t("search.tipGotIt")}
+        </GlassButton>
+      </div>
+    </div>
+  );
+}
+
 /** TopBar search: an inline Liquid Glass field that expands into the grouped results panel. Opened by ⌘K / Ctrl+K or "/". */
 export default function GlobalSearchBar() {
   const { t } = useTranslation();
@@ -204,11 +241,13 @@ export default function GlobalSearchBar() {
   const close = useMemo(() => () => (setOpen(false), setQ(""), input.current?.blur()), [setOpen]);
   const items = useSearchItems(q, open, close);
   const { sel, setSel, onKey } = useListKeys(items, close);
+  const tip = useLayout((s) => !s.hideSearchIntroBalloon && !s.searchTipDismissed);
+  const setLayout = useLayout((s) => s.set);
 
   useEffect(() => {
-    if (open) input.current?.focus();
+    if (open) (input.current?.focus(), setLayout({ searchTipDismissed: true }));
     else (input.current?.blur(), setQ(""));
-  }, [open]);
+  }, [open, setLayout]);
   // Click outside closes the panel.
   useEffect(() => {
     if (!open) return;
@@ -218,7 +257,7 @@ export default function GlobalSearchBar() {
   }, [open, setOpen]);
 
   return (
-    <div ref={box} className="relative mx-auto w-full max-w-md min-w-0" onKeyDown={onKey}>
+    <div ref={box} className="relative mx-auto max-w-2xl min-w-0 flex-1 sm:min-w-[300px] md:min-w-[380px] lg:min-w-[460px]" onKeyDown={onKey}>
       <div
         className={`flex h-6.5 items-center gap-2 rounded-full border px-3 transition-all duration-200 ${open ? "border-white/25 bg-white/15 shadow-lg shadow-black/30" : "border-white/10 bg-white/7 hover:bg-white/12"}`}
       >
@@ -238,6 +277,7 @@ export default function GlobalSearchBar() {
         />
         <kbd className="hidden shrink-0 rounded bg-white/10 px-1.5 text-[10px] text-slate-400 sm:inline">{isMac ? "⌘K" : "Ctrl+K"}</kbd>
       </div>
+      {tip && !open && <SearchTip />}
       {open && (
         <div className="glass-panel absolute top-8 left-1/2 w-[min(640px,calc(100vw-1rem))] -translate-x-1/2 overflow-hidden rounded-2xl shadow-2xl shadow-black/50" style={{ animation: "sd-search-in 160ms ease-out" }}>
           <SearchResults items={items} q={q} sel={sel} setSel={setSel} listRef={list} id="global-search-list" />

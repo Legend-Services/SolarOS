@@ -41,6 +41,17 @@ export type ViewApp = "compute" | "disks" | "datasets" | "appcenter" | "shares" 
 export type GallerySort = "custom" | "most-used" | "alpha-asc" | "alpha-desc" | "recent";
 const SORTS: GallerySort[] = ["custom", "most-used", "alpha-asc", "alpha-desc", "recent"];
 
+/** Items of the top bar / taskbar system tray, in their default order. */
+export const TRAY_ITEMS = ["cpu", "ram", "storage", "terminal", "app-gallery", "language", "color-mode", "theme", "help", "updates", "notifications"] as const;
+export type TrayItem = (typeof TRAY_ITEMS)[number];
+export type ClockSide = "right" | "left";
+const isTray = (v: unknown): v is TrayItem => TRAY_ITEMS.includes(v as TrayItem);
+/** Known tray ids once each, in the saved order; items missing from it (new in a later release) follow in default order. */
+export const trayOrder = (v: unknown): TrayItem[] => {
+  const saved = Array.isArray(v) ? [...new Set(v.filter(isTray))] : [];
+  return [...saved, ...TRAY_ITEMS.filter((id) => !saved.includes(id))];
+};
+
 /** Slider ranges [min, max]. Dock icon size lives in useDock.baseSize (36–64). */
 export const LIMITS = {
   iconSize: [36, 96],
@@ -49,11 +60,15 @@ export const LIMITS = {
   dockSize: [36, 64],
   dockGap: [4, 20],
   maxColumns: [3, 8],
+  trayItems: [2, 12],
 } as const;
 
 export const DEFAULTS = { desktopView: "grid" as ViewMode, iconSize: 56, colGap: 20, rowGap: 16, dockGap: 8, dockSize: 46,
   desktopAlignment: "left" as Align, desktopVerticalAlign: "top" as VAlign, desktopMaxColumns: "auto" as MaxColumns,
-  iconClick: "single" as IconClick, windowControls: "auto" as WindowControls, shellLayout: "auto" as ShellLayout, showDesktopIcons: false };
+  iconClick: "single" as IconClick, windowControls: "auto" as WindowControls, shellLayout: "auto" as ShellLayout, showDesktopIcons: false,
+  trayItemOrder: [...TRAY_ITEMS] as TrayItem[], hiddenTrayItems: [] as TrayItem[], maxVisibleTrayItems: 6, taskbarClockSide: "right" as ClockSide };
+
+type Tray = "trayItemOrder" | "hiddenTrayItems" | "maxVisibleTrayItems" | "taskbarClockSide" | "hideSearchIntroBalloon" | "searchTipDismissed";
 
 type Numeric = "iconSize" | "colGap" | "rowGap" | "dockGap";
 type Placement = "desktopAlignment" | "desktopVerticalAlign" | "desktopMaxColumns" | "iconClick" | "windowControls" | "shellLayout"
@@ -77,9 +92,20 @@ interface LayoutState {
   /** Drag-and-drop order of the App Gallery; apps missing from it follow in registry order. */
   galleryAppOrder: AppId[];
   appViews: Partial<Record<ViewApp, ViewMode>>;
+  trayItemOrder: TrayItem[];
+  /** Left out of both the bar and the overflow menu. */
+  hiddenTrayItems: TrayItem[];
+  /** Visible tray items shown on the bar; the rest go behind the overflow chevron. */
+  maxVisibleTrayItems: number;
+  /** Bottom taskbar: clock right of the tray (default) or left of it. */
+  taskbarClockSide: ClockSide;
+  /** "Don't show me again" on the search tip balloon. */
+  hideSearchIntroBalloon: boolean;
+  /** Search tip closed for this visit (not persisted). */
+  searchTipDismissed: boolean;
   /** View Options popover (not persisted). */
   panel: boolean;
-  set: (patch: Partial<Pick<LayoutState, "desktopView" | Numeric | Placement | "panel">>) => void;
+  set: (patch: Partial<Pick<LayoutState, "desktopView" | Numeric | Placement | Tray | "panel">>) => void;
   setAppView: (app: ViewApp, mode: ViewMode) => void;
   reset: () => void;
 }
@@ -111,15 +137,20 @@ function sanitize(saved: Partial<LayoutState> | undefined, cur: LayoutState): Pa
     showDesktopIcons: typeof p.showDesktopIcons === "boolean" ? p.showDesktopIcons : cur.showDesktopIcons,
     gallerySortMode: SORTS.includes(p.gallerySortMode as GallerySort) ? (p.gallerySortMode as GallerySort) : cur.gallerySortMode,
     galleryAppOrder: p.galleryAppOrder === undefined ? cur.galleryAppOrder : appOrder(p.galleryAppOrder),
+    trayItemOrder: p.trayItemOrder === undefined ? cur.trayItemOrder : trayOrder(p.trayItemOrder),
+    hiddenTrayItems: Array.isArray(p.hiddenTrayItems) ? [...new Set(p.hiddenTrayItems.filter(isTray))] : cur.hiddenTrayItems,
+    maxVisibleTrayItems: clamp(p.maxVisibleTrayItems, LIMITS.trayItems, cur.maxVisibleTrayItems),
+    taskbarClockSide: p.taskbarClockSide === "right" || p.taskbarClockSide === "left" ? p.taskbarClockSide : cur.taskbarClockSide,
+    hideSearchIntroBalloon: typeof p.hideSearchIntroBalloon === "boolean" ? p.hideSearchIntroBalloon : cur.hideSearchIntroBalloon,
     appViews: Object.fromEntries(Object.entries(views).map(([k, v]) => [k, mode(v, "grid")])),
   };
 }
 
 /** The fields saved to localStorage and /api/system/preferences. */
 const persisted = ({ desktopView, iconSize, colGap, rowGap, dockGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, iconClick, windowControls, shellLayout,
-  showDesktopIcons, gallerySortMode, galleryAppOrder, appViews }: LayoutState) =>
+  showDesktopIcons, gallerySortMode, galleryAppOrder, appViews, trayItemOrder, hiddenTrayItems, maxVisibleTrayItems, taskbarClockSide, hideSearchIntroBalloon }: LayoutState) =>
   ({ desktopView, iconSize, colGap, rowGap, dockGap, desktopAlignment, desktopVerticalAlign, desktopMaxColumns, iconClick, windowControls, shellLayout,
-    showDesktopIcons, gallerySortMode, galleryAppOrder, appViews });
+    showDesktopIcons, gallerySortMode, galleryAppOrder, appViews, trayItemOrder, hiddenTrayItems, maxVisibleTrayItems, taskbarClockSide, hideSearchIntroBalloon });
 
 export const useLayout = create<LayoutState>()(
   persist(
@@ -139,13 +170,20 @@ export const useLayout = create<LayoutState>()(
       gallerySortMode: "custom",
       galleryAppOrder: [],
       appViews: {},
+      trayItemOrder: DEFAULTS.trayItemOrder,
+      hiddenTrayItems: DEFAULTS.hiddenTrayItems,
+      maxVisibleTrayItems: DEFAULTS.maxVisibleTrayItems,
+      taskbarClockSide: DEFAULTS.taskbarClockSide,
+      hideSearchIntroBalloon: false,
+      searchTipDismissed: false,
       panel: false,
       set: (patch) => set(patch),
       setAppView: (app, m) => set((s) => ({ appViews: { ...s.appViews, [app]: m } })),
       reset: () => {
         set({ desktopView: DEFAULTS.desktopView, iconSize: DEFAULTS.iconSize, colGap: DEFAULTS.colGap, rowGap: DEFAULTS.rowGap, dockGap: DEFAULTS.dockGap,
           desktopAlignment: DEFAULTS.desktopAlignment, desktopVerticalAlign: DEFAULTS.desktopVerticalAlign, desktopMaxColumns: DEFAULTS.desktopMaxColumns, iconClick: DEFAULTS.iconClick,
-          windowControls: DEFAULTS.windowControls, shellLayout: DEFAULTS.shellLayout, showDesktopIcons: DEFAULTS.showDesktopIcons });
+          windowControls: DEFAULTS.windowControls, shellLayout: DEFAULTS.shellLayout, showDesktopIcons: DEFAULTS.showDesktopIcons,
+          trayItemOrder: DEFAULTS.trayItemOrder, hiddenTrayItems: DEFAULTS.hiddenTrayItems, maxVisibleTrayItems: DEFAULTS.maxVisibleTrayItems, taskbarClockSide: DEFAULTS.taskbarClockSide });
         useDock.getState().set({ baseSize: DEFAULTS.dockSize });
       },
     }),

@@ -15,6 +15,7 @@ import { useUpdateStore } from "../store/updateStore";
 import { useWidgets } from "../store/widgetStore";
 import { productOf, useCapabilities, useProduct } from "../store/capabilitiesStore";
 import { SessionsCard, TwoFactorCard } from "./security/SecurityCenter";
+import { TrayControls } from "../components/SystemTray";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
 
 export function Card({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
@@ -658,6 +659,9 @@ function Appearance() {
       </Card>
       <Card title="Desktop Layout">
         <LayoutControls />
+      </Card>
+      <Card title={t("tray.title")}>
+        <TrayControls />
       </Card>
       <DockCard />
     </div>

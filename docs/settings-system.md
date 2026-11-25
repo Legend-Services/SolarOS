@@ -60,6 +60,20 @@ Choose between the Dock with TopBar and the taskbar layout, and set icon sizes.
 
 1. Pick a layout and an icon size in Desktop Layout.
 
+### Top Bar & Taskbar Tray
+
+Choose which status and quick-action icons sit in the top bar or taskbar tray, their order, how many stay on the bar before the rest move behind the overflow chevron, and the clock position.
+
+1. Set Max visible tray icons; the preview shows which ones move behind the chevron.
+2. Drag items to reorder them and use the switches to hide the ones you do not need.
+3. In the Bottom Taskbar layout, choose whether the clock sits right or left of the tray.
+
+> **Tip:** Right-click the top bar, taskbar or Dock and choose Customize Bar & Tray... to jump here.
+
+> **Tip:** Reset Search Tip Balloon brings back the Type to begin tip under the search field.
+
+![Top Bar & Taskbar Tray](screenshots/settings-general-appearance--tray.png)
+
 ### Dock
 
 Dock magnification and auto-hide.

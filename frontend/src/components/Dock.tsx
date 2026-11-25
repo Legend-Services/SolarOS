@@ -7,6 +7,7 @@ import { AppIcon } from "./icons/AppIcons";
 import { useDismiss, useFlip } from "../lib/hooks";
 import { dockSizes } from "../lib/dockMath";
 
+import { useBarMenu } from "./SystemTray";
 import { useLayout } from "../store/layoutStore";
 
 
@@ -15,6 +16,7 @@ type Slot = AppId | typeof GALLERY;
 
 export default function Dock() {
   const { t, appTitle } = useTranslation();
+  const [onContextMenu, barMenu] = useBarMenu();
   const windows = useWindows((s) => s.windows);
   const { close, setDockIconRect } = useWindows();
   const { pinned, autoHide, baseSize, magnification, gallery, pin, unpin, move, set } = useDock();
@@ -82,6 +84,7 @@ export default function Dock() {
           onMouseMove={onMove}
           onMouseEnter={reveal}
           onMouseLeave={leave}
+          onContextMenu={onContextMenu}
         >
           {slots.map((slot, i) => {
             const size = sizes[i];
@@ -142,6 +145,7 @@ export default function Dock() {
           })}
         </div>
       </nav>
+      {barMenu}
     </>
   );
 }

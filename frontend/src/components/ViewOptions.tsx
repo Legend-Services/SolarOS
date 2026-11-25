@@ -1,4 +1,5 @@
-import { ChevronRight, LayoutGrid, List, PencilRuler, RotateCcw, X } from "lucide-react";
+import { ChevronRight, LayoutGrid, List, PencilRuler, RotateCcw, SlidersHorizontal, X } from "lucide-react";
+import { openTraySettings } from "./SystemTray";
 import { useTranslation, type TKey } from "../i18n";
 import { useWidgets } from "../store/widgetStore";
 
@@ -113,6 +114,9 @@ export function ViewOptionsPanel({ up = false }: { up?: boolean }) {
         </GlassButton>
       </div>
       <LayoutControls />
+      <GlassButton className="mt-3 w-full" onClick={() => (set({ panel: false }), openTraySettings())}>
+        <SlidersHorizontal size={12} /> {t("tray.customize")}
+      </GlassButton>
     </div>
   );
 }
