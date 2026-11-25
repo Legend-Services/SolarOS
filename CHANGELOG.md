@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased - Zero-Flicker Bitmap Wallpaper & Universal Progress Bars
+## v2.12.0 - Zero-Flicker Bitmap Wallpaper & Universal Progress Bars — 2026-11-26
 
 ### Added
 - **Operation progress cards:** one Liquid Glass progress card for every long-running job: title and status badge (*Running*, *Completed*, *Failed*), an animated 0–100% bar with a bold percentage, the current step with a *Step 3 of 5* counter, a 4-line log tail that expands to the full log with one click, and **Retry** / **Dismiss** when a job fails.
