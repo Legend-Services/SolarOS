@@ -72,11 +72,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           # The CHANGELOG section of this version is the release body.
-          awk -v v="## ${GITHUB_REF_NAME} " 'index($0, v) == 1 {p = 1; print; next} /^## v/ && p {exit} p' CHANGELOG.md > notes.md
-          [ -s notes.md ] || echo "SolarDeck ${GITHUB_REF_NAME}" > notes.md
+          awk -v v="## ${GITHUB_REF_NAME} " 'index($0, v) == 1 {p = 1; print; next} /^## v/ && p {exit} p' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          [ -s "$RUNNER_TEMP/notes.md" ] || echo "SolarDeck ${GITHUB_REF_NAME}" > "$RUNNER_TEMP/notes.md"
           gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 \
             && gh release upload "$GITHUB_REF_NAME" --clobber install.sh hypervisor/install-hypervisor.sh hypervisor/build-iso.sh \
-            || gh release create "$GITHUB_REF_NAME" --title "SolarDeck ${GITHUB_REF_NAME}" --notes-file notes.md \
+            || gh release create "$GITHUB_REF_NAME" --title "SolarDeck ${GITHUB_REF_NAME}" --notes-file "$RUNNER_TEMP/notes.md" \
                  install.sh hypervisor/install-hypervisor.sh hypervisor/build-iso.sh
       - name: Publish the SolarOS release branch
         # SolarOS installs update from the "solaros" branch: the SolarOS edition tree only (deploy/make-edition-tree.sh

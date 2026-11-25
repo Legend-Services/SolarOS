@@ -13,8 +13,13 @@ META="${SRC}/deploy/editions"
 [[ -d "$META" ]] || { echo "make-edition-tree: ${META} not found" >&2; exit 2; }
 
 rm -rf "$OUT" && mkdir -p "$OUT"
+if git -C "$SRC" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  # A checkout: only files under version control, so stray local files (build output, notes) never ship.
+  git -C "$SRC" ls-files -z | tar -C "$SRC" --null -T - -cf - | tar -x -C "$OUT"
+else
 tar -C "$SRC" --exclude=.git --exclude=node_modules --exclude=.venv --exclude=__pycache__ --exclude=hypervisor/.cache \
   --exclude=backend/.env --exclude=backend/.ssh --exclude='*.iso' --exclude=frontend/dist --exclude='*.tsbuildinfo' -cf - . | tar -x -C "$OUT"
+fi
 
 others=()
 for list in "$META"/*.paths; do
