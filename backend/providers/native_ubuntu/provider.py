@@ -6,7 +6,7 @@ disks through smartctl/hdparm/nvme-cli/fio. The backend runs as root on the host
 * handlers that only use the root helper or the SSH bridge (datasets, pool members, disk settings and scans,
   benchmarks, hardware inventory, GPU driver modes, ZFS dataset snapshots) are reused unchanged: the installer
   points the bridge at root@127.0.0.1 and installs the helper locally;
-* everything that used the Proxmox REST API is implemented here with local commands, returning the same shapes.
+* everything else is implemented here with local commands, returning the shapes the shared modules read.
 """
 import asyncio
 import hashlib
@@ -24,8 +24,9 @@ from pathlib import Path
 from fastapi import HTTPException
 
 from app import (apps, automation, backups, disk_benchmark, guest_hardware, hardware_admin, local_ai, net_services, pci,
-                 provisioning, pve_access, storage_admin)
-from app import pve as api
+                 provisioning, storage_admin)
+from app import access
+from app import hypervisor as api
 from app.config import settings
 from providers.base import (AccessAclInfo, AccessGroupInfo, AccessRoleInfo, AccessUserInfo, BackupArchiveInfo,
                             BackupScheduleInfo, BenchmarkResult, BiosReadinessStatus, ConsoleTicket, DiskSettings,
@@ -75,7 +76,7 @@ def _bridge(b: str) -> str:
     return b or settings.default_bridge
 
 
-def _cpu_pct(key: tuple[str, str], ns: int, cpus: int) -> float:
+def _cpu_percent(key: tuple[str, str], ns: int, cpus: int) -> float:
     now = time.monotonic()
     prev = _cpu_prev.get(key)
     _cpu_prev[key] = (now, ns)
@@ -172,7 +173,7 @@ class NativeUbuntuProvider(HypervisorProvider):
         return BiosReadinessStatus.model_validate(await hardware_admin.bios_status())
 
     async def set_gpu_driver_mode(self, action: str, gpu: str) -> TaskInfo:
-        # vfio-pci binding via /etc/modprobe.d + update-initramfs -u; the same host job as on Proxmox VE.
+        # vfio-pci binding via /etc/modprobe.d + update-initramfs -u (shared hardware_admin host job).
         res = await hardware_admin.gpu_driver_action(action, hardware_admin.GpuBody(gpu=gpu))
         return TaskInfo.model_validate(res if isinstance(res, dict) else {"result": res})
 
@@ -213,7 +214,7 @@ class NativeUbuntuProvider(HypervisorProvider):
                 maxdisk = sum(int(v) for k, v in s.items() if re.fullmatch(r"block\.\d+\.capacity", k))
                 out.append({"vmid": vmid, "name": g["name"], "type": "qemu",
                             "status": {1: "running", 3: "paused"}.get(state, "stopped"),
-                            "cpu": _cpu_pct(("qemu", g["name"]), int(s.get("cpu.time", 0)), cpus) if state == 1 else 0,
+                            "cpu": _cpu_percent(("qemu", g["name"]), int(s.get("cpu.time", 0)), cpus) if state == 1 else 0,
                             "maxcpu": cpus, "mem": int(s.get("balloon.rss", s.get("balloon.current", 0))) * 1024,
                             "maxmem": int(s.get("balloon.maximum", 0)) * 1024, "disk": disk, "maxdisk": maxdisk,
                             "uptime": 0, "netin": netin, "netout": netout, "tags": g.get("tags", "")})
@@ -224,7 +225,7 @@ class NativeUbuntuProvider(HypervisorProvider):
                 cpus = int(cfg.get("limits.cpu", "0") or 0) if str(cfg.get("limits.cpu", "")).isdigit() else (os.cpu_count() or 1)
                 nets = (st.get("network") or {}).values()
                 out.append({"vmid": vmid, "name": g["name"], "type": "lxc", "status": "running" if running else "stopped",
-                            "cpu": _cpu_pct(("lxc", g["name"]), int((st.get("cpu") or {}).get("usage", 0)), cpus) if running else 0,
+                            "cpu": _cpu_percent(("lxc", g["name"]), int((st.get("cpu") or {}).get("usage", 0)), cpus) if running else 0,
                             "maxcpu": cpus, "mem": int((st.get("memory") or {}).get("usage", 0)),
                             "maxmem": host.size_bytes(cfg.get("limits.memory", "")) or
                             int((st.get("memory") or {}).get("total", 0)),
@@ -678,7 +679,7 @@ class NativeUbuntuProvider(HypervisorProvider):
     async def list_storage_pools(self) -> dict:
         listing, status, incus_pools, disks = await asyncio.gather(
             ok("zpool", "list", "-Hp", "-o", "name,size,alloc,free,frag,dedup,health"), ok("zpool", "status", "-P"),
-            self._incus_pools(), self._raw_disks())
+            self._incus_pools(), self.raw_disks())
         trees = storage_admin.parse_zpool_status(status or "")
         pools = []
         for line in (listing or "").splitlines():
@@ -741,7 +742,7 @@ class NativeUbuntuProvider(HypervisorProvider):
             if name in await self._incus_pools():
                 await run("incus", "storage", "delete", name, log=log)
             await run("zpool", "destroy", "-f", name, log=log)
-            for m in members:  # like PVE cleanup-disks: the disks show up as free again
+            for m in members:  # cleanup: the disks show up as free again
                 await ok("zpool", "labelclear", "-f", m)
                 await ok("wipefs", "-a", m)
             log(f"pool {name} destroyed")
@@ -768,8 +769,8 @@ class NativeUbuntuProvider(HypervisorProvider):
     async def delete_dataset(self, name: str, confirm: str, recursive: bool = False) -> dict:
         return await storage_admin.dataset_destroy(name, confirm, recursive)
 
-    async def _raw_disks(self) -> list[dict]:
-        """Whole disks in the shape of the PVE /disks/list API (storage_admin.normalize_disk reads that)."""
+    async def raw_disks(self) -> list[dict]:
+        """Whole disks in the shape storage_admin.normalize_disk reads (devpath, model, serial, type, size, rpm, ...)."""
         try:
             data = await run_json("lsblk", "-J", "-b", "-o",
                                   "NAME,PATH,MODEL,SERIAL,SIZE,ROTA,TRAN,TYPE,VENDOR,PTTYPE,FSTYPE,MOUNTPOINT")
@@ -804,7 +805,7 @@ class NativeUbuntuProvider(HypervisorProvider):
         return out
 
     async def list_physical_disks(self) -> list[PhysicalDiskInfo]:
-        items, (members, rpms) = await asyncio.gather(self._raw_disks(), storage_admin.probe_host_disks())
+        items, (members, rpms) = await asyncio.gather(self.raw_disks(), storage_admin.probe_host_disks())
         return _many(PhysicalDiskInfo, [storage_admin.normalize_disk(d, members.get(d["devpath"]),
                                                                      rpms.get(d["devpath"].removeprefix("/dev/")))
                                         for d in items])
@@ -825,7 +826,7 @@ class NativeUbuntuProvider(HypervisorProvider):
                              "threshold": a.get("thresh"), "raw": (a.get("raw") or {}).get("string", ""),
                              "flags": (a.get("flags") or {}).get("string", ""), "fail": a.get("when_failed") or "-"}
                             for a in table]}
-        if not table:  # NVMe / SAS: PVE shows the text report, which parse_smart reads
+        if not table:  # NVMe / SAS: the text report, which parse_smart reads
             s["text"] = await run("smartctl", "-a", path, check=False, timeout=60)
         return SmartReport.model_validate(storage_admin.parse_smart(s))
 
@@ -1196,7 +1197,7 @@ class NativeUbuntuProvider(HypervisorProvider):
 
     async def create_backup_schedule(self, spec: dict) -> dict:
         body = backups.ScheduleBody(**spec)
-        backups.schedule_params(body)  # same validation as the Proxmox driver
+        backups.check_schedule(body)  # same validation as the other drivers
         nxt = await next_elapse(body.schedule)
         if nxt is None:
             raise HTTPException(422, f"Invalid schedule {body.schedule!r} (use e.g. daily, sun 01:00, mon..fri 02:30)")
@@ -1224,6 +1225,9 @@ class NativeUbuntuProvider(HypervisorProvider):
             raise HTTPException(404, "Backup job not found")
         self._save_schedules([j for j in jobs if j["id"] != job_id])
         return {"ok": True}
+
+    def scheduler_loops(self) -> list:
+        return [self.backup_scheduler_loop()]
 
     async def backup_scheduler_loop(self) -> None:
         """Runs due backup jobs (started from app.main lifespan on this driver)."""
@@ -1257,10 +1261,10 @@ class NativeUbuntuProvider(HypervisorProvider):
         return _many(AccessUserInfo, rbac.users())
 
     async def create_user(self, spec: dict) -> dict:
-        return rbac.create_user(pve_access.UserCreate(**spec))
+        return rbac.create_user(access.UserCreate(**spec))
 
     async def update_user(self, userid: str, spec: dict) -> dict:
-        return rbac.update_user(userid, pve_access.UserFields(**spec))
+        return rbac.update_user(userid, access.UserFields(**spec))
 
     async def delete_user(self, userid: str) -> dict:
         return rbac.delete_user(userid)
@@ -1269,7 +1273,7 @@ class NativeUbuntuProvider(HypervisorProvider):
         return _many(AccessGroupInfo, rbac.groups())
 
     async def create_group(self, spec: dict) -> dict:
-        return rbac.create_group(pve_access.GroupBody(**spec))
+        return rbac.create_group(access.GroupBody(**spec))
 
     async def delete_group(self, groupid: str) -> dict:
         return rbac.delete_group(groupid)
@@ -1278,12 +1282,12 @@ class NativeUbuntuProvider(HypervisorProvider):
         return _many(AccessRoleInfo, rbac.roles())
 
     async def create_role(self, spec: dict) -> dict:
-        body = pve_access.RoleCreate(**spec)
+        body = access.RoleCreate(**spec)
         body.joined()
         return rbac.save_role(body.roleid, body.privs, create=True)
 
     async def update_role(self, roleid: str, spec: dict) -> dict:
-        body = pve_access.RoleBody(**spec)
+        body = access.RoleBody(**spec)
         body.joined()
         return rbac.save_role(roleid, body.privs, create=False)
 
@@ -1294,13 +1298,13 @@ class NativeUbuntuProvider(HypervisorProvider):
         return _many(AccessAclInfo, rbac.acl())
 
     async def update_acl(self, spec: dict, delete: bool = False) -> dict:
-        return rbac.update_acl(pve_access.AclBody(**spec), delete)
+        return rbac.update_acl(access.AclBody(**spec), delete)
 
     async def list_pools(self) -> list[ResourcePoolInfo]:
         return _many(ResourcePoolInfo, rbac.pools())
 
     async def create_pool(self, spec: dict) -> dict:
-        return rbac.create_pool(pve_access.PoolBody(**spec))
+        return rbac.create_pool(access.PoolBody(**spec))
 
     async def delete_pool(self, poolid: str) -> dict:
         return rbac.delete_pool(poolid)
@@ -1432,7 +1436,7 @@ def zpool_layout(raid: str, devs: list[str]) -> list[str]:
 
 
 def zpool_tree(rows: list[dict], pool: str) -> list[dict]:
-    """parse_zpool_status rows -> the nested children list of PVE /disks/zfs/{name}."""
+    """parse_zpool_status rows -> the nested children list of a pool detail (zfs_pool_detail)."""
     nodes = {}
     roots = []
     for r in rows:
@@ -1476,7 +1480,7 @@ def usb_sysfs(root: Path) -> dict:
 
 
 def parse_ip_addr(addrs: list[dict], gateways: dict[str, str], methods: dict[str, str]) -> list[dict]:
-    """`ip -j -d addr` -> PVE /network rows (eth, bridge, bond, vlan). Guest taps/veths are skipped."""
+    """`ip -j -d addr` -> network interface rows (eth, bridge, bond, vlan). Guest taps/veths are skipped."""
     ports: dict[str, list[str]] = {}
     for a in addrs:
         if a.get("master"):
@@ -1527,7 +1531,7 @@ def netplan_methods(root: Path = Path("/etc/netplan")) -> dict[str, str]:
 
 
 def parse_nft_rules(data: dict) -> list[dict]:
-    """`nft -j list table inet solardeck` -> PVE-style firewall rule rows (best effort)."""
+    """`nft -j list table inet solardeck` -> firewall rule rows (best effort)."""
     rules = []
     for item in data.get("nftables", []):
         r = item.get("rule")

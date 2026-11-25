@@ -1,4 +1,4 @@
-"""Fresh-install resilience: no SSH bridge, no dmidecode, no ZFS, no GPU. Run: python -m tests.test_phase13_resilience (from backend/)."""
+"""Fresh-install resilience: no SSH bridge, no dmidecode, no ZFS, no GPU. Run: python -m tests.test_proxmox_resilience (from backend/)."""
 import os
 import tempfile
 from pathlib import Path
@@ -11,7 +11,8 @@ import httpx  # noqa: E402
 from fastapi import HTTPException  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from app import hardware_admin as h, help_center, host, host_ssh, pci, pve  # noqa: E402
+from app import hardware_admin as h, help_center, host, host_ssh, pci  # noqa: E402
+from providers.proxmox import api as pve  # noqa: E402
 from app.main import app  # noqa: E402
 
 STATUS = {"cpuinfo": {"model": "AMD Ryzen 7 5700U", "sockets": 1, "cores": 8, "cpus": 16, "mhz": "1800.000",
@@ -69,7 +70,7 @@ f = help_center.parse_bios_facts("system-manufacturer=To Be Filled By O.E.M.\nba
                                  "bios-vendor=Default string\nvirt=16\ncpu=vendor_id : AuthenticAMD")
 assert (f["manufacturer"], f["board"], f["bios_vendor"], f["virtualization"], f["cpu"]) == ("", "B550M", "", True, "amd"), f
 assert h.num("-") is None and h.num("5800,0000", float) == 5800.0 and h.num("0") is None and h.num(None) is None
-p = pci.parse(pci.from_pve([{"id": "0000:01:00.0", "class": "0x030000", "vendor": "0x10de", "device": "0x2204",
+p = pci.parse(pci.from_api([{"id": "0000:01:00.0", "class": "0x030000", "vendor": "0x10de", "device": "0x2204",
                              "vendor_name": "NVIDIA Corporation", "device_name": "GA102", "iommugroup": 14}]))
 assert p["devices"][0]["gpu"] and p["devices"][0]["vendor"] == "nvidia" and p["iommu_enabled"], p
 inv = h.build_inventory(h.split_sections("@@lscpu@@\n" + '{"lscpu":[{"field":"Socket(s):","data":"-"},'

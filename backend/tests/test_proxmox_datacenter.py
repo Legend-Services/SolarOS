@@ -1,4 +1,4 @@
-"""Self-check for RBAC + Datacenter routers. Run: python -m tests.test_datacenter (from backend/)."""
+"""Self-check for RBAC + Datacenter routers. Run: python -m tests.test_proxmox_datacenter (from backend/)."""
 import os
 import tempfile
 
@@ -8,7 +8,8 @@ os.environ.update(NODE_NAME="pve", STORAGE_ROOT=tempfile.mkdtemp(), ADMIN_USERNA
 import httpx  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from app import pve, pve_datacenter as dc  # noqa: E402
+from providers.proxmox import api as pve  # noqa: E402
+from providers.proxmox.routes import datacenter as dc  # noqa: E402
 from app.main import app  # noqa: E402
 
 calls = []

@@ -1,0 +1,113 @@
+"""Proxmox host administration: APT repositories (standard repo handles), package updates, power, Control Panel info."""
+import asyncio
+import re
+
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel, Field
+
+from app.auth import require_user
+from app.config import settings
+from app.system import PowerBody
+
+from ..api import _node, _safe, pve, pve_settings
+
+router = APIRouter(prefix="/api/system", tags=["system"], dependencies=[Depends(require_user)])
+
+
+def repo_handle(uri: str, components: list[str]) -> str | None:
+    """Map a configured repository to its PVE standard-repo handle (e.g. "no-subscription"), if it is one."""
+    if re.search(r"/debian/pve/?$", uri):
+        return next((c[4:] for c in components if c.startswith("pve-")), None)
+    m = re.search(r"/debian/(ceph-[a-z]+)/?$", uri)
+    return f"{m.group(1)}-{components[0]}" if m and components else None
+
+
+def flatten(data: dict) -> dict:
+    repos = []
+    for f in data.get("files") or []:
+        for i, r in enumerate(f.get("repositories") or []):
+            uris, comps = r.get("URIs") or [], r.get("Components") or []
+            repos.append({"path": f["path"], "index": i, "enabled": bool(r.get("Enabled")), "types": r.get("Types") or [],
+                          "uris": uris, "suites": r.get("Suites") or [], "components": comps,
+                          "handle": repo_handle(uris[0], comps) if uris else None})
+    std = data.get("standard-repos") or []
+    return {
+        "digest": data.get("digest"),
+        "repositories": repos,
+        "names": {s["handle"]: s["name"] for s in std},
+        # Standard repos with no "status" are not configured in any file yet.
+        "available": [{"handle": s["handle"], "name": s["name"], "description": s.get("description", "")}
+                      for s in std if "status" not in s],
+        "errors": [e.get("error", str(e)) for e in data.get("errors") or []],
+    }
+
+
+@router.get("/repositories")
+async def repositories():
+    return flatten(await pve("GET", _node("/apt/repositories")) or {})
+
+
+class RepoToggle(BaseModel):
+    path: str = Field(pattern=r"^/etc/apt/[A-Za-z0-9_./-]+$", max_length=200)
+    index: int = Field(ge=0, le=1000)
+    enabled: bool
+    digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{1,128}$")
+
+
+class RepoAdd(BaseModel):
+    handle: str = Field(pattern=r"^[a-z0-9-]+$", max_length=64)
+    digest: str | None = Field(default=None, pattern=r"^[0-9a-f]{1,128}$")
+
+
+@router.post("/repositories/toggle")
+async def toggle_repository(body: RepoToggle):
+    data = {"path": body.path, "index": body.index, "enabled": int(body.enabled)}
+    await pve("POST", _node("/apt/repositories"), data={**data, **({"digest": body.digest} if body.digest else {})})
+    return {"ok": True}
+
+
+@router.post("/repositories/add")
+async def add_repository(body: RepoAdd):
+    await pve("PUT", _node("/apt/repositories"), data={"handle": body.handle, **({"digest": body.digest} if body.digest else {})})
+    return {"ok": True}
+
+
+@router.get("/updates")
+async def updates():
+    return await pve("GET", _node("/apt/update")) or []
+
+
+@router.post("/updates/refresh")
+async def refresh_updates():
+    return {"task": await pve("POST", _node("/apt/update"))}
+
+
+@router.post("/power")
+async def power(body: PowerBody):
+    await pve("POST", _node("/status"), data={"command": body.command})
+    return {"ok": True}
+
+
+@router.get("/info")
+async def info():
+    version, status, network, dns = await asyncio.gather(
+        _safe("/version"), _safe(_node("/status"), {}), _safe(_node("/network"), []), _safe(_node("/dns"), {}),
+    )
+    status, cpu = status or {}, (status or {}).get("cpuinfo", {})
+    return {
+        "node": settings.node_name,
+        "version": version or {},
+        "platform_version": status.get("pveversion", ""),
+        "kernel": status.get("kversion", ""),
+        "uptime": status.get("uptime", 0),
+        "cpu_model": cpu.get("model", ""),
+        "cpus": cpu.get("cpus", 0),
+        "boot_mode": (status.get("boot-info") or {}).get("mode", ""),
+        "network": sorted(network or [], key=lambda n: (n.get("type") != "bridge", n.get("iface", ""))),
+        "dns": dns or {},
+        "api": {"host": pve_settings.host, "token_id": pve_settings.token_id, "connected": version is not None,
+                "verify_ssl": pve_settings.verify_ssl},
+        "admin_username": settings.admin_username,
+        "storage_root": str(settings.storage_root),
+        "helper": "ssh " + settings.host_ssh if settings.host_ssh else "local",
+    }

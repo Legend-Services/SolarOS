@@ -1,15 +1,14 @@
-"""Full storage administration: physical disks, SMART, wipe/GPT, Directory/LVM storages, ZFS pools, datasets and ZVOLs.
+"""Storage administration shared by the drivers: disk parsing and tuning, SMART scans, ZFS pool members, datasets.
 
-Disk and pool operations use the Proxmox API (they return task UPIDs, visible in the Task Center). ZFS datasets have
-no PVE API, so they go through the root-only host helper, which re-validates every argument.
+Disk listing, wipe/GPT and pool creation are driver routes (they return tasks visible in the Task Center). ZFS
+datasets, pool members and disk settings go through the root-only host helper / SSH bridge, which re-validate every
+argument.
 """
-import asyncio
 import json
 import re
 import shlex
 from contextlib import suppress
 from typing import Literal
-from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -18,16 +17,22 @@ from . import host, host_ssh
 from .auth import require_user
 from .config import settings
 from .hardware_admin import split_sections
-from .pve import DATASET_RE, _node, pve, zfs_helper
+from .hypervisor import DATASET_RE, zfs_helper
 from .telemetry import smart_temp
+from providers.registry import driver_package, get_provider
 
 router = APIRouter(prefix="/api/v1", tags=["storage-admin"], dependencies=[Depends(require_user)])
+
 
 DEV_RE = r"^/dev/[A-Za-z0-9][A-Za-z0-9/_.:-]*$"
 POOL_RE = r"^[A-Za-z][A-Za-z0-9_.:-]{0,63}$"
 STORAGE_RE = r"^[a-z][a-z0-9_.-]{0,38}[a-z0-9]$"
-# Only datasets below a pool root; pools themselves are created/destroyed through the PVE API.
+
+
+# Only datasets below a pool root; pools themselves are created/destroyed by the driver.
 CHILD_DATASET_RE = r"^[A-Za-z0-9][A-Za-z0-9_.:-]*/[A-Za-z0-9_.:/-]*[A-Za-z0-9_.:-]$"
+
+
 SIZE_RE = r"^[0-9]+[KMGTP]?$"
 
 
@@ -35,9 +40,6 @@ def _dev(d: str) -> str:
     if ".." in d or not re.fullmatch(DEV_RE, d):
         raise HTTPException(422, "Invalid device path")
     return d
-
-
-# ---------------------------------------------------------------- Physical disks
 
 
 def bus_type(d: dict) -> str:
@@ -116,19 +118,19 @@ def parse_rpm(text: str) -> int | None:
 
 
 def normalize_disk(d: dict, member: dict | None, probed_rpm: int | None) -> dict:
-    pve_rpm = d.get("rpm") if isinstance(d.get("rpm"), int) else 0
-    # PVE: rpm 0 = solid state (also USB flash), -1 = spinning at an unknown speed, >0 = known speed.
-    rotational = pve_rpm != 0 or d.get("type") == "hdd"
-    rpm = pve_rpm if pve_rpm > 0 else probed_rpm if rotational else None
+    api_rpm = d.get("rpm") if isinstance(d.get("rpm"), int) else 0
+    # rpm 0 = solid state (also USB flash), -1 = spinning at an unknown speed, >0 = known speed.
+    rotational = api_rpm != 0 or d.get("type") == "hdd"
+    rpm = api_rpm if api_rpm > 0 else probed_rpm if rotational else None
     wear = d.get("wearout")
     return {
         "devpath": d.get("devpath"), "by_id": d.get("by_id_link") or "", "model": d.get("model") or "",
         "serial": d.get("serial") or "", "vendor": (d.get("vendor") or "").strip(), "size": d.get("size") or 0,
         "type": d.get("type") or "", "bus": bus_type(d), "rotational": rotational, "rpm": rpm,
         "rpm_label": (f"{rpm} RPM" if rpm else "HDD") if rotational else "Flash (USB)" if bus_type(d) == "USB" else "SSD / NVMe",
-        # PVE "used": partitions / LVM / ZFS / mounted / etc. Empty means the disk is free to use.
+        # "used": partitions / LVM / ZFS / mounted / etc. Empty means the disk is free to use.
         "used": d.get("used") or "", "gpt": bool(d.get("gpt")), "health": d.get("health") or "UNKNOWN",
-        # PVE wearout = % of rated life remaining; "N/A" (or -1) for spinning disks.
+        # wearout = % of rated life remaining; "N/A" (or -1) for spinning disks.
         "wearout_pct": wear if isinstance(wear, int) and wear >= 0 and not rotational else None,
         **(member or {"pool_name": None, "vdev_name": None, "member_device": None, "member_state": None,
                       "read_errors": None, "write_errors": None, "cksum_errors": None}),
@@ -146,13 +148,6 @@ async def probe_host_disks() -> tuple[dict[str, dict], dict[str, int | None]]:
     return zfs_members(parse_zpool_status(s.get("zpool", "")), links), rpms
 
 
-@router.get("/disks")
-async def disks():
-    items, (members, rpms) = await asyncio.gather(pve("GET", _node("/disks/list")), probe_host_disks())
-    return [normalize_disk(d, members.get(d.get("devpath")), rpms.get((d.get("devpath") or "").removeprefix("/dev/")))
-            for d in items or []]
-
-
 def _attr_raw(attrs: list[dict], *names: str) -> int | None:
     for a in attrs:
         if a.get("name") in names:
@@ -166,12 +161,12 @@ WEAR_ATTRS = ("Media_Wearout_Indicator", "Wear_Leveling_Count", "Percent_Lifetim
 
 
 def parse_smart(s: dict) -> dict:
-    """Normalize a PVE /disks/smart result (ATA attribute table or NVMe/SAS text) into a summary + attribute list."""
+    """Normalize a SMART result (ATA attribute table or NVMe/SAS text) into a summary + attribute list."""
     attrs = s.get("attributes") or []
     text = s.get("text") or ""
     fields = {k.strip(): v.strip() for k, v in re.findall(r"^([A-Za-z][^:\n]{1,60}):\s+(.+)$", text, re.M)}
     num = lambda k: int(re.sub(r"[^\d]", "", fields[k]) or 0) if k in fields else None  # noqa: E731
-    used_pct = num("Percentage Used")
+    used_percent = num("Percentage Used")
     # ATA wear attributes: the normalized value counts down from 100 (% of rated life remaining).
     wear = next((a.get("value") for a in attrs if a.get("name") in WEAR_ATTRS), None)
     return {
@@ -183,18 +178,11 @@ def parse_smart(s: dict) -> dict:
                                       "Power-Off_Retract_Count") if attrs else num("Unsafe Shutdowns"),
         "media_errors": _attr_raw(attrs, "Reallocated_Sector_Ct") if attrs else num("Media and Data Integrity Errors"),
         # % of rated life used: NVMe reports it directly; for ATA, normalized wear values count down from 100.
-        "wearout_used_pct": used_pct if used_pct is not None else (100 - int(wear) if str(wear).isdigit() else None),
+        "wearout_used_pct": used_percent if used_percent is not None else (100 - int(wear) if str(wear).isdigit() else None),
         "attributes": [{k: a.get(k) for k in ("id", "name", "value", "worst", "threshold", "raw", "flags", "fail")}
                        for a in attrs] or [{"name": k, "raw": v} for k, v in fields.items()],
         "text": text,
     }
-
-
-@router.get("/disks/{disk:path}/smart")
-async def disk_smart(disk: str):
-    """Accepts "sda", "dev/sda" or "/dev/sda" (also URL-encoded)."""
-    path = disk if disk.startswith("/dev/") else f"/dev/{disk.removeprefix('dev/').lstrip('/')}"
-    return parse_smart(await pve("GET", _node(f"/disks/smart?disk={quote(_dev(path), safe='')}")) or {})
 
 
 class DeviceConfirm(BaseModel):
@@ -202,50 +190,8 @@ class DeviceConfirm(BaseModel):
     confirm_device: str = Field(max_length=200)
 
 
-@router.post("/disks/wipe")
-async def disk_wipe(body: DeviceConfirm):
-    if body.confirm_device != body.disk:
-        raise HTTPException(400, "Confirmation does not match the device path")
-    return {"task": await pve("PUT", _node("/disks/wipedisk"), data={"disk": _dev(body.disk)})}
-
-
 class DeviceBody(BaseModel):
     disk: str = Field(max_length=200)
-
-
-@router.post("/disks/initgpt")
-async def disk_initgpt(body: DeviceBody):
-    return {"task": await pve("POST", _node("/disks/initgpt"), data={"disk": _dev(body.disk)})}
-
-
-class DirectoryBody(BaseModel):
-    device: str = Field(max_length=200)
-    name: str = Field(pattern=STORAGE_RE)
-    filesystem: Literal["ext4", "xfs"] = "ext4"
-    add_storage: bool = True
-
-
-@router.post("/disks/directory")
-async def disk_directory(body: DirectoryBody):
-    data = {"device": _dev(body.device), "name": body.name, "filesystem": body.filesystem,
-            "add_storage": int(body.add_storage)}
-    return {"task": await pve("POST", _node("/disks/directory"), data=data)}
-
-
-class LvmBody(BaseModel):
-    device: str = Field(max_length=200)
-    name: str = Field(pattern=STORAGE_RE)
-    thin: bool = False
-    add_storage: bool = True
-
-
-@router.post("/disks/lvm")
-async def disk_lvm(body: LvmBody):
-    data = {"device": _dev(body.device), "name": body.name, "add_storage": int(body.add_storage)}
-    return {"task": await pve("POST", _node("/disks/lvmthin" if body.thin else "/disks/lvm"), data=data)}
-
-
-# ---------------------------------------------------------------- ZFS pools
 
 
 class PoolBody(BaseModel):
@@ -273,24 +219,6 @@ def validate_pool(body: PoolBody) -> list[str]:
     return devs
 
 
-@router.post("/zfs/pools")
-async def pool_create(body: PoolBody):
-    devs = validate_pool(body)
-    data = {"name": body.name, "raidlevel": body.raidlevel, "devices": ",".join(devs), "ashift": body.ashift,
-            "compression": body.compression, "add_storage": int(body.add_storage)}
-    return {"task": await pve("POST", _node("/disks/zfs"), data=data)}
-
-
-@router.delete("/zfs/pools/{name}")
-async def pool_destroy(name: str, confirm: str = Query(max_length=64)):
-    if not re.fullmatch(POOL_RE, name):
-        raise HTTPException(422, "Invalid pool name")
-    if confirm != name:
-        raise HTTPException(400, "Confirmation does not match the pool name")
-    # cleanup-config removes the matching PVE storage entry; cleanup-disks wipes the member disks' labels.
-    return {"task": await pve("DELETE", _node(f"/disks/zfs/{name}"), params={"cleanup-config": 1, "cleanup-disks": 1})}
-
-
 @router.post("/zfs/pools/{name}/scrub")
 async def pool_scrub(name: str):
     if not re.fullmatch(POOL_RE, name):
@@ -298,8 +226,6 @@ async def pool_scrub(name: str):
     await host.run(["zpool-scrub", name])
     return {"ok": True}
 
-
-# ---------------------------------------------------------------- ZFS datasets & volumes
 
 DATASET_COLS = ("name", "type", "used", "available", "refer", "mountpoint", "compression", "recordsize", "quota",
                 "atime", "volsize")
@@ -315,7 +241,7 @@ def parse_datasets(out: str) -> list[dict]:
         for k in ("used", "available", "refer", "quota", "volsize"):
             d[k] = int(d[k]) if d[k].isdigit() else 0
         d["pool"] = d["name"].split("/", 1)[0]
-        # PVE guest disks (vm-100-disk-0, subvol-101-disk-0) are managed by Compute Manager.
+        # Guest disks (vm-100-disk-0, subvol-101-disk-0) are managed by Compute Manager.
         d["guest_volume"] = bool(re.search(r"/(vm|base|subvol|basevol)-\d+-", d["name"]))
         items.append(d)
     return items
@@ -392,9 +318,9 @@ async def dataset_destroy(name: str = Query(pattern=CHILD_DATASET_RE, max_length
     return {"ok": True}
 
 
-# ---------------------------------------------------------------- ZFS member control (offline / online / replace / detach)
-
 MEMBER_RE = r"^[A-Za-z0-9/][A-Za-z0-9/_.:-]{0,250}$"
+
+
 # How many failed children each redundant vdev type survives (mirror/replacing/spare: all but one).
 PARITY = {"raidz": 1, "raidz1": 1, "raidz2": 2, "raidz3": 3}
 
@@ -546,9 +472,8 @@ async def member_replace(pool: str, body: ReplaceBody):
     return {"ok": True, "new_member": target}
 
 
-# ---------------------------------------------------------------- Per-disk tuning (hdparm / nvme-cli / smartctl)
-
-RULES_FILE = "/etc/udev/rules.d/69-proxmoxos-disk-tuning.rules"
+LEGACY_NAME = driver_package().LEGACY_NAME
+RULES_FILE = f"/etc/udev/rules.d/69-{LEGACY_NAME or settings.system_prefix}-disk-tuning.rules"
 
 
 def _resolve(disk: str) -> str:
@@ -568,10 +493,10 @@ async def ensure_tool(cmd: str, package: str) -> None:
 
 
 def parse_rules(text: str) -> dict[str, dict]:
-    """Persisted tuning: each disk is a `# solardeck {json}` comment (legacy `# proxmoxos` still read) followed by its udev rule."""
+    """Persisted tuning: each disk is a `# solardeck {json}` comment (or the pre-rename `# <LEGACY_NAME>`) followed by its udev rule."""
     out = {}
     for line in text.splitlines():
-        if line.startswith(("# solardeck ", "# proxmoxos ")):
+        if line.startswith(("# solardeck ", *([f"# {LEGACY_NAME} "] if LEGACY_NAME else []))):
             with suppress(ValueError, KeyError, TypeError):
                 d = json.loads(line.split(" ", 2)[2])
                 out[d["by_id"]] = d
@@ -649,11 +574,7 @@ def parse_settings(bus: str, rotational: bool, s: dict[str, str], persisted: dic
 
 
 async def disk_info(path: str) -> dict:
-    if settings.hypervisor_driver == "native_ubuntu":
-        from providers.registry import get_provider
-        items = await get_provider()._raw_disks()
-    else:
-        items = await pve("GET", _node("/disks/list")) or []
+    items = await get_provider().raw_disks()
     d = next((x for x in items if x.get("devpath") == path), None)
     if not d:
         raise HTTPException(404, f"{path} is not a physical disk on this node")
@@ -726,8 +647,6 @@ async def disk_settings_update(disk: str, body: DiskSettings):
     return {**await read_settings(path), "persisted": persisted}
 
 
-# ---------------------------------------------------------------- SMART self-tests & read-only surface scan
-
 JOB_LOG = f"/var/log/{settings.system_prefix}/jobs"
 NVME_SHORT_MINUTES = 2  # NVMe short self-tests are capped at 2 minutes by the spec
 
@@ -773,12 +692,12 @@ def parse_badblocks(state: str, tail: str, bad_count: str) -> dict:
     code = re.findall(r"[\w-]+: exit (\d+)", tail)
     running = state in ("active", "activating")
     last = prog[-1] if prog else None
-    pct = float(last[0]) if last else None
+    percent = float(last[0]) if last else None
     secs = 0
     for part in (last[1] if last else "0").split(":"):
         secs = secs * 60 + int(part)
-    return {"running": running, "progress_pct": pct, "elapsed": last[1] if last else None,
-            "eta_seconds": int(secs * (100 - pct) / pct) if running and pct else None,
+    return {"running": running, "progress_pct": percent, "elapsed": last[1] if last else None,
+            "eta_seconds": int(secs * (100 - percent) / percent) if running and percent else None,
             "errors": sum(map(int, last[2:])) if last else 0,
             "bad_blocks": int(bad_count) if bad_count.strip().isdigit() else 0,
             "exit_code": int(code[-1]) if code and not running else None}

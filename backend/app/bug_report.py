@@ -13,8 +13,7 @@ from pydantic import BaseModel, Field
 from . import updater
 from .auth import require_user
 from .config import settings
-from providers.registry import get_provider
-from .pve import _safe
+from providers.registry import driver_package, get_provider
 
 router = APIRouter(prefix="/api/system/bug-report", tags=["bug-report"], dependencies=[Depends(require_user)])
 
@@ -28,7 +27,7 @@ REDACTIONS = [
     (re.compile(r"\b(ssh-(?:ed25519|rsa|dss)|ecdsa-sha2-\S+|sk-ssh-\S+) [A-Za-z0-9+/=]{16,}"), r"\1 [SSH KEY]"),
     (re.compile(r"\beyJ[\w-]+\.[\w-]+\.[\w-]+"), "[JWT]"),
     (re.compile(r"\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_\w{20,})"), "[GITHUB TOKEN]"),
-    (re.compile(r"PVEAPIToken=\S+"), "PVEAPIToken=[TOKEN]"),
+    *((re.compile(rx), repl) for rx, repl in driver_package().REDACTIONS),  # the platform's own token formats
     (re.compile(r"(?i)\bBearer\s+\S+"), "Bearer [TOKEN]"),
     (re.compile(r"(?i)\b([\w-]*(?:password|passwd|secret|token|api[_-]?key|authorization)[\w-]*)([\"']?\s*[:=]\s*[\"']?)[^\s\"',;&]+"),
      r"\1\2[REDACTED]"),
@@ -67,7 +66,7 @@ async def _journal() -> list[str]:
 
 @router.get("/diagnostics")
 async def diagnostics():
-    src, platform_version, logs = await asyncio.gather(updater.source(), _safe("/version", {}), _journal())
+    src, platform_version, logs = await asyncio.gather(updater.source(), get_provider().platform_version(), _journal())
     cpu = re.search(r"^model name\s*:\s*(.+)$", _read("/proc/cpuinfo"), re.M)
     mem = re.search(r"^MemTotal:\s*(\d+)", _read("/proc/meminfo"), re.M)
     return {

@@ -1,6 +1,6 @@
 """Network & Services: DNS + AdBlock, DHCP, WireGuard server/client, router/NAT and certificates.
 
-Everything runs ON THE PVE HOST through the root SSH bridge. Service state lives as JSON under /etc/<prefix>/net/ on
+Everything runs ON THE HYPERVISOR HOST through the root SSH bridge. Service state lives as JSON under /etc/<prefix>/net/ on
 the host (survives container redeploys); config files are rendered from it by the pure render_* functions below.
 """
 import asyncio
@@ -13,7 +13,6 @@ import time
 from collections import Counter
 from pathlib import Path as FsPath
 from typing import Annotated, Literal
-from urllib.parse import urlparse
 
 import httpx
 import qrcode
@@ -28,7 +27,7 @@ from pydantic import AfterValidator, BaseModel, Field, model_validator
 from . import host_ssh
 from .auth import require_user
 from .config import settings
-from .pve import _node, _safe, pve
+from providers.registry import get_provider
 
 router = APIRouter(prefix="/api/net", tags=["net_services"], dependencies=[Depends(require_user)])
 
@@ -128,10 +127,17 @@ def parse_status(out: str) -> dict:
 
 @router.get("/status")
 async def status():
-    out, net = await asyncio.gather(host_ssh.run(STATUS_CMD, check=False), _safe(_node("/network"), []))
+    out, net = await asyncio.gather(host_ssh.run(STATUS_CMD, check=False), _interfaces())
     ifaces = [{"iface": n["iface"], "type": n.get("type", ""), "cidr": n.get("cidr") or n.get("address") or "",
                "active": bool(n.get("active"))} for n in sorted(net or [], key=lambda n: n.get("iface", ""))]
-    return {**parse_status(out), "interfaces": ifaces, "host_ip": urlparse(settings.pve_host).hostname}
+    return {**parse_status(out), "interfaces": ifaces, "host_ip": get_provider().host_address()}
+
+
+async def _interfaces() -> list[dict]:
+    try:
+        return [n.model_dump() for n in await get_provider().list_network_interfaces()]
+    except HTTPException:  # hypervisor API unreachable: the service status still works
+        return []
 
 
 PACKAGE_SCRIPTS = {
@@ -566,14 +572,14 @@ async def delete_peer(name: str = Path(pattern=NAME_RE)):
 @router.get("/wg/peers/{name}/conf", response_class=PlainTextResponse)
 async def peer_conf(name: str = Path(pattern=NAME_RE)):
     wg, p = await _peer(name)
-    return PlainTextResponse(render_wg_client_conf(wg, p, urlparse(settings.pve_host).hostname or ""),
+    return PlainTextResponse(render_wg_client_conf(wg, p, get_provider().host_address()),
                              headers={"Content-Disposition": f'attachment; filename="{name}.conf"'})
 
 
 @router.get("/wg/peers/{name}/qr")
 async def peer_qr(name: str = Path(pattern=NAME_RE)):
     wg, p = await _peer(name)
-    conf = render_wg_client_conf(wg, p, urlparse(settings.pve_host).hostname or "")
+    conf = render_wg_client_conf(wg, p, get_provider().host_address())
     return {"svg": qrcode.make(conf, image_factory=qrcode.image.svg.SvgPathImage, border=2).to_string(encoding="unicode")}
 
 
@@ -584,7 +590,7 @@ WG_SECTION_KEYS = {"interface": {"privatekey", "address", "listenport", "mtu", "
 
 
 def validate_wg_client(text: str, table_off: bool) -> tuple[str, bool]:
-    """Normalize a pasted client .conf. Rejects script hooks / unknown keys; drops DNS (the PVE host has no resolvconf
+    """Normalize a pasted client .conf. Rejects script hooks / unknown keys; drops DNS (the host has no resolvconf
     and host DNS must not change). Returns (conf, full_tunnel)."""
     section, out, full, seen = None, [], False, set()
     for raw in text.splitlines():
@@ -729,7 +735,7 @@ def render_nft(r: dict) -> str:
 
 
 def render_router_script(r: dict) -> str:
-    # Only our own table is replaced; the PVE firewall and other rulesets are never flushed.
+    # Only our own table is replaced; the hypervisor firewall and other rulesets are never flushed.
     return ("#!/bin/bash\n" + HEADER + f"nft delete table ip {NFT_TABLE} 2>/dev/null || true\n"
             f"nft -f - <<'NFT'\n{render_nft(r)}NFT\n" + "".join(route_cmd(x, "replace") + "\n" for x in r["routes"]))
 
@@ -776,108 +782,6 @@ async def put_router(body: RouterBody):
 
 NGINX_SSL_DIR = FsPath("/etc/nginx/ssl")
 NGINX_SNIPPET = FsPath(f"/etc/nginx/{P}-ssl.conf")
-ACME_DIRS = {"production": "https://acme-v02.api.letsencrypt.org/directory",
-             "staging": "https://acme-staging-v02.api.letsencrypt.org/directory"}
-
-
-async def pvesh(args: str, timeout: float = 120):
-    out = await host_ssh.run(f"pvesh {args} --output-format json", timeout=timeout)
-    try:
-        return json.loads(out.strip().splitlines()[-1]) if out.strip() else None
-    except (ValueError, IndexError):
-        return out
-
-
-@router.get("/certs")
-async def certs():
-    info, cfg, accounts, plugins, schema = await asyncio.gather(
-        _safe(_node("/certificates/info"), []), _safe(_node("/config"), {}),
-        pvesh("get /cluster/acme/account"), pvesh("get /cluster/acme/plugins"),
-        pvesh("get /cluster/acme/challenge-schema"))
-    domains = [v for k, v in sorted((cfg or {}).items()) if re.fullmatch(r"acmedomain\d", k)]
-    return {"certificates": info or [], "acme": (cfg or {}).get("acme", ""), "domains": domains,
-            "accounts": accounts or [], "plugins": plugins or [],
-            "dns_apis": sorted(s["id"] for s in schema or [] if isinstance(s, dict) and s.get("type") == "dns"),
-            "nginx_https": NGINX_SNIPPET.exists()}
-
-
-class AccountBody(BaseModel):
-    name: str = Field(pattern=r"^[A-Za-z0-9_.-]{1,40}$")
-    contact: str = Field(pattern=r"^[^@\s,;]+@[^@\s,;]+\.[^@\s,;]+$", max_length=200)
-    directory: Literal["production", "staging"] = "production"
-    accept_tos: bool
-
-    @model_validator(mode="after")
-    def _tos(self):
-        if not self.accept_tos:
-            raise ValueError("You must accept the Let's Encrypt terms of service")
-        return self
-
-
-@router.post("/certs/acme/accounts")
-async def add_account(body: AccountBody):
-    d = ACME_DIRS[body.directory]
-    tos = await pvesh(f"get /cluster/acme/tos --directory {q(d)}")
-    await pvesh(f"create /cluster/acme/account --name {q(body.name)} --contact {q(body.contact)} --directory {q(d)}"
-                + (f" --tos_url {q(tos)}" if isinstance(tos, str) and tos.startswith("http") else ""), timeout=180)
-    return {"ok": True}
-
-
-@router.delete("/certs/acme/accounts/{name}")
-async def delete_account(name: str = Path(pattern=r"^[A-Za-z0-9_.-]{1,40}$")):
-    await pvesh(f"delete /cluster/acme/account/{name}", timeout=180)
-    return {"ok": True}
-
-
-class PluginBody(BaseModel):
-    id: str = Field(pattern=r"^[A-Za-z0-9_.-]{1,40}$")
-    api: str = Field(pattern=r"^[a-z0-9_]{1,40}$")
-    data: str = Field("", max_length=8000)  # KEY=value lines, e.g. CF_Token=...
-
-
-@router.post("/certs/acme/plugins")
-async def add_plugin(body: PluginBody):
-    data = base64.b64encode(body.data.strip().encode()).decode()
-    await pvesh(f"create /cluster/acme/plugins --id {q(body.id)} --type dns --api {q(body.api)} --data {q(data)}")
-    return {"ok": True}
-
-
-@router.delete("/certs/acme/plugins/{pid}")
-async def delete_plugin(pid: str = Path(pattern=r"^[A-Za-z0-9_.-]{1,40}$")):
-    await pvesh(f"delete /cluster/acme/plugins/{pid}")
-    return {"ok": True}
-
-
-class AcmeDomain(BaseModel):
-    domain: str = Field(pattern=DOMAIN_PAT, max_length=253)
-    plugin: str | None = Field(None, pattern=r"^[A-Za-z0-9_.-]{1,40}$")  # None = HTTP-01 standalone on port 80
-
-
-class AcmeConfigBody(BaseModel):
-    account: str = Field(pattern=r"^[A-Za-z0-9_.-]{1,40}$")
-    domains: list[AcmeDomain] = Field(min_length=1, max_length=6)
-
-
-@router.put("/certs/acme/domains")
-async def acme_domains(body: AcmeConfigBody):
-    data: dict = {"acme": f"account={body.account}"}
-    for i, d in enumerate(body.domains):
-        data[f"acmedomain{i}"] = f"domain={d.domain}" + (f",plugin={d.plugin}" if d.plugin else "")
-    unused = [f"acmedomain{i}" for i in range(len(body.domains), 6)]
-    await pve("PUT", _node("/config"), data={**data, "delete": ",".join(unused)})
-    return {"ok": True}
-
-
-class OrderBody(BaseModel):
-    renew: bool = False
-
-
-@router.post("/certs/acme/order")
-async def acme_order(body: OrderBody):
-    upid = await pve("PUT" if body.renew else "POST", _node("/certificates/acme/certificate"),
-                     data={"force": 1} if body.renew else None)
-    return {"upid": upid}
-
 
 class CustomCertBody(BaseModel):
     certificates: str = Field(max_length=64000)
@@ -938,8 +842,7 @@ async def custom_cert(body: CustomCertBody):
     if body.nginx:
         await apply_nginx_cert(body.certificates, body.key)
     if body.node:
-        await pve("POST", _node("/certificates/custom"),
-                  data={"certificates": body.certificates.strip(), "key": body.key.strip(), "force": 1, "restart": 1})
+        await get_provider().set_host_certificate(body.certificates.strip(), body.key.strip())
     return {"ok": True, "subject": subject}
 
 
@@ -948,5 +851,5 @@ async def delete_custom_cert(target: Literal["node", "nginx"]):
     if target == "nginx":
         await apply_nginx_cert(None, None)
     else:
-        await pve("DELETE", _node("/certificates/custom"), params={"restart": 1})
+        await get_provider().remove_host_certificate()
     return {"ok": True}

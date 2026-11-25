@@ -11,7 +11,7 @@ from app import disk_benchmark as b, storage_admin as s  # noqa: E402
 
 FIX = Path(__file__).parent / "fixtures"
 
-# ---- Disk list normalization on real PVE /disks/list rows (HDD reports rpm -1 and wearout "N/A").
+# ---- Disk list normalization on real disk list rows (HDD reports rpm -1 and wearout "N/A").
 hdd = s.normalize_disk({"devpath": "/dev/sda", "rpm": -1, "wearout": "N/A", "type": "unknown", "vendor": "ATA",
                         "by_id_link": "/dev/disk/by-id/ata-WDC_WD20EFRX-68AX9N0_WD-WMC300635480"}, None, None)
 assert hdd["rotational"] and hdd["rpm"] is None and hdd["rpm_label"] == "HDD" and hdd["wearout_pct"] is None, hdd
@@ -91,7 +91,8 @@ rules = s.render_rules({bid: {"by_id": bid, "apm_level": 127, "spindown_minutes"
 assert 'RUN+="/usr/sbin/hdparm -B 127 -S 240 -W 1 /dev/%k"' in rules and "-f 2 -v 2" in rules, rules
 assert f'ENV{{DEVLINKS}}=="{bid}|{bid} *|* {bid}|* {bid} *"' in rules
 assert s.parse_rules(rules)[bid]["spindown_minutes"] == 20 and len(s.parse_rules(rules + "\n# solardeck {bad")) == 2
-assert s.parse_rules(rules.replace("# solardeck ", "# proxmoxos "))[bid]["apm_level"] == 127  # pre-rename rules files still load
+if s.LEGACY_NAME:  # pre-rename rules files still load
+    assert s.parse_rules(rules.replace("# solardeck ", f"# {s.LEGACY_NAME} "))[bid]["apm_level"] == 127
 assert "hdparm" not in s.render_rules({bid: {"by_id": bid}})
 
 smart_i = json.dumps({"smart_support": {"available": True, "enabled": True}})

@@ -1,8 +1,8 @@
 """HTTP routes of the standalone driver. Mounted ahead of the app.* routers only when HYPERVISOR_DRIVER=native_ubuntu.
 
-Same paths, parameters and request models as the Proxmox routes they shadow, so the desktop calls the same API on
-both editions. Each handler delegates to the active provider. Routes not shadowed here keep their shared handler
-(helper / SSH bridge based) or answer 501 for Proxmox-only features (app.pve.pve).
+Same paths, parameters and request models as the routes of the other edition, so the desktop calls the same API on
+both editions. Each handler delegates to the active provider. Routes not defined here keep their shared handler
+(helper / SSH bridge based); fallback.py answers 501 for the other edition's features this one does not have.
 """
 import asyncio
 import re
@@ -11,8 +11,8 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, WebSocket
 
-from app import apps, backups, console, local_ai, provisioning, pve_access, pve_datacenter, storage_admin, system
-from app import pve as api
+from app import access, apps, backups, console, local_ai, provisioning, storage_admin, system
+from app import hypervisor as api
 from app.auth import require_user
 from app.config import settings
 from app.guest_hardware import SNAP_RE, VMID, SnapshotBody
@@ -26,6 +26,8 @@ router = APIRouter(dependencies=[Depends(require_user)], tags=["native_ubuntu"])
 ws_router = APIRouter(tags=["native_ubuntu"])
 GuestType = Literal["qemu", "lxc"]
 P = get_provider
+DATE_RE = r"^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}(:\d{2})?)?$"  # syslog since / until
+FirewallScope = Literal["cluster", "node", "qemu", "lxc"]
 
 
 def _upid(t) -> dict:
@@ -205,8 +207,8 @@ async def task_log(upid: str, start: int = 0):
 
 @router.get("/api/v1/logs/syslog")
 async def syslog(limit: int = Query(500, ge=1, le=5000), start: int = Query(0, ge=0),
-                 since: str | None = Query(None, pattern=pve_datacenter.DATE_RE),
-                 until: str | None = Query(None, pattern=pve_datacenter.DATE_RE)):
+                 since: str | None = Query(None, pattern=DATE_RE),
+                 until: str | None = Query(None, pattern=DATE_RE)):
     return await P().get_syslog(limit, start, since, until)
 
 
@@ -221,7 +223,7 @@ async def cluster_log():
 
 
 @router.get("/api/v1/firewall/{scope}/rules")
-async def fw_rules(scope: pve_datacenter.Scope, vmid: int | None = None):
+async def fw_rules(scope: FirewallScope, vmid: int | None = None):
     return await P().list_firewall_rules(scope, vmid)
 
 
@@ -232,22 +234,22 @@ async def users():
 
 
 @router.post("/api/v1/access/users")
-async def create_user(body: pve_access.UserCreate):
+async def create_user(body: access.UserCreate):
     return await P().create_user(body.model_dump())
 
 
 @router.put("/api/v1/access/users/{userid}")
-async def update_user(body: pve_access.UserFields, userid: str = Path(pattern=pve_access.USERID_RE)):
+async def update_user(body: access.UserFields, userid: str = Path(pattern=access.USERID_RE)):
     return await P().update_user(userid, body.model_dump(exclude_none=True))
 
 
 @router.delete("/api/v1/access/users/{userid}")
-async def delete_user(userid: str = Path(pattern=pve_access.USERID_RE)):
+async def delete_user(userid: str = Path(pattern=access.USERID_RE)):
     return await P().delete_user(userid)
 
 
 @router.put("/api/v1/access/users/{userid}/password")
-async def set_password(body: pve_access.PasswordBody, userid: str = Path(pattern=pve_access.USERID_RE)):
+async def set_password(body: access.PasswordBody, userid: str = Path(pattern=access.USERID_RE)):
     return rbac.set_password(userid, body.password)
 
 
@@ -257,12 +259,12 @@ async def groups():
 
 
 @router.post("/api/v1/access/groups")
-async def create_group(body: pve_access.GroupBody):
+async def create_group(body: access.GroupBody):
     return await P().create_group(body.model_dump())
 
 
 @router.delete("/api/v1/access/groups/{groupid}")
-async def delete_group(groupid: str = Path(pattern=pve_access.ID_RE)):
+async def delete_group(groupid: str = Path(pattern=access.ID_RE)):
     return await P().delete_group(groupid)
 
 
@@ -277,17 +279,17 @@ async def privileges():
 
 
 @router.post("/api/v1/access/roles")
-async def create_role(body: pve_access.RoleCreate):
+async def create_role(body: access.RoleCreate):
     return await P().create_role(body.model_dump())
 
 
 @router.put("/api/v1/access/roles/{roleid}")
-async def update_role(body: pve_access.RoleBody, roleid: str = Path(pattern=pve_access.ID_RE)):
+async def update_role(body: access.RoleBody, roleid: str = Path(pattern=access.ID_RE)):
     return await P().update_role(roleid, body.model_dump())
 
 
 @router.delete("/api/v1/access/roles/{roleid}")
-async def delete_role(roleid: str = Path(pattern=pve_access.ID_RE)):
+async def delete_role(roleid: str = Path(pattern=access.ID_RE)):
     return await P().delete_role(roleid)
 
 
@@ -297,13 +299,13 @@ async def acl():
 
 
 @router.post("/api/v1/access/acl")
-async def add_acl(body: pve_access.AclBody):
+async def add_acl(body: access.AclBody):
     return await P().update_acl(body.model_dump())
 
 
 @router.delete("/api/v1/access/acl")
-async def delete_acl(path: str = Query(pattern=pve_access.ACL_PATH_RE, max_length=300),
-                     roleid: str = Query(pattern=pve_access.ID_RE), type: str = Query(pattern=r"^(user|group|token)$"),
+async def delete_acl(path: str = Query(pattern=access.ACL_PATH_RE, max_length=300),
+                     roleid: str = Query(pattern=access.ID_RE), type: str = Query(pattern=r"^(user|group|token)$"),
                      ugid: str = Query(max_length=200)):
     return await P().update_acl({"path": path, "roleid": roleid, "type": type, "ugid": ugid}, delete=True)
 
@@ -314,22 +316,22 @@ async def pools():
 
 
 @router.get("/api/v1/pools/{poolid}")
-async def pool(poolid: str = Path(pattern=pve_access.ID_RE)):
+async def pool(poolid: str = Path(pattern=access.ID_RE)):
     return next((p for p in rbac.pools() if p["poolid"] == poolid), {"poolid": poolid, "members": []})
 
 
 @router.post("/api/v1/pools")
-async def create_pool(body: pve_access.PoolBody):
+async def create_pool(body: access.PoolBody):
     return await P().create_pool(body.model_dump())
 
 
 @router.put("/api/v1/pools/{poolid}/members")
-async def pool_members(body: pve_access.PoolMembers, poolid: str = Path(pattern=pve_access.ID_RE)):
+async def pool_members(body: access.PoolMembers, poolid: str = Path(pattern=access.ID_RE)):
     return rbac.pool_members(poolid, body, host.load_guests())
 
 
 @router.delete("/api/v1/pools/{poolid}")
-async def delete_pool(poolid: str = Path(pattern=pve_access.ID_RE)):
+async def delete_pool(poolid: str = Path(pattern=access.ID_RE)):
     return await P().delete_pool(poolid)
 
 
@@ -399,7 +401,7 @@ async def power(body: system.PowerBody):
 
 
 def parse_apt_upgradable(out: str) -> list[dict]:
-    """`apt list --upgradable` -> rows shaped like PVE /apt/update."""
+    """`apt list --upgradable` -> update rows (Package, Version, OldVersion, Origin, ...)."""
     rows = []
     for line in out.splitlines():
         m = re.match(r"^([^/\s]+)/(\S+)\s+(\S+)\s+\S+\s+\[upgradable from: ([^\]]+)\]", line)

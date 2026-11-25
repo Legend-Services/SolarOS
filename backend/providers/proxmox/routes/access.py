@@ -1,4 +1,4 @@
-"""Proxmox users, groups, roles, ACLs, pools, API tokens and realms (Datacenter → Permissions)."""
+"""Proxmox users, groups, roles, ACLs, pools, API tokens and realms (Datacenter -> Permissions)."""
 import re
 import shlex
 from urllib.parse import quote
@@ -6,20 +6,15 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, Field
 
-from . import host_ssh
-from .auth import require_user
-from .config import settings
-from .pve import pve
-from .storage_admin import STORAGE_RE
+from app import host_ssh
+from app.access import (ACL_PATH_RE, ID_RE, TOKEN_FULL_RE, TOKEN_RE, USERID_RE, AclBody, GroupBody, PasswordBody,
+                        PoolBody, PoolMembers, RoleBody, RoleCreate, UserCreate, UserFields)
+from app.auth import require_user
+from app.storage_admin import STORAGE_RE
+
+from ..api import pve, pve_settings
 
 router = APIRouter(tags=["pve_access"], dependencies=[Depends(require_user)])
-
-USERID_RE = r"^[A-Za-z0-9._-]{1,64}@[A-Za-z0-9._-]{1,32}$"
-ID_RE = r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$"  # group, role, pool ids
-TOKEN_RE = r"^[A-Za-z][A-Za-z0-9._-]{0,63}$"
-PRIV_RE = r"^[A-Za-z]+(\.[A-Za-z]+)+$"
-ACL_PATH_RE = r"^/([A-Za-z0-9][A-Za-z0-9_.-]*(/[A-Za-z0-9][A-Za-z0-9_.-]*)*)?$"
-TOKEN_FULL_RE = r"^[A-Za-z0-9._-]{1,64}@[A-Za-z0-9._-]{1,32}![A-Za-z][A-Za-z0-9._-]{0,63}$"
 
 
 def _q(v: str) -> str:
@@ -28,7 +23,7 @@ def _q(v: str) -> str:
 
 def service_ids() -> tuple[str, str]:
     """(userid, tokenid) SolarDeck itself authenticates with; changing them would lock the app out."""
-    user, _, token = (settings.pve_token_id or "pve-desktop@pve!webui").partition("!")
+    user, _, token = (pve_settings.token_id or "pve-desktop@pve!webui").partition("!")
     return user, token
 
 
@@ -42,39 +37,6 @@ def guard_user(userid: str, deleting: bool = False) -> None:
 def guard_token(userid: str, tokenid: str) -> None:
     if (userid, tokenid) == service_ids():
         raise HTTPException(403, "This API token is used by SolarDeck itself and cannot be removed")
-
-
-# ---------------------------------------------------------------- Users
-
-
-class UserFields(BaseModel):
-    email: str | None = Field(None, pattern=r"^$|^[^\s@,]+@[^\s@,]+$", max_length=200)
-    firstname: str | None = Field(None, pattern=r"^[^,\n]*$", max_length=100)
-    lastname: str | None = Field(None, pattern=r"^[^,\n]*$", max_length=100)
-    comment: str | None = Field(None, pattern=r"^[^\n]*$", max_length=500)
-    expire: int | None = Field(None, ge=0)  # unix time, 0 = never
-    enable: bool | None = None
-    groups: list[str] | None = Field(None, max_length=100)
-
-    def params(self) -> dict:
-        bad = [g for g in self.groups or [] if not re.fullmatch(ID_RE, g)]
-        if bad:
-            raise HTTPException(422, f"Invalid group: {bad[0]}")
-        d = self.model_dump(exclude_none=True, exclude={"groups", "enable"})
-        if self.enable is not None:
-            d["enable"] = int(self.enable)
-        if self.groups is not None:
-            d["groups"] = ",".join(self.groups)
-        return d
-
-
-class UserCreate(UserFields):
-    userid: str = Field(pattern=USERID_RE)
-    password: str | None = Field(None, min_length=8, max_length=256)
-
-
-class PasswordBody(BaseModel):
-    password: str = Field(min_length=8, max_length=256, pattern=r"^[^\r\n]+$")
 
 
 @router.get("/api/v1/access/users")
@@ -115,14 +77,6 @@ async def set_password(body: PasswordBody, userid: str = Path(pattern=USERID_RE)
     return {"ok": True}
 
 
-# ---------------------------------------------------------------- Groups
-
-
-class GroupBody(BaseModel):
-    groupid: str = Field(pattern=ID_RE)
-    comment: str = Field("", pattern=r"^[^\n]*$", max_length=500)
-
-
 @router.get("/api/v1/access/groups")
 async def groups():
     return await pve("GET", "/access/groups") or []
@@ -138,23 +92,6 @@ async def create_group(body: GroupBody):
 async def delete_group(groupid: str = Path(pattern=ID_RE)):
     await pve("DELETE", f"/access/groups/{_q(groupid)}")
     return {"ok": True}
-
-
-# ---------------------------------------------------------------- Roles
-
-
-class RoleBody(BaseModel):
-    privs: list[str] = Field(max_length=200)
-
-    def joined(self) -> str:
-        bad = [p for p in self.privs if not re.fullmatch(PRIV_RE, p)]
-        if bad:
-            raise HTTPException(422, f"Invalid privilege: {bad[0]}")
-        return ",".join(self.privs)
-
-
-class RoleCreate(RoleBody):
-    roleid: str = Field(pattern=ID_RE)
 
 
 @router.get("/api/v1/access/roles")
@@ -187,17 +124,6 @@ async def delete_role(roleid: str = Path(pattern=ID_RE)):
     return {"ok": True}
 
 
-# ---------------------------------------------------------------- ACL
-
-
-class AclBody(BaseModel):
-    path: str = Field(pattern=ACL_PATH_RE, max_length=300)
-    roleid: str = Field(pattern=ID_RE)
-    type: str = Field(pattern=r"^(user|group|token)$")
-    ugid: str = Field(max_length=200)
-    propagate: bool = True
-
-
 def acl_params(path: str, roleid: str, type_: str, ugid: str) -> dict:
     if not re.fullmatch({"user": USERID_RE, "group": ID_RE, "token": TOKEN_FULL_RE}[type_], ugid):
         raise HTTPException(422, f"Invalid {type_}: {ugid}")
@@ -223,20 +149,6 @@ async def delete_acl(path: str = Query(pattern=ACL_PATH_RE, max_length=300), rol
         raise HTTPException(403, "These permissions belong to the SolarDeck service account")
     await pve("PUT", "/access/acl", data={**acl_params(path, roleid, type, ugid), "delete": 1})
     return {"ok": True}
-
-
-# ---------------------------------------------------------------- Pools
-
-
-class PoolBody(BaseModel):
-    poolid: str = Field(pattern=ID_RE)
-    comment: str = Field("", pattern=r"^[^\n]*$", max_length=500)
-
-
-class PoolMembers(BaseModel):
-    vms: list[int] = Field([], max_length=500)
-    storage: list[str] = Field([], max_length=100)
-    remove: bool = False
 
 
 def pool_member_params(poolid: str, body: PoolMembers) -> dict:
@@ -279,9 +191,6 @@ async def pool_members(body: PoolMembers, poolid: str = Path(pattern=ID_RE)):
 async def delete_pool(poolid: str = Path(pattern=ID_RE)):
     await pve("DELETE", "/pools", params={"poolid": poolid})
     return {"ok": True}
-
-
-# ---------------------------------------------------------------- API tokens & realms
 
 
 class TokenBody(BaseModel):

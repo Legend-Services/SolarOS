@@ -5,18 +5,6 @@ os.environ.update(ADMIN_USERNAME="admin", ADMIN_PASSWORD="pw", JWT_SECRET="x" * 
 
 from app import help_center as h  # noqa: E402
 
-REPOS = {"files": [
-    {"path": "/etc/apt/sources.list.d/pve-enterprise.sources", "repositories": [
-        {"Enabled": 1, "Types": ["deb"], "URIs": ["https://enterprise.proxmox.com/debian/pve"], "Suites": ["trixie"],
-         "Components": ["pve-enterprise"]}]},
-    {"path": "/etc/apt/sources.list.d/ceph.sources", "repositories": [
-        {"Enabled": 1, "Types": ["deb"], "URIs": ["https://enterprise.proxmox.com/debian/ceph-squid"], "Suites": ["trixie"],
-         "Components": ["enterprise"]}]}]}
-r = h.check_repos(REPOS, {"status": "notfound"})
-assert r["status"] == "warning" and r["fix"] and len(r["fix"]["changes"]) == 2, r
-assert "2 enterprise" in r["fix"]["changes"][0] and r["manual"] and r["link"] == {"app": "system"}
-assert h.check_repos(REPOS, {"status": "active"})["status"] == "ok"  # paid subscription: enterprise is right
-
 i = h.check_iommu(False, True, "intel")
 assert i["status"] == "warning" and i["fix"]["reboot"] and "intel_iommu=on" in i["fix"]["changes"][0]
 assert "amd_iommu=on" in h.check_iommu(False, False, "amd")["fix"]["changes"][0]
@@ -26,13 +14,7 @@ assert h.check_time(False)["fix"] and h.check_time(True)["status"] == "ok"
 assert h.check_twofa(False)["fix"] is None and h.check_twofa(False)["link"]["intent"] == "security"
 assert h.check_updates([])["status"] == "ok"
 assert h.check_updates([{"Origin": "Debian-Security"}])["status"] == "warning"
-assert h.check_updates([{"Origin": "Proxmox"}])["status"] == "info"
-
-stores = [{"storage": "local", "content": "iso,backup,vztmpl", "enabled": 1, "active": 1}]
-b = h.check_backups([], stores)
-assert b["status"] == "warning" and "'local'" in b["fix"]["label"]
-assert h.check_backups([], [{"storage": "x", "content": "images"}])["fix"] is None
-assert h.check_backups([{"id": "j", "enabled": 1}], stores)["status"] == "ok"
+assert h.check_updates([{"Origin": "Ubuntu"}])["status"] == "info"
 
 gpu = {"id": "01:00.0", "gpu": True, "vendor": "nvidia", "driver": "nouveau", "name": "RTX 3090"}
 assert [g["id"] for g in h.check_gpu_drivers([gpu, {**gpu, "driver": "vfio-pci"}])] == ["gpu:01:00.0"]

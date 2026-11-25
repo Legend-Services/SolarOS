@@ -1,13 +1,12 @@
-"""Root SSH bridge to the Proxmox VE host: one persistent asyncssh connection with the backend's own ed25519 key.
+"""Root SSH bridge to the hypervisor host: one persistent asyncssh connection with the backend's own ed25519 key.
 
-Used for interactive root shells (host and `pct enter`), privileged inspection (lspci, sensors, dmidecode) and host
+Used for interactive root shells (host and containers), privileged inspection (lspci, sensors, dmidecode) and host
 orchestration (GPU drivers, dnsmasq, WireGuard, nftables). Long-running work goes through `start_job`, which runs the
 script in a transient systemd unit on the host so a dropped connection or backend restart cannot interrupt apt/dpkg.
 """
 import asyncio
 import re
 import shlex
-from urllib.parse import urlparse
 
 import asyncssh
 from fastapi import APIRouter, Depends, HTTPException, Path
@@ -15,6 +14,7 @@ from collections.abc import Callable
 
 from .auth import require_user
 from .config import settings
+from providers.registry import get_provider
 
 router = APIRouter(prefix="/api/host", tags=["host"], dependencies=[Depends(require_user)])
 _conn: asyncssh.SSHClientConnection | None = None
@@ -25,8 +25,8 @@ JOB_LOG_DIR = f"/var/log/{settings.system_prefix}/jobs"
 
 
 def target() -> tuple[str, str]:
-    """(user, host) of the PVE host: HOST_ROOT_TARGET, else HOST_SSH, else the PVE API host name."""
-    t = settings.host_root_target or settings.host_ssh or f"root@{urlparse(settings.pve_host).hostname or '127.0.0.1'}"
+    """(user, host) of the hypervisor host: HOST_ROOT_TARGET, else HOST_SSH, else the provider's host address."""
+    t = settings.host_root_target or settings.host_ssh or f"root@{get_provider().host_address()}"
     user, _, host = t.rpartition("@")
     return user or "root", host
 
@@ -46,7 +46,7 @@ def ensure_key() -> str:
 async def _connect() -> asyncssh.SSHClientConnection:
     ensure_key()
     user, host = target()
-    # Host key not verified so a reinstalled or newly provisioned Proxmox host never locks the bridge out.
+    # Host key not verified so a reinstalled or newly provisioned host never locks the bridge out.
     return await asyncssh.connect(host, username=user, client_keys=[str(settings.host_root_key)], known_hosts=None,
                                   keepalive_interval=30, connect_timeout=10)
 
@@ -62,8 +62,8 @@ async def _open(command: str | None, **kw) -> asyncssh.SSHClientProcess:
                 conn = _conn
             except (OSError, ValueError, asyncssh.Error) as e:  # ValueError: unreadable key file
                 _conn = None
-                raise HTTPException(503, f"Host SSH bridge unavailable ({target()[1]}): {e}. Re-run install.sh on the "
-                                         "Proxmox host to authorize the SolarDeck key.")
+                raise HTTPException(503, f"Host SSH bridge unavailable ({target()[1]}): {e}. Re-run the installer on the "
+                                         "host to authorize the SolarDeck key.")
         try:
             return await conn.create_process(command, **kw)
         except (OSError, asyncssh.Error) as e:
@@ -77,7 +77,7 @@ async def _open(command: str | None, **kw) -> asyncssh.SSHClientProcess:
 
 async def run(cmd: str, *, input: str | None = None, timeout: float = 120, check: bool = True,
               on_line: Callable[[str], None] | None = None) -> str:
-    """Run a shell command as root on the PVE host and return stdout+stderr. Quote untrusted values with shlex."""
+    """Run a shell command as root on the host and return stdout+stderr. Quote untrusted values with shlex."""
     proc = await _open(cmd, stderr=asyncssh.STDOUT, encoding="utf-8", errors="replace")
     out: list[str] = []
 
@@ -120,7 +120,7 @@ async def run_host_cmd(cmd: str, timeout: int = 10) -> tuple[bool, str, str]:
 
 
 def setup_command(public_key: str) -> str:
-    """One-liner to paste into the Proxmox host shell to authorize the bridge key on a manual setup."""
+    """One-liner to paste into the host shell to authorize the bridge key on a manual setup."""
     k = shlex.quote(public_key)
     return (f"mkdir -p /root/.ssh && touch /root/.ssh/authorized_keys && (grep -qxF {k} /root/.ssh/authorized_keys || "
             f"echo {k} >> /root/.ssh/authorized_keys) && chmod 600 /root/.ssh/authorized_keys")
@@ -145,7 +145,7 @@ async def read_file(path: str, default: str = "") -> str:
 
 
 async def open_shell(command: str | None, cols: int = 80, rows: int = 24) -> asyncssh.SSHClientProcess:
-    """Interactive PTY: a root login shell on the host (command=None) or e.g. `pct enter 101`. Bytes in/out."""
+    """Interactive PTY: a root login shell on the host (command=None) or a command such as a container shell. Bytes in/out."""
     return await _open(command, term_type="xterm-256color", term_size=(cols, rows), request_pty="force",
                        encoding=None)
 

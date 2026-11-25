@@ -11,27 +11,24 @@ ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=ENV_FILE, extra="ignore")
 
-    # Hypervisor driver behind the provider-neutral API: "proxmox" (default) or "native_ubuntu" (Phase 19).
-    hypervisor_driver: str = "proxmox"
-    pve_host: str = "https://127.0.0.1:8006"
+    # Hypervisor driver behind the provider-neutral API (a package under providers/; see providers.registry).
+    hypervisor_driver: str = ""
+    # Hypervisor API connection settings live in the driver package (providers/<driver id>/).
     node_name: str = socket.gethostname().split(".")[0]
-    pve_token_id: str = ""
-    pve_token_secret: str = ""
-    pve_verify_ssl: bool = False
     admin_username: str = "admin"
     admin_password: str = ""
     jwt_secret: str = ""
     jwt_ttl_hours: int = 12
     storage_root: Path = Path("/mnt/storage")
-    default_bridge: str = "vmbr0"  # bridge preselected for new guests (br0 on SolarOS)
+    default_bridge: str = "br0"  # bridge preselected for new guests and NICs (installers write DEFAULT_BRIDGE)
     # Prefix of every name SolarDeck creates on a host: helper, units, logs, config files, guest tags.
     system_prefix: str = "solardeck"
     # Root-only host operations (ZFS, bind mounts, /dev/dri) go through <prefix>-helper.
-    # Empty HOST_SSH runs the helper locally (backend on the PVE host itself).
+    # Empty HOST_SSH runs the helper locally (backend on the hypervisor host itself).
     host_ssh: str = ""
     host_ssh_key: str = ""  # default: /root/.ssh/<prefix>-helper
-    # Unrestricted root key for the asyncssh bridge (host shells, pct enter, drivers, network services).
-    # install.sh authorizes it in root@PVE_HOST:/root/.ssh/authorized_keys; the target defaults to HOST_SSH.
+    # Unrestricted root key for the asyncssh bridge (host shells, container shells, drivers, network services).
+    # The installer authorizes it on the host; the target defaults to HOST_SSH.
     host_root_key: Path = Path(__file__).resolve().parent.parent / ".ssh" / "id_ed25519"
     host_root_target: str = ""
     samba_conf: Path | None = None  # default: /etc/samba/<prefix>-shares.conf

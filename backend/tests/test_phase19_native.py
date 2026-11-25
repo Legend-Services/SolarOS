@@ -127,7 +127,7 @@ r = c.post("/api/v1/guests/lxc/101/action", json={"action": "stop"}).json()
 assert wait(c, r["task"])["state"] == "ok" and (("incus", "stop", "--force", "dns"), None) in calls
 assert any(t["upid"] == r["task"] for t in c.get("/api/v1/tasks").json())
 
-# VM creation: ZVOL disk, OVMF, VNC on localhost, bridge mapped from vmbr0 to br0, GPU passthrough.
+# VM creation: ZVOL disk, OVMF, VNC on localhost, bridge mapped from the other edition's default bridge to br0, GPU passthrough.
 (TMP / "storage/isos").mkdir(parents=True)
 (TMP / "storage/isos/ubuntu.iso").write_bytes(b"iso")
 r = c.post("/api/v1/guests/qemu", json={"vmid": 120, "name": "gpu-vm", "storage": "tank", "disk_gb": 40,
@@ -143,11 +143,13 @@ for needle in ("OVMF_CODE_4M.fd", "<source dev=\"/dev/zvol/tank/vm-120-disk-0\""
 assert host.load_guests()[120]["name"] == "gpu-vm"
 assert any(a[:4] == ("zfs", "create", "-s", "-V") for a, _ in calls)
 
-# Storage: ZFS pools + targets; Proxmox-only routes are a clear 501.
+# Storage: ZFS pools + targets; routes of the other edition are a clear 501.
 st = c.get("/api/v1/storage").json()
 assert st["zfs_available"] and st["pools"][0]["name"] == "tank"
 assert {t["storage"] for t in st["targets"]} >= {"local", "images", "tank"}
-assert c.get("/api/v1/storage-config").status_code == 501
+r = c.get("/api/v1/storage-config")
+assert r.status_code == 501 and r.json()["detail"] == "Not available on SolarOS", r.text
+assert c.post("/api/v1/access/tokens", json={}).status_code == 501 and c.post("/api/ai/storage").status_code == 501
 tm = c.get("/api/v1/storage/images/content", params={"content": "vztmpl"}).json()
 assert "images:vztmpl/debian/12" in [v["volid"] for v in tm]
 assert c.get("/api/v1/storage/local/content", params={"content": "iso"}).json()[0]["volid"] == "local:iso/ubuntu.iso"

@@ -18,7 +18,7 @@ XML = host.domain_xml(name="win", vmid=100, cores=2, sockets=1, memory_mb=2048, 
                       disks=[{"path": "/x/vm-100-disk-0.qcow2", "type": "file", "format": "qcow2"}], cdroms=[],
                       bridge="br0", ostype="l26", hostpci=["01:00.0"], usb=["046d:c52b"], tpm=False)
 
-# ---- devices read back in the Proxmox shapes
+# ---- devices read back in the shared property-string shapes
 dv = ge.vm_devices(XML)
 assert [(n["key"], n["bridge"], n["model"]) for n in dv["net"]] == [("net0", "br0", "virtio")], dv
 assert dv["hostpci"][0]["id"] == "01:00.0" and dv["usb"][0]["host"] == "046d:c52b", dv
@@ -123,7 +123,7 @@ with tempfile.TemporaryDirectory() as d:
         pass
     assert sorted(p.name for p in (Path(d) / "isos").iterdir()) == ["win11.iso"], "partial upload left behind"
 
-# ---- the SolarOS routes come before the Proxmox-only ones
+# ---- the SolarOS routes come before the shared ones
 from app.main import app  # noqa: E402
 order = [(r.path, r.endpoint.__module__) for r in app.routes if isinstance(r, APIRoute)]
 first = {}

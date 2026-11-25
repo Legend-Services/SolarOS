@@ -1,9 +1,9 @@
-"""Self-check for auth + File Station sandbox. Run: python -m tests.test_selfcheck (from backend/)."""
+"""Self-check for auth + File Station sandbox. Run: python -m tests.test_proxmox_selfcheck (from backend/)."""
 import os
 import tempfile
 
 tmp = tempfile.mkdtemp()
-os.environ.update(NODE_NAME="pve", STORAGE_ROOT=tmp, ADMIN_USERNAME="admin", ADMIN_PASSWORD="pw", JWT_SECRET="x" * 32)
+os.environ.update(NODE_NAME="pve", DEFAULT_BRIDGE="vmbr0", STORAGE_ROOT=tmp, ADMIN_USERNAME="admin", ADMIN_PASSWORD="pw", JWT_SECRET="x" * 32)
 os.makedirs(os.path.join(tmp, ".hidden"))
 outside = tempfile.mkdtemp()
 os.symlink(outside, os.path.join(tmp, "escape"))
@@ -36,7 +36,7 @@ assert c.post("/api/v1/guests/qemu/100/action", json={"action": "destroy"}).stat
 # Mock Proxmox API to check aggregation logic.
 import httpx  # noqa: E402
 
-from app import pve  # noqa: E402
+from providers.proxmox import api as pve  # noqa: E402
 
 FAKE = {
     "/status": {"cpu": 0.1234, "loadavg": ["0.5", "0.4", "0.3"], "memory": {"used": 8, "total": 16, "free": 8},
@@ -78,6 +78,7 @@ assert st["pools"][0]["detail"]["name"] == "tank" and st["disks"][0]["devpath"] 
 from starlette.websockets import WebSocketDisconnect  # noqa: E402
 
 from app import apps, host, shares  # noqa: E402
+from providers.proxmox.routes import apps as papps  # noqa: E402
 from app.config import settings  # noqa: E402
 
 FAKE2 = {
@@ -110,12 +111,12 @@ assert all((apps.DATA / f"apps/{i}.sh").exists() for i in cat), "missing install
 body = apps.DeployBody(app_id="jellyfin", hostname="jf", cores=2, memory=2048, disk_gb=16,
                        ip_config={"cidr": "192.168.1.50/24", "gateway": "192.168.1.1"},
                        mount_storage=True, enable_igpu=True)
-cp_ = apps.create_params(120, apps.BY_ID["jellyfin"], body, "local:vztmpl/debian-12-standard_12.7-1.tar.zst", "tank")
+cp_ = papps.create_params(120, apps.BY_ID["jellyfin"], body, "local:vztmpl/debian-12-standard_12.7-1.tar.zst", "tank")
 assert cp_["net0"] == "name=eth0,bridge=vmbr0,ip=192.168.1.50/24,gw=192.168.1.1" and cp_["unprivileged"] == 1, cp_
 assert cp_["tags"] == f"{apps.TAG};pos-jellyfin" and cp_["rootfs"] == "tank:16", cp_
-assert apps.configure_opts(apps.BY_ID["jellyfin"], body) == ["storage", "igpu"]
-assert apps.configure_opts(apps.BY_ID["adguard-home"], body) == []  # unsupported options are dropped
-assert sorted(["a_12.10-1", "a_12.7-1"], key=apps._natural)[-1] == "a_12.10-1"
+assert papps.configure_opts(apps.BY_ID["jellyfin"], body) == ["storage", "igpu"]
+assert papps.configure_opts(apps.BY_ID["adguard-home"], body) == []  # unsupported options are dropped
+assert sorted(["a_12.10-1", "a_12.7-1"], key=papps._natural)[-1] == "a_12.10-1"
 bad = {"app_id": "jellyfin", "hostname": "Bad_Host", "cores": 1, "memory": 512, "disk_gb": 4}
 assert c.post("/api/apps/deploy", json=bad).status_code == 422
 assert c.post("/api/apps/deploy", json={**bad, "hostname": "ok", "ip_config": {"cidr": "10.0.0.5", "gateway": "10.0.0.1"}}).status_code == 422
@@ -282,12 +283,13 @@ settings.schedules_file.unlink()
 # ---------------- System app ----------------
 
 from app import system  # noqa: E402
+from providers.proxmox.routes import system as psystem  # noqa: E402
 
-assert system.repo_handle("https://enterprise.proxmox.com/debian/pve", ["pve-enterprise"]) == "enterprise"
-assert system.repo_handle("http://download.proxmox.com/debian/pve", ["pve-no-subscription"]) == "no-subscription"
-assert system.repo_handle("https://enterprise.proxmox.com/debian/ceph-squid", ["enterprise"]) == "ceph-squid-enterprise"
-assert system.repo_handle("http://deb.debian.org/debian/", ["main"]) is None
-fl = system.flatten({"digest": "ab", "files": [{"path": "/etc/apt/sources.list.d/pve-enterprise.sources", "repositories": [
+assert psystem.repo_handle("https://enterprise.proxmox.com/debian/pve", ["pve-enterprise"]) == "enterprise"
+assert psystem.repo_handle("http://download.proxmox.com/debian/pve", ["pve-no-subscription"]) == "no-subscription"
+assert psystem.repo_handle("https://enterprise.proxmox.com/debian/ceph-squid", ["enterprise"]) == "ceph-squid-enterprise"
+assert psystem.repo_handle("http://deb.debian.org/debian/", ["main"]) is None
+fl = psystem.flatten({"digest": "ab", "files": [{"path": "/etc/apt/sources.list.d/pve-enterprise.sources", "repositories": [
     {"Enabled": 1, "Types": ["deb"], "URIs": ["https://enterprise.proxmox.com/debian/pve"], "Suites": ["trixie"],
      "Components": ["pve-enterprise"]}]}],
     "standard-repos": [{"handle": "enterprise", "name": "Enterprise", "status": 1},
@@ -485,6 +487,7 @@ from urllib.parse import parse_qs  # noqa: E402
 import pyotp  # noqa: E402
 
 from app import auth, backups, provisioning, system_extra  # noqa: E402
+from providers.proxmox.routes import backups as pbackups, provisioning as pprovisioning  # noqa: E402
 
 p5, h5 = [], []
 UPID = "UPID:pve:1:2:3:x:1:root@pam:"
@@ -555,13 +558,13 @@ assert [d["gpu"] for d in pci] == [False, True] and pci[1]["iommugroup"] == 14, 
 assert c.get("/api/v1/nextid").json() == {"vmid": 105}
 
 vm = {"vmid": 105, "name": "win", "storage": "local-zfs", "bios": "ovmf", "ostype": "win11", "iso_volume": "local:iso/w.iso"}
-qp = provisioning.qemu_params(provisioning.QemuBody(**vm))
+qp = pprovisioning.qemu_params(provisioning.QemuBody(**vm))
 assert qp["efidisk0"].startswith("local-zfs:1,") and qp["tpmstate0"] and qp["machine"] == "q35", qp
 assert qp["ide2"] == "local:iso/w.iso,media=cdrom" and qp["tags"] == provisioning.GUEST_TAG, qp
-assert "efidisk0" not in provisioning.qemu_params(provisioning.QemuBody(**{**vm, "bios": "seabios", "ostype": "l26"}))
-wq = provisioning.qemu_params(provisioning.QemuBody(**{**vm, "ostype": "win11"}))
+assert "efidisk0" not in pprovisioning.qemu_params(provisioning.QemuBody(**{**vm, "bios": "seabios", "ostype": "l26"}))
+wq = pprovisioning.qemu_params(provisioning.QemuBody(**{**vm, "ostype": "win11"}))
 assert "sata0" in wq and "scsi0" not in wq and wq["net0"].startswith("e1000e,") and wq["boot"] == "order=sata0;ide2;net0", wq
-lq = provisioning.qemu_params(provisioning.QemuBody(**{**vm, "ostype": "l26"}))
+lq = pprovisioning.qemu_params(provisioning.QemuBody(**{**vm, "ostype": "l26"}))
 assert "scsi0" in lq and lq["net0"].startswith("virtio,"), lq
 assert c.post("/api/v1/guests/qemu", json={**vm, "iso_volume": "local:iso/a.iso,file=/etc"}).status_code == 422
 assert c.post("/api/v1/guests/qemu", json={**vm, "hostpci": [{"id": "01:00.0;rm"}]}).status_code == 422
@@ -582,7 +585,7 @@ assert b["schedules"][0]["keep_last"] == 3 and b["schedules"][0]["enabled"] and 
 assert c.post("/api/v1/backups/run", json={"vmid": "all", "storage": "local"}).status_code == 200
 assert p5[-1][1] == "/vzdump" and form() == {"all": "1", "storage": "local", "mode": "snapshot", "compress": "zstd"}, form()
 assert c.post("/api/v1/backups/run", json={"vmid": "x", "storage": "local"}).status_code == 422
-assert backups.restore_params(backups.RestoreBody(volid="local:backup/vzdump-lxc-100.tar.zst", type="lxc", vmid=120,
+assert pbackups.restore_params(backups.RestoreBody(volid="local:backup/vzdump-lxc-100.tar.zst", type="lxc", vmid=120,
                                                   storage="tank", force=True)) == {
     "vmid": 120, "storage": "tank", "ostemplate": "local:backup/vzdump-lxc-100.tar.zst", "restore": 1, "force": 1}
 assert c.post("/api/v1/backups/restore", json={"volid": "local:backup/x.vma.zst", "type": "qemu", "vmid": 121, "storage": "tank"}).status_code == 200

@@ -125,4 +125,4 @@
 	Kernel modules: nvme
 ---IOMMU---
 ---CMDLINE---
-initrd=\EFI\proxmox\7.0.14-30-pve\initrd.img-7.0.14-30-pve root=ZFS=rpool/ROOT/pve-1 boot=zfs
+initrd=\EFI\ubuntu\7.0.14-30-generic\initrd.img-7.0.14-30-generic root=ZFS=rpool/ROOT/ubuntu-1 boot=zfs

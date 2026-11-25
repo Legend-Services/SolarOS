@@ -1,4 +1,4 @@
-"""Datacenter parity: firewall, logs and storage backends."""
+"""Proxmox Datacenter parity: firewall, logs and storage backends."""
 import re
 from typing import Literal
 from urllib.parse import quote
@@ -6,9 +6,10 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel, Field
 
-from .auth import require_user
-from .pve import _node, pve
-from .storage_admin import STORAGE_RE
+from app.auth import require_user
+from app.storage_admin import STORAGE_RE
+
+from ..api import _node, pve
 
 router = APIRouter(tags=["pve_datacenter"], dependencies=[Depends(require_user)])
 

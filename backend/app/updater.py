@@ -19,6 +19,7 @@ from pydantic import BaseModel, Field
 from .auth import require_user
 from .config import settings
 from .system import parse_upgrade_status
+from providers import registry
 
 router = APIRouter(prefix="/api/system/updates", tags=["updater"], dependencies=[Depends(require_user)])
 log = logging.getLogger(__name__)
@@ -199,11 +200,9 @@ async def job() -> dict:
 
 def edition() -> dict:
     """Both editions track the same branch of the same repository; only the driver (backend/.env) differs."""
-    native = settings.hypervisor_driver.strip().lower() == "native_ubuntu"
-    return {"driver": "native_ubuntu" if native else "proxmox",
-            "edition": "SolarOS" if native else "SolarDeck for Proxmox VE",
-            "service": settings.name("backend"),
-            "supports_system_packages": native}
+    pkg = registry.driver_package()
+    return {"driver": registry.driver_id(), "edition": pkg.EDITION, "service": settings.name("backend"),
+            "supports_system_packages": pkg.SYSTEM_PACKAGES}
 
 
 async def start(target: str, branch: str, system_packages: bool = False) -> None:
@@ -281,7 +280,7 @@ class ApplyBody(BaseModel):
 async def apply(body: ApplyBody | None = None):
     system_packages = bool(body and body.include_system_packages)
     if system_packages and not edition()["supports_system_packages"]:
-        raise HTTPException(400, "System package upgrades run from Proxmox VE itself on this edition")
+        raise HTTPException(400, "This edition upgrades host packages from the hypervisor host itself")
     src = await source()
     await ensure_repo(src["branch"])
     target = await resolve((body and body.target_ref) or f"origin/{src['branch']}")

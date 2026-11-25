@@ -1,10 +1,12 @@
+"""Proxmox task center: node tasks (UPIDs), their status and logs."""
 import asyncio
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from .auth import require_user
-from .pve import _node, pve
+from app.auth import require_user
+
+from ..api import _node, pve
 
 router = APIRouter(prefix="/api/v1/tasks", tags=["tasks"], dependencies=[Depends(require_user)])
 

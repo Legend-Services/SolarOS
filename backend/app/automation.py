@@ -18,14 +18,14 @@ import httpx
 from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, Field, ValidationError, model_validator
 
-from . import host, host_ssh, net_services, telemetry
+from . import host, net_services, telemetry
 from .auth import require_user
 from .config import settings
-from .pve import _node, _safe, parse_zfs_list, pve
+from .hypervisor import parse_zfs_list
 from .schedules import AUTO_PREFIX, LEGACY_AUTO_PREFIX
+from providers.registry import get_provider
 
 router = APIRouter(prefix="/api/automation", tags=["automation"], dependencies=[Depends(require_user)])
-topology_router = APIRouter(prefix="/api/v1/network", tags=["automation"], dependencies=[Depends(require_user)])
 log = logging.getLogger("solardeck.automation")
 
 TICK_S = 60
@@ -330,7 +330,7 @@ def get_logs():
 
 # ---------------------------------------------------------------- Evaluation
 
-def _pct(used, total) -> float:
+def _percent(used, total) -> float:
     return used / total * 100 if total else 0.0
 
 
@@ -360,9 +360,9 @@ def evaluate(rule: dict, ctx: dict, now: float) -> str | None:
                if (p.get("health") or "UNKNOWN").upper() != "ONLINE"]
         return "ZFS pool " + ", ".join(bad) if bad else None
     if t == "storage_usage_above":
-        full = [(p["name"], _pct(p.get("alloc") or 0, p.get("size") or 0)) for p in ctx.get("pools", [])]
+        full = [(p["name"], _percent(p.get("alloc") or 0, p.get("size") or 0)) for p in ctx.get("pools", [])]
         rootfs = ctx.get("rootfs") or {}
-        full.append(("host root filesystem", _pct(rootfs.get("used") or 0, rootfs.get("total") or 0)))
+        full.append(("host root filesystem", _percent(rootfs.get("used") or 0, rootfs.get("total") or 0)))
         over = [f"{n} {v:.0f}%" for n, v in full if v > th]
         return f"Storage above {th:.0f}%: {', '.join(over)}" if over else None
     if t == "guest_stopped_unexpectedly":
@@ -385,32 +385,17 @@ async def gather_context(rules: list[dict]) -> dict:
     if need & {"gpu_temp_above", "disk_temp_above"}:
         jobs["hw"] = telemetry.hardware()
     if need & {"zfs_pool_degraded", "storage_usage_above"} or any(r["action"] == "prune_old_snapshots" for r in rules):
-        jobs["pools"] = _safe(_node("/disks/zfs"), [])
-        jobs["status"] = _safe(_node("/status"), {})
+        jobs["pools"] = get_provider().zfs_pool_list()
+        jobs["status"] = get_provider().host_status()
     if "guest_stopped_unexpectedly" in need:
-        jobs["qemu"], jobs["lxc"] = _safe(_node("/qemu"), []), _safe(_node("/lxc"), [])
+        jobs["guests"] = get_provider().guest_rows()
     res = dict(zip(jobs, await asyncio.gather(*jobs.values())))
     if "hw" in res:
         ctx["gpu"], ctx["disks"] = res["hw"].get("gpu"), res["hw"].get("disks", [])
     ctx["pools"] = res.get("pools") or []
     ctx["rootfs"] = (res.get("status") or {}).get("rootfs") or {}
-    ctx["guests"] = {(k, int(g["vmid"])): g for k in ("qemu", "lxc") for g in (res.get(k) or [])}
+    ctx["guests"] = {(g["type"], int(g["vmid"])): g for g in (res.get("guests") or [])}
     return ctx
-
-
-async def _guest_power(target: dict, action: str) -> str:
-    base = _node(f"/{target['type']}/{target['vmid']}/status")
-    cur = (await pve("GET", f"{base}/current")).get("status")
-    if action == "stop_guest":
-        if cur == "stopped":
-            return "Already stopped"
-        await pve("POST", f"{base}/shutdown", data={"forceStop": 1})
-        return "Shutdown sent"
-    verb = "reboot" if action == "restart_guest" and cur == "running" else "start"
-    if verb == "start" and cur == "running":
-        return "Already running"
-    await pve("POST", f"{base}/{verb}")
-    return "Restart sent" if verb == "reboot" else "Start sent"
 
 
 async def prune_snapshots(pools: list[str] | None, older_than_days: int, now: float) -> str:
@@ -434,10 +419,10 @@ async def run_action(rule: dict, summary: str, ctx: dict, now: float) -> tuple[s
         good = sum(r["ok"] for r in results)
         return ("ok" if good == len(results) else "partial" if good else "error"), "; ".join(parts)
     if a in GUEST_ACTIONS:
-        return "ok", await _guest_power(rule["target"], a)
+        return "ok", await get_provider().guest_rule_power(rule["target"]["type"], int(rule["target"]["vmid"]), a)
     over = None
     if rule["trigger"] == "storage_usage_above":
-        over = [p["name"] for p in ctx.get("pools", []) if _pct(p.get("alloc") or 0, p.get("size") or 0) > rule["threshold"]]
+        over = [p["name"] for p in ctx.get("pools", []) if _percent(p.get("alloc") or 0, p.get("size") or 0) > rule["threshold"]]
     return "ok", await prune_snapshots(over, rule.get("prune_older_than_days", 7), now)
 
 
@@ -619,27 +604,3 @@ def build_topology(network: list[dict], links: dict[str, dict], guests: list[dic
     known = {x["id"] for x in nodes}
     edges = [e for e in edges if e["source"] in known and e["target"] in known]
     return {"nodes": nodes, "edges": list({e["id"]: e for e in edges}.values()), "generated_at": int(time.time())}
-
-
-@topology_router.get("/topology")
-async def topology():
-    network, qemu, lxc, links, wg, wg_live, router_cfg = await asyncio.gather(
-        _safe(_node("/network"), []), _safe(_node("/qemu"), []), _safe(_node("/lxc"), []),
-        host_ssh.run("ip -j link show", check=False, timeout=15),
-        net_services.load("wg", net_services.WG_DEFAULT), net_services.wg_dump(),
-        net_services.load("router", net_services.ROUTER_DEFAULT), return_exceptions=True)
-    ok = lambda v, d: d if isinstance(v, BaseException) else (v or d)  # noqa: E731 - host bridge down: still show PVE data
-    items = [(k, g) for k, lst in (("qemu", ok(qemu, [])), ("lxc", ok(lxc, []))) for g in lst]
-    cfgs = await asyncio.gather(*[_safe(_node(f"/{k}/{g['vmid']}/config"), {}) for k, g in items])
-
-    async def live(k, g):
-        if g.get("status") != "running":
-            return None
-        path = f"/lxc/{g['vmid']}/interfaces" if k == "lxc" else f"/qemu/{g['vmid']}/agent/network-get-interfaces"
-        return await _safe(_node(path), None)
-
-    lives = await asyncio.gather(*[live(k, g) for k, g in items])
-    guests = [{"type": k, "vmid": int(g["vmid"]), "name": g.get("name"), "status": g.get("status"),
-               "nets": parse_guest_nets(k, c or {}), "ips": guest_ips(k, lv)} for (k, g), c, lv in zip(items, cfgs, lives)]
-    return build_topology(ok(network, []), parse_ip_links(ok(links, "")), sorted(guests, key=lambda g: g["vmid"]),
-                          ok(wg, {}), ok(wg_live, {}), ok(router_cfg, {}))

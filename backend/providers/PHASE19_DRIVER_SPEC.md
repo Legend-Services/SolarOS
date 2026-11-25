@@ -1,9 +1,10 @@
 # `native_ubuntu` driver (SolarOS)
 
 Phase 18 split SolarDeck into a platform-neutral contract (`providers/base.py`) and drivers. `HYPERVISOR_DRIVER`
-in `backend/.env` picks the driver (`proxmox` when unset). **Status (Phase 19, v1.14.0): implemented.**
+in `backend/.env` picks the driver package under `providers/` (`providers/registry.py`). **Status (Phase 19, v1.14.0): implemented.**
 `NativeUbuntuProvider` (`providers/native_ubuntu/provider.py`) implements every contract method; `routes.py` mounts
-the standalone routes ahead of the Proxmox ones at the same paths; `host.py` holds the command runner, the job
+the standalone routes ahead of the shared ones at the same paths (`fallback.py` answers 501 for
+the other edition's routes); `host.py` holds the command runner, the job
 registry (Task Center), the vmid registry (`data/native_guests.json`) and the libvirt XML; `rbac.py` the local users.
 The table below is the original design map; where the implementation differs, the code is authoritative
 (Incus image templates instead of tarballs, backups under `STORAGE_ROOT/backups`, schedules run by the backend,
@@ -12,13 +13,13 @@ local RBAC in `data/local_rbac.json`, the VNC bridge in-process instead of a sep
 ## Ground rules
 
 - **The contract is frozen.** Add a method to `base.py` only together with an implementation in *both* drivers.
-- **Return the domain models.** The Proxmox driver's dict shapes are the reference (see `providers/proxmox/provider.py`
-  and the `app/*` handler each method binds to). The UI reads those field names.
+- **Return the domain models.** The `base.py` models and the shapes the shared `app/*` modules read are the reference.
+  The UI reads those field names.
 - **Stubs raise `NotImplementedError`.** The API turns that into HTTP 501 (`app/main.py`), so the desktop shows a clear
   "planned" error instead of a crash. Replace stubs one at a time; each new method overrides the generated stub.
 - **Host access.** The backend runs on the host itself. Root-only commands go through an allowlisted helper, the same
   pattern as `deploy/solardeck-helper.sh`. Never use a shell string built from user input. Validate with the request
-  models the Proxmox driver already uses (`app/*` `*Body` classes).
+  models in the shared `app/*` modules (`*Body` classes).
 - **Job handles.** Long operations return `TaskInfo(task=<job id>)`. Phase 19 adds a small job registry (systemd
   transient units or asyncio tasks with a log file) behind `list_tasks` / `get_task_status` / `get_task_log`.
 
@@ -48,7 +49,7 @@ local RBAC in `data/local_rbac.json`, the VNC bridge in-process instead of a sep
 | `list_storage_pools`, `create_zfs_pool`, `destroy_zfs_pool`, `manage_pool_member` | `zpool list -Hp`, `zpool status -P`, `zpool create/destroy`, `zpool offline/online/detach/replace` (zfsutils-linux) |
 | `list_datasets`, `create_dataset`, `update_dataset`, `delete_dataset` | `zfs list -Hp -o ...`, `zfs create -o`, `zfs set`, `zfs destroy [-r]` |
 | `list_snapshots`, `create_snapshot`, `rollback_snapshot`, `delete_snapshot` | scope `zfs`: `zfs snapshot/rollback/destroy`. `qemu`: `virsh snapshot-create-as/-revert/-delete`. `lxc`: `incus snapshot create/restore/delete` |
-| `list_physical_disks`, `get_disk_smart`, `get/update_disk_settings`, `start/get/abort_disk_scan` | `lsblk -J -O`, `smartctl -a -j`, `hdparm -B/-S`, `smartctl -t long / -X` (same as the Proxmox helper today) |
+| `list_physical_disks`, `get_disk_smart`, `get/update_disk_settings`, `start/get/abort_disk_scan` | `lsblk -J -O`, `smartctl -a -j`, `hdparm -B/-S`, `smartctl -t long / -X` (same as the shared helper) |
 | `run_disk_benchmark` | Reuse `app/disk_benchmark.py` (`fio --output-format=json`) run locally |
 | `list_storage_content`, `download_url_to_storage`, `delete_storage_content` | Files under `/var/lib/solardeck/{iso,templates,backups}`; downloads with `curl --fail` + checksum verification |
 | `list_backups`, `run_backup`, `restore_backup` | VMs: `zfs send` of the zvol + `virsh dumpxml`. Containers: `incus export` / `incus import`. Archives stored as `.zst` |
@@ -65,6 +66,6 @@ local RBAC in `data/local_rbac.json`, the VNC bridge in-process instead of a sep
 ## Done criteria for Phase 19
 
 1. No method in `NativeUbuntuProvider` falls back to the generated stub. Then delete the stub loop.
-2. `python -m tests.test_phase18_providers` passes with the native driver exercised against recorded command fixtures.
+2. The provider self-check passes with the native driver exercised against recorded command fixtures.
 3. Every `/api/v1/*` route that the desktop calls goes through `get_provider()`. Today that is overview, guests and
-   power actions; the remaining `app/*` handlers are Proxmox driver internals.
+   power actions; driver-specific handlers live in the driver package, shared ones in `app/*`.

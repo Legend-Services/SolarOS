@@ -65,8 +65,9 @@ def warnings(d: dict, iommu: bool) -> list[str]:
     return w
 
 
-def from_pve(rows: list[dict]) -> str:
-    """PVE /nodes/{node}/hardware/pci rows -> PROBE-format text, so parse() works while the SSH bridge is down."""
+def from_api(rows: list[dict]) -> str:
+    """Management API PCI rows (id, class, vendor, device, iommugroup, ...) -> PROBE-format text, so parse() works
+    while the SSH bridge is down."""
     lines, groups = [], []
     for r in rows:
         slot, cls = str(r.get("id", "")), str(r.get("class", ""))[2:6]

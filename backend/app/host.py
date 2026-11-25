@@ -23,7 +23,7 @@ async def run(args: list[str], stdin: bytes | None = None, on_line: Callable[[st
             stderr=asyncio.subprocess.STDOUT,
         )
     except FileNotFoundError:
-        raise HTTPException(503, "Host helper not available (re-run install.sh on the Proxmox host)")
+        raise HTTPException(503, "Host helper not available (re-run the installer on the host)")
     out: list[str] = []
 
     async def pump():

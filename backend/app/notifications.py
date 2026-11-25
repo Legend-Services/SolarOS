@@ -1,4 +1,4 @@
-"""Health alerts evaluated from live Proxmox state on every request."""
+"""Health alerts evaluated from live hypervisor state on every request."""
 import asyncio
 import time
 
@@ -6,15 +6,14 @@ from fastapi import APIRouter, Depends
 
 from . import automation, telemetry, updater
 from .auth import require_user
-from .pve import _node, _safe
-from .tasks import normalize
+from providers.registry import get_provider
 
 router = APIRouter(prefix="/api/notifications", tags=["notifications"], dependencies=[Depends(require_user)])
 
 DISK_TEMP_C = 55
-CAPACITY_PCT = 85
-CAPACITY_CRITICAL_PCT = 95
-FRAG_PCT = 80
+CAPACITY_PERCENT = 85
+CAPACITY_CRITICAL_PERCENT = 95
+FRAG_PERCENT = 80
 TASK_WINDOW_S = 24 * 3600
 RANK = {"critical": 0, "warning": 1, "info": 2}
 
@@ -27,10 +26,10 @@ def _capacity(id_: str, label: str, used: float, total: float) -> list[dict]:
     if not total:
         return []
     p = used / total * 100
-    if p < CAPACITY_PCT:
+    if p < CAPACITY_PERCENT:
         return []
-    sev = "critical" if p >= CAPACITY_CRITICAL_PCT else "warning"
-    return [_alert(id_, sev, "capacity", f"{label} is {p:.0f}% full", f"{label} has crossed the {CAPACITY_PCT}% threshold.")]
+    sev = "critical" if p >= CAPACITY_CRITICAL_PERCENT else "warning"
+    return [_alert(id_, sev, "capacity", f"{label} is {p:.0f}% full", f"{label} has crossed the {CAPACITY_PERCENT}% threshold.")]
 
 
 def evaluate(pools: list[dict], details: list[dict], targets: list[dict], status: dict, disks: list[dict],
@@ -47,9 +46,9 @@ def evaluate(pools: list[dict], details: list[dict], targets: list[dict], status
             alerts.append(_alert(f"zfs-resilver:{name}", "warning", "zfs", f"ZFS pool {name} is resilvering", scan))
         elif "scrub in progress" in scan:
             alerts.append(_alert(f"zfs-scrub:{name}", "info", "zfs", f"Scrub running on {name}", scan))
-        if (p.get("frag") or 0) > FRAG_PCT:
+        if (p.get("frag") or 0) > FRAG_PERCENT:
             alerts.append(_alert(f"zfs-frag:{name}", "warning", "zfs", f"ZFS pool {name} is {p['frag']}% fragmented",
-                                 f"Fragmentation above {FRAG_PCT}% slows writes; free up space."))
+                                 f"Fragmentation above {FRAG_PERCENT}% slows writes; free up space."))
         alerts += _capacity(f"zfs-cap:{name}", f"ZFS pool {name}", p.get("alloc") or 0, p.get("size") or 0)
 
     for t in targets:
@@ -79,13 +78,12 @@ def evaluate(pools: list[dict], details: list[dict], targets: list[dict], status
 @router.get("")
 async def notifications():
     since = int(time.time()) - TASK_WINDOW_S
+    p = get_provider()
     pools, targets, status, hw, tasks = await asyncio.gather(
-        _safe(_node("/disks/zfs"), []), _safe(_node("/storage"), []), _safe(_node("/status"), {}),
-        telemetry.hardware(), _safe(_node("/tasks"), [], params={"errors": 1, "since": since, "limit": 20}),
-    )
+        p.zfs_pool_list(), p.storage_list(), p.host_status(), telemetry.hardware(), p.failed_tasks(since))
     pools = pools or []
-    details = await asyncio.gather(*[_safe(_node(f"/disks/zfs/{p['name']}"), {}) for p in pools])
-    alerts = evaluate(pools, details, targets or [], status or {}, hw["disks"], [normalize(t) for t in tasks or []])
+    details = await asyncio.gather(*[p.zfs_pool_detail(x["name"]) for x in pools])
+    alerts = evaluate(pools, details, targets or [], status or {}, hw["disks"], tasks or [])
     u = updater.load_settings()
     if u["mode"] != "manual" and u["update_available"]:
         alerts.append(_alert("solardeck-update", "info", "update", "SolarDeck update available",

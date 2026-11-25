@@ -1,4 +1,4 @@
-"""Platform-neutral hypervisor contract. Every driver (proxmox, native_ubuntu) implements HypervisorProvider.
+"""Platform-neutral hypervisor contract. Every driver (providers/<driver id>/) implements HypervisorProvider.
 
 Domain models are permissive (extra fields allowed, every field defaulted) so a driver can pass through its native
 fields while the UI relies only on the declared ones. Create/update methods take a plain `spec` dict that the
@@ -7,6 +7,7 @@ driver validates against its own request schema, so validation stays in one plac
 from abc import ABC, abstractmethod
 from typing import Any, Literal
 
+from fastapi import HTTPException
 from pydantic import BaseModel, ConfigDict
 
 GuestKind = Literal["qemu", "lxc"]
@@ -170,7 +171,7 @@ class FirewallRuleInfo(Model):
 
 
 class TaskInfo(Model):
-    """A started or tracked job. `task` is the driver's job handle (a UPID on Proxmox)."""
+    """A started or tracked job. `task` is the driver's job handle."""
     ok: bool = True
     task: str | None = None
 
@@ -345,3 +346,94 @@ class HypervisorProvider(ABC):
     async def open_terminal_console(self, kind: GuestKind, vmid: int) -> ConsoleTicket: ...
     @abstractmethod
     async def open_host_shell(self) -> ConsoleTicket: ...
+
+    # ------------------------------------------------------------ Optional platform hooks
+    # Shared modules call these; the defaults mean "this platform has nothing to report / cannot do this", so a
+    # driver overrides only what its platform offers.
+    def not_available(self) -> HTTPException:
+        return HTTPException(501, f"Not available on {self.get_capabilities().platform_label}")
+
+    def scheduler_loops(self) -> list:
+        """Coroutines the backend runs for its lifetime (e.g. the driver's own backup scheduler)."""
+        return []
+
+    async def close(self) -> None:
+        """Release connections on shutdown."""
+
+    def host_address(self) -> str:
+        """Address of the hypervisor host as seen from the backend (SSH bridge target, WireGuard endpoint)."""
+        return "127.0.0.1"
+
+    async def host_status(self) -> dict:
+        """Host status: cpuinfo, memory, swap, rootfs, kversion, current-kernel, boot-info, platform version."""
+        return {}
+
+    async def platform_version(self) -> dict:
+        """{"version": ...} of the hypervisor management layer, for bug reports."""
+        return {}
+
+    async def guest_rows(self) -> list[dict]:
+        """Every guest as {vmid, name, type, status, tags}; [] when the hypervisor is unreachable (never raises)."""
+        return []
+
+    async def zfs_pool_list(self) -> list[dict]:
+        """ZFS pools: name, health, size, alloc, free, frag."""
+        return []
+
+    async def zfs_pool_detail(self, name: str) -> dict:
+        """One pool with its vdev tree (children)."""
+        return {}
+
+    async def storage_list(self) -> list[dict]:
+        """Storage targets: storage, type, active, total, used, content."""
+        return []
+
+    async def failed_tasks(self, since: int) -> list[dict]:
+        """Jobs that failed since the unix time `since`: {upid, type, id, user, status, state, starttime, endtime}."""
+        return []
+
+    async def raw_disks(self) -> list[dict]:
+        """Whole disks: devpath, model, serial, type, size, rpm, wearout, health, used, by_id_link."""
+        return []
+
+    async def disk_smart_raw(self, devpath: str) -> dict:
+        """SMART data of one disk: health, type, attributes or text."""
+        return {}
+
+    async def pci_devices_raw(self) -> list[dict]:
+        """PCI devices from the management API (fallback when lspci over the bridge is unavailable)."""
+        return []
+
+    async def guest_rule_power(self, kind: GuestKind, vmid: int, action: str) -> str:
+        """Automation rule action start_guest / stop_guest / restart_guest; returns a short result message."""
+        raise self.not_available()
+
+    async def container_exec(self, vmid: int, script: str, timeout: float = 120, log=None) -> str:
+        """Run a bash script as root inside a running container."""
+        raise self.not_available()
+
+    async def container_ip(self, vmid: int) -> str | None:
+        return None
+
+    async def container_status(self, vmid: int) -> str | None:
+        """"running" / "stopped", or None when the container does not exist."""
+        return None
+
+    async def help_diagnostics(self) -> list[dict]:
+        """Extra Help Center checks of this platform (update sources, pending updates, backup jobs, ...)."""
+        return []
+
+    async def help_fix(self, fix_id: str) -> dict:
+        """Apply a platform Help Center fix; returns {message, job?}."""
+        raise self.not_available()
+
+    async def relay_console(self, ws, kind: str, guest_type: str, vmid: int, session: dict) -> None:
+        """Relay an authenticated browser console WebSocket to the platform's console (not an SSH shell)."""
+        await ws.close(code=1011, reason=self.not_available().detail[:120])
+
+    async def set_host_certificate(self, cert: str, key: str) -> None:
+        """Install a custom TLS certificate for the platform's own web interface."""
+        raise self.not_available()
+
+    async def remove_host_certificate(self) -> None:
+        raise self.not_available()

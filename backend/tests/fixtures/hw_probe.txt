@@ -416,12 +416,12 @@ size                            4    747723760
 /sys/kernel/debug/dri/128/gt0/uc/huc_info:	status: RUNNING
 /sys/kernel/debug/dri/1/gt0/uc/huc_info:	status: RUNNING
 @@ipaddr@@
-[{"ifindex":1,"ifname":"lo","flags":["LOOPBACK","UP","LOWER_UP"],"mtu":65536,"qdisc":"noqueue","operstate":"UNKNOWN","group":"default","txqlen":1000,"link_type":"loopback","address":"02:00:00:00:00:01","broadcast":"02:00:00:00:00:01","addr_info":[{"family":"inet","local":"127.0.0.1","prefixlen":8,"scope":"host","label":"lo","valid_life_time":4294967295,"preferred_life_time":4294967295},{"family":"inet6","local":"::1","prefixlen":128,"scope":"host","noprefixroute":true,"valid_life_time":4294967295,"preferred_life_time":4294967295}]},{"ifindex":2,"ifname":"nic0","flags":["BROADCAST","MULTICAST","UP","LOWER_UP"],"mtu":1500,"qdisc":"fq_codel","master":"vmbr0","operstate":"UP","group":"default","txqlen":1000,"link_type":"ether","address":"02:00:00:00:00:01","broadcast":"02:00:00:00:00:01","altnames":["enx00e269b6a518"],"addr_info":[]},{"ifindex":3,"ifname":"vmbr0","flags":["BROADCAST","MULTICAST","UP","LOWER_UP"],"mtu":1500,"qdisc":"noqueue","operstate":"UP","group":"default","txqlen":1000,"link_type":"ether","address":"02:00:00:00:00:01","broadcast":"02:00:00:00:00:01","addr_info":[{"family":"inet","local":"192.168.68.220","prefixlen":24,"scope":"global","label":"vmbr0","valid_life_time":4294967295,"preferred_life_time":4294967295},{"family":"inet6","local":"fe80::2e2:69ff:feb6:a518","prefixlen":64,"scope":"link","protocol":"kernel_ll","valid_life_time":4294967295,"preferred_life_time":4294967295}]},{"ifindex":4,"link_index":2,"ifname":"veth100i0","flags":["BROADCAST","MULTICAST","UP","LOWER_UP"],"mtu":1500,"qdisc":"noqueue","master":"vmbr0","operstate":"UP","group":"default","txqlen":1000,"link_type":"ether","address":"02:00:00:00:00:01","broadcast":"02:00:00:00:00:01","link_netnsid":0,"addr_info":[]}]
+[{"ifindex":1,"ifname":"lo","flags":["LOOPBACK","UP","LOWER_UP"],"mtu":65536,"qdisc":"noqueue","operstate":"UNKNOWN","group":"default","txqlen":1000,"link_type":"loopback","address":"02:00:00:00:00:01","broadcast":"02:00:00:00:00:01","addr_info":[{"family":"inet","local":"127.0.0.1","prefixlen":8,"scope":"host","label":"lo","valid_life_time":4294967295,"preferred_life_time":4294967295},{"family":"inet6","local":"::1","prefixlen":128,"scope":"host","noprefixroute":true,"valid_life_time":4294967295,"preferred_life_time":4294967295}]},{"ifindex":2,"ifname":"nic0","flags":["BROADCAST","MULTICAST","UP","LOWER_UP"],"mtu":1500,"qdisc":"fq_codel","master":"br0","operstate":"UP","group":"default","txqlen":1000,"link_type":"ether","address":"02:00:00:00:00:01","broadcast":"02:00:00:00:00:01","altnames":["enx00e269b6a518"],"addr_info":[]},{"ifindex":3,"ifname":"br0","flags":["BROADCAST","MULTICAST","UP","LOWER_UP"],"mtu":1500,"qdisc":"noqueue","operstate":"UP","group":"default","txqlen":1000,"link_type":"ether","address":"02:00:00:00:00:01","broadcast":"02:00:00:00:00:01","addr_info":[{"family":"inet","local":"192.168.68.220","prefixlen":24,"scope":"global","label":"br0","valid_life_time":4294967295,"preferred_life_time":4294967295},{"family":"inet6","local":"fe80::2e2:69ff:feb6:a518","prefixlen":64,"scope":"link","protocol":"kernel_ll","valid_life_time":4294967295,"preferred_life_time":4294967295}]},{"ifindex":4,"link_index":2,"ifname":"veth100i0","flags":["BROADCAST","MULTICAST","UP","LOWER_UP"],"mtu":1500,"qdisc":"noqueue","master":"br0","operstate":"UP","group":"default","txqlen":1000,"link_type":"ether","address":"02:00:00:00:00:01","broadcast":"02:00:00:00:00:01","link_netnsid":0,"addr_info":[]}]
 @@netsys@@
 lo|||virt
 nic0|1000|r8169|phys
 veth100i0|10000||virt
-vmbr0|10000||virt
+br0|10000||virt
 @@smart@@
 /dev/nvme0n1|34
 /dev/nvme1n1|31
@@ -433,4 +433,4 @@ firmware-misc-nonfree||not-installed
 lm-sensors||not-installed
 @@vfio@@
 @@kernel@@
-7.0.14-30-pve
+7.0.14-30-generic

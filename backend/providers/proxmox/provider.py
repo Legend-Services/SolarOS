@@ -1,16 +1,20 @@
 """Proxmox VE driver: REST API (/api2/json) plus host CLI (pct, qm, zpool, zfs, smartctl, hdparm, fio) via the helper.
 
-The low-level Proxmox plumbing (API client, request validation, host helper calls) stays in the app.* modules, which
-are this driver's internals; the provider binds every contract method to them. Calling a route handler directly
+The Proxmox route handlers live in providers/proxmox/routes/ (shared request models and helper-based handlers in
+app.*); the provider binds every contract method to them. Calling a route handler directly
 skips FastAPI parameter parsing, so every Query/Path argument is passed explicitly and bodies are built from `spec`
 with the handler's own request model (same validation as the HTTP route).
 """
 import asyncio
+from urllib.parse import quote
 
-from app import (automation, backups, console, disk_benchmark, guest_hardware, hardware_admin, local_ai, provisioning,
-                 pve_access, pve_datacenter, storage_admin, tasks)
-from app import pve as api
+from app import disk_benchmark, host_ssh, hardware_admin, hypervisor, storage_admin
+from app import provisioning as shared_provisioning
 from app.config import settings
+
+from . import api, help
+from .routes import access as pve_access, automation, backups, console, datacenter as pve_datacenter, guest_hardware, \
+    guests, local_ai, net_certs, provisioning, storage as pve_storage, tasks
 from providers.base import (AccessAclInfo, AccessGroupInfo, AccessRoleInfo, AccessUserInfo, BackupArchiveInfo,
                             BackupScheduleInfo, BenchmarkResult, BiosReadinessStatus, ConsoleTicket, DiskSettings,
                             FirewallRuleInfo, GpuDeviceInfo, GuestConfigUpdate, GuestInfo, GuestKind,
@@ -92,14 +96,14 @@ class ProxmoxProvider(HypervisorProvider):
         return [GuestInfo.model_validate(g) for g in sorted(items, key=lambda g: g["vmid"])]
 
     async def get_guest_config(self, kind: GuestKind, vmid: int) -> dict:
-        return await api.guest_config(kind, vmid)
+        return await guests.guest_config(kind, vmid)
 
     async def update_guest_config(self, kind: GuestKind, vmid: int, update: GuestConfigUpdate) -> dict:
-        body = api.GuestConfigBody(**update.model_dump(include=set(api.GuestConfigBody.model_fields)))
-        return await api.guest_config_update(kind, vmid, body)
+        body = hypervisor.GuestConfigBody(**update.model_dump(include=set(hypervisor.GuestConfigBody.model_fields)))
+        return await guests.guest_config_update(kind, vmid, body)
 
     async def guest_power_action(self, kind: GuestKind, vmid: int, action: str) -> TaskInfo:
-        api.ActionBody(action=action)  # validates start/shutdown/stop/reboot
+        hypervisor.ActionBody(action=action)  # validates start/shutdown/stop/reboot
         return TaskInfo(task=await api.pve("POST", api._node(f"/{kind}/{vmid}/status/{action}")))
 
     async def create_vm(self, spec: dict) -> TaskInfo:
@@ -119,7 +123,7 @@ class ProxmoxProvider(HypervisorProvider):
         return _many(UsbDeviceInfo, (await provisioning.usb_devices())["devices"])
 
     async def list_gpus(self) -> list[GpuDeviceInfo]:
-        return _many(GpuDeviceInfo, await provisioning.gpus())
+        return _many(GpuDeviceInfo, await shared_provisioning.gpus())
 
     # ------------------------------------------------------------ Local AI GPU provisioning
     async def provision_ai_container(self, spec: dict) -> TaskInfo:
@@ -130,13 +134,13 @@ class ProxmoxProvider(HypervisorProvider):
 
     # ------------------------------------------------------------ Storage, ZFS, disks & benchmarks
     async def list_storage_pools(self) -> dict:
-        return await api.storage()
+        return await guests.storage()
 
     async def create_zfs_pool(self, spec: dict) -> TaskInfo:
-        return _task(await storage_admin.pool_create(storage_admin.PoolBody(**spec)))
+        return _task(await pve_storage.pool_create(storage_admin.PoolBody(**spec)))
 
     async def destroy_zfs_pool(self, name: str, confirm: str) -> TaskInfo:
-        return _task(await storage_admin.pool_destroy(name, confirm))
+        return _task(await pve_storage.pool_destroy(name, confirm))
 
     async def manage_pool_member(self, pool, action, spec: dict) -> TaskInfo:
         if action == "replace":
@@ -159,11 +163,11 @@ class ProxmoxProvider(HypervisorProvider):
         return await storage_admin.dataset_destroy(name, confirm, recursive)
 
     async def list_physical_disks(self) -> list[PhysicalDiskInfo]:
-        res = await storage_admin.disks()
+        res = await pve_storage.disks()
         return _many(PhysicalDiskInfo, res.get("disks") if isinstance(res, dict) else res)
 
     async def get_disk_smart(self, disk: str) -> SmartReport:
-        return SmartReport.model_validate(await storage_admin.disk_smart(disk))
+        return SmartReport.model_validate(await pve_storage.disk_smart(disk))
 
     async def get_disk_settings(self, disk: str) -> DiskSettings:
         return DiskSettings.model_validate(await storage_admin.disk_settings(disk))
@@ -186,24 +190,24 @@ class ProxmoxProvider(HypervisorProvider):
 
     async def list_snapshots(self, scope: SnapshotScope, target=None) -> list[dict]:
         if scope == "zfs":
-            snaps = (await api.zfs_snapshots())["snapshots"]
+            snaps = (await hypervisor.zfs_snapshots())["snapshots"]
             return [s for s in snaps if target is None or s["dataset"] == target]
         return await guest_hardware.snapshots(scope, int(target))
 
     async def create_snapshot(self, scope: SnapshotScope, target, name: str, description: str = "") -> TaskInfo:
         if scope == "zfs":
-            return _task(await api.zfs_snapshot_create(api.SnapshotBody(dataset=str(target), name=name)))
+            return _task(await hypervisor.zfs_snapshot_create(hypervisor.SnapshotBody(dataset=str(target), name=name)))
         body = guest_hardware.SnapshotBody(name=name, description=description)
         return _task(await guest_hardware.create_snapshot(scope, int(target), body))
 
     async def rollback_snapshot(self, scope: SnapshotScope, target, name: str) -> TaskInfo:
         if scope == "zfs":
-            return _task(await api.zfs_snapshot_rollback(api.RollbackBody(snapshot=f"{target}@{name}")))
+            return _task(await hypervisor.zfs_snapshot_rollback(hypervisor.RollbackBody(snapshot=f"{target}@{name}")))
         return _task(await guest_hardware.rollback_snapshot(scope, int(target), name))
 
     async def delete_snapshot(self, scope: SnapshotScope, target, name: str) -> TaskInfo:
         if scope == "zfs":
-            return _task(await api.zfs_snapshot_delete(f"{target}@{name}"))
+            return _task(await hypervisor.zfs_snapshot_delete(f"{target}@{name}"))
         return _task(await guest_hardware.delete_snapshot(scope, int(target), name))
 
     # ------------------------------------------------------------ Backups & ISO/template library
@@ -320,3 +324,71 @@ class ProxmoxProvider(HypervisorProvider):
     async def open_host_shell(self) -> ConsoleTicket:
         # The host shell socket authenticates with the login cookie itself; no one-time session is needed.
         return ConsoleTicket(ws_path="/api/v1/ws/host-shell")
+
+    # ------------------------------------------------------------ Platform hooks (see HypervisorProvider)
+    async def close(self) -> None:
+        await api.close_client()
+
+    def host_address(self) -> str:
+        return api.pve_settings.hostname
+
+    async def host_status(self) -> dict:
+        st = await api._safe(api._node("/status"), {}) or {}
+        return {**st, "platform_version": st.get("pveversion", "")} if st else {}
+
+    async def platform_version(self) -> dict:
+        return await api._safe("/version", {}) or {}
+
+    async def guest_rows(self) -> list[dict]:
+        qemu, lxc = await asyncio.gather(api._safe(api._node("/qemu"), []), api._safe(api._node("/lxc"), []))
+        return [{**g, "type": k} for k, items in (("qemu", qemu), ("lxc", lxc)) for g in items or []]
+
+    async def zfs_pool_list(self) -> list[dict]:
+        return await api._safe(api._node("/disks/zfs"), []) or []
+
+    async def zfs_pool_detail(self, name: str) -> dict:
+        return await api._safe(api._node(f"/disks/zfs/{name}"), {}) or {}
+
+    async def storage_list(self) -> list[dict]:
+        return await api._safe(api._node("/storage"), []) or []
+
+    async def failed_tasks(self, since: int) -> list[dict]:
+        items = await api._safe(api._node("/tasks"), [], params={"errors": 1, "since": since, "limit": 20})
+        return [tasks.normalize(t) for t in items or []]
+
+    async def raw_disks(self) -> list[dict]:
+        return await api._safe(api._node("/disks/list"), []) or []
+
+    async def disk_smart_raw(self, devpath: str) -> dict:
+        return await api._safe(api._node(f"/disks/smart?disk={quote(devpath, safe='')}"), {}) or {}
+
+    async def pci_devices_raw(self) -> list[dict]:
+        return await api._safe(api._node("/hardware/pci"), []) or []
+
+    async def guest_rule_power(self, kind: GuestKind, vmid: int, action: str) -> str:
+        return await automation.guest_rule_power(kind, vmid, action)
+
+    async def container_exec(self, vmid: int, script: str, timeout: float = 120, log=None) -> str:
+        return await host_ssh.run(f"pct exec {int(vmid)} -- bash -s", input=script, timeout=timeout, on_line=log)
+
+    async def container_ip(self, vmid: int) -> str | None:
+        ifaces = await api._safe(api._node(f"/lxc/{vmid}/interfaces"), []) or []
+        return next((i.get("inet", "") for i in ifaces if i.get("name") == "eth0"), "").split("/")[0] or None
+
+    async def container_status(self, vmid: int) -> str | None:
+        return (await api._safe(api._node(f"/lxc/{vmid}/status/current"), None) or {}).get("status")
+
+    async def help_diagnostics(self) -> list[dict]:
+        return await help.diagnostics()
+
+    async def help_fix(self, fix_id: str) -> dict:
+        return await help.fix(fix_id)
+
+    async def relay_console(self, ws, kind: str, guest_type: str, vmid: int, session: dict) -> None:
+        await console.relay_terminal(ws, guest_type, vmid, session)
+
+    async def set_host_certificate(self, cert: str, key: str) -> None:
+        await net_certs.set_node_certificate(cert, key)
+
+    async def remove_host_certificate(self) -> None:
+        await net_certs.remove_node_certificate()

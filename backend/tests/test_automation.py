@@ -89,27 +89,27 @@ with tempfile.TemporaryDirectory() as d:
     assert a.recent_alerts(now)[0]["id"] == f"automation:{log['id']}"
 
 # Guest NIC parsing.
-q = a.parse_guest_nets("qemu", {"net0": "virtio=BC:24:11:aa:bb:cc,bridge=vmbr0,firewall=1,tag=20", "scsi0": "x"})
-assert q == [{"key": "net0", "bridge": "vmbr0", "mac": "BC:24:11:AA:BB:CC", "tag": "20", "ip": None, "name": "net0", "firewall": True}]
-lx = a.parse_guest_nets("lxc", {"net0": "name=eth0,bridge=vmbr1,hwaddr=BC:24:11:00:00:01,ip=10.0.0.5/24,type=veth"})
-assert lx[0]["ip"] == "10.0.0.5" and lx[0]["bridge"] == "vmbr1"
+q = a.parse_guest_nets("qemu", {"net0": "virtio=BC:24:11:aa:bb:cc,bridge=br0,firewall=1,tag=20", "scsi0": "x"})
+assert q == [{"key": "net0", "bridge": "br0", "mac": "BC:24:11:AA:BB:CC", "tag": "20", "ip": None, "name": "net0", "firewall": True}]
+lx = a.parse_guest_nets("lxc", {"net0": "name=eth0,bridge=br1,hwaddr=BC:24:11:00:00:01,ip=10.0.0.5/24,type=veth"})
+assert lx[0]["ip"] == "10.0.0.5" and lx[0]["bridge"] == "br1"
 assert a.guest_ips("qemu", {"result": [{"hardware-address": "bc:24:11:aa:bb:cc", "ip-addresses": [
     {"ip-address": "192.168.1.9", "ip-address-type": "ipv4"}, {"ip-address": "fe80::1", "ip-address-type": "ipv6"}]}]}) == {
     "BC:24:11:AA:BB:CC": ["192.168.1.9"]}
 
 # Topology graph.
-net = [{"iface": "enp1s0", "type": "eth", "active": 1}, {"iface": "vmbr0", "type": "bridge", "active": 1, "bridge_ports": "enp1s0",
-       "cidr": "192.168.1.2/24", "gateway": "192.168.1.1"}, {"iface": "vmbr0.30", "type": "vlan", "active": 1}]
+net = [{"iface": "enp1s0", "type": "eth", "active": 1}, {"iface": "br0", "type": "bridge", "active": 1, "bridge_ports": "enp1s0",
+       "cidr": "192.168.1.2/24", "gateway": "192.168.1.1"}, {"iface": "br0.30", "type": "vlan", "active": 1}]
 guests = [{"type": "qemu", "vmid": 100, "name": "web", "status": "running", "nets": q, "ips": {"BC:24:11:AA:BB:CC": ["192.168.1.9"]}}]
-wg = {"enabled": True, "port": 51820, "subnet": "10.8.0.0/24", "wan": "vmbr0", "peers": [{"name": "phone", "ip": "10.8.0.2", "public_key": "k"}]}
-router = {"wan": "vmbr0", "forwards": [{"proto": "tcp", "ext_port": "443", "int_ip": "192.168.1.9", "int_port": None}]}
+wg = {"enabled": True, "port": 51820, "subnet": "10.8.0.0/24", "wan": "br0", "peers": [{"name": "phone", "ip": "10.8.0.2", "public_key": "k"}]}
+router = {"wan": "br0", "forwards": [{"proto": "tcp", "ext_port": "443", "int_ip": "192.168.1.9", "int_port": None}]}
 t = a.build_topology(net, a.parse_ip_links('[{"ifname":"enp1s0","address":"aa:bb:cc:dd:ee:ff","operstate":"UP"}]'),
                      guests, wg, {"wg0": {"peers": []}}, router)
 ids = {n["id"] for n in t["nodes"]}
-assert {"internet", "if:enp1s0", "if:vmbr0", "if:vmbr0.30", "qemu:100", "wg:wg0", "peer:phone", "fwd:0"} <= ids, ids
+assert {"internet", "if:enp1s0", "if:br0", "if:br0.30", "qemu:100", "wg:wg0", "peer:phone", "fwd:0"} <= ids, ids
 pairs = {(e["source"], e["target"]) for e in t["edges"]}
-assert {("internet", "if:enp1s0"), ("if:enp1s0", "if:vmbr0"), ("if:vmbr0", "if:vmbr0.30"), ("if:vmbr0", "qemu:100"),
-        ("if:vmbr0", "wg:wg0"), ("wg:wg0", "peer:phone"), ("if:vmbr0", "fwd:0"), ("fwd:0", "qemu:100")} <= pairs, pairs
+assert {("internet", "if:enp1s0"), ("if:enp1s0", "if:br0"), ("if:br0", "if:br0.30"), ("if:br0", "qemu:100"),
+        ("if:br0", "wg:wg0"), ("wg:wg0", "peer:phone"), ("if:br0", "fwd:0"), ("fwd:0", "qemu:100")} <= pairs, pairs
 assert next(n for n in t["nodes"] if n["id"] == "if:enp1s0")["mac"] == "AA:BB:CC:DD:EE:FF"
 assert next(n for n in t["nodes"] if n["id"] == "qemu:100")["ip"] == "192.168.1.9"
 

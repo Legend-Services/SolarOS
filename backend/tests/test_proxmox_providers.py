@@ -1,5 +1,5 @@
 """Phase 18 self-check: provider contract, registry, capabilities and the /api/v1 API.
-Run: python -m tests.test_phase18_providers (from backend/)."""
+Run: python -m tests.test_proxmox_providers (from backend/)."""
 import os
 import tempfile
 
@@ -8,7 +8,7 @@ os.environ.update(NODE_NAME="pve", STORAGE_ROOT=tempfile.mkdtemp(), ADMIN_USERNA
 import httpx  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from app import pve  # noqa: E402
+from providers.proxmox import api as pve  # noqa: E402
 from app.config import settings  # noqa: E402
 from app.main import app  # noqa: E402
 from providers import registry  # noqa: E402
