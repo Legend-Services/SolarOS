@@ -34,12 +34,15 @@ AUTH=(); [[ -n "$TOKEN" ]] && AUTH=(-c "http.https://github.com/.extraheader=Aut
 git() { command git -c safe.directory='*' "${AUTH[@]}" "$@"; }
 
 STATE="/tmp/${PREFIX}-state-backup"
-echo "==> Saving settings and data to ${STATE}"
-rm -rf "$STATE" && mkdir -p "$STATE"
-[[ -f backend/.env ]] && cp -a backend/.env "$STATE/.env"
-[[ -d backend/data ]] && cp -a backend/data "$STATE/data"
-[[ -d backend/.ssh ]] && cp -a backend/.ssh "$STATE/.ssh"
-[[ -f "$SHARES" ]] && cp -a "$SHARES" "$STATE/shares.conf"
+# A re-executed updater (see below) keeps the snapshot its first run took before the checkout.
+if [[ -z "${UPDATER_REEXEC:-}" ]]; then
+  echo "==> Saving settings and data to ${STATE}"
+  rm -rf "$STATE" && mkdir -p "$STATE"
+  [[ -f backend/.env ]] && cp -a backend/.env "$STATE/.env"
+  [[ -d backend/data ]] && cp -a backend/data "$STATE/data"
+  [[ -d backend/.ssh ]] && cp -a backend/.ssh "$STATE/.ssh"
+  [[ -f "$SHARES" ]] && cp -a "$SHARES" "$STATE/shares.conf"
+fi
 
 echo "==> Fetching ${BRANCH} and tags from ${REPO_URL}"
 if [[ ! -d .git ]]; then
@@ -58,6 +61,14 @@ git -c advice.detachedHead=false checkout -q -f -B "$BRANCH" "$TARGET"
 git reset -q --hard "$TARGET"
 git rev-parse HEAD >.build-commit
 echo "    now at $(git log -1 --format='%h %s')"
+# This file is the previous release's updater (copied before the checkout): continue with the new one, so steps added
+# in this release (e.g. host package changes) run in this same update instead of the next one.
+if [[ -z "${UPDATER_REEXEC:-}" ]] && ! cmp -s "$0" deploy/self-update.sh; then
+  echo "==> Continuing with the updated updater"
+  NEXT="$(mktemp "/tmp/${PREFIX}-self-update.XXXXXX")"
+  cp deploy/self-update.sh "$NEXT"
+  UPDATER_REEXEC=1 exec bash "$NEXT" "$APP_DIR" "$REPO_URL" "$BRANCH" "$(git rev-parse HEAD)" "$SYSTEM_PACKAGES"
+fi
 
 echo "==> Restoring settings and data"
 [[ -f "$STATE/.env" ]] && cp -a "$STATE/.env" backend/.env
