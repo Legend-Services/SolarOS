@@ -545,11 +545,26 @@ export interface SearchResult {
   target: { type?: "qemu" | "lxc"; vmid?: number; name?: string; status?: string; path?: string; pool?: string; app_id?: string; section?: string };
 }
 
-export interface UpdateSettings {
-  mode: "manual" | "notify" | "auto";
-  schedule_frequency: "6h" | "daily" | "weekly";
-  schedule_time: string;
-  schedule_day: number;
+/** PUT /api/system/updates/schedule */
+export interface UpdateSchedule {
+  auto_check_enabled: boolean;
+  check_interval_hours: 1 | 6 | 12 | 24;
+  auto_install_enabled: boolean;
+  schedule_frequency: "daily" | "weekly" | "monthly";
+  schedule_day_of_week: number; // 0 = Sunday
+  schedule_day_of_month: number; // 1..28
+  schedule_time: string; // HH:MM
+  include_os_packages: boolean;
+}
+
+/** GET /api/system/updates/schedule */
+export interface UpdateScheduleState extends UpdateSchedule {
+  next_check_at: string | null;
+  next_install_at: string | null;
+  supports_os_packages: boolean;
+}
+
+export interface UpdateSettings extends UpdateSchedule {
   last_checked_at: string | null;
   latest_remote_commit: string | null;
   latest_remote_tag: string | null;
@@ -599,5 +614,18 @@ export interface UpdateStatus {
   settings: UpdateSettings;
   running: boolean;
   exit_code: number | null;
-  log: string[];
+  logs: string[];
+  current_version: string | null;
+  latest_version: string | null;
+  last_checked: string | null;
+  update_status: "idle" | "running" | "completed" | "failed";
+  progress_percent: number;
+  /** Stage id (prepare, fetch, checkout, os-packages, backend, frontend, restart, done) and its English label. */
+  stage: string | null;
+  current_stage: string | null;
+  error_message: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  completed_version: string | null;
+  completed_commit: string | null;
 }

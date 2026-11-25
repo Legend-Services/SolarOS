@@ -4,7 +4,8 @@ import { useCapabilities } from "../store/capabilitiesStore";
 import { useWizard } from "../store/wizardStore";
 import { api } from "../lib/api";
 import { bytes } from "../lib/format";
-import { useIntentFor, useRelease, useTelemetry, zfsHealth } from "../lib/stores";
+import { useIntentFor, useTelemetry, zfsHealth } from "../lib/stores";
+import { useUpdateStore } from "../store/updateStore";
 import { pulseAnchor } from "../lib/hooks";
 import { controlHeadings } from "../data/knowledgeRegistry";
 import type { SystemInfo } from "../lib/types";
@@ -131,7 +132,7 @@ function ModuleBody({ id, tab }: { id: ModuleId; tab?: string }) {
 /** Live status dot on a tile, where one makes sense. */
 function useDots(): Partial<Record<ModuleId, string>> {
   const health = zfsHealth(useTelemetry((s) => s.storage));
-  const update = useRelease((s) => s.update);
+  const update = useUpdateStore((s) => s.updateAvailable);
   return {
     "storage-zfs": health === "ONLINE" ? "bg-emerald-400" : health === "N/A" || health === "—" ? "" : "bg-rose-400",
     "software-updates": update ? "bg-amber-400" : "bg-emerald-400",
@@ -142,7 +143,7 @@ function HostSummary({ query, setQuery, onEnter }: { query: string; setQuery: (q
   const { t, language, setLanguage } = useTranslation();
   const platform = useCapabilities((s) => s.capabilities.platform_label);
   const memory = useTelemetry((s) => s.overview?.memory.total);
-  const version = useRelease((s) => s.version);
+  const version = useUpdateStore((s) => s.version);
   const [info, setInfo] = useState<SystemInfo | null>(null);
   useEffect(() => {
     api<SystemInfo>("/system/info").then(setInfo, () => {});
@@ -219,7 +220,7 @@ export default function SettingsApp() {
   const { t } = useTranslation();
   const caps = useCapabilities((s) => s.capabilities);
   const showGuide = useWizard((s) => s.show);
-  const loadRelease = useRelease((s) => s.load);
+  const loadRelease = useUpdateStore((s) => s.load);
   const dots = useDots();
   const [module, setModule] = useState<ModuleId | null>(null);
   const [query, setQuery] = useState("");
