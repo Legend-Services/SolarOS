@@ -54,10 +54,14 @@ msg "Installing hypervisor packages (KVM/libvirt, Incus, OpenZFS, disk and senso
 # Only what SolarOS uses (no recommended extras such as desktop graphics stacks): what libvirt and ZFS would pull in
 # through Recommends is listed explicitly.
 PKGS=(qemu-kvm qemu-utils libvirt-daemon-system libvirt-daemon-driver-qemu libvirt-clients ovmf swtpm swtpm-tools
-  incus zfsutils-linux zfs-zed bridge-utils smartmontools hdparm nvme-cli lm-sensors fio websockify samba
+  zfsutils-linux zfs-zed bridge-utils smartmontools hdparm nvme-cli lm-sensors fio websockify samba
   samba-common-bin nginx python3-venv python3-pip git curl ca-certificates gnupg openssl rsync gdisk cloud-image-utils
   zstd acl pciutils usbutils dmidecode openssh-server jq iproute2 kmod less dnsmasq-base ipxe-qemu-256k-compat-efi-roms
   qemu-block-extra parted netcat-openbsd libxml2-utils samba-vfs-modules cpu-checker)
+# Incus from Zabbly (current upstream) when its repository serves this release; else the distribution's package.
+ZABBLY="$(dirname "$(readlink -f "${BASH_SOURCE[0]:-$0}")")/zabbly-incus.sh"
+if [[ -f "$ZABBLY" ]]; then read -ra INCUS_PKGS <<<"$(bash "$ZABBLY")"; else INCUS_PKGS=(incus); fi
+PKGS+=("${INCUS_PKGS[@]}")
 apt-get update -qq
 apt-get install -y -qq --no-install-recommends "${PKGS[@]}" >/dev/null
 # Tracing tools of the minimal Ubuntu base pull in LLVM/Clang (~250 MB); SolarOS does not use them.
@@ -138,6 +142,7 @@ else
 fi
 mkdir -p "${STORAGE_ROOT}"/{isos,templates,backups,ai-models}
 ok "Code in ${APP_DIR} ($(cat "${APP_DIR}/.build-commit" 2>/dev/null | cut -c1-12))"
+bash "${APP_DIR}/hypervisor/zabbly-incus.sh" --upgrade >/dev/null || warn "Could not switch to Zabbly's Incus; keeping $(incus --version)"
 bash "${APP_DIR}/hypervisor/ensure-incus-pool.sh"
 ok "Incus ready ($(incus storage list --format csv | cut -d, -f1 | paste -sd, -))"
 

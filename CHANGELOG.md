@@ -9,6 +9,8 @@
 - **One account for the web UI and the server:** the administrator also becomes a Linux user with sudo (and `libvirt`/`incus-admin`) with the same password; a password change keeps both in sync. The ISO's bootstrap user is locked and expired once the administrator exists; root keeps no password.
 - Console option **[2] Reset Administrator** returns to first-run setup with a new setup code. It also switches two-factor sign-in off, for a forgotten password or a lost phone.
 
+- **Current Incus from Zabbly:** SolarOS installs Incus from the upstream maintainers' Zabbly repository (Incus 7.x) instead of Ubuntu's frozen 6.0.0. Container install scripts that use newer Incus commands now work. Updates move existing installs over; containers, images and storage pools are kept. Only the container parts (`incus-base`, `incus-client`) are installed, because SolarOS runs virtual machines through libvirt. If the repository can't be reached, Ubuntu's package is kept.
+
 ### Fixed
 - SolarOS installs whose first Incus initialization stopped halfway had no storage pool, so containers and apps could not be created. The installer and every SolarOS update now create the missing pool and attach it to the default profile (`hypervisor/ensure-incus-pool.sh`).
 
