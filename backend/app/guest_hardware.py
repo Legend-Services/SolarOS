@@ -50,11 +50,11 @@ def parse_usb(v: str) -> dict:
 def parse_net(guest_type: str, v: str) -> dict:
     p = parse_props(v)
     common = {"bridge": p.get("bridge", ""), "tag": int(p["tag"]) if p.get("tag", "").isdigit() else None,
-              "firewall": p.get("firewall") == "1", "rate": float(p["rate"]) if p.get("rate") else None}
+              "firewall": p.get("firewall") == "1", "rate": float(p["rate"]) if p.get("rate") else None,
+              "trunks": p.get("trunks") or None, "link_down": p.get("link_down") == "1"}
     if guest_type == "qemu":
         model = next((m for m in QEMU_MODELS if m in p or p.get("_") == m), "virtio")
-        return {"model": model, "macaddr": p.get(model) or p.get("macaddr"), "link_down": p.get("link_down") == "1",
-                **common}
+        return {"model": model, "macaddr": p.get(model) or p.get("macaddr"), **common}
     return {"name": p.get("name", ""), "macaddr": p.get("hwaddr"), "ip": p.get("ip"), "gw": p.get("gw"),
             "ip6": p.get("ip6"), "gw6": p.get("gw6"), **common}
 
@@ -93,6 +93,8 @@ class CdromBody(BaseModel):
 class NetBody(BaseModel):
     bridge: str = Field(pattern=BRIDGE_RE)
     tag: int | None = Field(None, ge=1, le=4094)
+    trunks: str | None = Field(None, pattern=r"^\d{1,4}(;\d{1,4}){0,63}$")  # tagged VLANs of a trunk NIC: "10;20"
+    link_down: bool = False
     firewall: bool = True
     rate: float | None = Field(None, gt=0, le=100_000)  # MB/s
     macaddr: str | None = Field(None, pattern=MAC_RE)

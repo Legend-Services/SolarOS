@@ -1246,6 +1246,10 @@ class NativeUbuntuProvider(HypervisorProvider):
     def scheduler_loops(self) -> list:
         return [self.backup_scheduler_loop()]
 
+    def switch_driver(self):
+        from . import network_switch
+        return network_switch
+
     async def backup_scheduler_loop(self) -> None:
         """Runs due backup jobs (started from app.main lifespan on this driver)."""
         while True:

@@ -67,7 +67,9 @@ inst = {"config": {"volatile.eth0.hwaddr": "00:16:3e:01:02:03"},
         "expanded_devices": {"eth0": {"type": "nic", "nictype": "bridged", "parent": "br0", "vlan": "5", "limits.max": "80Mbit"},
                              "root": {"type": "disk"}, "eth1": {"type": "none"}}}
 assert ge.lxc_nets(inst) == [{"key": "net0", "index": 0, "raw": "", "name": "eth0", "macaddr": "00:16:3E:01:02:03", "ip": "dhcp",
-                              "gw": None, "ip6": None, "gw6": None, "bridge": "br0", "tag": 5, "firewall": False, "rate": 10.0}]
+                              "gw": None, "ip6": None, "gw6": None, "bridge": "br0", "tag": 5, "firewall": False,
+                              "trunks": None, "rate": 10.0}]
+assert ge.lxc_nic_args(0, NetBody(bridge="br0", trunks="10;20"))[-1] == "vlan.tagged=10,20"
 assert ge.lxc_nic_args(1, NetBody(bridge="br0", tag=7, rate=2)) == [
     "eth1", "nic", "nictype=bridged", "parent=br0", "name=eth1", "vlan=7", "limits.max=16Mbit"]
 

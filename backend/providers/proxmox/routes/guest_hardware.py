@@ -80,7 +80,8 @@ async def delete_usb(vmid: VMID, idx: int = Path(ge=0, le=4)):
 
 def net_value(guest_type: str, idx: int, b: NetBody) -> str:
     tail = [f"bridge={b.bridge}", f"firewall={int(b.firewall)}", *([f"tag={b.tag}"] if b.tag else []),
-            *([f"rate={b.rate:g}"] if b.rate else [])]
+            *([f"trunks={b.trunks}"] if b.trunks else []), *([f"rate={b.rate:g}"] if b.rate else []),
+            *(["link_down=1"] if b.link_down else [])]
     if guest_type == "qemu":
         return ",".join([b.model + (f"={b.macaddr}" if b.macaddr else ""), *tail])
     return ",".join([f"name={b.name or f'eth{idx}'}", *tail, *([f"hwaddr={b.macaddr}"] if b.macaddr else []),
