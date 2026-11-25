@@ -429,8 +429,8 @@ function Schedules({ data, guests, reload }: { data: BackupsInfo; guests: Guest[
   );
 }
 
-export default function BackupCenterApp() {
-  const [tab, setTab] = useState<Tab>("backups");
+export default function BackupCenterApp({ initialTab }: { initialTab?: Tab } = {}) {
+  const [tab, setTab] = useState<Tab>(initialTab === "schedules" ? "schedules" : "backups");
   const [backupNow, setBackupNow] = useState(false);
   useIntentFor("backup", (v) => (v === "now" ? (setTab("backups"), setBackupNow(true)) : setTab(v)));
   const [data, setData] = useState<BackupsInfo | null>(null);

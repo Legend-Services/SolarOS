@@ -398,8 +398,8 @@ export default function VisualSwitchStudio() {
           </section>
         )}
 
-        {/* VLAN lanes */}
-        <div className="pt-6">
+        {/* VLAN lanes (data-anchor: Global Search deep links) */}
+        <div className="pt-6" data-anchor="vlan-lanes">
           <div className="mb-2 flex items-center gap-2">
             <Layers size={15} className="text-slate-300" />
             <h3 className="flex-1 text-xs font-semibold text-white">{t("vsw.lanes")}</h3>

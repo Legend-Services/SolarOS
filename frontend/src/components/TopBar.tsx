@@ -1,9 +1,10 @@
 import { useState, type ReactNode } from "react";
-import { ArrowUpCircle, BookOpen, Bug, CircleHelp, Cpu, Database, LayoutDashboard, LayoutGrid, LifeBuoy, Lock, LogOut, MemoryStick, Search, SlidersHorizontal, Sparkles, SquareTerminal, User } from "lucide-react";
+import { ArrowUpCircle, BookOpen, Bug, CircleHelp, Cpu, Database, LayoutDashboard, LayoutGrid, LifeBuoy, Lock, LogOut, MemoryStick, SlidersHorizontal, Sparkles, SquareTerminal, User } from "lucide-react";
 import { useLayout } from "../store/layoutStore";
 import { useWizard } from "../store/wizardStore";
 import { ViewOptionsPanel } from "./ViewOptions";
-import { activeWindow, openLink, useAuth, useBugReport, useRelease, useReleasePoll, useSpotlight, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
+import { activeWindow, openLink, useAuth, useBugReport, useRelease, useReleasePoll, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
+import GlobalSearchBar from "./search/GlobalSearchBar";
 import { useClock, useDismiss } from "../lib/hooks";
 import TaskCenterPopover from "./TaskCenterPopover";
 import NotificationPopover from "./NotificationPopover";
@@ -67,7 +68,6 @@ export default function TopBar() {
   const windows = useWindows((s) => s.windows);
   const open = useWindows((s) => s.open);
   const { username, lock, logout } = useAuth();
-  const openSpotlight = useSpotlight((s) => s.set);
   const openBugReport = useBugReport((s) => s.set);
   const [launcher, setLauncher] = useState(false);
   const [menu, setMenu] = useState(false);
@@ -113,17 +113,12 @@ export default function TopBar() {
         )}
       </div>
 
-      <div className="min-w-0 flex-1 truncate font-medium text-slate-300">{active ? appTitle(active.id) : t("top.desktop")}</div>
+      <div className="w-40 min-w-0 shrink truncate font-medium text-slate-300 max-md:hidden">{active ? appTitle(active.id) : t("top.desktop")}</div>
+      <div className="flex min-w-0 flex-1 justify-center">
+        <GlobalSearchBar />
+      </div>
 
       <StatusPills />
-      <button
-        onClick={() => openSpotlight(true)}
-        className="flex items-center gap-1 rounded-md px-2 py-1 text-slate-200 hover:bg-white/10"
-        aria-label={t("top.search")}
-        title={t("top.search")}
-      >
-        <Search size={14} />
-      </button>
       {caps.supports_host_shell && (
         <button
           onClick={() => open("terminal")}

@@ -6,6 +6,7 @@ import type { ConsoleTarget, HardwareInfo, Overview, StorageInfo } from "./types
 import type { AppId } from "../apps/registry";
 import { APPS, APP_IDS, DOCK_DEFAULT, liveAppIds } from "../apps/registry";
 import { settingsModule, type ModuleId } from "../apps/settings/modules";
+import type { NavTarget } from "../data/knowledgeRegistry";
 
 /* ---------------- Auth ---------------- */
 
@@ -159,11 +160,21 @@ export interface Intents {
   compute?: "vm" | "lxc" | "iso"; // open a wizard or the ISO tab
   storage?: "pool" | "dataset" | "pools" | "disks" | "benchmark" | "snapshots"; // a dialog or a tab
   controlpanel?: "security" | "network" | "appearance" | "automation" | "hardware" | "power";
-  help?: "ask" | "fix" | "bios" | "tutorials" | "faq";
+  help?: "ask" | "fix" | "bios" | "tutorials" | "faq" | "manual" | Omit<Extract<NavTarget, { kind: "help" }>, "kind">;
   netservices?: "dns" | "dhcp" | "wg" | "wgc" | "router" | "domains" | "certs" | "topology";
   backup?: "backups" | "schedules" | "now"; // a tab, or the Back Up Now dialog
   shares?: "create" | "users";
-  settings?: ModuleId;
+  settings?: ModuleId | SettingsTarget;
+}
+
+/** A Settings deep link: a category on the hub, or a sub-module with an inner tab and a card to highlight. */
+export type SettingsTarget = Omit<Extract<NavTarget, { kind: "settings" }>, "kind">;
+
+/** Go to a search result / Help article target (data/knowledgeRegistry.ts). */
+export function navigate(t: NavTarget) {
+  if (t.kind === "app") return useWindows.getState().open(t.appId);
+  const { kind, ...rest } = t;
+  useIntent.getState().go(kind, rest);
 }
 
 /** Apps that read an intent; the others are just opened. */
@@ -197,7 +208,7 @@ export const useIntent = create<IntentState>((set) => ({
   go: (app, value) => {
     // Retired apps open their Settings module. Only apps embedded there that read their own intent keep it (a tab or dialog).
     const module = settingsModule(app, value);
-    if (!module || EMBEDDED_INTENTS.includes(app)) set({ [app]: value });
+    if (app === "settings" || !module || EMBEDDED_INTENTS.includes(app)) set({ [app]: value });
     if (module && app !== "settings") set({ settings: module });
     useWindows.getState().open(module ? "settings" : app);
   },

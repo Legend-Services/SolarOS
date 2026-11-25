@@ -98,3 +98,30 @@ export function useDismiss(open: boolean, close: () => void) {
   }, [open, close]);
   return ref;
 }
+
+/**
+ * Scroll to and pulse the element a search result points at, once it has rendered (panels load their data first).
+ * Looks for `[data-anchor=anchor]`, else a heading that reads (or starts with) one of `headings`, else `fallback`.
+ */
+export function pulseAnchor(root: HTMLElement | null, anchor?: string, headings: string[] = [], fallback?: string) {
+  if (!root) return;
+  let tries = 0;
+  const find = (): Element | null => {
+    if (anchor) {
+      const el = root.querySelector(`[data-anchor="${CSS.escape(anchor)}"]`);
+      if (el) return el;
+    }
+    const h = [...root.querySelectorAll("h1,h2,h3,h4")].find((x) => headings.some((t) => x.textContent?.trim().startsWith(t)));
+    return h ? (h.closest("section") ?? h) : null;
+  };
+  const tick = () => {
+    const el = find() ?? (tries >= 15 && fallback ? root.querySelector(fallback) : null);
+    if (!el) return void (++tries < 40 && setTimeout(tick, 100));
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    el.classList.remove("search-pulse");
+    void (el as HTMLElement).offsetWidth; // restart the animation
+    el.classList.add("search-pulse");
+    setTimeout(() => el.classList.remove("search-pulse"), 2100);
+  };
+  tick();
+}

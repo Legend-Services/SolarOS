@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { ArrowRight, BookOpen, Check, ChevronDown, Copy, Cpu, ExternalLink, HelpCircle, Printer, QrCode, RefreshCw, Search, Sparkles, Wrench } from "lucide-react";
+import { ArrowRight, BookOpen, LibraryBig, Check, ChevronDown, Copy, Cpu, ExternalLink, HelpCircle, Printer, QrCode, RefreshCw, Search, Sparkles, Wrench } from "lucide-react";
 import { api } from "../lib/api";
 import { useRunner } from "../lib/hooks";
 import { openLink, useIntent, type Intents } from "../lib/stores";
@@ -10,8 +10,10 @@ import { useCapabilities } from "../store/capabilitiesStore";
 import { JobLog } from "../components/JobLog";
 import { CATEGORIES, FAQS, TUTORIALS, type Category, type Faq, type HelpLink, type Tutorial } from "./help/content";
 import { rank } from "./help/search";
+import Manual, { type HelpTarget } from "./help/Manual";
+import { useTranslation } from "../i18n";
 
-type Tab = NonNullable<Intents["help"]>;
+type Tab = Extract<NonNullable<Intents["help"]>, string>;
 type Status = "ok" | "info" | "warning" | "error";
 
 interface Diag {
@@ -50,6 +52,7 @@ const LABEL: Record<Status, string> = { ok: "ALL GOOD", info: "TIP", warning: "N
 const EXAMPLES = ["My updates fail with 401", "Use my graphics card in a Windows VM", "Block ads on my network", "Connect from my phone when I'm away", "Back up my VMs automatically"];
 
 const TABS: { id: Tab; label: string; icon: ReactNode }[] = [
+  { id: "manual", label: "help.manual", icon: <LibraryBig size={15} /> },
   { id: "ask", label: "Ask & search", icon: <Sparkles size={15} /> },
   { id: "fix", label: "Fix problems", icon: <Wrench size={15} /> },
   { id: "bios", label: "BIOS & firmware", icon: <Cpu size={15} /> },
@@ -63,7 +66,9 @@ const faqFields = (f: Faq): [string, number][] => [[f.q, 3], [f.keywords, 2], [f
 const diagFields = (d: Diag): [string, number][] => [[d.title, 3], [`${d.id} ${d.bios ?? ""}`, 2], [`${d.summary} ${d.fix?.label ?? ""}`, 1]];
 
 export default function HelpCenterApp() {
-  const [tab, setTab] = useState<Tab>("ask");
+  const { t } = useTranslation();
+  const [tab, setTab] = useState<Tab>("manual");
+  const [doc, setDoc] = useState<HelpTarget | null>(null);
   const caps = useCapabilities((s) => s.capabilities);
   const [diags, setDiags] = useState<Diag[] | null>(null);
   const [diagError, setDiagError] = useState("");
@@ -79,7 +84,10 @@ export default function HelpCenterApp() {
   }, []);
   useEffect(load, [load]);
   useEffect(() => {
-    if (intent) (setTab(intent), take("help"));
+    if (!intent) return;
+    if (typeof intent === "string") setTab(intent);
+    else (setTab("manual"), setDoc(intent));
+    take("help");
   }, [intent, take]);
 
   const follow = (l: HelpLink | Diag["link"]) => {
@@ -94,31 +102,32 @@ export default function HelpCenterApp() {
   const fixById = (id: string) => diags?.find((d) => d.id === id);
   const problems = diags?.filter((d) => d.status === "error" || d.status === "warning") ?? [];
 
+  const label = (l: string) => (l === "help.manual" ? t("help.manual") : l);
   const ctx: Ctx = { diags, problems, follow, setWizard, showBios, setTutorial, fixById, setTab };
   return (
     <div className="flex h-full">
       <nav className="w-48 shrink-0 space-y-1 border-r border-white/10 bg-black/20 p-2 max-sm:w-14">
-        {TABS.filter((t) => t.id !== "bios" || caps.supports_bios_manager).map((t) => (
+        {TABS.filter((x) => x.id !== "bios" || caps.supports_bios_manager).map((x) => (
           <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            aria-current={tab === t.id}
-            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition ${tab === t.id ? "bg-white/12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"}`}
-            title={t.label}
+            key={x.id}
+            onClick={() => setTab(x.id)}
+            aria-current={tab === x.id}
+            className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs transition ${tab === x.id ? "bg-white/12 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"}`}
+            title={label(x.label)}
           >
-            {t.icon}
-            <span className="flex-1 max-sm:hidden">{t.label}</span>
-            {t.id === "fix" && problems.length > 0 && <span className="rounded-full bg-amber-400/90 px-1.5 text-[10px] font-bold text-slate-900 max-sm:hidden">{problems.length}</span>}
+            {x.icon}
+            <span className="flex-1 max-sm:hidden">{label(x.label)}</span>
+            {x.id === "fix" && problems.length > 0 && <span className="rounded-full bg-amber-400/90 px-1.5 text-[10px] font-bold text-slate-900 max-sm:hidden">{problems.length}</span>}
           </button>
         ))}
       </nav>
       <div className="min-w-0 flex-1 overflow-auto p-4">
-        {diagError && tab !== "tutorials" && tab !== "faq" && (
+        {diagError && tab !== "tutorials" && tab !== "faq" && tab !== "manual" && (
           <div className="mb-3">
             <Notice error={`Could not run the health check: ${diagError}`} />
           </div>
         )}
-        {tab === "ask" ? <Ask ctx={ctx} /> : tab === "fix" ? <FixList ctx={ctx} reload={load} /> : tab === "bios" ? <Bios focus={biosFocus} /> : tab === "tutorials" ? <Tutorials ctx={ctx} /> : <FaqList follow={follow} />}
+        {tab === "manual" ? <Manual target={doc} /> : tab === "ask" ? <Ask ctx={ctx} /> : tab === "fix" ? <FixList ctx={ctx} reload={load} /> : tab === "bios" ? <Bios focus={biosFocus} /> : tab === "tutorials" ? <Tutorials ctx={ctx} /> : <FaqList follow={follow} />}
       </div>
       <FixWizard item={wizard} onClose={() => setWizard(null)} onFixed={load} follow={follow} showBios={showBios} />
       <TutorialModal tutorial={tutorial} onClose={() => setTutorial(null)} follow={follow} ctx={ctx} />

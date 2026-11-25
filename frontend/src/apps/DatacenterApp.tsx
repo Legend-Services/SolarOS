@@ -1124,7 +1124,7 @@ function LogsTab() {
 export default function DatacenterApp({ initialTab, tabs }: { initialTab?: Tab; tabs?: Tab[] }) {
   const caps = useCapabilities((s) => s.capabilities);
   const shown = TABS.filter((t) => (!tabs || tabs.includes(t.id)) && (t.id !== "realms" || caps.supports_rbac_realms));
-  const [tab, setTab] = useState<Tab>(initialTab ?? shown[0]?.id ?? "users");
+  const [tab, setTab] = useState<Tab>(shown.find((x) => x.id === initialTab)?.id ?? shown[0]?.id ?? "users");
   const tokens = useLoad<Token[]>("/v1/access/tokens");
   const service = tokens.data?.find((t) => t.service)?.userid ?? edition.serviceUserFallback;
   return (
