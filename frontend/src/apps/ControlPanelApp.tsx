@@ -15,7 +15,7 @@ import AutomationPanel from "./AutomationPanel";
 import LanguagePill from "../components/LanguagePill";
 import { LANGS, isLang, useTranslation, type TKey } from "../i18n";
 import { useWidgets } from "../store/widgetStore";
-import { productOf, useCapabilities } from "../store/capabilitiesStore";
+import { productOf, useCapabilities, useProduct } from "../store/capabilitiesStore";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
 
 type Section = "security" | "network" | "appearance" | "automation" | "hardware" | "power";
@@ -113,6 +113,7 @@ interface Bridge {
 }
 
 function BridgeCard() {
+  const product = useProduct().short;
   const [b, setB] = useState<Bridge | null>(null);
   const [copied, setCopied] = useState(false);
   const open = useWindows((s) => s.open);
@@ -125,8 +126,8 @@ function BridgeCard() {
       action={b && <GlassBadge tone={b.connected ? "success" : "danger"}>{b.connected ? "CONNECTED" : "UNAVAILABLE"}</GlassBadge>}
     >
       <p className="mb-3 text-xs text-slate-400">
-        SolarDeck reaches <span className="font-mono">{b?.target || edition.host}</span> as root with its own ed25519 key, so Host Shell, container shells, GPU drivers and network
-        services work without a second login. Anyone signed in to SolarDeck has full root on the host; keep 2FA on.
+        {product} reaches <span className="font-mono">{b?.target || edition.host}</span> as root with its own ed25519 key, so Host Shell, container shells, GPU drivers and network
+        services work without a second login. Anyone signed in to {product} has full root on the host; keep 2FA on.
       </p>
       {b && (
         <Rows
@@ -324,6 +325,7 @@ function HypervisorIsoCard() {
 }
 
 function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; running: boolean; load: (check?: boolean) => Promise<UpdateStatus>; start: Start }) {
+  const product = useProduct().short;
   const [ask, setAsk] = useState(false);
   const [sysPkgs, setSysPkgs] = useState(false);
   const { busy, error, notice, run } = useRunner();
@@ -333,7 +335,7 @@ function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; run
   const latest = st?.remote_tag && st.remote_tag !== st.tag ? st.remote_tag : short(st?.remote_commit);
 
   return (
-    <Card title="SolarDeck Version" action={st?.update_available && !running && <GlassBadge tone="info">UPDATE AVAILABLE</GlassBadge>}>
+    <Card title={`${product} Version`} action={st?.update_available && !running && <GlassBadge tone="info">UPDATE AVAILABLE</GlassBadge>}>
       <Rows
         rows={[
           ["Edition", st ? <GlassBadge tone={st.driver === "native_ubuntu" ? "success" : "info"}>{st.edition}</GlassBadge> : "—"],
@@ -355,10 +357,10 @@ function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; run
             <CloudDownload size={13} /> {running ? "Updating…" : "Install Update Now"}
           </GlassButton>
         )}
-        {st && !st.update_available && st.remote_commit && !st.settings.last_check_error && !running && <span className="text-xs text-emerald-300">SolarDeck is up to date.</span>}
+        {st && !st.update_available && st.remote_commit && !st.settings.last_check_error && !running && <span className="text-xs text-emerald-300">{product} is up to date.</span>}
         {done && st.exit_code === 0 && (
           <GlassButton onClick={() => window.location.reload()}>
-            <RefreshCw size={13} /> Reload SolarDeck
+            <RefreshCw size={13} /> Reload {product}
           </GlassButton>
         )}
       </div>
@@ -400,7 +402,7 @@ function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; run
         error={error}
         title="Install update"
         confirmLabel="Install Update Now"
-        message={`Update SolarDeck from ${st?.tag ?? short(st?.commit)} to ${latest}? Your settings and data are kept. The desktop is briefly unavailable while services restart.`}
+        message={`Update ${product} from ${st?.tag ?? short(st?.commit)} to ${latest}? Your settings and data are kept. The desktop is briefly unavailable while services restart.`}
       >
         {st?.supports_system_packages && (
           <div className="mt-3">
@@ -413,6 +415,7 @@ function UpdateCard({ st, running, load, start }: { st: UpdateStatus | null; run
 }
 
 function UpdatePreferences({ initial, onSaved }: { initial: UpdateSettings; onSaved: () => void }) {
+  const product = useProduct().short;
   const [f, setF] = useState(initial);
   const { busy, error, notice, run } = useRunner(onSaved);
   const save = () =>
@@ -451,10 +454,10 @@ function UpdatePreferences({ initial, onSaved }: { initial: UpdateSettings; onSa
         )}
         <p className="text-[11px] text-slate-500">
           {f.mode === "manual"
-            ? "SolarDeck never checks on its own. Use Check for Updates above."
+            ? `${product} never checks on its own. Use Check for Updates above.`
             : f.mode === "notify"
-              ? "SolarDeck checks on this schedule and shows a notification in the top bar when an update is ready."
-              : "SolarDeck checks on this schedule and installs updates by itself. Settings and data are always kept."}
+              ? `${product} checks on this schedule and shows a notification in the top bar when an update is ready.`
+              : `${product} checks on this schedule and installs updates by itself. Settings and data are always kept.`}
         </p>
         <div className="flex items-center gap-2">
           <GlassButton variant="primary" disabled={busy} onClick={save}>
@@ -468,6 +471,7 @@ function UpdatePreferences({ initial, onSaved }: { initial: UpdateSettings; onSa
 }
 
 function VersionHistory({ st, running, start }: { st: UpdateStatus | null; running: boolean; start: Start }) {
+  const product = useProduct().short;
   const [versions, setVersions] = useState<VersionEntry[] | null>(null);
   const [pick, setPick] = useState<VersionEntry | null>(null);
   const { busy, error, notice, run, setError } = useRunner();
@@ -522,14 +526,14 @@ function VersionHistory({ st, running, start }: { st: UpdateStatus | null; runni
         onConfirm={go}
         busy={busy}
         error={error}
-        title={pick && versions && older(versions.indexOf(pick)) ? "Downgrade SolarDeck" : "Switch SolarDeck version"}
+        title={pick && versions && older(versions.indexOf(pick)) ? `Downgrade ${product}` : `Switch ${product} version`}
         confirmLabel="Switch Version"
         message={
           <>
-            Switch SolarDeck to <b>{pick?.tag ?? pick?.short_hash}</b> ({pick?.subject})?
+            Switch {product} to <b>{pick?.tag ?? pick?.short_hash}</b> ({pick?.subject})?
             <br />
             <br />
-            Only the SolarDeck program files change. All settings, users, passwords, 2FA, ZFS pools and datasets, schedules and network shares remain untouched, and you can switch back from
+            Only the {product} program files change. All settings, users, passwords, 2FA, ZFS pools and datasets, schedules and network shares remain untouched, and you can switch back from
             this list at any time. {st?.settings.mode === "auto" && "Automatic updates are switched to Notify so they do not undo the downgrade."}
           </>
         }
@@ -660,6 +664,7 @@ function AboutCard() {
 }
 
 function PowerSection({ info }: { info: SystemInfo }) {
+  const product = useProduct().short;
   const platform = useCapabilities((s) => s.capabilities.platform_label);
   const openBugReport = useBugReport((s) => s.set);
   const [ask, setAsk] = useState<"reboot" | "shutdown" | null>(null);
@@ -686,13 +691,13 @@ function PowerSection({ info }: { info: SystemInfo }) {
       </Card>
       <UpdatesSection />
       <Card title="Report a Bug">
-        <p className="mb-3 text-xs text-slate-400">Something not working? Send a report to the SolarDeck developers on GitHub, with anonymized diagnostics if you like.</p>
+        <p className="mb-3 text-xs text-slate-400">Something not working? Send a report to the {product} developers on GitHub, with anonymized diagnostics if you like.</p>
         <GlassButton onClick={() => openBugReport(true)}>
           <Bug size={13} /> Report a Bug
         </GlassButton>
       </Card>
       <Card title="Power">
-        <p className="mb-3 text-xs text-slate-400">All VMs and containers on the host stop, and SolarDeck goes offline until the host is back.</p>
+        <p className="mb-3 text-xs text-slate-400">All VMs and containers on the host stop, and {product} goes offline until the host is back.</p>
         <div className="flex flex-wrap gap-2">
           <GlassButton onClick={() => setAsk("reboot")} disabled={!!notice}>
             <RotateCcw size={13} /> Reboot host
@@ -717,7 +722,7 @@ function PowerSection({ info }: { info: SystemInfo }) {
         message={
           ask === "shutdown"
             ? "The server powers off and stays off until someone powers it on again."
-            : "The server restarts. SolarDeck will be unavailable for a few minutes."
+            : `The server restarts. ${product} will be unavailable for a few minutes.`
         }
       />
       <AboutCard />
