@@ -1260,6 +1260,10 @@ class NativeUbuntuProvider(HypervisorProvider):
         from . import network_switch
         return network_switch
 
+    def vhw_driver(self):
+        from . import virtual_hardware
+        return virtual_hardware
+
     async def backup_scheduler_loop(self) -> None:
         """Runs due backup jobs (started from app.main lifespan on this driver)."""
         while True:

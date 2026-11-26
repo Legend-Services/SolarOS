@@ -43,7 +43,7 @@ DHCP_DIR = f"/etc/dnsmasq.d/{P}-vlan"  # a subdirectory: the system dnsmasq's co
 DHCP_UNIT = settings.name("vlan-dhcp")
 IFACE_RE = r"^[A-Za-z][A-Za-z0-9_.-]{0,14}$"
 COLOR_RE = r"^#[0-9a-fA-F]{6}$"
-META_KEYS = ("mode", "comment", "vlan_aware", "pvid", "vids")
+META_KEYS = ("mode", "comment", "vlan_aware", "pvid", "vids", "airgap")
 LEASE_RE = r"^([0-9]{1,5}[mhd]|infinite)$"
 
 
@@ -190,6 +190,16 @@ def render_switch_script(model: dict[str, dict], vlan_lines: str) -> str:
                     for i in nat if ipaddress.ip_interface(i["address"]).version == 4)
     sh = "#!/bin/bash\n" + HEADER + vlan_lines
     sh += f"nft delete table ip {NFT_TABLE}_switch 2>/dev/null || true\n"
+    sh += f"nft delete table inet {NFT_TABLE}_airgap 2>/dev/null || true\n"
+    gaps = sorted(i["name"] for i in model.values() if i["kind"] == "bridge" and i.get("airgap"))
+    if gaps:
+        # Air-gapped lab switches: nothing is routed in or out, and their guests reach only the host's DHCP server.
+        fwd = "".join(f'    iifname "{n}" oifname != "{n}" drop\n    oifname "{n}" iifname != "{n}" drop\n' for n in gaps)
+        names = ", ".join(f'"{n}"' for n in gaps)
+        sh += (f"nft -f - <<'NFT'\ntable inet {NFT_TABLE}_airgap {{\n  chain input {{\n"
+               "    type filter hook input priority filter; policy accept;\n"
+               f"    iifname {{ {names} }} udp dport 67 accept\n    iifname {{ {names} }} drop\n  }}\n"
+               "  chain forward {\n    type filter hook forward priority filter; policy accept;\n" + fwd + "  }\n}\nNFT\n")
     if rules:
         sh += ("sysctl -qw net.ipv4.ip_forward=1\n"
                f"nft -f - <<'NFT'\ntable ip {NFT_TABLE}_switch {{\n  chain postrouting {{\n"

@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.14.0 - Virtual Hardware, Retro Throttling & Isolated Lab Forge — 2026-11-26
+
+### Added
+- **Virtual Hardware & Lab tab** in every VM and container drawer in **Compute**: attached virtual devices with icon, bus (*PCIe*, *USB*, *Serial*, *ISA*, *Virtual*), a *Universal Inbox Driver* badge, a status dot, **Configure** and **Remove**, and a *Power cycle to change* badge on VM devices that cannot be hot-plugged.
+- **+ Add Virtual Device** with categorized device cards and plain-English descriptions:
+  - *Audio & Voice:* **HD Audio Card + Microphone** (VMs: `ich9-intel-hda` with a duplex codec; containers: a virtual ALSA loopback card, never the host's own sound card) and **Retro Sound Card** (AC97 or ISA SB16, VMs; SB16 needs the i440fx machine type).
+  - *Video & Capture:* **Virtual Webcam / Capture Feed** for containers: a `v4l2loopback` device (`/dev/video40`–`47`) fed by a managed `ffmpeg` service from a test pattern, an RTSP camera, a looping video file or another VM's screen.
+  - *Storage Controllers:* **SAS / RAID HBA** (`megasas`, `mptsas1068`, `lsi53c895a`) and a **Virtual NVMe Drive** with its own sparse disk image and serial number (removing it deletes the image).
+  - *Communication & Legacy:* **Virtual 56k Modem**: a COM port with a built-in Hayes AT-command emulator (`ATZ`, `ATI`, `ATDT host:port`, `CONNECT 56000`, `+++`, `ATH`) that dials over TCP/IP; VMs get a serial socket served by a host service, containers get `/dev/ttyS0` from a service inside the container (needs `python3` there). **Retro 10/100 Mbps Ethernet** adds an NE2000 (`ne2k_pci`), PCnet, RTL8139 or E1000 network card on a chosen switch.
+  - *Security & Reliability:* **Virtual TPM 2.0**, **USB SmartCard Reader** (USB CCID), **Hardware Watchdog** (`i6300esb`: reset, shut down, power off or pause) and **Hardware Entropy** (`virtio-rng` from `/dev/urandom`).
+- **Retro & WAN Throttling** card: a **CPU Speed Limiter** (5–100 % of the guest's vCPUs) with CPU architecture presets (*Modern Host*, *Standard 64-bit*, *Retro Pentium*, *Retro 486*, VMs), and a per-NIC **Network Link Speed & Latency Simulator**: *Native*, *100 Mbps*, *10 Mbps*, *56k Modem* (120 ms), *4G Mobile* (25 Mbps, 45 ms, 10 ms jitter) or *Custom* bandwidth, latency, jitter and packet loss. Shaping uses `tc` + `netem` on the guest's host-side interface (download shaped, upload policed), applies to a running guest at once and is re-applied within ~20 s after every guest start.
+- **Isolated Lab Sandbox** in **Compute** and **Settings → Network & Virtual Switch → Isolated Labs**: name a lab (*Retro Gaming LAN*, *Firewall & Router Test Lab*, …), pick a private subnet, DHCP range and optional VLAN ID, tick the VMs and containers to isolate and press **Launch lab**. SolarDeck adds a virtual switch without physical ports, a lab VLAN record with its own DHCP server, moves each guest's first network card onto it (containers switch to DHCP) and loads an *Air-Gapped · Zero LAN Leak* firewall: nothing is routed in or out, and lab guests reach only each other and the lab's DHCP server. **Tear down** puts every guest back on its previous network and removes the switch, VLAN and DHCP server.
+- New endpoints: `GET /api/virtual-hardware/catalog` (public, static), `GET /api/virtual-hardware/{vm|lxc}/{id}`, `POST …/devices`, `DELETE …/devices/{device_id}`, `PUT …/throttling`, and `GET` / `POST /api/virtual-hardware/labs/sandbox`, `DELETE /api/virtual-hardware/labs/sandbox/{lab_id}`. Profiles persist in `backend/data/virtual_hardware.json`, labs in `backend/data/isolated_labs.json`; deploys and updates keep both.
+- Both drivers implement the new `vhw_driver()` contract: VM options and tagged emulator arguments with Proxmox VE, libvirt domain devices (user aliases) and Incus devices with SolarOS.
+- Global Search and the Help manual find the tab and the lab sandbox. All new texts in English, Nederlands, Deutsch, Español and Français.
+
+### Notes
+- The virtual webcam needs `ffmpeg` and the `v4l2loopback` kernel module on the host, the SolarOS TPM needs `swtpm`, and labs need `dnsmasq`; SolarDeck says so with the install command when one is missing. VMs get the webcam feed only through USB passthrough of a real capture device.
+- Removing a virtual TPM keeps its state volume as an unused disk of the VM, so encryption keys are never destroyed by accident.
+
 ## v2.13.0 - Multi-Instance Naming & App Uninstaller — 2026-11-26
 
 ### Added

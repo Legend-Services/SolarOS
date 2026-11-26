@@ -10,8 +10,10 @@ import { GuideBanner } from "../components/wizards/GuidedWizardModal";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
 import { TaskLog } from "../components/TaskCenter";
 import { PassthroughPicker, usePassthroughDevices, type PciSel, type UsbSel } from "./guest/passthrough";
+import VirtualHardwarePanel from "../components/compute/VirtualHardwarePanel";
+import { useTranslation } from "../i18n";
 
-type Tab = "resources" | "hardware" | "network" | "cloudinit" | "snapshots" | "options";
+type Tab = "resources" | "hardware" | "virtual" | "network" | "cloudinit" | "snapshots" | "options";
 
 interface HostPci {
   key: string;
@@ -841,6 +843,7 @@ function DeleteCard({ guest, onDeleted }: { guest: Guest; onDeleted: () => void 
 /* ---------------- Drawer ---------------- */
 
 export default function GuestDrawer({ guest, onClose, onSaved }: { guest: Guest | null; onClose: () => void; onSaved: () => void }) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>("resources");
   const [hw, setHw] = useState<Hardware | null>(null);
   const [error, setError] = useState("");
@@ -859,6 +862,7 @@ export default function GuestDrawer({ guest, onClose, onSaved }: { guest: Guest 
   const tabs: { id: Tab; label: string }[] = [
     { id: "resources", label: "Resources" },
     ...(qemu ? [{ id: "hardware" as Tab, label: "Hardware & Passthrough" }] : []),
+    { id: "virtual", label: t("vhw.tab") },
     { id: "network", label: "Network" },
     ...(qemu ? [{ id: "cloudinit" as Tab, label: "Cloud-Init" }] : []),
     { id: "snapshots", label: "Snapshots" },
@@ -883,6 +887,8 @@ export default function GuestDrawer({ guest, onClose, onSaved }: { guest: Guest 
             <ResourcesTab guest={guest} onSaved={reload} />
           ) : tab === "snapshots" ? (
             <SnapshotsTab guest={guest} />
+          ) : tab === "virtual" ? (
+            <VirtualHardwarePanel key={`${guest.type}${guest.vmid}`} guest={guest} />
           ) : !hw ? (
             !error && <p className="text-sm text-slate-400">Loading…</p>
           ) : tab === "hardware" ? (
