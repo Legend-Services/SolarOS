@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Container, Monitor, MonitorPlay, Play, Plus, Power, RotateCw, Search, SlidersHorizontal, Square, SquareTerminal } from "lucide-react";
+import { Container, FlaskConical, Monitor, MonitorPlay, Play, Plus, Power, RotateCw, Search, SlidersHorizontal, Square, SquareTerminal } from "lucide-react";
 import { api } from "../lib/api";
 import type { Guest } from "../lib/types";
 import { bytes, percent, uptime } from "../lib/format";
 import { usePoll } from "../lib/hooks";
-import { GlassBadge, GlassButton, Segmented } from "../components/ui/GlassKit";
+import { GlassBadge, GlassButton, GlassModal, Segmented } from "../components/ui/GlassKit";
+import LabSandboxPanel from "../components/compute/LabSandbox";
+import { useTranslation } from "../i18n";
 import { useCapabilities } from "../store/capabilitiesStore";
 import { ViewToggle } from "../components/ViewOptions";
 import { GuideBanner } from "../components/wizards/GuidedWizardModal";
@@ -34,6 +36,8 @@ export default function ComputeManager() {
   const [editing, setEditing] = useState<Guest | null>(null);
   const [view, setView] = useState<"guests" | "iso">("guests");
   const [wizard, setWizard] = useState<GuestKind | null>(null);
+  const [labs, setLabs] = useState(false);
+  const { t } = useTranslation();
   const [layout] = useAppView("compute");
   const intent = useIntent((s) => s.compute);
   const takeIntent = useIntent((s) => s.take);
@@ -124,6 +128,9 @@ export default function ComputeManager() {
           ]}
         />
         <div className="ml-auto flex gap-2">
+          <GlassButton onClick={() => setLabs(true)}>
+            <FlaskConical size={13} /> {t("lab.title")}
+          </GlassButton>
           {caps.supports_qemu && (
             <GlassButton variant="primary" onClick={() => setWizard("qemu")}>
               <Plus size={13} /> Create VM
@@ -290,6 +297,9 @@ export default function ComputeManager() {
       )}
       <GuestDrawer guest={editing} onClose={() => setEditing(null)} onSaved={load} />
       <GuestWizard kind={wizard} open={!!wizard} onClose={() => setWizard(null)} onCreated={load} />
+      <GlassModal open={labs} onClose={() => (setLabs(false), load())} width="max-w-3xl" title={t("lab.title")}>
+        <LabSandboxPanel />
+      </GlassModal>
     </div>
   );
 }

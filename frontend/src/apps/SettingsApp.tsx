@@ -30,6 +30,7 @@ import HypervisorDefaultsPanel from "./settings/HypervisorDefaultsPanel";
 import InstalledAppsPanel from "./settings/InstalledAppsPanel";
 import SystemServicesPanel from "./settings/SystemServicesPanel";
 import VisualSwitchStudio from "../components/network/VisualSwitchStudio";
+import LabSandboxPanel from "../components/compute/LabSandbox";
 
 const pad = (n: ReactNode) => <div className="h-full space-y-4 overflow-auto p-4" data-settings-body>{n}</div>;
 
@@ -105,6 +106,7 @@ function ModuleBody({ id, tab }: { id: ModuleId; tab?: string }) {
           initial={tab}
           views={[
             ["set.view.vswitch", <VisualSwitchStudio />],
+            ["set.view.labs", pad(<LabSandboxPanel />)],
             ["set.view.hostNet", pad(<WithSystemInfo>{(info) => <NetworkSection info={info} />}</WithSystemInfo>)],
           ]}
         />

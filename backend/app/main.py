@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 
 from . import (apps, audit_log, auth, automation, branding, bug_report, capabilities, console, disk_benchmark, domains, files, hardware_admin, help_center, host_services, host_ssh, hypervisor, local_ai, net_services, network_switch, notifications,
                provisioning, schedules, security, shares, storage_admin, system, system_extra, task_progress,
-               telemetry, themes, updater)
+               telemetry, themes, updater, virtual_hardware)
 from .config import settings
 from providers import registry
 from providers.registry import get_provider
@@ -16,7 +16,7 @@ from providers.registry import get_provider
 async def lifespan(_: FastAPI):
     host_ssh.public_key_or_none()  # create the bridge key on first start so install.sh / the UI can authorize it
     loops = [asyncio.create_task(schedules.scheduler_loop()), asyncio.create_task(updater.scheduler_loop()),
-             asyncio.create_task(automation.scheduler_loop())]
+             asyncio.create_task(automation.scheduler_loop()), asyncio.create_task(virtual_hardware.shaping_loop())]
     loops += [asyncio.create_task(c) for c in get_provider().scheduler_loops()]
     yield
     for t in loops:
@@ -46,9 +46,10 @@ app.include_router(provisioning.router)
 app.include_router(system_extra.router)
 app.include_router(task_progress.router)
 for module in (host_ssh, net_services, hardware_admin, help_center, disk_benchmark, updater, bug_report, local_ai, domains,
-               themes, branding, automation, security, host_services, network_switch):
+               themes, branding, automation, security, host_services, network_switch, virtual_hardware):
     app.include_router(module.router)
 app.include_router(themes.public)
+app.include_router(virtual_hardware.public)
 app.include_router(capabilities.router, prefix="/api/system")
 app.include_router(capabilities.router, prefix="/api/v1/system")
 
