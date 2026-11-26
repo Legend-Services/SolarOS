@@ -84,11 +84,11 @@ interface Doc {
 
 export const APP_DOCS: Partial<Record<AppId, Doc>> = {
   settings: {
-    intro: "Settings is the hub for every system, storage, security, network and hypervisor option. Five main categories hold the sub-modules; each sub-module opens the screens it owns.",
+    intro: "Settings is the hub for every system, storage, security, network and hypervisor option. The All Settings page shows the five main categories as large cards; opening one shows its title, a breadcrumb and a sidebar with only that category's sub-modules. System opens on Info.",
     steps: [
       "Open Settings from the Dock, the App Gallery or the TopBar search.",
-      "Type in the search field at the top to filter sub-modules, or click a tile.",
-      "Inside a sub-module, use the left tree to jump to another one and the breadcrumb to go back to all settings.",
+      "Click a category card, or type in the search field at the top to find any sub-module and click it.",
+      "Inside a category, use the left sidebar to jump to another sub-module of that category and ← All Settings in the breadcrumb to go back.",
       "Press “? Guide” in the breadcrumb for a step-by-step tour of the current screen.",
     ],
     tips: ["The language buttons next to the search field switch the whole desktop between English, Nederlands, Deutsch, Español and Français."],
@@ -235,6 +235,17 @@ export const APP_DOCS: Partial<Record<AppId, Doc>> = {
 const appDoc = (id: AppId): Doc => APP_DOCS[id] ?? { intro: APPS[id].desc, steps: [], keywords: id };
 
 export const MODULE_DOCS: Record<ModuleId, Doc> = {
+  "system-info": {
+    intro: "The first page of Settings › System: the operating system and SolarDeck release, kernel, architecture, hypervisor driver, uptime and cluster membership, the hostname, Reboot and Shut Down, a quick software update check, and a hardware overview of the processor, memory, graphics adapters and storage with links to the detailed pages.",
+    steps: [
+      "Read the release, kernel, architecture and uptime at the top.",
+      "Press Check for Updates; when a new release is shown, press Install Update to start it (progress opens in System Services & Repositories › SolarDeck Updates).",
+      "Use Reboot or Shut Down and type the host name to confirm.",
+      "Follow Hardware, GPU & BIOS or Storage & ZFS Pools from the hardware cards for the full details.",
+    ],
+    tips: ["On SolarOS the pencil next to the hostname renames the server; a hypervisor node or a cluster member keeps its name, because renaming it would detach its guests."],
+    keywords: "info about system os version release kernel architecture uptime hostname rename reboot restart shutdown power off update check hardware overview cpu ram memory gpu storage disks pools",
+  },
   "features-services": {
     intro: "Choose which optional features this server shows. A feature you switch off disappears from the Settings sidebar, its inner tabs, the TopBar search and the desktop, so you only see what you use. Its saved settings stay, and switching it back on brings everything back. Features with a background service (WireGuard server and client tunnels, per-VLAN DHCP servers, UPS monitoring) pause that service while they are off and start it again when you switch them on.",
     steps: [
@@ -243,7 +254,7 @@ export const MODULE_DOCS: Record<ModuleId, Doc> = {
       "Use a quick preset (Minimal Core, Home & Media Server, Full Hypervisor Lab, Enable All) to set many switches at once.",
       "Press Re-run Setup Wizard to pick server roles again.",
     ],
-    tips: ["General & Appearance, Users & Roles, Software & Repositories and Features & Services itself can never be hidden, so you cannot lock yourself out."],
+    tips: ["General & Appearance, Users & Roles, System Services & Repositories and Features & Services itself can never be hidden, so you cannot lock yourself out."],
     keywords: "features services toggle enable disable hide show modules presets minimal home lab wireguard server client dhcp clean interface wizard onboarding",
   },
   "general-appearance": {
@@ -252,40 +263,33 @@ export const MODULE_DOCS: Record<ModuleId, Doc> = {
     keywords: "appearance theme dark light mode wallpaper language dock widgets layout personalize look",
   },
   "hardware-gpu": {
-    intro: "See the CPU, memory, GPUs, PCIe and IOMMU groups and network adapters of the host, and switch the GPU driver mode.",
-    steps: ["Read the CPU and memory cards for model, cores, temperature and usage.", "In GPU & Drivers, choose between host use and passthrough to a VM."],
-    keywords: "hardware gpu cpu memory pcie iommu passthrough driver graphics card nic multi seat usb port pinning",
-  },
-  "bios-firmware": {
-    intro: "Check whether a newer BIOS exists for your motherboard, read the recommended BIOS settings for virtualization and take the guide along on your phone.",
-    steps: ["Read the detected motherboard and BIOS version.", "Open a guide card for the setting you need (virtualization, IOMMU, power).", "Press the QR button and scan it with your phone to read the steps while you are in the BIOS."],
-    keywords: "bios uefi firmware motherboard update virtualization iommu qr phone",
+    intro: "See the CPU, memory, GPUs, PCIe and IOMMU groups and network adapters of the host, switch the GPU driver mode, set up multi-seat workstations and read the BIOS & UEFI firmware guide. GPUs & Devices, BIOS & UEFI Firmware and Multi-Seat & Ports are the tabs at the top.",
+    steps: [
+      "GPUs & Devices: read the CPU and memory cards for model, cores, temperature and usage, and in GPU & Drivers choose between host use and passthrough to a VM.",
+      "BIOS & UEFI Firmware: check for a newer BIOS for your motherboard and open the guides for virtualization, IOMMU and power settings, with a QR code to read them on your phone.",
+    ],
     tips: ["The QR guide works offline: the text is inside the code."],
+    keywords: "hardware gpu cpu memory pcie iommu passthrough driver graphics card nic multi seat usb port pinning bios uefi firmware motherboard update virtualization qr phone",
   },
   "resource-monitor": {
     intro: "Live CPU, memory, network, GPU and temperature telemetry of the host.",
     steps: ["Performance shows live graphs for CPU, memory and network.", "GPU & Sensors shows GPU load, video engines and temperatures."],
     keywords: "monitor cpu ram memory network usage graphs temperature sensors live telemetry performance",
   },
-  "software-updates": {
-    intro: "Keep SolarDeck and the operating system up to date, choose package sources, roll back a release and report bugs.",
-    steps: ["SolarDeck Updates checks for a new release and installs it.", "OS Repositories chooses the package sources.", "OS Updates lists and installs pending operating system packages."],
-    keywords: "update upgrade release version rollback downgrade repository packages bug report",
-  },
   "system-services": {
-    intro: "Start, stop, restart and enable the background services of the host and of deployed apps.",
-    steps: ["Find a service in the list (filter by name).", "Use the buttons on its row to start, stop, restart or enable it at boot."],
-    keywords: "services daemons systemd start stop restart enable boot background",
+    intro: "Start, stop, restart and enable the background services of the host and of deployed apps, keep SolarDeck and the operating system up to date, choose package sources, roll back a release and report bugs. System Services, SolarDeck Updates, OS Repositories and OS Updates are the tabs at the top.",
+    steps: [
+      "System Services: find a service in the list (filter by name) and use the buttons on its row to start, stop, restart or enable it at boot.",
+      "SolarDeck Updates checks for a new release, installs it on a schedule or right away, and rolls back to an earlier one.",
+      "OS Repositories chooses the package sources; OS Updates lists and installs pending operating system packages.",
+    ],
+    tips: ["The quick update check also sits at the top of Settings › System › Info."],
+    keywords: "services daemons systemd start stop restart enable boot background update upgrade release version rollback downgrade repository packages bug report",
   },
   "automation-alerts": {
     intro: "Send alerts to chat, webhook and email channels and build no-code rules that react to server events.",
     steps: ["Set up at least one notification channel and press Test.", "Create a rule: pick a trigger, a condition and an action.", "Check the Execution Log to see when rules fired."],
     keywords: "automation alerts notifications rules triggers webhook email smtp chat no-code",
-  },
-  "host-power": {
-    intro: "Reboot or shut down the host, see its uptime and open the host console.",
-    steps: ["Press Reboot or Shut down in the Power card and confirm.", "Running guests are stopped cleanly first."],
-    keywords: "power reboot restart shutdown uptime host console",
   },
   "storage-zfs": {
     intro: "Manage ZFS pools (single, mirror, RAIDZ), datasets and volumes, snapshots and schedules, disk SMART health and benchmarks.",
@@ -409,6 +413,12 @@ const c = (moduleId: ModuleId, items: C[]): Control[] =>
 
 /** Every Settings sub-sub-module, tab and key control, in Settings order. */
 export const CONTROLS: Control[] = [
+  ...c("system-info", [
+    { id: "os-overview", titleKey: "kb.os-overview", description: "The operating system and SolarDeck release, kernel, architecture, hypervisor driver, uptime, cluster membership and the hostname of this server.", keywords: "os version release kernel architecture driver uptime cluster hostname rename about", steps: ["Read the facts at the top of Info.", "On SolarOS press the pencil next to the hostname to rename the server."] },
+    { id: "software-update", titleKey: "si.updates", shot: true, description: "A quick update check: the installed release, whether a newer one is available with its notes, and a one-click install.", keywords: "update check new release install upgrade version available", steps: ["Press Check for Updates.", "Press Install Update when a new release is shown; its progress opens in System Services & Repositories."] },
+    { id: "power-actions", titleKey: "kb.power-actions", description: "Reboot or shut down the host safely.", keywords: "reboot shutdown power off restart host", steps: ["Press Reboot or Shut Down and type the host name to confirm."], tips: ["Guests with autostart come back on by themselves after a reboot."] },
+    { id: "hardware-overview", titleKey: "kb.hardware-overview", headingKey: "si.cpu", description: "Processor model, sockets, cores and threads, clock speed, temperature and load; memory with the ZFS ARC cache and swap; every integrated and discrete GPU with VRAM, driver and temperature; disks, SMART health and ZFS pools.", keywords: "hardware overview cpu processor cores threads temperature load ram memory arc swap gpu vram driver disks smart pools capacity", steps: ["Scroll to the hardware cards below the release facts.", "Press Hardware, GPU & BIOS or Storage & ZFS Pools for the full details."] },
+  ]),
   ...c("features-services", [
     { id: "feature-presets", anchorId: "feat-presets", titleKey: "feat.presets", shot: true, description: "Quick presets switch many features at once: Minimal Core, Home & Media Server, Full Hypervisor Lab or Enable All.", keywords: "preset minimal core home media server full lab enable all", steps: ["Press a preset button; the switches below update right away.", "Fine-tune single switches afterwards."] },
     { id: "server-setup-wizard", anchorId: "feat-wizard", titleKey: "ob.title", description: "The Server Setup Wizard opens on the first sign-in of a new installation and any time from Re-run Setup Wizard. Pick one or more server roles on wireframe cards (storage & media, virtualization host, multi-seat gaming, high-availability cluster, network gateway & VPN, AI compute or other services), choose Standalone Server or Cluster Host, fine-tune single services, tick App Center apps to install, review the summary and press Setup My Server. Live progress runs from 0 to 100 %, then the finish screen shows the server address, roles and apps.", keywords: "setup wizard onboarding first boot server role wireframe cluster standalone apps install setup my server skip defaults", steps: ["Press Re-run Setup Wizard.", "Tick one or more roles and pick Standalone Server or Cluster Host.", "Press Customize Services to fine-tune, then pick apps.", "Review the summary, choose whether to skip the desktop tour and press Setup My Server."], tips: ["Skip Setup & Use Defaults (first run only) keeps every feature on and skips the tour."] },
@@ -424,21 +434,21 @@ export const CONTROLS: Control[] = [
     { id: "dock", titleKey: "kb.dock", headings: ["Dock"], description: "Dock magnification and auto-hide.", keywords: "dock magnification auto hide icons", steps: ["Choose a magnification strength.", "Turn on auto-hide to give open apps more room."] },
   ]),
   ...c("hardware-gpu", [
-    { id: "cpu-memory", titleKey: "kb.cpu-memory", headings: ["CPU", "Memory"], description: "Processor model, cores, temperature and memory modules of the host.", keywords: "cpu processor cores threads temperature memory ram modules", steps: ["Read the CPU and Memory cards at the top of Hardware & GPU."] },
-    { id: "gpu-drivers", titleKey: "kb.gpu-drivers", headings: ["GPU & Drivers"], shot: true, description: "Every GPU with its IOMMU group, and the driver mode: used by the host or passed through to a VM.", keywords: "gpu graphics card driver passthrough iommu vfio host mode", steps: ["Find your GPU in the GPU & Drivers card.", "Choose Passthrough to give it to a VM, or Host to use it on the server.", "Reboot when asked."], tips: ["IOMMU must be enabled in the BIOS; see BIOS & Firmware."] },
+    { id: "cpu-memory", titleKey: "kb.cpu-memory", headings: ["CPU", "Memory"], description: "Processor model, cores, temperature and memory modules of the host.", keywords: "cpu processor cores threads temperature memory ram modules", steps: ["Read the CPU and Memory cards at the top of Hardware, GPU & BIOS."] },
+    { id: "gpu-drivers", titleKey: "kb.gpu-drivers", headings: ["GPU & Drivers"], shot: true, description: "Every GPU with its IOMMU group, and the driver mode: used by the host or passed through to a VM.", keywords: "gpu graphics card driver passthrough iommu vfio host mode", steps: ["Find your GPU in the GPU & Drivers card.", "Choose Passthrough to give it to a VM, or Host to use it on the server.", "Reboot when asked."], tips: ["IOMMU must be enabled in the BIOS; see Hardware, GPU & BIOS › BIOS & UEFI Firmware."] },
     { id: "motherboard", titleKey: "kb.motherboard", headings: ["System & Motherboard"], description: "Motherboard model, BIOS version and system details.", keywords: "motherboard board system vendor model bios version", steps: ["Read the System & Motherboard card."] },
-    { id: "multiseat", titleKey: "set.view.multiseat", tabId: "multiseat", headingKey: "seat.title", shot: true, description: "Several people work or play on one machine at the same time: every seat is a VM with its own GPU and monitors, its own physical USB ports and dedicated CPU cores.", keywords: "multi seat multiseat workstation station gpu monitor hdmi displayport usb port hub keyboard mouse controller plug assign cpu core pinning smt hyper threading egpu thunderbolt usb4 boot gpu", steps: ["Press + Create Seat and pick the seat's VM (or Create New Seat VM).", "Choose the GPU whose monitors the seat uses; its HDMI/DP audio comes along.", "Press Plug to Assign and plug the seat's keyboard, mouse or USB hub into a free port on the server within 30 seconds.", "Press Auto-Balance Cores Across Seats, then Start All Seats."], tips: ["USB ports are bound by their physical position, so two identical mice on different ports go to different seats.", "When the seat uses the GPU the server boots on, the server's own console screen switches off while that seat runs.", "IOMMU must be enabled in the BIOS; see BIOS & Firmware."] },
+    { id: "multiseat", titleKey: "set.view.multiseat", tabId: "multiseat", headingKey: "seat.title", shot: true, description: "Several people work or play on one machine at the same time: every seat is a VM with its own GPU and monitors, its own physical USB ports and dedicated CPU cores.", keywords: "multi seat multiseat workstation station gpu monitor hdmi displayport usb port hub keyboard mouse controller plug assign cpu core pinning smt hyper threading egpu thunderbolt usb4 boot gpu", steps: ["Press + Create Seat and pick the seat's VM (or Create New Seat VM).", "Choose the GPU whose monitors the seat uses; its HDMI/DP audio comes along.", "Press Plug to Assign and plug the seat's keyboard, mouse or USB hub into a free port on the server within 30 seconds.", "Press Auto-Balance Cores Across Seats, then Start All Seats."], tips: ["USB ports are bound by their physical position, so two identical mice on different ports go to different seats.", "When the seat uses the GPU the server boots on, the server's own console screen switches off while that seat runs.", "IOMMU must be enabled in the BIOS; see Hardware, GPU & BIOS › BIOS & UEFI Firmware."] },
+    { id: "bios-update", tabId: "bios", titleKey: "kb.bios-update", headings: ["Your motherboard"], requires: "supports_bios_manager", description: "Detects your motherboard and BIOS version and checks whether a newer BIOS is available, with a verified download.", keywords: "bios update check version download verified firmware", steps: ["Read the detected board and version in Your motherboard.", "Press Check for update and follow the download link when one is found."], tips: ["Never turn the server off while a BIOS is flashing."] },
+    { id: "bios-guides", tabId: "bios", titleKey: "kb.bios-guides", requires: "supports_bios_manager", shot: true, description: "Step-by-step guides for the BIOS settings that matter (virtualization, IOMMU, power) with a QR code to read them on your phone.", keywords: "bios guide virtualization vt-x iommu qr mobile phone settings optimize", steps: ["Open the guide for the setting you need.", "Press the QR button and scan it with your phone.", "Reboot into the BIOS and follow the steps on your phone."] },
     { id: "network-adapters", titleKey: "kb.network-adapters", headings: ["Network interfaces"], description: "Physical network adapters with link speed and driver.", keywords: "nic network adapter ethernet link speed driver", steps: ["Read the Network interfaces card at the bottom."] },
-  ]),
-  ...c("bios-firmware", [
-    { id: "bios-update", titleKey: "kb.bios-update", headings: ["Your motherboard"], requires: "supports_bios_manager", description: "Detects your motherboard and BIOS version and checks whether a newer BIOS is available, with a verified download.", keywords: "bios update check version download verified firmware", steps: ["Read the detected board and version in Your motherboard.", "Press Check for update and follow the download link when one is found."], tips: ["Never turn the server off while a BIOS is flashing."] },
-    { id: "bios-guides", titleKey: "kb.bios-guides", requires: "supports_bios_manager", shot: true, description: "Step-by-step guides for the BIOS settings that matter (virtualization, IOMMU, power) with a QR code to read them on your phone.", keywords: "bios guide virtualization vt-x iommu qr mobile phone settings optimize", steps: ["Open the guide for the setting you need.", "Press the QR button and scan it with your phone.", "Reboot into the BIOS and follow the steps on your phone."] },
   ]),
   ...c("resource-monitor", [
     { id: "live-performance", titleKey: "kb.live-performance", tabId: "performance", description: "Live graphs of CPU, memory and network use.", keywords: "performance graphs cpu memory network live usage", steps: ["Open Resource Monitor; Performance is the first tab."] },
     { id: "gpu-sensors", titleKey: "kb.gpu-sensors", tabId: "hardware", description: "GPU load, video engines and temperature sensors.", keywords: "gpu sensors temperature thermal fans video engine", steps: ["Click GPU & Sensors at the top of Resource Monitor."] },
   ]),
-  ...c("software-updates", [
+  ...c("system-services", [
+    { id: "service-manager", tabId: "services", titleKey: "kb.service-manager", headings: ["System services"], description: "The background services of the host and deployed apps with start, stop, restart and enable at boot.", keywords: "service manager systemd daemon unit restart enable", steps: ["Filter the list by name.", "Use the row buttons to control a service."] },
+    { id: "docker-engine", tabId: "services", feature: "docker_engine", titleKey: "feat.docker_engine", description: "Docker Engine & Compose is a built-in platform feature, switched on and off with its card in Features & Services. While it is on, Compute › Docker and Settings › System Services & Repositories show its Security-by-Design options: Isolated Container (recommended) or Host Native, and the network it is pinned to (management, VLAN, DMZ or isolated lab). Containers and stacks are managed in Compute › Docker.", keywords: "docker engine compose container runtime isolated host native vlan portainer", steps: ["Switch on Docker Engine & Compose in Features & Services.", "Pick Isolated Container or Host Native and the network, then press Save.", "Open Compute › Docker to install the engine and manage containers."] },
     { id: "solardeck-updates", titleKey: "set.view.solardeck", tabId: "solardeck", shot: true, description: "Check for and install a new SolarDeck release; the update runs in the background and the page reloads when done.", keywords: "solardeck update release install upgrade check", steps: ["Press Check now.", "Press Install update when a new version is shown."] },
     { id: "update-preferences", titleKey: "upd.schedule.title", tabId: "solardeck", headingKey: "upd.schedule.title", description: "Manual or automatic scheduled updates: background checks every 1, 6, 12 or 24 hours, and a daily, weekly or monthly install time.", keywords: "automatic updates preferences schedule manual daily weekly monthly time background check", steps: ["Choose Automatic Scheduled Updates.", "Pick the frequency, day and time, then press Save Schedule."] },
     { id: "version-history", titleKey: "kb.version-history", tabId: "solardeck", headings: ["Version History & Downgrade"], description: "Earlier releases with their notes, and a one-click downgrade.", keywords: "version history downgrade rollback previous release", steps: ["Pick an earlier version and press Install to roll back."] },
@@ -446,17 +456,10 @@ export const CONTROLS: Control[] = [
     { id: "os-repositories", titleKey: "set.view.repos", tabId: "repos", requires: "supports_apt_repos", description: "Choose the operating system package sources.", keywords: "repositories package sources apt enterprise community", steps: ["Turn the sources you want on or off and press Save."] },
     { id: "os-updates", titleKey: "set.view.packages", tabId: "packages", description: "Pending operating system package updates.", keywords: "os updates packages upgrade security patches", steps: ["Press Refresh, then Install all."] },
   ]),
-  ...c("system-services", [
-    { id: "service-manager", titleKey: "kb.service-manager", headings: ["System services"], description: "The background services of the host and deployed apps with start, stop, restart and enable at boot.", keywords: "service manager systemd daemon unit restart enable", steps: ["Filter the list by name.", "Use the row buttons to control a service."] },
-    { id: "docker-engine", feature: "docker_engine", titleKey: "feat.docker_engine", description: "Docker Engine & Compose is a built-in platform feature, switched on and off with its card in Features & Services. While it is on, Compute › Docker and Settings › System Services show its Security-by-Design options: Isolated Container (recommended) or Host Native, and the network it is pinned to (management, VLAN, DMZ or isolated lab). Containers and stacks are managed in Compute › Docker.", keywords: "docker engine compose container runtime isolated host native vlan portainer", steps: ["Switch on Docker Engine & Compose in Features & Services.", "Pick Isolated Container or Host Native and the network, then press Save.", "Open Compute › Docker to install the engine and manage containers."] },
-  ]),
   ...c("automation-alerts", [
     { id: "notification-channels", titleKey: "kb.notification-channels", description: "Chat, webhook and SMTP email channels that receive alerts.", keywords: "notification channels chat webhook email smtp alerts bot", steps: ["Fill in a channel's details and switch it on.", "Press Test to send a test message."] },
     { id: "automation-rules", titleKey: "kb.automation-rules", shot: true, description: "No-code rules: when a trigger fires and the condition holds, run an action or send an alert.", keywords: "automation rules triggers conditions actions no-code if then", steps: ["Press New rule.", "Choose a trigger (for example a pool degraded or high CPU), a condition and an action.", "Save the rule and switch it on."] },
     { id: "execution-log", titleKey: "auto.logs", headingKey: "auto.logs", description: "When each rule ran and what it did.", keywords: "execution log rule history fired", steps: ["Scroll to the Execution Log at the bottom of Automation & Alerts."] },
-  ]),
-  ...c("host-power", [
-    { id: "power-actions", titleKey: "kb.power-actions", headings: ["Power"], description: "Reboot or shut down the host safely.", keywords: "reboot shutdown power off restart host", steps: ["Press Reboot or Shut down and confirm."], tips: ["Guests with autostart come back on by themselves after a reboot."] },
   ]),
   ...c("storage-zfs", [
     { id: "storage-overview", titleKey: "kb.storage-overview", tabId: "overview", description: "Capacity and health of every pool and storage at a glance.", keywords: "storage overview capacity usage health", steps: ["Open Storage & ZFS Pools; Overview is the first tab."] },
@@ -649,7 +652,6 @@ export function buildArticles(tr: Translate = (k) => en[k]): Article[] {
       screenshotPath: shot(slug.module(m)),
       target: { kind: "settings", module: m },
       keywords: d.keywords,
-      requires: m === "bios-firmware" ? "supports_bios_manager" : undefined,
       sections: [
         { sectionId: "overview", subTitle: "Overview", bodyText: d.intro, steps: [openSteps(tr, cat, m), ...d.steps], tips: d.tips ?? [] },
         ...ctls.map((x) => ({ sectionId: x.id, subTitle: tr(x.titleKey), bodyText: x.description, steps: x.steps, tips: x.tips ?? [], screenshotPath: x.shot ? shot(slug.control(x)) : undefined })),
@@ -748,7 +750,7 @@ export function searchKnowledge(query: string, tr: Translate, caps?: Partial<Cap
     add({ key: `cat:${cat}`, tier: "categories", title, subtitle: crumb(tr("app.settings"), title), categoryId: cat, target: { kind: "settings", category: cat } }, `${title} ${en[`set.cat.${cat}`]} ${tr(`set.catDesc.${cat}`)} ${cat}`);
   }
   for (const m of MODULE_IDS) {
-    if ((m === "bios-firmware" && !ok("supports_bios_manager")) || !moduleOn(enabled, m)) continue;
+    if (!moduleOn(enabled, m)) continue;
     const title = tr(`set.mod.${m}`);
     const cat = MODULES[m].cat;
     add({ key: `mod:${m}`, tier: "modules", title, subtitle: crumb(tr("app.settings"), tr(`set.cat.${cat}`), title), moduleId: m, target: { kind: "settings", module: m } }, `${title} ${en[`set.mod.${m}`]} ${tr(`set.modDesc.${m}`)} ${MODULE_DOCS[m].keywords} ${m}`);

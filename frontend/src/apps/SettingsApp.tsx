@@ -13,8 +13,8 @@ import { controlHeadings } from "../data/knowledgeRegistry";
 import type { SystemInfo } from "../lib/types";
 import { LANGS, isLang, useTranslation, type TKey } from "../i18n";
 import { GlassInput } from "../components/ui/GlassKit";
-import { CATEGORIES, CATEGORY_META, MODULES, MODULE_IDS, type CategoryId, type ModuleId } from "./settings/modules";
-import { Appearance, BugReportCard, NetworkSection, PowerSection, Security, UpdatesSection, WithSystemInfo } from "./ControlPanelApp";
+import { CATEGORIES, CATEGORY_META, MODULES, MODULE_IDS, settingsModule, settingsTab, type CategoryId, type ModuleId } from "./settings/modules";
+import { Appearance, BugReportCard, NetworkSection, Security, UpdatesSection, WithSystemInfo } from "./ControlPanelApp";
 import { AuditLogCard, PostureCard } from "./security/SecurityCenter";
 import { Repositories, Updates } from "./SystemApp";
 import { Bios } from "./HelpCenterApp";
@@ -45,6 +45,7 @@ import FirewallIdsPanel from "./settings/FirewallIdsPanel";
 import StorageProtocolsPanel from "./settings/StorageProtocolsPanel";
 import ImageHubPanel from "../components/compute/ImageHubPanel";
 import FeaturesServicesPanel from "../components/settings/FeaturesServicesPanel";
+import SystemInfoPanel from "../components/settings/SystemInfoPanel";
 
 const pad = (n: ReactNode) => <div className="h-full space-y-4 overflow-auto p-4 pb-10" data-settings-body>{n}</div>;
 /** An optional Security-by-Design module: its header (on/off, runtime, network), then the panel while it is on. */
@@ -88,30 +89,51 @@ function ModuleBody({ id, tab }: { id: ModuleId; tab?: string }) {
   const vis = useVisibility();
   const docker = useFeatures((s) => on(s.enabled, "docker_engine"));
   switch (id) {
+    case "system-info":
+      return pad(<SystemInfoPanel />);
     case "general-appearance":
       return pad(<Appearance />);
     case "features-services":
       return pad(<FeaturesServicesPanel />);
     case "hardware-gpu":
-      return <Views module={id} initial={tab} views={[["set.view.gpu", pad(<HardwarePanel />)], ["set.view.multiseat", pad(<MultiSeatStudio />)]]} />;
-    case "bios-firmware":
-      return <div className="h-full overflow-auto p-4" data-settings-body><Bios focus={null} /></div>;
-    case "resource-monitor":
-      return <ResourceMonitor initialTab={initialTab} />;
-    case "software-updates":
       return (
         <Views
           module={id}
           initial={tab}
           views={[
+            ["set.view.gpu", pad(<HardwarePanel />)],
+            ...(caps.supports_bios_manager ? ([["set.view.bios", <div className="h-full overflow-auto p-4" data-settings-body><Bios focus={null} /></div>]] as [TKey, ReactNode][]) : []),
+            ["set.view.multiseat", pad(<MultiSeatStudio />)],
+          ]}
+        />
+      );
+    case "resource-monitor":
+      return <ResourceMonitor initialTab={initialTab} />;
+    case "system-services":
+      return (
+        <Views
+          module={id}
+          initial={tab}
+          views={[
+            [
+              "set.view.services",
+              pad(
+                <>
+                  {docker && (
+                    <div data-anchor="docker-engine">
+                      <SecurityModuleHeader module="docker_engine" />
+                    </div>
+                  )}
+                  <SystemServicesPanel />
+                </>,
+              ),
+            ],
             ["set.view.solardeck", pad(<><UpdatesSection /><BugReportCard /></>)],
             ...(caps.supports_apt_repos ? ([["set.view.repos", pad(<Repositories />)]] as [TKey, ReactNode][]) : []),
             ["set.view.packages", pad(<Updates />)],
           ]}
         />
       );
-    case "host-power":
-      return pad(<WithSystemInfo>{(info) => <PowerSection info={info} />}</WithSystemInfo>);
     case "power-ups":
       return gated("ups_power", <PowerUpsPanel />);
     case "storage-zfs":
@@ -189,17 +211,6 @@ function ModuleBody({ id, tab }: { id: ModuleId; tab?: string }) {
       return <LocalAiApp initialTab={tab === "storage" ? "storage" : "hardware"} embedded />;
     case "cluster-ha":
       return <Views module={id} initial={tab} views={[["set.view.cluster", pad(<ClusterManagerPanel />)], ["set.view.oob", gated("oob_bmc", <OutOfBandPanel />)]]} />;
-    case "system-services":
-      return pad(
-        <>
-          {docker && (
-            <div data-anchor="docker-engine">
-              <SecurityModuleHeader module="docker_engine" />
-            </div>
-          )}
-          <SystemServicesPanel />
-        </>,
-      );
   }
 }
 
@@ -209,7 +220,7 @@ function useDots(): Partial<Record<ModuleId, string>> {
   const update = useUpdateStore((s) => s.updateAvailable);
   return {
     "storage-zfs": health === "ONLINE" ? "bg-emerald-400" : health === "N/A" || health === "—" ? "" : "bg-rose-400",
-    "software-updates": update ? "bg-amber-400" : "bg-emerald-400",
+    "system-info": update ? "bg-amber-400" : "bg-emerald-400",
   };
 }
 
@@ -302,10 +313,31 @@ function Tile({ id, onOpen, dot }: { id: ModuleId; onOpen: () => void; dot?: str
   );
 }
 
+/** A main category on the All Settings landing page: one large card that opens the category's first sub-module. */
+function CategoryCard({ id, onOpen }: { id: CategoryId; onOpen: () => void }) {
+  const { t } = useTranslation();
+  const { icon: Icon, tint } = CATEGORY_META[id];
+  return (
+    <button
+      onClick={onOpen}
+      data-anchor={`cat-${id}`}
+      className="glass-soft group flex min-h-36 flex-col gap-3 rounded-3xl p-5 text-left transition-[background-color,border-color,box-shadow,transform,scale,opacity] hover:bg-white/[0.08] active:scale-[0.99]"
+    >
+      <div className="flex items-center gap-3">
+        <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg shadow-black/30 ${tint}`}>
+          <Icon size={24} />
+        </span>
+        <h3 className="min-w-0 flex-1 text-base font-semibold text-white">{t(`set.cat.${id}`)}</h3>
+        <ChevronRight size={18} className="shrink-0 text-slate-500 transition group-hover:translate-x-0.5 group-hover:text-slate-300" />
+      </div>
+      <p className="text-xs leading-relaxed text-slate-400">{t(`set.catDesc.${id}`)}</p>
+    </button>
+  );
+}
+
 /** Settings: one hub for every OS, storage, security, network and hypervisor setting. */
 export default function SettingsApp() {
   const { t } = useTranslation();
-  const caps = useCapabilities((s) => s.capabilities);
   const showGuide = useWizard((s) => s.show);
   const loadRelease = useUpdateStore((s) => s.load);
   const dots = useDots();
@@ -313,33 +345,37 @@ export default function SettingsApp() {
   const [query, setQuery] = useState("");
   const [tree, setTree] = useState(true);
   // The last deep link: which module's inner tab to open, and what to highlight once it renders.
-  const [nav, setNav] = useState<{ n: number; module?: ModuleId; tab?: string; anchor?: string; category?: CategoryId }>({ n: 0 });
+  const [nav, setNav] = useState<{ n: number; module?: ModuleId; tab?: string; anchor?: string }>({ n: 0 });
   const root = useRef<HTMLDivElement>(null);
+
+  const vis = useVisibility();
+  const available = MODULE_IDS.filter((id) => vis.module(id));
+  const inCat = (c: CategoryId) => available.filter((id) => MODULES[id].cat === c);
+
   useIntentFor("settings", (v) => {
-    if (typeof v === "string") return setModule(v);
-    setModule(v.module ?? null);
-    if (v.category) setQuery("");
-    setNav((p) => ({ ...v, n: p.n + 1 }));
+    // Retired sub-module ids (old links) resolve to the module and inner tab that replaced them.
+    const m = settingsModule("settings", v);
+    const tab = (typeof v === "object" && v.tab) || settingsTab("settings", v);
+    // A category link opens that category's first sub-module (System opens Info).
+    const target = m ?? (typeof v === "object" && v.category ? inCat(v.category)[0] : undefined) ?? null;
+    setModule(target);
+    setQuery("");
+    setNav((p) => ({ ...(typeof v === "object" ? v : {}), module: target ?? undefined, tab, n: p.n + 1 }));
   });
   useEffect(() => {
-    if (!nav.n) return;
-    if (nav.category) pulseAnchor(root.current, `cat-${nav.category}`);
-    else if (nav.module && nav.anchor) pulseAnchor(root.current, nav.anchor, controlHeadings(nav.module, nav.anchor, t), "[data-settings-body]");
+    if (nav.n && nav.module && nav.anchor) pulseAnchor(root.current, nav.anchor, controlHeadings(nav.module, nav.anchor, t), "[data-settings-body]");
   }, [nav.n]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(loadRelease, [loadRelease]);
 
-  const vis = useVisibility();
-  const available = MODULE_IDS.filter((id) => (id !== "bios-firmware" || caps.supports_bios_manager) && vis.module(id));
   const q = query.trim().toLowerCase();
-  const matches = (id: ModuleId) =>
-    !q || `${t(`set.mod.${id}`)} ${t(`set.modDesc.${id}`)} ${t(`set.cat.${MODULES[id].cat}`)} ${id}`.toLowerCase().includes(q);
-  const inCat = (c: CategoryId) => available.filter((id) => MODULES[id].cat === c);
+  const matches = (id: ModuleId) => `${t(`set.mod.${id}`)} ${t(`set.modDesc.${id}`)} ${t(`set.cat.${MODULES[id].cat}`)} ${id}`.toLowerCase().includes(q);
 
   if (module && available.includes(module)) {
     const cat = MODULES[module].cat;
     return (
       <div ref={root} className="flex h-full flex-col">
-        <nav className="flex items-center gap-1.5 border-b border-white/10 px-3 py-2 text-xs" aria-label="Breadcrumb">
+        <h2 className="border-b border-white/10 px-3 py-2 text-center text-sm font-semibold text-white">{t(`set.cat.${cat}`)}</h2>
+        <nav className="flex items-center gap-1.5 border-b border-white/10 px-3 py-1.5 text-xs" aria-label="Breadcrumb">
           <button onClick={() => setTree((v) => !v)} className="rounded-md p-1 text-slate-400 hover:bg-white/10 hover:text-slate-200 max-sm:hidden" aria-label={t("set.toggleTree")} title={t("set.toggleTree")}>
             {tree ? <PanelLeftClose size={14} /> : <PanelLeftOpen size={14} />}
           </button>
@@ -347,35 +383,31 @@ export default function SettingsApp() {
             <ChevronLeft size={14} /> {t("set.all")}
           </button>
           <ChevronRight size={12} className="text-slate-600" />
-          <span className="text-slate-400">{t(`set.cat.${cat}`)}</span>
+          <button onClick={() => setModule(inCat(cat)[0])} className="rounded-md px-1.5 py-1 text-slate-400 hover:bg-white/10 hover:text-slate-200">{t(`set.cat.${cat}`)}</button>
           <ChevronRight size={12} className="text-slate-600" />
-          <span className="truncate font-semibold text-white">{t(`set.mod.${module}`)}</span>
+          <span className="truncate font-semibold text-white" aria-current="page">{t(`set.mod.${module}`)}</span>
           <button onClick={() => showGuide(MODULES[module].guide)} className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-slate-300 hover:bg-white/10">
             <CircleHelp size={13} /> {t("set.guide")}
           </button>
         </nav>
         <div className="flex min-h-0 flex-1">
           {tree && (
-            <aside className="w-60 shrink-0 overflow-auto border-r border-white/10 bg-black/20 p-2 pb-8 max-sm:hidden">
-              {CATEGORIES.map((c) => (
-                <div key={c} className="mb-2">
-                  <p className="px-2 pt-1 pb-0.5 text-[10px] font-semibold tracking-wide text-slate-500 uppercase">{t(`set.cat.${c}`)}</p>
-                  {inCat(c).map((id) => {
-                    const Icon = MODULES[id].icon;
-                    return (
-                      <button
-                        key={id}
-                        onClick={() => setModule(id)}
-                        aria-current={id === module}
-                        className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition ${id === module ? "bg-white/12 text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"}`}
-                      >
-                        <Icon size={13} className="shrink-0" /> <span className="min-w-0 flex-1 truncate">{t(`set.mod.${id}`)}</span>
-                        {id === "features-services" && <FeatureCount compact />}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
+            <aside className="w-60 shrink-0 overflow-auto border-r border-white/10 bg-black/20 p-2 pb-8 max-sm:hidden" aria-label={t(`set.cat.${cat}`)}>
+              {inCat(cat).map((id) => {
+                const Icon = MODULES[id].icon;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => setModule(id)}
+                    aria-current={id === module}
+                    className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition ${id === module ? "bg-white/12 text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"}`}
+                  >
+                    <Icon size={13} className="shrink-0" /> <span className="min-w-0 flex-1 truncate">{t(`set.mod.${id}`)}</span>
+                    {id === "features-services" && <FeatureCount compact />}
+                    {dots[id] && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dots[id]}`} aria-hidden />}
+                  </button>
+                );
+              })}
             </aside>
           )}
           <div className="min-w-0 flex-1">
@@ -386,36 +418,26 @@ export default function SettingsApp() {
     );
   }
 
-  const first = available.find(matches);
+  const hits = q ? available.filter(matches) : [];
   return (
-    <div ref={root} className="h-full overflow-auto pb-4">
-      <HostSummary query={query} setQuery={setQuery} onEnter={() => first && setModule(first)} />
-      <div className="mt-4 space-y-3 px-4">
-        {CATEGORIES.map((c) => {
-          const mods = inCat(c).filter(matches);
-          if (!mods.length) return null;
-          const { icon: Icon, tint } = CATEGORY_META[c];
-          return (
-            <section key={c} data-anchor={`cat-${c}`} className="grid gap-3 border-b border-white/5 pb-3 md:grid-cols-[240px_1fr]">
-              <div className="flex gap-3">
-                <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-lg shadow-black/30 ${tint}`}>
-                  <Icon size={20} />
-                </span>
-                <div className="min-w-0">
-                  <h3 className="text-sm font-semibold text-white">{t(`set.cat.${c}`)}</h3>
-                  <p className="line-clamp-2 text-[11px] leading-snug text-slate-400">{t(`set.catDesc.${c}`)}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
-                {mods.map((id) => (
-                  <Tile key={id} id={id} dot={dots[id]} onOpen={() => setModule(id)} />
-                ))}
-              </div>
-            </section>
-          );
-        })}
-        {!first && <p className="py-8 text-center text-sm text-slate-400">{t("set.noMatch")}</p>}
-      </div>
+    <div ref={root} className="h-full overflow-auto pb-6">
+      <HostSummary query={query} setQuery={setQuery} onEnter={() => hits[0] && setModule(hits[0])} />
+      {q ? (
+        <div className="mt-4 grid grid-cols-2 gap-2 px-4 sm:grid-cols-3 xl:grid-cols-4">
+          {hits.map((id) => (
+            <Tile key={id} id={id} dot={dots[id]} onOpen={() => setModule(id)} />
+          ))}
+          {!hits.length && <p className="col-span-full py-8 text-center text-sm text-slate-400">{t("set.noMatch")}</p>}
+        </div>
+      ) : (
+        <div className="mt-5 grid gap-4 px-4 md:grid-cols-2">
+          {CATEGORIES.filter((c) => inCat(c).length).map((c, i, all) => (
+            <div key={c} className={all.length % 2 && i === all.length - 1 ? "md:col-span-2" : undefined}>
+              <CategoryCard id={c} onOpen={() => setModule(inCat(c)[0])} />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

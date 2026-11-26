@@ -367,6 +367,23 @@ const SYSTEM_INFO = {
   node: NODE, version: { version: "2.7.1", release: "2.7", repoid: "c1ecf74" }, platform_version: "SolarOS 2.7.1", kernel: "Linux 6.8.12", uptime: 1728000,
   cpu_model: "16-core x86-64 CPU", cpus: 32, boot_mode: "efi", network: IFACES, dns: { search: "home.lan", dns1: GW, dns2: "9.9.9.9" },
   api: { host: "127.0.0.1:8006", token_id: "solardeck@local!api", connected: true, verify_ssl: false }, admin_username: "admin", storage_root: "/tank", helper: "/usr/local/libexec/solardeck-helper",
+  os: {
+    product_name: "SolarOS", release_version: "2.7.1", os_pretty_name: "SolarOS 2.7.1", kernel_version: "6.8.12", architecture: "x86_64", hypervisor_driver: "native_ubuntu",
+    hostname: NODE, uptime_seconds: 1728000, cluster_mode: "standalone", cluster_name: null, hostname_editable: true,
+  },
+  updates: { current_version: "2.7.1", latest_version: null, update_available: false, last_checked: new Date((T0 - 3600) * 1000).toISOString(), release_notes_summary: null, channel: "main" },
+  hardware: {
+    cpu: { model: "16-core x86-64 CPU", sockets: 1, physical_cores: 16, logical_threads: 32, current_freq_mhz: 3412, temperature_c: 48, load_avg: [1.42, 1.18, 0.97] },
+    memory: { total_bytes: 128 * GiB, used_bytes: 61 * GiB, available_bytes: 67 * GiB, zfs_arc_bytes: 24 * GiB, swap_total_bytes: 8 * GiB, swap_used_bytes: 0.3 * GiB, memory_type_speed: "DDR5 4800 MT/s" },
+    gpus: [
+      { slot: "00:02.0", name: "Integrated graphics", vendor: "intel", gpu_type: "integrated", vram_total_mb: null, vram_used_mb: null, driver: "i915", temperature_c: null, passthrough_bound: false },
+      { slot: "01:00.0", name: "24 GB discrete GPU", vendor: "nvidia", gpu_type: "discrete", vram_total_mb: 24576, vram_used_mb: 1830, driver: "nvidia", temperature_c: 41, passthrough_bound: false },
+    ],
+    storage: {
+      physical_disk_count: 5, total_raw_bytes: 36 * TB, healthy_disks: 5, degraded_disks: 0, pool_count: POOLS.length,
+      pools_summary: POOLS.map((p) => ({ name: p.name, health: p.health, used_bytes: p.alloc, total_bytes: p.size })),
+    },
+  },
 };
 const UPDATE_SETTINGS = { mode: "notify", schedule_frequency: "daily", schedule_time: "03:00", schedule_day: 0, last_checked_at: new Date((T0 - 3600) * 1000).toISOString(), latest_remote_commit: "c1ecf74", latest_remote_tag: "v2.7.1", update_available: false, last_check_error: null };
 const VERSIONS = [

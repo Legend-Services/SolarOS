@@ -7,6 +7,7 @@ import netstoreI18n from "./modules/netstore";
 import onboardingI18n from "./modules/onboarding";
 import dockerI18n from "./modules/docker";
 import groupsI18n from "./modules/groups";
+import sysinfoI18n from "./modules/sysinfo";
 
 export const de: Dict = {
   // Common
@@ -512,27 +513,21 @@ export const de: Dict = {
   "set.view.firewall": "Firewall-Regeln",
   "set.view.forwarding": "Portweiterleitung",
   "set.cat.system": "System",
-  "set.catDesc.system": "Hardware, OS-Repositorys, Firmware, Live-Telemetrie, Energie und Updates.",
+  "set.catDesc.system": "Systeminfo, Software-Updates, Design-Themes, Funktionsschalter, installierte Apps, Hardware & GPU, Telemetrie, Dienste und USV-Strom.",
   "set.cat.storage": "Speicher & Daten",
-  "set.catDesc.storage": "Speicherpools, physische Laufwerke, Snapshots, Backups und Netzwerkfreigaben.",
+  "set.catDesc.storage": "ZFS-Speicherpools, SMART-Zustand der Laufwerke, Backups & Notfallwiederherstellung, Snapshots, Freigaben (SMB/NFS/WebDAV) und ISO-Bibliothek.",
   "set.cat.security": "Rechte & Sicherheit",
-  "set.catDesc.security": "Benutzer, Rollen, 2FA, Step-up-Authentifizierung, Härtung und Audit-Logs.",
+  "set.catDesc.security": "Benutzer & RBAC-Rollen, Zwei-Faktor-Authentifizierung & Passkeys, Sicherheitshärtung, Audit-Logs und Modulisolierung.",
   "set.cat.network": "Netzwerk & Dienste",
-  "set.catDesc.network": "Virtuelle Switches, DNS, VPN, Firewall und Serverautomatisierung.",
+  "set.catDesc.network": "Virtuelle Switches & VLANs, Netzwerktopologie, DHCP, DNS & Werbeblocker, WireGuard-VPN, Reverse Proxy, SSL-Zertifikate und Firewall.",
   "set.cat.hypervisor": "Hypervisor & Laufzeit",
-  "set.catDesc.hypervisor": "Virtualisierungsvorgaben, KI-Rechenlaufzeit und Hintergrunddienste.",
+  "set.catDesc.hypervisor": "Multi-Host-Clustering, Hochverfügbarkeits-Failover, Live-Migration, Out-of-Band-BMC/IPMI und programmatische API-Schlüssel.",
   "set.mod.general-appearance": "Allgemein & Darstellung",
   "set.modDesc.general-appearance": "Themes, Hell/Dunkel, Hintergründe, Dock/Taskleiste, Desktop-Widgets und Sprache",
-  "set.mod.hardware-gpu": "Hardware & GPU",
-  "set.modDesc.hardware-gpu": "CPU, Arbeitsspeicher, GPUs, PCIe/IOMMU-Gruppen, Netzwerkkarten und GPU-Treibermodus",
-  "set.mod.bios-firmware": "BIOS & Firmware",
-  "set.modDesc.bios-firmware": "BIOS-Updateprüfung, verifizierter Download, Optimierungsleitfaden und Offline-QR fürs Handy",
+  "set.mod.hardware-gpu": "Hardware, GPU & BIOS",
+  "set.modDesc.hardware-gpu": "CPU, Arbeitsspeicher, GPUs, PCIe/IOMMU-Gruppen, Netzwerkkarten, GPU-Treibermodus, Multi-Seat und der BIOS- & UEFI-Firmware-Leitfaden",
   "set.mod.resource-monitor": "Ressourcenmonitor",
   "set.modDesc.resource-monitor": "Live-CPU, RAM, Temperatursensoren, GPU und Prozesse",
-  "set.mod.software-updates": "Software & Repositorys",
-  "set.modDesc.software-updates": "OS-Paketquellen, SolarDeck-Updates, Rollback und Fehlerberichte",
-  "set.mod.host-power": "Host & Energie",
-  "set.modDesc.host-power": "Neustart, Herunterfahren, Host-Konsole, Laufzeit und Status der Standalone-ISO",
   "set.mod.storage-zfs": "Speicher & ZFS-Pools",
   "set.modDesc.storage-zfs": "ZFS-Pools, RAIDZ/Mirror-Verwaltung, Datasets, Snapshots, SMART-Status und Laufwerks-Benchmarks",
   "set.mod.backup-restore": "Sicherung & Wiederherstellung",
@@ -567,8 +562,8 @@ export const de: Dict = {
   "set.modDesc.hypervisor-defaults": "Standardprofile für VMs/Container, verschachtelte Virtualisierung und Speicherziele",
   "set.mod.local-ai-runtime": "Lokale KI-Laufzeit",
   "set.modDesc.local-ai-runtime": "GPU-Zuweisung, KI-Modelldienst und Speicherpfad für Modelle",
-  "set.mod.system-services": "Systemdienste",
-  "set.modDesc.system-services": "systemd-Dienste, Daemons und installierte App-Dienste",
+  "set.mod.system-services": "Systemdienste & Repositories",
+  "set.modDesc.system-services": "systemd-Dienste, SolarDeck-Updates und Rollback, OS-Paketquellen, OS-Updates und Fehlerberichte",
 
   // Visual Virtual Switch
   "set.view.vswitch": "Visueller Switch",
@@ -1104,7 +1099,7 @@ export const de: Dict = {
   "set.view.labs": "Isolierte Labore",
   "kb.virtual-hardware": "Virtuelle Hardware & Labor",
   "kb.retro-throttling": "Retro- & WAN-Drosselung",
-  "set.view.gpu": "Hardware & GPU",
+  "set.view.gpu": "GPUs & Geräte",
   "set.view.multiseat": "Multi-Seat & Anschlüsse",
   "seat.tab": "Multi-Seat & Anschlüsse",
   "seat.title": "Multi-Seat-Arbeitsplätze",
@@ -1157,7 +1152,7 @@ export const de: Dict = {
   "seat.cpuMap": "CPU-Kern-Pinning",
   "seat.threadsPicked": "{n} Threads",
   "seat.reserved": "Für den Host reserviert",
-  "seat.iommuOff": "IOMMU ist aus: Aktivieren Sie VT-d / AMD-Vi im BIOS (siehe BIOS & Firmware), bevor Seats GPUs und USB-Controller nutzen können.",
+  "seat.iommuOff": "IOMMU ist aus: Aktivieren Sie VT-d / AMD-Vi im BIOS (siehe Hardware, GPU & BIOS › BIOS & UEFI-Firmware), bevor Seats GPUs und USB-Controller nutzen können.",
   "seat.egpuPending": "Neue externe GPU oder neues Thunderbolt-/USB4-Gerät: {name}",
   "seat.egpuAuthorize": "Autorisieren",
   "seat.egpuAuthorized": "Externes Gerät autorisiert.",
@@ -1553,4 +1548,5 @@ export const de: Dict = {
   ...onboardingI18n.de,
   ...dockerI18n.de,
   ...groupsI18n.de,
+  ...sysinfoI18n.de,
 };

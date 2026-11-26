@@ -7,6 +7,7 @@ import netstoreI18n from "./modules/netstore";
 import onboardingI18n from "./modules/onboarding";
 import dockerI18n from "./modules/docker";
 import groupsI18n from "./modules/groups";
+import sysinfoI18n from "./modules/sysinfo";
 
 export const es: Dict = {
   // Common
@@ -512,27 +513,21 @@ export const es: Dict = {
   "set.view.firewall": "Reglas del cortafuegos",
   "set.view.forwarding": "Redirección de puertos",
   "set.cat.system": "Sistema",
-  "set.catDesc.system": "Hardware, repositorios del SO, firmware, telemetría en vivo, energía y actualizaciones.",
+  "set.catDesc.system": "Información del sistema, actualizaciones, temas de apariencia, activación de funciones, apps instaladas, hardware y GPU, telemetría, servicios y SAI.",
   "set.cat.storage": "Almacenamiento y datos",
-  "set.catDesc.storage": "Pools de almacenamiento, discos físicos, instantáneas, copias de seguridad y recursos compartidos.",
+  "set.catDesc.storage": "Pools de almacenamiento ZFS, estado SMART de discos, copias de seguridad y recuperación ante desastres, snapshots, carpetas compartidas (SMB/NFS/WebDAV) y biblioteca ISO.",
   "set.cat.security": "Privilegios y seguridad",
-  "set.catDesc.security": "Usuarios, roles, 2FA, verificación adicional, refuerzo y registros de auditoría.",
+  "set.catDesc.security": "Usuarios y roles RBAC, autenticación de dos factores y passkeys, refuerzo de la seguridad, registros de auditoría y aislamiento de módulos.",
   "set.cat.network": "Red y servicios",
-  "set.catDesc.network": "Switches virtuales, DNS, VPN, cortafuegos y automatización del servidor.",
+  "set.catDesc.network": "Switches virtuales y VLAN, topología de red, DHCP, DNS y bloqueo de anuncios, VPN WireGuard, proxy inverso, certificados SSL y firewall.",
   "set.cat.hypervisor": "Hipervisor y entorno",
-  "set.catDesc.hypervisor": "Valores predeterminados de virtualización, entorno de cómputo de IA y servicios en segundo plano.",
+  "set.catDesc.hypervisor": "Clústeres de varios hosts, conmutación por error de alta disponibilidad, migración en vivo, BMC/IPMI fuera de banda y claves de API.",
   "set.mod.general-appearance": "General y apariencia",
   "set.modDesc.general-appearance": "Temas, modo claro/oscuro, fondos, Dock/barra de tareas, widgets del escritorio e idioma",
-  "set.mod.hardware-gpu": "Hardware y GPU",
-  "set.modDesc.hardware-gpu": "CPU, memoria, GPU, grupos PCIe/IOMMU, tarjetas de red y modo del controlador GPU",
-  "set.mod.bios-firmware": "BIOS y firmware",
-  "set.modDesc.bios-firmware": "Comprobación de BIOS, descarga verificada, guía de optimización y QR sin conexión para el móvil",
+  "set.mod.hardware-gpu": "Hardware, GPU y BIOS",
+  "set.modDesc.hardware-gpu": "CPU, memoria, GPU, grupos PCIe/IOMMU, tarjetas de red, modo del controlador GPU, multipuesto y la guía de BIOS y firmware UEFI",
   "set.mod.resource-monitor": "Monitor de recursos",
   "set.modDesc.resource-monitor": "CPU, RAM, sensores térmicos, GPU y procesos en vivo",
-  "set.mod.software-updates": "Software y repositorios",
-  "set.modDesc.software-updates": "Repositorios de paquetes del SO, actualizaciones de SolarDeck, reversión e informes de errores",
-  "set.mod.host-power": "Host y energía",
-  "set.modDesc.host-power": "Reiniciar, apagar, consola del host, tiempo activo y estado de la ISO independiente",
   "set.mod.storage-zfs": "Almacenamiento y pools ZFS",
   "set.modDesc.storage-zfs": "Pools ZFS, gestión RAIDZ/espejo, datasets, instantáneas, salud SMART y pruebas de disco",
   "set.mod.backup-restore": "Copia de seguridad y restauración",
@@ -567,8 +562,8 @@ export const es: Dict = {
   "set.modDesc.hypervisor-defaults": "Perfiles predeterminados de VM/contenedores, virtualización anidada y destinos de almacenamiento",
   "set.mod.local-ai-runtime": "Entorno de IA local",
   "set.modDesc.local-ai-runtime": "Asignación de GPU, servicio de modelos de IA y ruta de almacenamiento de modelos",
-  "set.mod.system-services": "Servicios del sistema",
-  "set.modDesc.system-services": "Servicios systemd, demonios y servicios de apps instaladas",
+  "set.mod.system-services": "Servicios del sistema y repositorios",
+  "set.modDesc.system-services": "Servicios systemd, actualizaciones y reversión de SolarDeck, repositorios de paquetes del sistema, actualizaciones del sistema e informes de errores",
 
   // Visual Virtual Switch
   "set.view.vswitch": "Switch visual",
@@ -1104,7 +1099,7 @@ export const es: Dict = {
   "set.view.labs": "Laboratorios aislados",
   "kb.virtual-hardware": "Hardware virtual y laboratorio",
   "kb.retro-throttling": "Limitación retro y WAN",
-  "set.view.gpu": "Hardware y GPU",
+  "set.view.gpu": "GPU y dispositivos",
   "set.view.multiseat": "Multipuesto y puertos",
   "seat.tab": "Multipuesto y puertos",
   "seat.title": "Estaciones de trabajo multipuesto",
@@ -1157,7 +1152,7 @@ export const es: Dict = {
   "seat.cpuMap": "Fijación de núcleos de CPU",
   "seat.threadsPicked": "{n} hilos",
   "seat.reserved": "Reservado para el host",
-  "seat.iommuOff": "IOMMU está desactivado: activa VT-d / AMD-Vi en la BIOS (consulta BIOS y firmware) antes de que los puestos puedan usar GPU y controladores USB.",
+  "seat.iommuOff": "IOMMU está desactivado: activa VT-d / AMD-Vi en la BIOS (consulta Hardware, GPU y BIOS › BIOS y firmware UEFI) antes de que los puestos puedan usar GPU y controladores USB.",
   "seat.egpuPending": "Nueva GPU externa o dispositivo Thunderbolt / USB4: {name}",
   "seat.egpuAuthorize": "Autorizar",
   "seat.egpuAuthorized": "Dispositivo externo autorizado.",
@@ -1553,4 +1548,5 @@ export const es: Dict = {
   ...onboardingI18n.es,
   ...dockerI18n.es,
   ...groupsI18n.es,
+  ...sysinfoI18n.es,
 };

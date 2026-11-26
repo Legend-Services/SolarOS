@@ -1,13 +1,14 @@
 // Self-check for Settings deep links and the dock / gallery migration. Run: node --experimental-strip-types scripts/settings-routing.check.mjs
 import { APP_IDS, DOCK_DEFAULT, RETIRED, liveAppIds } from "../src/apps/registry.ts";
-import { MODULE_IDS, settingsModule } from "../src/apps/settings/modules.ts";
+import { MODULE_IDS, settingsModule, settingsTab } from "../src/apps/settings/modules.ts";
 
 const ok = (c, m) => {
   if (!c) throw new Error(m);
 };
 const eq = (a, b, m) => ok(JSON.stringify(a) === JSON.stringify(b), `${m}: ${JSON.stringify(a)}`);
 
-ok(MODULE_IDS.length === 31, "31 sub-modules");
+ok(MODULE_IDS.length === 29, "29 sub-modules");
+ok(MODULE_IDS[0] === "system-info", "Info opens first in System");
 ok(!RETIRED.some((id) => APP_IDS.includes(id)) && APP_IDS.includes("settings"), "retired apps leave the launcher, Settings joins it");
 ok(DOCK_DEFAULT.every((id) => APP_IDS.includes(id)), "default dock only holds launchable apps");
 
@@ -15,10 +16,14 @@ ok(DOCK_DEFAULT.every((id) => APP_IDS.includes(id)), "default dock only holds la
 ok(RETIRED.every((id) => settingsModule(id)), "every retired app maps to a module");
 eq(settingsModule("monitor"), "resource-monitor", "monitor");
 eq(settingsModule("storage", "pools"), "storage-zfs", "storage intent keeps the module");
-eq(settingsModule("controlpanel", "power"), "host-power", "control panel power");
+eq(settingsModule("controlpanel", "power"), "system-info", "control panel power");
 eq(settingsModule("controlpanel", "security"), "security-2fa", "control panel security");
 eq(settingsModule("netservices", "wg"), "wireguard-vpn", "wireguard");
-eq(settingsModule("help", "bios"), "bios-firmware", "bios");
+eq([settingsModule("help", "bios"), settingsTab("help", "bios")], ["hardware-gpu", "bios"], "bios");
+// Retired sub-module ids from saved links land on their replacement and inner tab.
+eq([settingsModule("settings", "bios-firmware"), settingsTab("settings", { module: "bios-firmware" })], ["hardware-gpu", "bios"], "retired bios");
+eq([settingsModule("settings", { module: "software-updates" }), settingsTab("settings", "software-updates")], ["system-services", "solardeck"], "retired updates");
+eq([settingsModule("settings", "host-power"), settingsTab("settings", "audit-logs")], ["system-info", undefined], "retired power");
 eq(settingsModule("settings", "audit-logs"), "audit-logs", "settings intent");
 eq([settingsModule("settings"), settingsModule("settings", "nope"), settingsModule("compute", "iso"), settingsModule("help", "fix"), settingsModule("files")],
   [undefined, undefined, undefined, undefined, undefined], "no redirect");

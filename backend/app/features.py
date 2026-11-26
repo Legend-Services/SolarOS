@@ -2,7 +2,7 @@
 
 Every flag defaults to on, so an existing installation keeps everything visible until an administrator hides it.
 The frontend hides Settings modules, inner tabs, search results and apps of disabled features; the core screens
-(General & Appearance, Users & Security, Software & Repositories, Features & Services) have no flag at all.
+(General & Appearance, Users & Security, System Services & Repositories, Features & Services) have no flag at all.
 
 Turning off a feature with a background service pauses it: units of that feature that are running are recorded,
 then disabled and stopped; turning it back on starts exactly those units again. Configuration files stay untouched.

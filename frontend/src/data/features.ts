@@ -60,8 +60,7 @@ export function on(e: Enabled, k: FeatureKey): boolean {
 
 /** A Settings module shows while any of its features is on; modules not listed here (the core screens) always show. */
 export const MODULE_FEATURES: Partial<Record<ModuleId, FeatureKey[]>> = {
-  "hardware-gpu": ["gpu_management", "multiseat"],
-  "bios-firmware": ["bios_manager"],
+  "hardware-gpu": ["gpu_management", "multiseat", "bios_manager"],
   "resource-monitor": ["live_telemetry"],
   "automation-alerts": ["automation"],
   "power-ups": ["ups_power"],
@@ -80,6 +79,7 @@ export const MODULE_FEATURES: Partial<Record<ModuleId, FeatureKey[]>> = {
 export const TAB_FEATURE: Record<string, FeatureKey> = {
   "hardware-gpu:gpu": "gpu_management",
   "hardware-gpu:multiseat": "multiseat",
+  "hardware-gpu:bios": "bios_manager",
   "backup-restore:backups": "backups_snapshots",
   "backup-restore:dr": "offsite_dr",
   "shared-folders:smb": "smb_shares",

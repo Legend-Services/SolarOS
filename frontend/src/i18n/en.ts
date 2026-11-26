@@ -6,6 +6,7 @@ import netstoreI18n from "./modules/netstore";
 import onboardingI18n from "./modules/onboarding";
 import dockerI18n from "./modules/docker";
 import groupsI18n from "./modules/groups";
+import sysinfoI18n from "./modules/sysinfo";
 /** English source dictionary. Every other language must define exactly these keys (checked by TypeScript). */
 export const en = {
   // Common
@@ -511,27 +512,21 @@ export const en = {
   "set.view.firewall": "Firewall Rules",
   "set.view.forwarding": "Port Forwarding",
   "set.cat.system": "System",
-  "set.catDesc.system": "Core hardware, OS repositories, firmware, live telemetry, power and updates.",
+  "set.catDesc.system": "OS info, software updates, appearance themes, features toggle, installed apps, hardware & GPU, telemetry, services and UPS power.",
   "set.cat.storage": "Storage & Data",
-  "set.catDesc.storage": "Storage pools, physical disks, snapshots, backups and network shares.",
+  "set.catDesc.storage": "ZFS storage pools, disk SMART health, backups & disaster recovery, snapshots, shared folders (SMB/NFS/WebDAV) and ISO library.",
   "set.cat.security": "Privilege & Security",
-  "set.catDesc.security": "Users, roles, 2FA, step-up authentication, hardening and audit logs.",
+  "set.catDesc.security": "Users & RBAC roles, two-factor authentication & passkeys, security posture hardening, audit logs and module isolation.",
   "set.cat.network": "Network & Services",
-  "set.catDesc.network": "Virtual switches, DNS, VPN, firewall and server automation.",
+  "set.catDesc.network": "Virtual switches & VLANs, network topology, DHCP, DNS & ad-blocking, WireGuard VPN, reverse proxy, SSL certificates and firewall.",
   "set.cat.hypervisor": "Hypervisor & Runtime",
-  "set.catDesc.hypervisor": "Virtualization defaults, AI compute runtime and background daemons.",
+  "set.catDesc.hypervisor": "Multi-host clustering, high availability failover, live migration, out-of-band BMC/IPMI and programmatic API keys.",
   "set.mod.general-appearance": "General & Appearance",
   "set.modDesc.general-appearance": "Themes, light/dark mode, wallpapers, Dock/taskbar layout, desktop widgets and language",
-  "set.mod.hardware-gpu": "Hardware & GPU",
-  "set.modDesc.hardware-gpu": "CPU, memory, GPUs, PCIe/IOMMU groups, NICs and GPU driver mode",
-  "set.mod.bios-firmware": "BIOS & Firmware",
-  "set.modDesc.bios-firmware": "Motherboard BIOS update check, verified download, optimization guide and offline mobile QR",
+  "set.mod.hardware-gpu": "Hardware, GPU & BIOS",
+  "set.modDesc.hardware-gpu": "CPU, memory, GPUs, PCIe/IOMMU groups, NICs, GPU driver mode, multi-seat and the BIOS & UEFI firmware guide",
   "set.mod.resource-monitor": "Resource Monitor",
   "set.modDesc.resource-monitor": "Live CPU, RAM, thermal sensors, GPU and process telemetry",
-  "set.mod.software-updates": "Software & Repositories",
-  "set.modDesc.software-updates": "OS package repositories, SolarDeck updates, rollback and bug reports",
-  "set.mod.host-power": "Host & Power",
-  "set.modDesc.host-power": "Reboot, shutdown, host console shell, uptime and standalone ISO status",
   "set.mod.storage-zfs": "Storage & ZFS Pools",
   "set.modDesc.storage-zfs": "ZFS pools, RAIDZ/mirror management, datasets, snapshots, SMART health and disk benchmarks",
   "set.mod.backup-restore": "Backup & Restore",
@@ -566,8 +561,8 @@ export const en = {
   "set.modDesc.hypervisor-defaults": "Default VM/container resource profiles, nested virtualization and storage targets",
   "set.mod.local-ai-runtime": "Local AI Runtime",
   "set.modDesc.local-ai-runtime": "GPU compute assignment, AI model service and model storage path",
-  "set.mod.system-services": "System Services",
-  "set.modDesc.system-services": "systemd services, daemons and deployed app services",
+  "set.mod.system-services": "System Services & Repositories",
+  "set.modDesc.system-services": "systemd services, SolarDeck updates and rollback, OS package repositories, OS updates and bug reports",
 
   // Visual Virtual Switch
   "set.view.vswitch": "Visual Switch",
@@ -1102,7 +1097,7 @@ export const en = {
   "set.view.labs": "Isolated Labs",
   "kb.virtual-hardware": "Virtual Hardware & Lab",
   "kb.retro-throttling": "Retro & WAN Throttling",
-  "set.view.gpu": "Hardware & GPU",
+  "set.view.gpu": "GPUs & Devices",
   "set.view.multiseat": "Multi-Seat & Ports",
   "seat.tab": "Multi-Seat & Ports",
   "seat.title": "Multi-Seat Workstations",
@@ -1155,7 +1150,7 @@ export const en = {
   "seat.cpuMap": "CPU Core Pinning",
   "seat.threadsPicked": "{n} threads",
   "seat.reserved": "Reserved for the host",
-  "seat.iommuOff": "IOMMU is off: enable VT-d / AMD-Vi in the BIOS (see BIOS & Firmware) before seats can use GPUs and USB controllers.",
+  "seat.iommuOff": "IOMMU is off: enable VT-d / AMD-Vi in the BIOS (see Hardware, GPU & BIOS › BIOS & UEFI Firmware) before seats can use GPUs and USB controllers.",
   "seat.egpuPending": "New external GPU or Thunderbolt / USB4 device: {name}",
   "seat.egpuAuthorize": "Authorize",
   "seat.egpuAuthorized": "External device authorized.",
@@ -1551,6 +1546,7 @@ export const en = {
   ...onboardingI18n.en,
   ...dockerI18n.en,
   ...groupsI18n.en,
+  ...sysinfoI18n.en,
 } as const;
 
 export type TKey = keyof typeof en;

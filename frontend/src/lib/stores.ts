@@ -5,7 +5,7 @@ import { api, forgetStepUp, setUnauthorizedHandler } from "./api";
 import type { ConsoleTarget, HardwareInfo, Overview, StorageInfo } from "./types";
 import type { AppId } from "../apps/registry";
 import { APPS, APP_IDS, DOCK_DEFAULT, liveAppIds } from "../apps/registry";
-import { settingsModule, type ModuleId } from "../apps/settings/modules";
+import { settingsModule, settingsTab, type ModuleId } from "../apps/settings/modules";
 import type { NavTarget } from "../data/knowledgeRegistry";
 
 /* ---------------- Auth ---------------- */
@@ -210,7 +210,8 @@ export const useIntent = create<IntentState>((set) => ({
     // Retired apps open their Settings module. Only apps embedded there that read their own intent keep it (a tab or dialog).
     const module = settingsModule(app, value);
     if (app === "settings" || !module || EMBEDDED_INTENTS.includes(app)) set({ [app]: value });
-    if (module && app !== "settings") set({ settings: module });
+    const tab = settingsTab(app, value);
+    if (module && app !== "settings") set({ settings: tab ? { module, tab } : module });
     useWindows.getState().open(module ? "settings" : app);
   },
   take: (app) => set({ [app]: undefined }),

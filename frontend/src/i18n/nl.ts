@@ -7,6 +7,7 @@ import netstoreI18n from "./modules/netstore";
 import onboardingI18n from "./modules/onboarding";
 import dockerI18n from "./modules/docker";
 import groupsI18n from "./modules/groups";
+import sysinfoI18n from "./modules/sysinfo";
 
 export const nl: Dict = {
   // Common
@@ -512,27 +513,21 @@ export const nl: Dict = {
   "set.view.firewall": "Firewallregels",
   "set.view.forwarding": "Port forwarding",
   "set.cat.system": "Systeem",
-  "set.catDesc.system": "Hardware, OS-repositories, firmware, live telemetrie, energie en updates.",
+  "set.catDesc.system": "OS-info, software-updates, weergavethema's, functies aan/uit, geïnstalleerde apps, hardware en GPU, telemetrie, services en UPS-stroom.",
   "set.cat.storage": "Opslag & data",
-  "set.catDesc.storage": "Opslagpools, fysieke schijven, snapshots, back-ups en netwerkshares.",
+  "set.catDesc.storage": "ZFS-opslagpools, SMART-status van schijven, back-ups en noodherstel, snapshots, gedeelde mappen (SMB/NFS/WebDAV) en ISO-bibliotheek.",
   "set.cat.security": "Rechten & beveiliging",
-  "set.catDesc.security": "Gebruikers, rollen, 2FA, extra verificatie, hardening en auditlogs.",
+  "set.catDesc.security": "Gebruikers en RBAC-rollen, tweestapsverificatie en passkeys, beveiligingsharding, auditlogs en module-isolatie.",
   "set.cat.network": "Netwerk & diensten",
-  "set.catDesc.network": "Virtuele switches, DNS, VPN, firewall en serverautomatisering.",
+  "set.catDesc.network": "Virtuele switches en VLAN's, netwerktopologie, DHCP, DNS en advertentieblokkering, WireGuard VPN, reverse proxy, SSL-certificaten en firewall.",
   "set.cat.hypervisor": "Hypervisor & runtime",
-  "set.catDesc.hypervisor": "Virtualisatiestandaarden, AI-rekenruntime en achtergronddiensten.",
+  "set.catDesc.hypervisor": "Clustering van meerdere hosts, high-availability failover, live migratie, out-of-band BMC/IPMI en API-sleutels.",
   "set.mod.general-appearance": "Algemeen & uiterlijk",
   "set.modDesc.general-appearance": "Thema's, licht/donker, achtergronden, Dock/taakbalk, bureaubladwidgets en taal",
-  "set.mod.hardware-gpu": "Hardware & GPU",
-  "set.modDesc.hardware-gpu": "CPU, geheugen, GPU's, PCIe/IOMMU-groepen, netwerkkaarten en GPU-drivermodus",
-  "set.mod.bios-firmware": "BIOS & firmware",
-  "set.modDesc.bios-firmware": "BIOS-updatecontrole, geverifieerde download, optimalisatiegids en offline QR voor mobiel",
+  "set.mod.hardware-gpu": "Hardware, GPU en BIOS",
+  "set.modDesc.hardware-gpu": "CPU, geheugen, GPU's, PCIe/IOMMU-groepen, netwerkkaarten, GPU-drivermodus, multi-seat en de BIOS- en UEFI-firmwaregids",
   "set.mod.resource-monitor": "Bronnenmonitor",
   "set.modDesc.resource-monitor": "Live CPU, RAM, temperatuursensoren, GPU en processen",
-  "set.mod.software-updates": "Software & repositories",
-  "set.modDesc.software-updates": "OS-pakketbronnen, SolarDeck-updates, terugdraaien en bugmeldingen",
-  "set.mod.host-power": "Host & energie",
-  "set.modDesc.host-power": "Herstarten, afsluiten, hostconsole, uptime en status van de standalone ISO",
   "set.mod.storage-zfs": "Opslag & ZFS-pools",
   "set.modDesc.storage-zfs": "ZFS-pools, RAIDZ/mirror-beheer, datasets, snapshots, SMART-status en schijfbenchmarks",
   "set.mod.backup-restore": "Back-up & herstel",
@@ -567,8 +562,8 @@ export const nl: Dict = {
   "set.modDesc.hypervisor-defaults": "Standaardprofielen voor VM's/containers, geneste virtualisatie en opslagdoelen",
   "set.mod.local-ai-runtime": "Lokale AI-runtime",
   "set.modDesc.local-ai-runtime": "GPU-toewijzing, AI-modeldienst en opslagpad voor modellen",
-  "set.mod.system-services": "Systeemdiensten",
-  "set.modDesc.system-services": "systemd-diensten, daemons en geïnstalleerde app-diensten",
+  "set.mod.system-services": "Systeemservices en repositories",
+  "set.modDesc.system-services": "systemd-services, SolarDeck-updates en terugdraaien, OS-pakketbronnen, OS-updates en bugmeldingen",
 
   // Visual Virtual Switch
   "set.view.vswitch": "Visuele switch",
@@ -1104,7 +1099,7 @@ export const nl: Dict = {
   "set.view.labs": "Geïsoleerde labs",
   "kb.virtual-hardware": "Virtuele hardware & lab",
   "kb.retro-throttling": "Retro- & WAN-vertraging",
-  "set.view.gpu": "Hardware & GPU",
+  "set.view.gpu": "GPU's en apparaten",
   "set.view.multiseat": "Multi-seat & poorten",
   "seat.tab": "Multi-seat & poorten",
   "seat.title": "Multi-seat werkplekken",
@@ -1157,7 +1152,7 @@ export const nl: Dict = {
   "seat.cpuMap": "CPU-kernen vastzetten",
   "seat.threadsPicked": "{n} threads",
   "seat.reserved": "Gereserveerd voor de host",
-  "seat.iommuOff": "IOMMU staat uit: zet VT-d / AMD-Vi aan in het BIOS (zie BIOS & firmware) voordat seats GPU's en USB-controllers kunnen gebruiken.",
+  "seat.iommuOff": "IOMMU staat uit: zet VT-d / AMD-Vi aan in het BIOS (zie Hardware, GPU en BIOS › BIOS en UEFI-firmware) voordat seats GPU's en USB-controllers kunnen gebruiken.",
   "seat.egpuPending": "Nieuwe externe GPU of Thunderbolt / USB4-apparaat: {name}",
   "seat.egpuAuthorize": "Toestaan",
   "seat.egpuAuthorized": "Extern apparaat toegestaan.",
@@ -1553,4 +1548,5 @@ export const nl: Dict = {
   ...onboardingI18n.nl,
   ...dockerI18n.nl,
   ...groupsI18n.nl,
+  ...sysinfoI18n.nl,
 };
