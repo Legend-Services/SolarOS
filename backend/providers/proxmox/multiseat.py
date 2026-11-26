@@ -37,7 +37,7 @@ def seat_options(seat: dict, cfg: dict, drop: list[str]) -> dict[str, str]:
 
 
 async def apply(vmid: int, seat: dict, state: dict) -> dict:
-    cfg = await pve("GET", f"/nodes/{_node()}/qemu/{int(vmid)}/config")
+    cfg = await pve("GET", _node(f"/qemu/{int(vmid)}/config"))
     drop = [k for k in state.get("keys", []) if k in cfg]
     opts = seat_options(seat, cfg, drop)
     if drop:

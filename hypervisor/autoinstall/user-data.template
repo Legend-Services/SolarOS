@@ -35,6 +35,10 @@ autoinstall:
     primary:
       - arches: [default]
         uri: "file:///cdrom"
+    # Offline, subiquity drops `primary` and installs from its own file:///cdrom line; a key-only source entry makes
+    # curtin trust the repository's signing key in the target either way.
+    sources:
+      solardeck-offline:
         key: |
           @@REPO_KEY@@
     fallback: offline-install
