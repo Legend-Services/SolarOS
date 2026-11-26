@@ -29,7 +29,7 @@ interface Topology {
   edges: TEdge[];
 }
 
-/** Column per node type, left to right: Internet → NICs → bonds → bridges → VLANs / VPN / forwards → guests and peers. */
+/** Row per node type, top to bottom: Internet → NICs → bonds → bridges → VLANs / VPN / forwards → guests and peers. */
 const LAYER: Record<NodeType, number> = { internet: 0, nic: 1, bond: 2, bridge: 3, vlan: 4, wireguard: 4, forward: 4, vm: 5, lxc: 5, peer: 5 };
 const STYLE: Record<NodeType, { icon: ReactNode; color: string }> = {
   internet: { icon: <Globe size={14} />, color: "#38bdf8" },
@@ -45,31 +45,35 @@ const STYLE: Record<NodeType, { icon: ReactNode; color: string }> = {
 };
 const NODE_W = 176;
 const NODE_H = 44;
-const COL = 236;
-const ROW = 60;
+const COL = 196;
+const LINE = 66;
+const TIER = 110;
+const WRAP = 6;
 const PAD = 16;
 const UP = new Set(["up", "running"]);
 
-/** Columns from the node types (empty columns dropped), rows ordered by the average row of each node's parents. */
+/** Rows from the node types (empty rows dropped), each centered and wrapped at WRAP nodes; within a row nodes are
+    ordered by the mean x of their parents, so guests line up under their virtual switch. */
 export function layout(t: Topology): Map<string, { x: number; y: number }> {
   const used = [...new Set(t.nodes.map((n) => LAYER[n.type]))].sort((a, b) => a - b);
-  const col = (n: TNode) => used.indexOf(LAYER[n.type]);
-  const row = new Map<string, number>();
+  const rows = used.map((l) => t.nodes.filter((n) => LAYER[n.type] === l));
+  const width = Math.min(WRAP, Math.max(...rows.map((r) => r.length))) * COL;
   const pos = new Map<string, { x: number; y: number }>();
-  used.forEach((_, c) => {
-    const nodes = t.nodes.filter((n) => col(n) === c);
+  let y = PAD;
+  for (const nodes of rows) {
     const parent = (n: TNode) => {
-      const ys = t.edges.filter((e) => e.target === n.id && row.has(e.source)).map((e) => row.get(e.source)!);
-      return ys.length ? ys.reduce((a, b) => a + b, 0) / ys.length : Infinity;
+      const xs = t.edges.filter((e) => e.target === n.id && pos.has(e.source)).map((e) => pos.get(e.source)!.x);
+      return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : Infinity;
     };
     nodes
       .map((n) => ({ n, p: parent(n) }))
-      .sort((a, b) => a.p - b.p || a.n.label.localeCompare(b.n.label))
+      .sort((a, b) => (a.p === b.p ? 0 : a.p - b.p) || a.n.label.localeCompare(b.n.label))
       .forEach(({ n }, i) => {
-        row.set(n.id, i);
-        pos.set(n.id, { x: PAD + c * COL, y: PAD + i * ROW });
+        const inLine = Math.min(WRAP, nodes.length - Math.floor(i / WRAP) * WRAP);
+        pos.set(n.id, { x: PAD + (width - inLine * COL) / 2 + (i % WRAP) * COL, y: y + Math.floor(i / WRAP) * LINE });
       });
-  });
+    y += (Math.ceil(nodes.length / WRAP) - 1) * LINE + TIER;
+  }
   return pos;
 }
 
@@ -148,13 +152,15 @@ export default function TopologyTab({ onTab }: { onTab: (tab: "router" | "wg") =
               const a = pos.get(e.source);
               const b = pos.get(e.target);
               if (!a || !b) return null;
-              const x1 = a.x + NODE_W, y1 = a.y + NODE_H / 2, x2 = b.x, y2 = b.y + NODE_H / 2;
-              const mx = (x1 + x2) / 2;
+              // Downward link: bottom center of the upper node to top center of the lower one.
+              const dn = a.y <= b.y;
+              const x1 = a.x + NODE_W / 2, y1 = a.y + (dn ? NODE_H : 0), x2 = b.x + NODE_W / 2, y2 = b.y + (dn ? 0 : NODE_H);
+              const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
               const on = hot.has(e.id);
               return (
                 <g key={e.id} opacity={sel && !on ? 0.15 : 1}>
                   <path
-                    d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`}
+                    d={`M${x1},${y1} C${x1},${my} ${x2},${my} ${x2},${y2}`}
                     fill="none"
                     stroke={ink(on ? "#7dd3fc" : STYLE[byId.get(e.target)?.type ?? "nic"].color)}
                     strokeOpacity={on ? 1 : 0.55}
@@ -162,7 +168,7 @@ export default function TopologyTab({ onTab }: { onTab: (tab: "router" | "wg") =
                     strokeDasharray={e.kind === "forward" || e.kind === "vpn" ? "5 4" : undefined}
                   />
                   {e.label && on && (
-                    <text x={mx} y={(y1 + y2) / 2 - 4} textAnchor="middle" fill="var(--bp-text)" className="text-[10px]">
+                    <text x={mx + 6} y={my} textAnchor="start" fill="var(--bp-text)" className="text-[10px]">
                       {e.label}
                     </text>
                   )}

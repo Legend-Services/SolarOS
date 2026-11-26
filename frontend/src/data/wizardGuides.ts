@@ -425,7 +425,7 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     blurb: "See your whole setup as a live blueprint and find every device on a network.",
     what: "Network Architect draws your server (or every host of your cluster), its network ports, the router, virtual switches, VLANs, isolated labs and all VMs and containers as one schematic. Click any network to zoom in, scan it, and see every phone, printer, camera or computer on it with the services it offers.",
     cards: [
-      { title: "Blueprint", body: "Columns from left to right: gateway and physical switch neighbors, network ports, virtual switches, VLANs and labs, then your VMs and containers with their IP addresses. Green DHCP and DNS badges show which networks hand out addresses and resolve names." },
+      { title: "Blueprint", body: "Tiers from top to bottom: the internet with your gateways and physical switch neighbors, the host or cluster with its network ports, virtual switches, VLANs and labs, then your VMs and containers with their IP addresses in a row below the network they hang from. Green DHCP and DNS badges show which networks hand out addresses and resolve names." },
       { title: "Network drill-down", body: "The router, DHCP server, DNS server, this host and your guests sit around the network hub. When more than six other devices are found they are grouped into one Other Devices (+N) hub so the picture stays readable." },
       { title: "Device scan", body: "Scan Network Now pings the subnet from the host, reads the ARP and DHCP tables, asks for names (reverse DNS and mDNS) and checks a list of common service ports without logging in to anything." },
     ],

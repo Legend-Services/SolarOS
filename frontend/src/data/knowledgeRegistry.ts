@@ -107,7 +107,7 @@ export const APP_DOCS: Partial<Record<AppId, Doc>> = {
       "The drawer's Virtual Hardware & Lab tab adds emulated devices (HD audio + microphone, retro sound, virtual webcam, SAS/RAID HBA, NVMe, 56k modem, 10 Mbps NIC, TPM 2.0, smartcard reader, watchdog, entropy) and throttles CPU speed and network links (10 Mbps, 56k modem, 4G, custom latency and packet loss).",
       "Press Isolated Lab Sandbox to launch an air-gapped lab network with its own switch, VLAN and DHCP server in one click.",
       "The Multi-Seat & Ports tab turns one machine into several workstations: give each seat VM its own GPU with its monitors, physical USB ports (Plug to Assign) and CPU cores, then press Start All Seats.",
-      "Switch the guest drawer from Form View to Wireframe Architecture to see the guest as a blueprint computer: click any network card, PCIe card, peripheral or drive to open the Hardware Device Inspector (name, MAC with randomizer, driver model, slot, vendor and device ID, serial, link and speed) and press Save & Apply.",
+      "Switch the guest drawer from Form View to Wireframe Architecture to see the guest as a blueprint computer: click any network card, PCIe card, peripheral or drive to open the Hardware Device Inspector below the diagram (name, MAC with randomizer, driver model, slot, vendor and device ID, serial, link and speed) and press Save & Apply.",
       "In the wireframe, give a virtual capture card or webcam the Guest Device Manager name the guest should show (e.g. “Studio HDMI Capture Pro”); fields marked Visible in guest reach the guest, the rest are SolarDeck labels.",
       "Click a network line or switch node in the wireframe to re-patch that network card to another virtual switch, physical bridge, router, VLAN or isolated lab in one click; the host node shows Standalone Mode or the cluster's preferred active host, standby hosts, ZFS sync and floating VIP.",
     ],
@@ -150,7 +150,7 @@ export const APP_DOCS: Partial<Record<AppId, Doc>> = {
         title: "Wireframe Node Architecture & Hardware ID Overrides",
         body: "The Wireframe Architecture view draws the guest as a blueprint computer: live specs and a status LED on the case, then its network adapters, motherboard PCIe cards, capture / audio / USB peripherals and storage. Animated lines run from each network adapter to its switch or VLAN (with DHCP and DNS indicators and the guest's IP address), to an isolated lab when it is in one, and the case connects to the host placement node (Standalone Mode, or the cluster's preferred active host, standby hosts, ZFS sync and floating VIP).",
         steps: [
-          "Click a device to open the Hardware Device Inspector & Editor and press Save & Apply.",
+          "Click a device to open the Hardware Device Inspector & Editor below the diagram, edit its fields and press Save & Apply in its footer.",
           "For a network adapter: interface name or label, MAC address (the shuffle button generates a valid one), driver model, switch, VLAN tag, trunk VLANs, link state and rate limit.",
           "For a virtual device: Guest Device Manager display name, vendor ID (VID), device ID (PID), serial number and address, plus its own settings such as a camera's stream source.",
           "Click a network line or switch node and pick another virtual switch, physical bridge, router, VLAN or lab, then press Apply Now.",
@@ -160,7 +160,7 @@ export const APP_DOCS: Partial<Record<AppId, Doc>> = {
     ],
   },
   architect: {
-    intro: "Network Architect draws your whole environment at three zoom levels. The Overview shows the standalone host or every cluster host, the network ports, the virtual switches and every network, VLAN, isolated lab and custom group as one card. Zoom in or click a card to open that network or group with its gateway, DHCP and DNS servers and members, then click a machine or the Other Devices hub to inspect it. The Blueprint view still draws the full detailed topology.",
+    intro: "Network Architect draws your whole environment at three zoom levels. The Overview runs top to bottom: the internet and gateways, the standalone host or every cluster host with its network ports, the virtual switches, then every network, VLAN, isolated lab and custom group as one card. Zoom in or click a card to open that network or group with its gateway, DHCP and DNS servers and members, then click a machine or the Other Devices hub to inspect it. The Blueprint view draws the full detailed topology in the same top-down tiers, down to every VM and container.",
     steps: [
       "Open Network Architect from the App Gallery or with Open Network Architect in Settings › Network & Services › Network Topology.",
       "Drag to pan and scroll to zoom. The floating bar shows where you are (Overview › VLAN 20 · Production), the zoom level with − and + buttons, and Fit to Screen.",
@@ -339,7 +339,7 @@ export const MODULE_DOCS: Record<ModuleId, Doc> = {
   },
   "network-topology": {
     intro: "An interactive live map of the host, its switches, guests and VPN connections.",
-    steps: ["Scroll the map to see every column; nodes run from the internet uplink through ports and switches to guests and VPN peers.", "Click a node to highlight its connections, see its details and open the screen that owns it.", "Press Open Network Architect for the full infrastructure blueprint with per-network device and port discovery."],
+    steps: ["The map runs top to bottom: the internet uplink, then ports and switches, with guests and VPN peers in rows below the switch they connect to; scroll to see every row.", "Click a node to highlight its connections, see its details and open the screen that owns it.", "Press Open Network Architect for the full infrastructure blueprint with per-network device and port discovery."],
     keywords: "topology map network diagram graph live nodes architect blueprint scan devices",
   },
   "dns-dhcp": {
