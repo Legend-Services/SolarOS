@@ -8,7 +8,7 @@ Multi-host clustering, high availability failover, live migration, out-of-band B
 
 ![Hypervisor & Runtime](screenshots/settings-hypervisor.png)
 
-**Sub-modules:** [Hypervisor Defaults](#hypervisor-defaults) · [Local AI Runtime](#local-ai-runtime) · [Cluster & High Availability](#cluster-high-availability)
+**Sub-modules:** [Hypervisor Defaults](#hypervisor-defaults) · [Local AI Runtime](#local-ai-runtime) · [Cluster & High Availability](#cluster--high-availability)
 
 ## Hypervisor Defaults
 

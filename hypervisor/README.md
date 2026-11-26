@@ -102,7 +102,7 @@ The tty1 console then shows the web URL and the setup code for creating the admi
 
 ## Updates
 
-Control Panel → System & Updates shows *SolarOS* and tracks the `solaros` release branch.
+Settings → System → Info shows *SolarOS* and tracks the `solaros` release branch.
 **Install Update Now** can also upgrade the host's Ubuntu packages
 (`include_system_packages`). Settings, users, data, keys and shares are kept; the root helper and the console
 dashboard are refreshed with the code.

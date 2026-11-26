@@ -12,7 +12,7 @@ It finds everything by itself: the node name, the next free container ID, the be
 - generates a random 14-character admin password and JWT secret,
 - sets up passwordless SSH from the container to the host (for the Host Shell, ZFS snapshots, drivers and network services),
 - installs Python, Node 22, nginx and Samba, builds the app and runs a health check,
-- enables HTTPS on port 443 with a self-signed certificate for the container's IP and hostname (`deploy/selfsigned-cert.sh`, renewed automatically). Your browser warns about it once; get a Let's Encrypt certificate for your own domain in Settings → Network Topology → Domains (DNS-01, renewed automatically) or upload one in Certificates, and updates will keep that one. Plain http keeps working,
+- enables HTTPS on port 443 with a self-signed certificate for the container's IP and hostname (`deploy/selfsigned-cert.sh`, renewed automatically). Your browser warns about it once; get a Let's Encrypt certificate for your own domain in Settings → Network & Services → Domains & Certificates (DNS-01, renewed automatically) or upload one in Certificates, and updates will keep that one. Plain http keeps working,
 - runs a self-test that signs in and calls `/api/v1/bios/status` and `/api/hardware/inventory`, and prints the result in the final box.
 
 ## SolarOS on an existing Ubuntu Server
@@ -60,7 +60,7 @@ Then open **Datacenter → your node → the VM → Console** (noVNC):
 Eject the ISO afterwards with `qm set <vmid> --ide2 none,media=cdrom`; remove the VM with `qm destroy <vmid> --purge`.
 
 
-Both editions update from the same `main` branch in Settings → System Services & Repositories.
+Both editions update from the same `main` branch in Settings → System → System Services & Repositories.
 
 ## Updating & Downgrading Without Losing Settings
 
@@ -79,7 +79,7 @@ Updates and downgrades only replace program files. **Your settings, users, passw
 
 ## Reporting Bugs
 
-Found a problem? Click **Report a Bug**. It's in the **?** Help menu and the user menu in the top bar, in Settings → System Services & Repositories, and in the desktop right-click menu.
+Found a problem? Click **Report a Bug**. It's in the **?** Help menu and the user menu in the top bar, in Settings → System → System Services & Repositories, and in the desktop right-click menu.
 
 1. Pick a category, give it a short title, and describe what happened and how to reproduce it.
 2. Leave **Attach anonymized system diagnostics** on. It adds the SolarDeck and Proxmox VE versions, kernel, CPU/RAM and the last 30 backend log lines. IP and MAC addresses, e-mail addresses, passwords, tokens, JWTs and SSH keys are removed first. Click **Preview** to see exactly what is sent.
@@ -174,7 +174,7 @@ The backend checks the rules every minute. API: `GET|PUT /api/automation/channel
 
 ### Network Topology
 
-Settings → Network Topology → **Topology** draws `GET /api/v1/network/topology`, a `nodes[]` / `edges[]` graph built from the host's interfaces (`/nodes/{node}/network` plus `ip -j link` for MACs and link state), every VM and container's `net0..netN` bridge bindings and IPs (container interfaces, or the QEMU guest agent), the WireGuard server and its peers, and the router's port forwards. Click a node to highlight its connections and see its IP, MAC and link status, with **Open Console**, **Configure Bridge**, **Edit Port Forward** or **Configure VPN**.
+Settings → Network & Services → Network Topology → **Topology** draws `GET /api/v1/network/topology`, a `nodes[]` / `edges[]` graph built from the host's interfaces (`/nodes/{node}/network` plus `ip -j link` for MACs and link state), every VM and container's `net0..netN` bridge bindings and IPs (container interfaces, or the QEMU guest agent), the WireGuard server and its peers, and the router's port forwards. Click a node to highlight its connections and see its IP, MAC and link status, with **Open Console**, **Configure Bridge**, **Edit Port Forward** or **Configure VPN**.
 
 ### Widgets and languages
 
@@ -234,7 +234,7 @@ every other long-running job. The full endpoint list is in [api/README.md](api/R
 
 Some operations are limited to root on the host and can't be done with the API token: ZFS dataset snapshots, bind mounts and `/dev/dri` passthrough for App Center containers, and running installers inside new containers. The installer puts `deploy/proxmox-os-helper.sh` on the host at `/usr/local/sbin/proxmox-os-helper`. The container's SSH key for it is locked to that script (`command="…",restrict`). The helper accepts only a fixed list of commands, validates every argument, and refuses guests that SolarDeck didn't tag.
 
-The Host Shell, container shells, GPU drivers and network services use a second, unrestricted root key. **Anyone signed in to SolarDeck is root on the host, so turn on 2FA** (Settings → Security & 2FA).
+The Host Shell, container shells, GPU drivers and network services use a second, unrestricted root key. **Anyone signed in to SolarDeck is root on the host, so turn on 2FA** (Settings → Privilege & Security → Security & 2FA).
 
 Container root in an unprivileged container is uid `100000` on the host. The installer grants it access to your datasets with additive POSIX ACLs (`setfacl -R`), never `chown`, so existing ownership on the host is unchanged.
 
@@ -256,6 +256,28 @@ cd frontend && npm ci && npm run dev
 node scripts/audit-scaling-and-themes.mjs   # layout + Light/Dark surface and contrast audit of every window, 2 viewports
 ```
 
+## Troubleshooting
+
+Start with **Help & Support → Fix problems**: it runs the health checks and every fix shows what it changes and how to
+undo it. The **FAQ** tab answers the common questions. For everything else:
+
+| Symptom | What to do |
+|---|---|
+| Forgot the admin password | Proxmox VE: `pct exec <container ID> -- grep ADMIN_PASSWORD /opt/proxmox-os/backend/.env`. SolarOS: `grep ADMIN_PASSWORD /opt/solardeck/backend/.env`, or set a new one there and run `systemctl restart solardeck-backend`. |
+| Lost the 2FA phone | Sign in with one of the 8 recovery codes. Without them, delete `backend/data/security.json` (see Known limits). |
+| Signed out right after signing in, or "locked out" | 5 failed sign-ins within 10 minutes lock an address for 1 minute, doubling up to an hour (`Retry-After` header). Wait, or sign in from another address. |
+| A setting, tab or app is missing | It is switched off in **Settings → System → Features & Services**. Switching it back on restores its saved settings. |
+| VM does not start after adding a GPU | IOMMU is off or the host still uses the card. Check *Fix problems* for an IOMMU warning and switch the card to VM Passthrough Mode in **Settings → System → Hardware, GPU & BIOS**, then reboot. |
+| VM console stays black | The VM is off or still booting; with a passed-through primary GPU the picture goes to that card's own monitor. |
+| Console or host shell closes immediately | The console WebSocket closes with 4401 (not signed in) or 4403 (expired single-use console session, older than 60 s, or a cross-origin page). Open the console again from the same SolarDeck tab. |
+| Network change cut off the browser | Wait 60 seconds: *Apply safely* restores the previous network configuration by itself unless you press **Keep Settings**. |
+| Ads still show with DNS ad blocking on | Devices must use this server as their DNS server (set it in your router's DHCP settings); browsers with secure DNS (DoH) bypass it. |
+| VPN connects but nothing is reachable | Forward UDP 51820 on your router to this server and check the WAN interface in the WireGuard server settings. |
+| Disk almost full | Remove old snapshots (**Settings → Storage & Data → Storage & ZFS Pools → Snapshots**), old backups and unused ISOs. |
+| SolarOS VM in Proxmox VE cannot start its own VMs | Turn on nested virtualization: `cat /sys/module/kvm_intel/parameters/nested` (or `kvm_amd`) must say `Y` or `1`, and the VM's CPU type must be `host`. |
+
+Still stuck? **Report a Bug** in the **?** menu opens a pre-filled GitHub issue with anonymized details.
+
 ## Known limits
 
 - Extra accounts (Users & Roles) sign in with a password only; two-factor sign-in belongs to the administrator.
@@ -266,7 +288,7 @@ node scripts/audit-scaling-and-themes.mjs   # layout + Light/Dark surface and co
   need QCOW2 disks (VMs on ZFS volumes are protected with dataset snapshots and backups instead); static container
   addresses use the cloud-init image variants.
 - Schedules, automation rules and update checks run inside the backend. A run that is due while it is down is skipped, not replayed.
-- 2FA has no recovery codes. If you lose your authenticator, delete `backend/data/security.json` in the container.
+- If you lose your authenticator and your 8 recovery codes, delete `backend/data/security.json` on the server (in the container on Proxmox VE) to turn 2FA off.
 - PCIe passthrough needs IOMMU enabled on the host; Help & Support can check it and walk you through the BIOS.
 - App Center installer logs are kept in memory and are lost when the backend restarts (the containers remain).
 - Local AI model download progress is also kept in memory; after a backend restart, start the download again and Ollama resumes from the partial files.

@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.25.1 - Support guides, manuals, API reference & screenshots synced — 2026-11-26
+
+### Added
+- **Two new guides**: *System Info & Hardware Summary* (Settings › System › Info: release, updates, power and the CPU, memory, GPU and storage cards) and *Built-In Docker Engine & the App Center* (what is built in, what App Center installs, and where to manage each). Settings, Control Panel and App Center link to them under related guides.
+- **Server Setup Wizard screenshot** in the Manual (Settings › System › Features & Services › Server Setup Wizard).
+- **WebSockets in the REST API reference**: `docs/api/README.md` now lists the terminal, VNC, host-shell and serial console sockets, with how each one authenticates. The generator fails when a new socket has no entry. The intro explains script sign-in (`POST /api/auth/login` with `otp` for two-factor accounts).
+- **Troubleshooting** table in `docs/TECHNICAL.md` (lost password or 2FA, sign-in lockout, missing features, GPU passthrough, black consoles, closed console sockets, network rollback, ad blocking, VPN, full disks, nested virtualization).
+- `docs/features.md`, *Feature Deep Dives*: the virtual switch, virtual hardware & labs, multi-seat, cluster & HA and security sections moved here from the root README.
+
+### Changed
+- **Navigation paths in every guide, FAQ, tutorial, Manual article and README now name the category**, e.g. *Settings › System › Features & Services* instead of *Settings › Features & Services*, in all five languages. Paths that pointed to the wrong place now open the right module: DNS & AdBlock (DNS, AdBlock & DHCP), certificates (Domains & Certificates), *Virtual Switch & VLANs* (Network & Virtual Switch › Visual Switch), and the old *Control Panel* paths in the SolarOS README. Local AI steps now say *Local AI › Settings › …*.
+- **Root README is shorter**: a 5-minute quick start (Server Setup Wizard, System › Info, Features & Services, first pool, first guest), an updated feature table (Smart Compute Groups, OSI Architecture Explorer, top-down topology with semantic zoom, the DMZ VLAN template, clustering), and a documentation index that links every manual.
+- All Manual screenshots regenerated against v2.25.
+
+### Fixed
+- `docs/TECHNICAL.md` no longer says two-factor sign-in has no recovery codes; it has 8.
+
 ## v2.25.0 - Interactive 7-Layer OSI Architecture Explorer — 2026-11-26
 
 ### Added

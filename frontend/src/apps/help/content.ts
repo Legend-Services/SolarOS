@@ -155,7 +155,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     keywords: "disk drive hdd ssd nvme zfs pool raid mirror raidz new add storage",
     intro: "A ZFS pool combines one or more disks into safe, self-healing storage.",
     steps: [
-      { text: "Open Settings → Storage & ZFS Pools → Disks to check your new disks are listed and healthy.", link: { app: "storage" } },
+      { text: "Open Settings → Storage & Data → Storage & ZFS Pools → Disks to check your new disks are listed and healthy.", link: { app: "storage" } },
       { text: "Start Create ZFS Pool.", link: { app: "storage", intent: "pool" } },
       { text: "Choose a layout: Mirror (2 disks, survives 1 failure) or RAIDZ1 (3+ disks, survives 1 failure). Single has no protection." },
       { text: "Pick the disks — everything on them is erased — and press Create." },
@@ -194,7 +194,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     keywords: "nfs cifs smb nas storage add directory lvm thin mount iso backup location",
     intro: `${edition.platform} can keep VM disks, ISOs and backups on many kinds of storage.`,
     steps: [
-      { text: "Open Settings → Storage & ZFS Pools → Storage backends → Add storage.", link: { app: "storage" } },
+      { text: "Open Settings → Storage & Data → Storage & ZFS Pools → Storage backends → Add storage.", link: { app: "storage" } },
       { text: "Pick the type: NFS or CIFS/SMB for a NAS, Directory for a mounted folder, LVM/ZFS for local disks." },
       { text: "Fill in the server and choose the export/share from the list, tick what it may hold (Backups, ISO images, Disk images) and save." },
     ],
@@ -240,7 +240,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     keywords: "benchmark speed test fast slow disk ssd nvme hdd pool mb/s iops latency seq1m rnd4k fio performance compare",
     intro: "The Benchmark tab measures how fast a drive or pool really is, with the four classic tests used by desktop disk benchmark tools.",
     steps: [
-      { text: "Open Settings → Storage & ZFS Pools → Benchmark.", link: { app: "storage", intent: "benchmark" } },
+      { text: "Open Settings → Storage & Data → Storage & ZFS Pools → Benchmark.", link: { app: "storage", intent: "benchmark" } },
       { text: "Pick a drive or a pool/dataset folder. Safe Read-Only never writes and works on disks in use. Read + Write on a folder uses a temporary file that is deleted afterwards. Press Start All." },
       { text: "SEQ1M Q8T1 and SEQ128K Q32T1 are sequential: big files read or written in order (copying videos, backups, ISO downloads). This is the 'headline' MB/s number." },
       { text: "RND4K Q32T1 is many small random requests at once, like several busy VMs or a database. RND4K Q1T1 is one small request at a time: it decides how snappy a single VM or container feels." },
@@ -257,7 +257,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     intro: "Backups are copies of a whole VM or container you can restore at any time.",
     fix: "backups",
     steps: [
-      { text: "Open Settings → Backup & Restore → 'Backup Now' for a one-time backup of one or all guests.", link: { app: "backup" } },
+      { text: "Open Settings → Storage & Data → Backup & Restore → 'Backup Now' for a one-time backup of one or all guests.", link: { app: "backup" } },
       { text: "Under Schedules, create an automatic job (e.g. every Sunday 02:00, keep the last 4) — or let the Help Center do it for you." },
       { text: "To restore, pick an archive and press Restore. Use a new VM ID to keep the current one, or overwrite it." },
     ],
@@ -272,7 +272,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     fix: "iommu",
     steps: [
       { text: "Turn on IOMMU (VT-d). Help Center → Fix problems → 'Device passthrough (IOMMU / VT-d)' does it for you, and 'BIOS & firmware' shows how to enable VT-d in your BIOS (with a QR code for your phone).", link: { app: "help", intent: "fix" } },
-      { text: "Switch the card to VM Passthrough Mode in Settings → Hardware, GPU & BIOS → GPU & Drivers, then reboot the host.", link: { app: "controlpanel", intent: "hardware" } },
+      { text: "Switch the card to VM Passthrough Mode in Settings → System → Hardware, GPU & BIOS → GPU & Drivers, then reboot the host.", link: { app: "controlpanel", intent: "hardware" } },
       { text: "Create the VM (or edit it) and add the card under Hardware & Passthrough. Keep 'Include HDMI audio' on; tick 'Primary GPU' to use the card's video outputs.", link: { app: "compute", intent: "vm" } },
       { text: "Start the VM and install the GPU driver inside it (e.g. NVIDIA's driver in Windows)." },
     ],
@@ -285,7 +285,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     keywords: "driver nvidia cuda nvidia-smi intel quicksync quick sync transcoding amd rocm install gpu host container plex jellyfin",
     intro: "Use host drivers when containers (Plex, Jellyfin, AI tools) should share the card.",
     steps: [
-      { text: "Open Settings → Hardware, GPU & BIOS and scroll to GPU & Drivers.", link: { app: "controlpanel", intent: "hardware" } },
+      { text: "Open Settings → System → Hardware, GPU & BIOS and scroll to GPU & Drivers.", link: { app: "controlpanel", intent: "hardware" } },
       { text: "Press the install button for your card (NVIDIA, Intel or AMD), confirm, and watch the live log." },
       { text: "Reboot the host when the log asks for it. The GPU card then shows live usage and temperature." },
     ],
@@ -298,7 +298,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     keywords: "adblock ads block tracker dns pihole pi-hole adguard blocklist",
     intro: "The DNS AdBlocker filters ads and trackers for every device that uses your server as its DNS server.",
     steps: [
-      { text: "Open Settings → Network Topology → DNS & AdBlock and press Install.", link: { app: "netservices" } },
+      { text: "Open Settings → Network & Services → DNS, AdBlock & DHCP and press Install.", link: { app: "netservices" } },
       { text: "Choose the network bridge to listen on (your LAN bridge), enable DNS and turn on the StevenBlack and OISD lists. Press 'Update now'." },
       { text: `In your router's settings, set the DNS server to ${edition.host}'s IP address. Devices pick it up after reconnecting.` },
     ],
@@ -311,7 +311,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     keywords: "vpn wireguard remote access phone away from home outside qr tunnel",
     intro: "A VPN lets your phone or laptop connect safely to your home network from anywhere.",
     steps: [
-      { text: "Open Settings → WireGuard VPN, press Install, then Enable.", link: { app: "netservices" } },
+      { text: "Open Settings → Network & Services → WireGuard VPN, press Install, then Enable.", link: { app: "netservices" } },
       { text: "Add a peer (one per device) and press the QR button." },
       { text: "Install the WireGuard app on your phone and scan the QR code." },
       { text: `In your internet router, forward UDP port 51820 to ${edition.host}'s IP.` },
@@ -325,7 +325,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     keywords: "port forward nat router dnat open port game server expose internet",
     intro: "Port forwarding sends traffic arriving at the host on a port to a VM or container.",
     steps: [
-      { text: "Open Settings → Firewall & Port Forwarding → Port Forwarding.", link: { app: "netservices" } },
+      { text: "Open Settings → Network & Services → Firewall & Port Forwarding → Port Forwarding.", link: { app: "netservices" } },
       { text: "Add a port forward: external port, the VM's IP address and port, and TCP/UDP. Press Apply." },
       { text: `If traffic comes from the internet, forward the same port in your home router to ${edition.host}.` },
     ],
@@ -338,7 +338,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     keywords: "https ssl tls certificate lets encrypt acme padlock secure domain",
     intro: "A certificate removes browser security warnings.",
     steps: [
-      { text: "Open Settings → Network Topology → Certificates.", link: { app: "netservices" } },
+      { text: "Open Settings → Network & Services → Domains & Certificates.", link: { app: "netservices" } },
       { text: "Let's Encrypt: register an account, add your domain (and a DNS plugin if the host isn't reachable from the internet) and press Order." },
       { text: "Own certificate: paste the certificate and private key and apply them to SolarDeck." },
     ],
@@ -351,7 +351,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     keywords: "2fa two factor totp authenticator security password login protect",
     intro: "With 2FA, a stolen password alone is not enough to sign in.",
     steps: [
-      { text: "Open Settings → Security & 2FA.", link: { app: "controlpanel", intent: "security" } },
+      { text: "Open Settings → Privilege & Security → Security & 2FA.", link: { app: "controlpanel", intent: "security" } },
       { text: "Press 'Set up 2FA', scan the QR code with an authenticator app and enter the 6-digit code." },
     ],
   },
@@ -363,9 +363,9 @@ const BASE_TUTORIALS: Tutorial[] = [
     keywords: "user users account group role permission acl access family colleague token api pool",
     intro: "Other people get only the rights you give them.",
     steps: [
-      { text: `Open Settings → Users & Roles → Users and press 'Add user' (realm '${edition.localRealm}', set a password).`, link: { app: "datacenter" } },
+      { text: `Open Settings → Privilege & Security → Users & Roles → Users and press 'Add user' (realm '${edition.localRealm}', set a password).`, link: { app: "datacenter" } },
       { text: "Optional: put users in a Group and VMs in a Pool to manage many at once." },
-      { text: `Settings → Users & Roles → Permissions → Add: choose the user or group, a path (e.g. /vms/101 or /pool/family) and a role such as ${edition.vmUserRole}.` },
+      { text: `Settings → Privilege & Security → Users & Roles → Permissions → Add: choose the user or group, a path (e.g. /vms/101 or /pool/family) and a role such as ${edition.vmUserRole}.` },
     ],
   },
   {
@@ -376,7 +376,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     keywords: "firewall rule block allow port security incoming",
     intro: `The ${edition.platform} firewall filters traffic to the host and to each VM.`,
     steps: [
-      { text: "Open Settings → Firewall & Port Forwarding.", link: { app: "datacenter" } },
+      { text: "Open Settings → Network & Services → Firewall & Port Forwarding.", link: { app: "datacenter" } },
       { text: "First add rules that ALLOW TCP 22 (SSH) and 80/443 (SolarDeck) from your network." },
       { text: "Only then enable the firewall. SolarDeck warns you if you are about to lock yourself out." },
     ],
@@ -389,7 +389,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     keywords: "update upgrade apt packages security patch new version solardeck repository",
     intro: `There are two kinds of updates: ${edition.host} itself and the SolarDeck desktop.`,
     steps: [
-      { text: "Host: open Settings → System Services & Repositories → OS Updates, press Refresh, then Upgrade.", link: { app: "system" } },
+      { text: "Host: open Settings → System → System Services & Repositories → OS Updates, press Refresh, then Upgrade.", link: { app: "system" } },
       { text: "SolarDeck: Settings → System → Info → 'Check for Updates'.", link: { app: "controlpanel", intent: "power" } },
     ],
   },
@@ -400,7 +400,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     minutes: 1,
     keywords: "hardware cpu memory ram temperature sensors gpu disk nic motherboard bios inventory",
     intro: "Settings shows every component with temperatures and health.",
-    steps: [{ text: "Open Settings → Hardware, GPU & BIOS.", link: { app: "controlpanel", intent: "hardware" } }],
+    steps: [{ text: "Open Settings → System → Hardware, GPU & BIOS.", link: { app: "controlpanel", intent: "hardware" } }],
   },
   {
     id: "dock",
@@ -411,7 +411,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     intro: "Make the desktop yours.",
     steps: [
       { text: "The sun / moon button in the top bar (or taskbar) switches Light and Dark Mode; the palette button next to it changes theme and wallpaper." },
-      { text: "Settings → General & Appearance: 11 built-in themes, 4 wallpapers each, your own wallpaper (upload, image URL or gradient), blur and dimming. Each theme keeps its own wallpaper.", link: { app: "controlpanel", intent: "appearance" } },
+      { text: "Settings → System → General & Appearance: 11 built-in themes, 4 wallpapers each, your own wallpaper (upload, image URL or gradient), blur and dimming. Each theme keeps its own wallpaper.", link: { app: "controlpanel", intent: "appearance" } },
       { text: "Create Theme or the copy button on any theme opens the Theme Creator. The download button exports a .solardeck-theme.json file; Import adds one." },
       { text: "Right-click a Dock icon → 'Remove from Dock' or 'Keep in Dock'. Drag icons to reorder them. Icon size, magnification and auto-hide are further down in Appearance & Themes." },
     ],
@@ -434,23 +434,23 @@ const BASE_FAQS: (Faq | Slot)[] = [
   { id: "password", q: "I forgot the SolarDeck password. What now?", a: "On the server, run: grep ADMIN_PASSWORD /opt/solardeck/backend/.env — or set a new one in that file and restart the backend (systemctl restart solardeck-backend).", keywords: "forgot password reset login locked out" },
   { id: "2fa", q: "I lost my 2FA phone and can't sign in.", a: "On the server run: rm /opt/solardeck/backend/data/security.json — this turns 2FA off. Set it up again afterwards.", keywords: "2fa lost phone code locked out authenticator" },
   { slot: "repo-401" },
-  { q: "My VM doesn't start after adding a graphics card.", a: "Usually IOMMU is off or the card is still used by the host. Check Fix problems for an IOMMU warning, and switch the card to VM Passthrough Mode in Settings → Hardware, GPU & BIOS, then reboot.", keywords: "gpu passthrough vm not start error iommu vfio", link: { app: "controlpanel", intent: "hardware" } },
+  { q: "My VM doesn't start after adding a graphics card.", a: "Usually IOMMU is off or the card is still used by the host. Check Fix problems for an IOMMU warning, and switch the card to VM Passthrough Mode in Settings → System → Hardware, GPU & BIOS, then reboot.", keywords: "gpu passthrough vm not start error iommu vfio", link: { app: "controlpanel", intent: "hardware" } },
   { q: "The VM console is black.", a: "The VM may be off or still booting. Start it in Compute Manager. With a passed-through 'Primary GPU' the picture goes to the card's own monitor output instead of the console.", keywords: "console black screen vnc nothing", link: { app: "compute" } },
   { q: "The container Shell button asks for nothing — is that safe?", a: "Yes, it opens a root shell over SolarDeck's own key. Only people signed in to SolarDeck can do this, so keep your password strong and 2FA on.", keywords: "shell container root login password safe security" },
   { q: "What is the difference between a VM and a container?", a: "A VM is a full computer (any OS, including Windows). A container shares the host's Linux kernel: much lighter and faster, Linux only.", keywords: "vm container difference lxc which choose" },
   { q: "How much RAM and CPU should I give a VM?", a: "Start with 2 cores and 4 GB for Linux, 4 cores and 8 GB for Windows. Watch Resource Monitor and adjust later in the guest's Resources tab.", keywords: "ram memory cpu cores how much size vm" },
   { q: "Why does one VM show up in several groups?", a: "It has network cards on more than one network (or you added it to custom groups). Compute Manager lists it in every group it belongs to, each time with the network card and IP address it uses there; the 2 Networks badge lists them all.", keywords: "vm twice duplicate several groups multi homed two networks", link: { app: "compute" } },
-  { q: "Can I rename a VLAN group in Compute Manager?", a: "Network groups take their name and color from the VLAN, switch or lab, so rename the VLAN in Settings → Network & Services → Virtual Switch & VLANs. Or create a custom group linked to that network and name it as you like.", keywords: "rename vlan group network group name color edit", link: { app: "compute" } },
+  { q: "Can I rename a VLAN group in Compute Manager?", a: "Network groups take their name and color from the VLAN, switch or lab, so rename the VLAN in Settings → Network & Services → Network & Virtual Switch → Visual Switch. Or create a custom group linked to that network and name it as you like.", keywords: "rename vlan group network group name color edit", link: { app: "compute" } },
   { q: "Which VLAN template should I pick, and what is the DMZ for?", a: "Create New VLAN offers 10 · Management (admin access to the host and switches), 20 · IoT Devices, 30 · Guest Network (internet only), 40 · Lab, 50 · Cameras (local NVR, usually no internet) and 60 · DMZ. Put internet-facing services such as a reverse proxy, web server or game server in the DMZ: it is a separate 802.1Q-tagged VLAN with its own 10.10.60.0/24 subnet, so with zone rules in Firewall & Zones a compromised service there cannot reach Management or your storage. Hover any template for its full explanation.", keywords: "vlan template preset dmz demilitarized zone management iot guest lab cameras which choose isolate", link: { app: "settings", intent: { module: "network-switch", tab: "vswitch" } } },
   { q: "What are the OSI layers, and which one is my problem on?", a: "The OSI model splits networking into seven layers: L1 Physical (cable, link up/down), L2 Data Link (MAC addresses, switches, VLANs), L3 Network (IP addresses, gateways, routing), L4 Transport (TCP/UDP ports), L5 Session, L6 Presentation (TLS) and L7 Application (the website or service). Open a guest and choose OSI Architecture, or press OSI Architecture in Network Topology, Network Architect, Network & Services or App Center, to see which layers a component works on, with its live values and a troubleshooting tip per layer. Work from the bottom up: link, VLAN, IP and gateway, port, then the app.", keywords: "osi model layers seven 7 layer which troubleshoot learn physical data link network transport session presentation application", link: { app: "compute" } },
   { q: "Where are my files stored?", a: "ZFS datasets on your data pools appear under /mnt/storage in File Station and can be shared with Network Shares.", keywords: "files where stored location storage path", link: { app: "files", intent: "/" } },
-  { q: "My disk is almost full.", a: "Delete old snapshots (Settings → Storage & ZFS Pools → Snapshots), old backups (Backup Center) and unused ISOs (Compute Manager → ISO & Templates), or add disks.", keywords: "disk full space capacity storage almost", link: { app: "storage" } },
+  { q: "My disk is almost full.", a: "Delete old snapshots (Settings → Storage & Data → Storage & ZFS Pools → Snapshots), old backups (Backup Center) and unused ISOs (Compute Manager → ISO & Templates), or add disks.", keywords: "disk full space capacity storage almost", link: { app: "storage" } },
   { q: "Ads still show after enabling the AdBlocker.", a: `Devices must use ${edition.host} as DNS server: set it in your router's DHCP settings and reconnect the devices. Browsers with 'secure DNS' (DoH) bypass it; turn that off.`, keywords: "adblock ads still showing dns not working", link: { app: "netservices" } },
   { q: "My VPN connects but I can't reach anything.", a: `Forward UDP 51820 in your home router to ${edition.host}, and make sure the WAN interface in WireGuard Server settings is your LAN bridge (e.g. ${edition.bridgePrefix}0).`, keywords: "vpn wireguard connected no internet cannot reach", link: { app: "netservices" } },
   { id: "break", q: "Will SolarDeck break my server?", a: "SolarDeck uses standard tools. Risky actions always ask for confirmation, and every Help Center fix shows exactly what it changes and how to undo it.", keywords: "safe break damage risk" },
   { q: "How do I update SolarDeck itself?", a: "Settings → System → Info → Check for Updates. Your settings are kept.", keywords: "update solardeck new version upgrade desktop", link: { app: "controlpanel", intent: "power" } },
   { slot: "web-ui" },
-  { id: "more-help", q: "How do I get more help?", a: "Run Fix problems first. For anything else, use Report a Bug in Settings → System Services & Repositories → Report a Bug to reach the SolarDeck developers.", keywords: "help support forum contact more" },
+  { id: "more-help", q: "How do I get more help?", a: "Run Fix problems first. For anything else, use Report a Bug in Settings → System → System Services & Repositories → Report a Bug to reach the SolarDeck developers.", keywords: "help support forum contact more" },
 ];
 
 /** Shared entries, replaced (or removed with null) by the edition's own with the same id; slots appear only when the edition fills them. */

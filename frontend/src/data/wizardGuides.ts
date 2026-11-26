@@ -74,7 +74,7 @@ export const WELCOME: Guide = {
   steps: [
     {
       title: "Your Desktop & Widgets",
-      body: "This is your server's desktop. Every app has an icon here — click one to open it (prefer double-click? Change it under Settings → General & Appearance). The glass cards on the right are live widgets showing CPU, memory, storage health and running machines.",
+      body: "This is your server's desktop. Every app has an icon here — click one to open it (prefer double-click? Change it under Settings → System → General & Appearance). The glass cards on the right are live widgets showing CPU, memory, storage health and running machines.",
       bullets: [
         "Right-click empty space for quick actions like New Virtual Machine or View Options.",
         "Use View Options (the grid icon in the top bar) to switch between Grid and List, and to change icon size and spacing.",
@@ -87,7 +87,7 @@ export const WELCOME: Guide = {
       bullets: [
         "Click the four-squares button at the left of the Dock to open the App Gallery: every app, with search, categories, sorting and drag-and-drop ordering.",
         "Right-click a Dock icon to keep it in the Dock or remove it. Drag icons to reorder them.",
-        "Change Dock size and spacing in View Options or Settings → General & Appearance.",
+        "Change Dock size and spacing in View Options or Settings → System → General & Appearance.",
       ],
       action: { label: "Open General & Appearance", app: "controlpanel", intent: "appearance" },
     },
@@ -216,6 +216,7 @@ export const APP_GUIDES: Record<AppId, Guide> = {
       "Watch the progress, then open the app's web address shown at the end.",
     ],
     action: { label: "Open App Center", app: "appcenter" },
+    related: ["docker-appcenter"],
   }),
   backup: guide({
     id: "backup",
@@ -352,7 +353,7 @@ export const APP_GUIDES: Record<AppId, Guide> = {
       "The CPU, memory and pool pills in the top bar open Resource Monitor and Storage & ZFS Pools directly.",
     ],
     action: { label: "Open System Info", app: "settings", intent: "system-info" },
-    related: ["features-services", "server-setup", "desktop-tour", "security-hardening", "security-modules", "net-reverse-proxy", "dr-321", "users-roles"],
+    related: ["system-info", "features-services", "server-setup", "desktop-tour", "security-hardening", "security-modules", "net-reverse-proxy", "dr-321", "users-roles"],
   }),
   controlpanel: guide({
     id: "controlpanel",
@@ -374,7 +375,7 @@ export const APP_GUIDES: Record<AppId, Guide> = {
       "To report a bug, use Help & Support → Ask, then open an issue on the project's GitHub page with what you saw.",
     ],
     action: { label: "Open General & Appearance", app: "controlpanel", intent: "appearance" },
-    related: ["security-hardening"],
+    related: ["system-info", "security-hardening"],
   }),
   system: guide({
     id: "system",
@@ -402,7 +403,7 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     cards: [
       { title: "VRAM fit", body: "Green means the whole model fits in GPU memory and runs at full speed. Amber is a tight fit. Hybrid means part of it runs on the CPU, which is much slower." },
       { title: "Model sizes", body: "The number with a B is billions of parameters. Bigger is smarter but needs more memory: a 24 GB card like the RTX 3090 runs models up to about 32B at full speed." },
-      { title: "API for other apps", body: "Copy the OpenAI-compatible address from Settings → Hardware into any tool that supports a custom OpenAI endpoint." },
+      { title: "API for other apps", body: "Copy the OpenAI-compatible address from Local AI → Settings → Hardware into any tool that supports a custom OpenAI endpoint." },
     ],
     when: [
       "You want a private assistant for writing, coding or questions about your documents.",
@@ -413,9 +414,9 @@ export const APP_GUIDES: Record<AppId, Guide> = {
       "Install Local AI Studio from App Center → AI & Compute and pick your GPU in the hardware picker.",
       "Open Local AI → Settings → Download models, search or filter by category, and click Download Model.",
       "Back in the chat, pick the model under the message box and start typing; each reply shows its tokens per second.",
-      "Use Settings → Installed models to unload a model from VRAM or delete it, and Settings → Storage to move your models to another disk.",
+      "Use Local AI → Settings → Installed models to unload a model from VRAM or delete it, and Local AI → Settings → Storage to move your models to another disk.",
     ],
-    tip: "Turn on KV Cache Quantization in Settings → Hardware to fit longer conversations into the same VRAM.",
+    tip: "Turn on KV Cache Quantization in Local AI → Settings → Hardware to fit longer conversations into the same VRAM.",
     action: { label: "Open Local AI", app: "local-ai" },
   }),
   architect: guide({
@@ -501,7 +502,7 @@ const SUB_GUIDES: Guide[] = [
       "Click a machine or the Other Devices hub to inspect it.",
       "Click Overview in the floating bar, or zoom back out, to return; Fit to Screen shows everything again.",
     ],
-    tip: "The same groups appear as pills in Settings → Network & Services → Virtual Switch & VLANs; click one to jump straight into it here.",
+    tip: "The same groups appear as pills in Settings → Network & Services → Network & Virtual Switch → Visual Switch; click one to jump straight into it here.",
     action: { label: "Open Network Architect", app: "architect" },
   }),
   guide({
@@ -588,7 +589,7 @@ const SUB_GUIDES: Guide[] = [
     how: [
       "Turn on VT-d / AMD-Vi (IOMMU) in the BIOS: Help & Support → BIOS & firmware shows the exact menu.",
       "Run Help & Support → Fix problems: if IOMMU is off on the host, press Fix it for me and reboot.",
-      "For GPUs, switch the card to passthrough mode in Settings → Hardware, GPU & BIOS → GPU & Drivers.",
+      "For GPUs, switch the card to passthrough mode in Settings → System → Hardware, GPU & BIOS → GPU & Drivers.",
       "Shut down the VM, open Compute Manager → Edit → Hardware, and Add PCI/GPU device or Add USB device.",
       "Tick \"include audio\" for GPUs, then start the VM and install the device's drivers inside it.",
     ],
@@ -628,7 +629,7 @@ const SUB_GUIDES: Guide[] = [
     what: "A pool combines drives into one big protected space. Datasets are folders inside the pool, each with its own settings like quotas and compression.",
     when: ["You added new empty drives.", "You want separate areas for media, documents and backups."],
     how: [
-      "Settings → Storage & ZFS Pools → Disks & SMART: make sure the new drives show Unused (wipe them if they held old data).",
+      "Settings → Storage & Data → Storage & ZFS Pools → Disks & SMART: make sure the new drives show Unused (wipe them if they held old data).",
       "ZFS Pools → Create pool: name it (for example tank), tick the drives, pick a RAID level, Create.",
       "Volumes & Datasets → Create: pick the pool, name the dataset (for example tank/media).",
       "Leave \"make available in File Station\" on, so it appears under /mnt/storage.",
@@ -645,7 +646,7 @@ const SUB_GUIDES: Guide[] = [
     what: "SMART is a health report built into every drive. Snapshots are instant, space-saving copies of a dataset you can roll back to.",
     when: ["A drive makes noise or the server feels slow.", "Protecting documents against accidental deletion or ransomware."],
     how: [
-      "Settings → Storage & ZFS Pools → Disks & SMART: green PASSED is good; FAILED means replace the drive soon.",
+      "Settings → Storage & Data → Storage & ZFS Pools → Disks & SMART: green PASSED is good; FAILED means replace the drive soon.",
       "Click Inspect SMART for temperature, power-on hours, life used and error counters. Rising reallocated or media errors are a warning sign.",
       "Snapshots & Schedules → Add schedule: pick a dataset, Hourly/Daily/Weekly, and how many to keep.",
       "To undo a mistake, find the snapshot and press Roll back.",
@@ -669,7 +670,7 @@ const SUB_GUIDES: Guide[] = [
       "A SMART test or surface scan reported failures.",
     ],
     how: [
-      "Settings → Storage & ZFS Pools → ZFS Pools: find the drive marked FAULTED, DEGRADED or with errors.",
+      "Settings → Storage & Data → Storage & ZFS Pools → ZFS Pools: find the drive marked FAULTED, DEGRADED or with errors.",
       "Note its serial number (Disks & SMART → List view shows it next to the device).",
       "Press Set Offline and confirm.",
       "Remove the drive with that serial and insert the new one (shut down first if your bays are not hot-swap).",
@@ -696,7 +697,7 @@ const SUB_GUIDES: Guide[] = [
       "Surface scan: to find exactly how many bad sectors a drive has.",
     ],
     how: [
-      "Settings → Storage & ZFS Pools → Disks & SMART → Scan Drive on the drive.",
+      "Settings → Storage & Data → Storage & ZFS Pools → Disks & SMART → Scan Drive on the drive.",
       "Pick a test. You can close the window; it keeps running on the server.",
       "Watch the progress bar and estimated time, or press Abort.",
       "Read the result in the SMART self-test history: 'Completed without error' is good.",
@@ -717,7 +718,7 @@ const SUB_GUIDES: Guide[] = [
     ],
     when: ["Comparing an NVMe drive with a hard-disk pool.", "Checking a new drive delivers its rated speed.", "Finding out why VMs feel slow."],
     how: [
-      "Settings → Storage & ZFS Pools → Benchmark: pick a drive or a pool folder.",
+      "Settings → Storage & Data → Storage & ZFS Pools → Benchmark: pick a drive or a pool folder.",
       "Keep Safe Read-Only for drives in use; Read + Write on a folder uses a temporary file that is deleted afterwards.",
       "Press Start All, or run a single row.",
       "Switch between MB/s, IOPS and Latency µs (lower latency is better).",
@@ -734,7 +735,7 @@ const SUB_GUIDES: Guide[] = [
     what: "Your server answers every \"where is this website?\" question for your network (DNS). With AdBlock on, it simply refuses to answer for known ad and tracker domains, so ads vanish everywhere — phones, TVs and consoles included.",
     when: ["Removing ads from smart TVs and apps that ad blockers can't reach.", "Giving devices friendly names like nas.home."],
     how: [
-      "Settings → Network Topology → DNS & AdBlock: press Install if asked.",
+      "Settings → Network & Services → DNS, AdBlock & DHCP: press Install if asked.",
       "Turn on the DNS server and pick an upstream provider (for example Cloudflare or Quad9).",
       "Turn on AdBlocker and choose block lists (StevenBlack is a good start).",
       "In your router's settings, set the DHCP DNS server to this server's IP address.",
@@ -778,13 +779,13 @@ const SUB_GUIDES: Guide[] = [
     ],
     when: ["Smart home gadgets or cameras should not see your PCs.", "Guests need Wi-Fi without access to your files.", "You publish a service to the internet and want it fenced off."],
     how: [
-      "Settings → Network & Services → Virtual Switch & VLANs: press + Create New VLAN.",
+      "Settings → Network & Services → Network & Virtual Switch → Visual Switch: press + Create New VLAN.",
       "Hover a template to read what it is for and how it works, then click it to fill in the ID, name, host IP, description and color.",
       "Press Save and apply the staged change; drag ports or guest network cards onto the new VLAN card.",
       "Add matching zones and rules in Firewall & Zones so the VLAN can only reach what its template describes.",
     ],
     tip: "A VLAN on its own only separates broadcast domains; the firewall rules between zones are what stop traffic from crossing.",
-    action: { label: "Open Virtual Switch & VLANs", app: "settings", intent: { module: "network-switch", tab: "vswitch" } },
+    action: { label: "Open Network & Virtual Switch", app: "settings", intent: { module: "network-switch", tab: "vswitch" } },
   }),
   guide({
     id: "osi-explorer",
@@ -816,7 +817,7 @@ const SUB_GUIDES: Guide[] = [
     what: "WireGuard creates an encrypted tunnel from your phone or laptop back to your home network, so you can use your server and block ads while away — without exposing anything else to the internet.",
     when: ["Opening File Station or Jellyfin from a hotel or mobile data.", "Using public Wi-Fi safely."],
     how: [
-      "Settings → WireGuard VPN: press Install.",
+      "Settings → Network & Services → WireGuard VPN: press Install.",
       "Keep the suggested port (51820) and VPN subnet, then Enable.",
       "On your internet router, forward UDP port 51820 to this server.",
       "Add a peer for each device (for example phone) and click its QR code button.",
@@ -855,7 +856,7 @@ const SUB_GUIDES: Guide[] = [
     ],
     when: ["Right after installing, before the server is reachable from other networks.", "When the score shows Action Recommended.", "After a phone, laptop or password may have been exposed."],
     how: [
-      "Settings → Security & 2FA: look at the score and the checklist.",
+      "Settings → Privilege & Security → Security & 2FA: look at the score and the checklist.",
       "Press Apply Recommended Hardening; follow the live log until it finishes.",
       "Two-Factor Authentication → Set Up 2FA: scan the QR code, enter the code, then download the recovery codes and keep them somewhere safe.",
       "Active Sessions: revoke devices you don't recognise, or Revoke All Other Sessions.",
@@ -881,7 +882,7 @@ const SUB_GUIDES: Guide[] = [
       "Turn the module on; keep Isolated Container (Recommended) and pick the DMZ if you have one.",
       "SSL Certificates: create the private root CA and download it, or request a Let's Encrypt certificate.",
       "Proxy Hosts: add the domain, pick the VM, container or app, choose the certificate and switch on the 2FA gate if needed.",
-      "Point the domain at SolarDeck in your DNS (Settings → DNS, AdBlock & DHCP can do this for local names).",
+      "Point the domain at SolarDeck in your DNS (Settings → Network & Services → DNS, AdBlock & DHCP can do this for local names).",
     ],
     tip: "Every change is tested before it goes live; a mistake never takes the other sites down.",
     action: { label: "Open Reverse Proxy & SSL", app: "settings", intent: "reverse-proxy" },
@@ -894,7 +895,7 @@ const SUB_GUIDES: Guide[] = [
     what: "Optional features such as the reverse proxy, offsite backups or NFS can each be switched on or off, run in an isolated container or directly on the host, and be pinned to the management network, a VLAN, the DMZ or an isolated lab. Pinned modules get firewall rules that allow only their own service ports.",
     when: ["Before exposing a service to the internet.", "When you want a feature off entirely until you need it.", "To keep a service away from your management network."],
     how: [
-      "Settings → Security-by-Design Modules lists every module.",
+      "Settings → Privilege & Security → Security-by-Design Modules lists every module.",
       "Turn a module on with its switch.",
       "Pick Isolated Container where available (recommended for anything reachable from outside).",
       "Choose the network, pick the switch and VLAN, and press Apply.",
@@ -943,7 +944,7 @@ const SUB_GUIDES: Guide[] = [
     ],
     when: ["The sidebar shows things you never use.", "You set up a dedicated storage, gateway or AI box.", "Someone new should not be overwhelmed."],
     how: [
-      "Open Settings › Features & Services.",
+      "Open Settings › System › Features & Services.",
       "Flip switches, or press a quick preset such as Minimal Core or Home & Media Server.",
       "Press Re-run Setup Wizard to choose server roles again.",
     ],
@@ -963,7 +964,7 @@ const SUB_GUIDES: Guide[] = [
     ],
     when: ["Right after installing.", "The server takes on a new job.", "You want to start over with a clean selection."],
     how: [
-      "Open Settings › Features & Services and press Re-run Setup Wizard.",
+      "Open Settings › System › Features & Services and press Re-run Setup Wizard.",
       "Tick roles and the topology, press Next (or Customize Services).",
       "Tick apps, check the summary and decide whether to skip the desktop tour.",
       "Press Setup My Server and wait for the finish screen.",
@@ -977,7 +978,7 @@ const SUB_GUIDES: Guide[] = [
     app: "help",
     title: "Interactive Desktop Tour",
     blurb: "Five speech balloons that show where everything lives.",
-    what: "The tour points at the real desktop: the search bar, the system tray and Task Center, the widgets, the Dock or taskbar with your apps, and Settings › Features & Services. Each balloon has Back, Next and Skip Guide.",
+    what: "The tour points at the real desktop: the search bar, the system tray and Task Center, the widgets, the Dock or taskbar with your apps, and Settings › System › Features & Services. Each balloon has Back, Next and Skip Guide.",
     when: ["You just set up the server.", "Someone new uses the desktop.", "You forgot where something is."],
     how: [
       "Open Help & Support and press Start tour (or the ? menu in the top bar › Interactive Desktop Tour).",
@@ -985,6 +986,50 @@ const SUB_GUIDES: Guide[] = [
     ],
     action: { label: "Open Help & Support", app: "help" },
     related: ["features-services", "server-setup"],
+  }),
+  guide({
+    id: "system-info",
+    app: "settings",
+    title: "System Info & Hardware Summary",
+    blurb: "Your server's version, power buttons, updates and hardware on one page.",
+    what: "Settings › System › Info is the first page Settings opens on. The top shows the operating system and SolarDeck release, kernel, architecture, hypervisor driver, uptime and cluster membership, next to the hostname and the Reboot and Shut Down buttons. Below that is a Software Update bar and four hardware cards.",
+    cards: [
+      { title: "Software Update", body: "Check for Updates compares your release with the newest one and shows its notes. Install Update starts it; the live progress opens in System Services & Repositories › SolarDeck Updates." },
+      { title: "Processor & Memory", body: "CPU model, cores and threads, clock, temperature and load; total memory with a usage bar, the ZFS ARC cache and swap." },
+      { title: "Graphics & Storage", body: "Every integrated and discrete GPU with VRAM, driver and passthrough state; physical disks with their SMART summary and each ZFS pool with health and usage." },
+    ],
+    when: ["You want to know which version is running.", "Before and after an update.", "Checking temperatures, memory or disk health at a glance.", "Restarting or shutting down the server."],
+    how: [
+      "Open Settings › System › Info.",
+      "Press Check for Updates, then Install Update if a new release is shown.",
+      "Press Reboot or Shut Down and type the host name to confirm.",
+      "Click Hardware, GPU & BIOS or Storage & ZFS Pools on a hardware card for the full details.",
+    ],
+    tip: "On SolarOS the pencil next to the hostname renames the server. A hypervisor node or cluster member keeps its name, because renaming it would detach its guests.",
+    action: { label: "Open System Info", app: "settings", intent: "system-info" },
+    related: ["system", "features-services", "monitor"],
+  }),
+  guide({
+    id: "docker-appcenter",
+    app: "appcenter",
+    title: "Built-In Docker Engine & the App Center",
+    blurb: "What is built in, what App Center installs, and where to manage each.",
+    what: "Docker Engine & Compose, SMB file sharing and the reverse proxy with SSL are part of SolarDeck itself: you switch them on in Settings › System › Features & Services, so App Center does not list them. App Center installs ready-made apps (Portainer CE, Local AI Studio, Jellyfin Media Server, AdGuard Home and Immich), each in its own container, as many labelled instances as you like.",
+    cards: [
+      { title: "Docker Engine & Compose", body: "Managed in Compute › Docker: run the engine in an Isolated Container (recommended) or Host Native, pin it to a network, then start, stop and remove containers and Compose stacks." },
+      { title: "Built-in services", body: "SMB shares live in Settings › Storage & Data › Shared Folders & SMB; publishing apps with HTTPS in Settings › Network & Services › Reverse Proxy & SSL." },
+      { title: "Your apps", body: "Settings › System › Installed Apps & Instances lists every installed instance with its label, IP address and status, and uninstalls it with or without its data." },
+    ],
+    when: ["You want containers without installing a separate Docker app.", "Installing a media server, photo library, ad blocker or local AI.", "Running two copies of one app, for example a test Portainer."],
+    how: [
+      "Switch on Docker Engine & Compose in Settings › System › Features & Services.",
+      "Open Compute › Docker, pick Isolated Container or Host Native and the network, and press Install Docker Engine.",
+      "Open App Center, pick an app, add an optional Instance label (for example Dev), review the resources and press Install.",
+      "Manage or remove instances in Settings › System › Installed Apps & Instances.",
+    ],
+    tip: "Prefer a web interface for Docker? Install Portainer CE and connect it to this engine with the Portainer Agent.",
+    action: { label: "Open App Center", app: "appcenter" },
+    related: ["appcenter", "features-services", "net-reverse-proxy", "shares"],
   }),
 ];
 

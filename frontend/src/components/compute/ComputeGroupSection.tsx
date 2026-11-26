@@ -390,7 +390,7 @@ export function GroupModal({ open, group, guests, groups, onClose, onSaved }: {
   );
 }
 
-/** Network and custom groups as zoom pills (Virtual Switch & VLANs): each opens Network Architect zoomed into that group. */
+/** Network and custom groups as zoom pills (Settings › Network & Services › Network & Virtual Switch): each opens Network Architect zoomed into that group. */
 export function GroupZoomPills() {
   const { t } = useTranslation();
   const { groups } = useComputeGroups(10000);

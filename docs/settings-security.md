@@ -8,7 +8,7 @@ Users & RBAC roles, two-factor authentication & passkeys, security posture harde
 
 ![Privilege & Security](screenshots/settings-security.png)
 
-**Sub-modules:** [Users & Roles](#users-roles) · [Security & 2FA](#security-2fa) · [Security Posture & Hardening](#security-posture-hardening) · [Audit & System Logs](#audit-system-logs) · [Security-by-Design Modules](#security-by-design-modules)
+**Sub-modules:** [Users & Roles](#users--roles) · [Security & 2FA](#security--2fa) · [Security Posture & Hardening](#security-posture--hardening) · [Audit & System Logs](#audit--system-logs) · [Security-by-Design Modules](#security-by-design-modules)
 
 ## Users & Roles
 
