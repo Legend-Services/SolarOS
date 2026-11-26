@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
-import { Cable, CircleHelp, Layers, Network, Pencil, Plus, RefreshCw, Router, Server, ShieldCheck, Trash2, Undo2, Wifi } from "lucide-react";
+import { Cable, CircleHelp, Globe, Layers, Network, Pencil, Plus, RefreshCw, Router, Server, ShieldCheck, Trash2, Undo2, Wifi } from "lucide-react";
+import { VipsPanel } from "../cluster/ClusterDialogs";
 import { api, ApiError } from "../../lib/api";
 import type { Guest } from "../../lib/types";
 import { useTranslation, type TKey } from "../../i18n";
@@ -11,12 +12,12 @@ import { Field, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, Gl
 
 type VlanMode = "access" | "trunk" | "unassigned";
 interface Physical { name: string; mac: string; link_up: boolean; speed_mbps: number | null; driver: string | null; pci_slot: string | null; assigned_bridge: string | null; vlan_mode: VlanMode; access_vlan: number | null; tagged_vlans: number[]; ipv4_cidr: string | null; method: string; mtu: number | null }
-interface Bridge { name: string; vlan_aware: boolean; ipv4_cidr: string | null; ipv4_gateway: string | null; ipv6_cidr: string | null; dns_servers: string[]; method: string; mtu: number | null; autostart: boolean; mode: "bridged" | "nat" | "isolated"; member_ports: string[]; comment: string; live: boolean; protected: boolean }
+interface Bridge { name: string; vlan_aware: boolean; ipv4_cidr: string | null; ipv4_gateway: string | null; ipv6_cidr: string | null; dns_servers: string[]; method: string; mtu: number | null; autostart: boolean; mode: "bridged" | "nat" | "isolated"; member_ports: string[]; comment: string; live: boolean; protected: boolean; clustered?: boolean; synced_hosts?: number }
 interface HostVnic { name: string; type: "vlan" | "dummy" | "veth"; parent: string | null; vlan_id: number | null; ipv4_cidr: string | null; method: string; link_up: boolean; assigned_bridge: string | null; vlan_mode: VlanMode; access_vlan: number | null; tagged_vlans: number[] }
 interface GuestVnic { guest_id: number; guest_name: string; guest_type: "vm" | "lxc"; status: string; net_id: string; bridge: string; vlan_tag: number | null; trunks: number[]; model: string; mac: string | null; ip_address: string | null; rate_mbps: number | null; link_disconnected: boolean; vlan_mode: VlanMode }
 interface Dhcp { enabled: boolean; gateway_ip: string; subnet_mask: string; range_start: string; range_end: string; lease_time: string; dns_servers: string[]; static_leases: { mac: string; ip: string; hostname: string }[] }
 interface Vlan { vlan_id: number; name: string; color: string; bridge: string; host_ipv4_cidr: string | null; description: string; dhcp_config: Dhcp | null; dhcp_active: boolean }
-interface SwitchState { physical: Physical[]; bridges: Bridge[]; host_vnics: HostVnic[]; guest_vnics: GuestVnic[]; vlans: Vlan[]; default_bridge: string; bridge_prefix: string; pending: boolean; rollback_seconds_left: number | null; dnsmasq_installed: boolean; nic_models: string[] }
+interface SwitchState { physical: Physical[]; bridges: Bridge[]; host_vnics: HostVnic[]; guest_vnics: GuestVnic[]; vlans: Vlan[]; default_bridge: string; bridge_prefix: string; pending: boolean; rollback_seconds_left: number | null; dnsmasq_installed: boolean; nic_models: string[]; cluster?: { mode: string; hosts: number } }
 interface Lease { ip: string; mac: string; hostname: string; expires_at: number; is_static: boolean }
 
 /** One draggable port on a faceplate. */
@@ -216,6 +217,7 @@ function SafetyBanner({ pending, secondsLeft, busy, onApply, onDiscard, onConfir
 export default function VisualSwitchStudio() {
   const { t } = useTranslation();
   const { state, error, reload } = useSwitch();
+  const clusterMode = state?.cluster?.mode === "cluster";
   const [busy, setBusy] = useState(false);
   const [toasts, setToasts] = useState<{ id: number; text: string; bad: boolean }[]>([]);
   const [deadline, setDeadline] = useState<number | null>(null);
@@ -227,6 +229,7 @@ export default function VisualSwitchStudio() {
   const [trunkFor, setTrunkFor] = useState<Port | null>(null);
   const [addNic, setAddNic] = useState<string | null>(null);
   const [ipFor, setIpFor] = useState<Port | null>(null);
+  const [vipsOpen, setVipsOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
   const toast = useCallback((text: string, bad = false) => {
@@ -348,6 +351,7 @@ export default function VisualSwitchStudio() {
             <p className="text-[11px] text-slate-400">{t("vsw.intro")}</p>
           </div>
           <GlassButton onClick={reload} aria-label={t("common.refresh")}><RefreshCw size={13} /></GlassButton>
+          {clusterMode && <GlassButton onClick={() => setVipsOpen(true)}><Globe size={13} />{t("cl.vips")}</GlassButton>}
           <GlassButton onClick={() => setAddNic(state.default_bridge)}><Cable size={13} />{t("vsw.addVnic")}</GlassButton>
           <GlassButton variant="primary" onClick={() => setEditBridge("new")}><Plus size={13} />{t("vsw.addSwitch")}</GlassButton>
         </header>
@@ -362,7 +366,24 @@ export default function VisualSwitchStudio() {
               {b.vlan_aware && <GlassBadge tone="info">{t("vsw.vlanAware")}</GlassBadge>}
               <GlassBadge tone={b.mode === "nat" ? "warning" : b.mode === "isolated" ? "neutral" : "success"}>{t(`vsw.bmode.${b.mode}` as TKey)}</GlassBadge>
               {b.comment && <span className="truncate text-[11px] text-slate-400">{b.comment}</span>}
+              {clusterMode && b.clustered && (b.synced_hosts ? <GlassBadge tone="success">{t("cl.syncedAcross", { n: b.synced_hosts })}</GlassBadge> : <GlassBadge tone="warning">{t("cl.notSynced")}</GlassBadge>)}
               <span className="flex-1" />
+              {clusterMode && (
+                <GlassSwitch
+                  checked={!!b.clustered}
+                  disabled={busy}
+                  onChange={(on) =>
+                    run(
+                      () =>
+                        api<{ ok: boolean; results?: Record<string, string> }>(`/network/switch/bridges/${b.name}/clustered`, { method: "PUT", json: { clustered: on } }).then((r) => {
+                          if (!r.ok) throw new Error(Object.entries(r.results ?? {}).filter(([, v]) => v !== "ok").map(([h, v]) => `${h}: ${v}`).join(" · "));
+                        }),
+                      on ? t("cl.switchClustered", { name: b.name }) : t("cl.switchUnclustered", { name: b.name }),
+                    )
+                  }
+                  label={t("cl.clusteredSwitch")}
+                />
+              )}
               <GlassButton size="xs" onClick={() => setAddNic(b.name)}><Plus size={12} />{t("vsw.addVnic")}</GlassButton>
               <GlassButton size="xs" onClick={() => setEditBridge(b)}><Pencil size={12} />{t("vsw.editBridge")}</GlassButton>
             </div>
@@ -476,6 +497,9 @@ export default function VisualSwitchStudio() {
         />
       )}
       {trunkFor && <TrunkModal port={trunkFor} state={state} busy={busy} onClose={() => setTrunkFor(null)} onSave={(bridge, native, tagged) => assign(trunkFor, "trunk", bridge, native, tagged).then((ok) => ok && setTrunkFor(null))} />}
+      <GlassModal open={vipsOpen} onClose={() => setVipsOpen(false)} title={t("cl.vips")} width="max-w-2xl">
+        <VipsPanel />
+      </GlassModal>
       {editBridge && <BridgeModal bridge={editBridge === "new" ? null : editBridge} state={state} busy={busy} onClose={() => setEditBridge(null)} run={run} />}
       {vlanEdit && <VlanModal vlan={vlanEdit === "new" ? null : vlanEdit} state={state} busy={busy} onClose={() => setVlanEdit(null)} run={run} />}
       {dhcpFor && <DhcpModal vlan={dhcpFor} state={state} busy={busy} onClose={() => setDhcpFor(null)} run={run} />}

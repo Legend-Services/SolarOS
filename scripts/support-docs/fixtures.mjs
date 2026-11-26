@@ -584,7 +584,50 @@ const SEATS = [
   { seat_id: "e5f6a7b8", name: "Seat 2 · Lounge Station", vm_id: 102, vm_name: "dev-workstation", enabled: true, status: "stopped", gpu_pci_slot: "0000:02:00.0", gpu_audio_pci_slot: "0000:02:00.1", extra_pci_slots: [], usb_ports: ["1-6"], usb_names: { "1-6": "Gaming Mouse" }, usb_controller_pci_slots: [], cpu_cores: [5, 6, 7, 13, 14, 15] },
 ];
 
+/* ---------------- Cluster & high availability ---------------- */
+
+const NOW_S = Math.floor(Date.now() / 1000);
+const CLUSTER_HOSTS = [
+  { name: NODE, address: "192.168.1.20", role: "coordinator", online: true, maintenance: false, local: true, has_backend: true, cpu: 0.18, maxcpu: 16, mem: 41 * GiB, maxmem: 64 * GiB, zfs: "ONLINE", running: 4, guests: 6, clock_skew: 0.1 },
+  { name: "solardeck-2", address: "192.168.1.21", role: "member", online: true, maintenance: false, local: false, has_backend: true, cpu: 0.09, maxcpu: 12, mem: 18 * GiB, maxmem: 32 * GiB, zfs: "ONLINE", running: 2, guests: 2, clock_skew: 0.3 },
+  { name: "solardeck-3", address: "192.168.1.22", role: "member", online: true, maintenance: false, local: false, has_backend: true, cpu: 0.04, maxcpu: 8, mem: 9 * GiB, maxmem: 32 * GiB, zfs: "ONLINE", running: 1, guests: 1, clock_skew: -0.2 },
+];
+const REMOTE_GUESTS = [
+  { vmid: 110, name: "web-frontend", type: "qemu", status: "running", cpu: 0.07, maxcpu: 2, mem: 1.8 * GiB, maxmem: 4 * GiB, uptime: 259200, host: "solardeck-2" },
+  { vmid: 111, name: "postgres-ct", type: "lxc", status: "running", cpu: 0.04, maxcpu: 2, mem: 1.1 * GiB, maxmem: 2 * GiB, uptime: 259200, host: "solardeck-2" },
+  { vmid: 120, name: "backup-target", type: "qemu", status: "running", cpu: 0.01, maxcpu: 2, mem: 1.2 * GiB, maxmem: 4 * GiB, uptime: 604800, host: "solardeck-3" },
+];
+const HA = (guest_type, guest_id, name, host, preferred, standbys, interval, failback, ago) => ({
+  key: `${guest_type}:${guest_id}`, guest_type, guest_id, name, enabled: true, preferred_active_host: preferred, passive_standby_hosts: standbys,
+  replication_interval_minutes: interval, failover_timeout_seconds: 15, auto_failback: failback, current_host: host, host, status: "running",
+  last_sync: NOW_S - ago, sync_ok: true, sync: Object.fromEntries(standbys.map((s) => [s, { at: NOW_S - ago, ok: true, error: null }])),
+});
+const CLUSTER_STATUS = {
+  mode: "cluster", driver: "native_ubuntu", supported: true, self: NODE, native_ha: true, interfaces: [],
+  cluster: { name: "home-lab", id: "4f1c9a7e2b6d8031", coordinator: NODE, fingerprint: "3A:9F:C2:71:5E:0B:D4:88:16:AF:42:E9:7C:31:B5:60:0D:F7:28:9A:6E:C3:51:84:BB:12:7F:E0:39:D6:A5:4C", created: NOW_S - 864000 },
+  quorum: { quorate: true, votes: 3, expected: 3, online: 3, total: 3, witness: null },
+  hosts: CLUSTER_HOSTS, workloads: 9,
+  ha_policies: [
+    HA("qemu", 100, "media-server", NODE, NODE, ["solardeck-2"], 5, true, 42),
+    HA("lxc", 101, "home-assistant-ct", NODE, NODE, ["solardeck-3", "solardeck-2"], 1, false, 17),
+    HA("qemu", 110, "web-frontend", "solardeck-2", "solardeck-2", [NODE], 15, true, 310),
+  ],
+  vips: [
+    { id: "a1b2c3d4", vrid: 51, address: "192.168.1.50/24", bridge: "br0", vlan: null, preferred_host: NODE, label: "Home services" },
+    { id: "e5f6a7b8", vrid: 52, address: "10.20.0.10/24", bridge: "br0", vlan: 20, preferred_host: "solardeck-2", label: "IoT gateway" },
+  ],
+  clustered_switches: ["br0"],
+};
+const HA_SET = new Set(CLUSTER_STATUS.ha_policies.map((p) => p.key));
+Object.assign(SWITCH.bridges[0], { clustered: true, synced_hosts: 3 });
+SWITCH.cluster = { mode: "cluster", hosts: 3 };
+
 const EXACT = {
+  "/cluster/status": () => CLUSTER_STATUS,
+  "/cluster/workloads": () => ({
+    mode: "cluster", self: NODE,
+    workloads: [...GUESTS.map((g) => ({ ...g, host: NODE })), ...REMOTE_GUESTS].map((g) => ({ ...g, ha: HA_SET.has(`${g.type}:${g.vmid}`) })),
+  }),
   "/multiseat/topology": () => MULTISEAT_TOPOLOGY,
   "/multiseat/seats": () => ({ seats: SEATS }),
   "/health": () => ({ status: "ok", node: NODE }),

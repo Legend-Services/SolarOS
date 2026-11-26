@@ -10,10 +10,11 @@ import { GuideBanner } from "../components/wizards/GuidedWizardModal";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
 import { TaskLog } from "../components/TaskCenter";
 import { PassthroughPicker, usePassthroughDevices, type PciSel, type UsbSel } from "./guest/passthrough";
+import { HaPolicyForm } from "../components/cluster/ClusterDialogs";
 import VirtualHardwarePanel from "../components/compute/VirtualHardwarePanel";
 import { useTranslation } from "../i18n";
 
-type Tab = "resources" | "hardware" | "virtual" | "network" | "cloudinit" | "snapshots" | "options";
+type Tab = "resources" | "hardware" | "virtual" | "network" | "cloudinit" | "snapshots" | "ha" | "options";
 
 interface HostPci {
   key: string;
@@ -842,7 +843,7 @@ function DeleteCard({ guest, onDeleted }: { guest: Guest; onDeleted: () => void 
 
 /* ---------------- Drawer ---------------- */
 
-export default function GuestDrawer({ guest, onClose, onSaved }: { guest: Guest | null; onClose: () => void; onSaved: () => void }) {
+export default function GuestDrawer({ guest, onClose, onSaved, clustered = false }: { guest: Guest | null; onClose: () => void; onSaved: () => void; clustered?: boolean }) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>("resources");
   const [hw, setHw] = useState<Hardware | null>(null);
@@ -866,6 +867,7 @@ export default function GuestDrawer({ guest, onClose, onSaved }: { guest: Guest 
     { id: "network", label: "Network" },
     ...(qemu ? [{ id: "cloudinit" as Tab, label: "Cloud-Init" }] : []),
     { id: "snapshots", label: "Snapshots" },
+    ...(clustered ? [{ id: "ha" as Tab, label: t("cl.haTab") }] : []),
     { id: "options", label: "Options" },
   ];
 
@@ -887,6 +889,8 @@ export default function GuestDrawer({ guest, onClose, onSaved }: { guest: Guest 
             <ResourcesTab guest={guest} onSaved={reload} />
           ) : tab === "snapshots" ? (
             <SnapshotsTab guest={guest} />
+          ) : tab === "ha" ? (
+            <HaPolicyForm key={`${guest.type}${guest.vmid}`} guestType={guest.type} guestId={guest.vmid} />
           ) : tab === "virtual" ? (
             <VirtualHardwarePanel key={`${guest.type}${guest.vmid}`} guest={guest} />
           ) : !hw ? (
