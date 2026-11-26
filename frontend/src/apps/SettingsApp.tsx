@@ -321,16 +321,16 @@ function CategoryCard({ id, onOpen }: { id: CategoryId; onOpen: () => void }) {
     <button
       onClick={onOpen}
       data-anchor={`cat-${id}`}
-      className="glass-soft group flex min-h-36 flex-col gap-3 rounded-3xl p-5 text-left transition-[background-color,border-color,box-shadow,transform,scale,opacity] hover:bg-white/[0.08] active:scale-[0.99]"
+      className="glass-soft group flex w-full items-center justify-between gap-4 rounded-2xl px-5 py-4 text-left transition-[background-color,border-color,box-shadow,transform,scale,opacity] hover:bg-white/[0.08] active:scale-[0.99]"
     >
-      <div className="flex items-center gap-3">
-        <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-lg shadow-black/30 ${tint}`}>
-          <Icon size={24} />
-        </span>
-        <h3 className="min-w-0 flex-1 text-base font-semibold text-white">{t(`set.cat.${id}`)}</h3>
-        <ChevronRight size={18} className="shrink-0 text-slate-500 transition group-hover:translate-x-0.5 group-hover:text-slate-300" />
-      </div>
-      <p className="text-xs leading-relaxed text-slate-400">{t(`set.catDesc.${id}`)}</p>
+      <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-lg shadow-black/30 ${tint}`}>
+        <Icon size={22} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <h3 className="text-sm font-semibold text-white">{t(`set.cat.${id}`)}</h3>
+        <p className="mt-0.5 text-xs leading-snug text-slate-400">{t(`set.catDesc.${id}`)}</p>
+      </span>
+      <ChevronRight size={18} className="shrink-0 text-slate-500 transition group-hover:translate-x-0.5 group-hover:text-slate-300" />
     </button>
   );
 }
@@ -420,7 +420,7 @@ export default function SettingsApp() {
 
   const hits = q ? available.filter(matches) : [];
   return (
-    <div ref={root} className="h-full overflow-auto pb-6">
+    <div ref={root} className="h-full overflow-auto pb-8">
       <HostSummary query={query} setQuery={setQuery} onEnter={() => hits[0] && setModule(hits[0])} />
       {q ? (
         <div className="mt-4 grid grid-cols-2 gap-2 px-4 sm:grid-cols-3 xl:grid-cols-4">
@@ -430,11 +430,9 @@ export default function SettingsApp() {
           {!hits.length && <p className="col-span-full py-8 text-center text-sm text-slate-400">{t("set.noMatch")}</p>}
         </div>
       ) : (
-        <div className="mt-5 grid gap-4 px-4 md:grid-cols-2">
-          {CATEGORIES.filter((c) => inCat(c).length).map((c, i, all) => (
-            <div key={c} className={all.length % 2 && i === all.length - 1 ? "md:col-span-2" : undefined}>
-              <CategoryCard id={c} onOpen={() => setModule(inCat(c)[0])} />
-            </div>
+        <div className="mt-4 flex flex-col gap-3 px-4">
+          {CATEGORIES.filter((c) => inCat(c).length).map((c) => (
+            <CategoryCard key={c} id={c} onOpen={() => setModule(inCat(c)[0])} />
           ))}
         </div>
       )}
