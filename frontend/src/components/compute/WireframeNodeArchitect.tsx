@@ -136,7 +136,8 @@ const RW = 320;
 const RX = W - 20 - RW; // right-hand topology nodes
 /** Inspector body: every field visible at a glance under the full-width canvas. */
 const GRID = "grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3";
-const FOOTER = "flex flex-wrap items-center justify-end gap-3 border-t border-[var(--sd-border-hairline)] pt-4";
+/** Sticks to the bottom of the drawer's scroll area so Save & Apply stays reachable while the inspector is in view. */
+const FOOTER = "sticky bottom-0 -mx-5 -mb-5 flex flex-wrap items-center justify-end gap-3 rounded-b-2xl border-t border-[var(--sd-border-hairline)] bg-[var(--sd-surface-panel)] px-5 py-4";
 const SLOT_H = 30;
 const SLOT_STEP = 36;
 

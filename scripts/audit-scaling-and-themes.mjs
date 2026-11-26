@@ -357,7 +357,8 @@ async function run(page) {
     await click(page, page.getByRole("button", { name: "media-server", exact: true }));
     await click(page, page.getByRole("tab", { name: "Wireframe Architecture" }));
     await click(page, page.getByRole("button", { name: /^net0 · / }));
-    await click(page, page.getByRole("button", { name: "Change Network Endpoint" }));
+    // exact: the inspector's button (below the canvas), not the canvas switch node whose label also ends in it.
+    await click(page, page.getByRole("button", { name: "Change Network Endpoint", exact: true }));
     await audit(page, "compute › guest drawer media-server › change network endpoint");
   });
   await step("compute › guest drawer media-server › add virtual device", async () => {
