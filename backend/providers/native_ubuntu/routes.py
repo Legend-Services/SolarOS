@@ -10,8 +10,9 @@ from pathlib import Path as FsPath
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request, WebSocket
+from pydantic import BaseModel, Field
 
-from app import access, apps, backups, console, local_ai, provisioning, storage_admin, system
+from app import access, apps, backups, console, local_ai, provisioning, storage_admin, system, system_info
 from app import hypervisor as api
 from app.auth import require_step_up_auth, require_user
 from app.config import settings
@@ -380,7 +381,7 @@ async def info():
         if FsPath("/etc/os-release").exists() else {}
     dns = dict(re.findall(r"^(nameserver|search)\s+(\S+)", FsPath("/etc/resolv.conf").read_text(), re.M)) \
         if FsPath("/etc/resolv.conf").exists() else {}
-    return {
+    return await system_info.enrich({
         "node": settings.node_name, "version": {"release": os_release.get("VERSION_ID", ""), "version": "SolarOS"},
         "platform_version": f"SolarOS ({os_release.get('PRETTY_NAME', 'Linux')})", "kernel": m.kernel,
         "uptime": m.uptime, "cpu_model": m.cpuinfo.get("model", ""), "cpus": m.cpuinfo.get("cpus", 0),
@@ -388,7 +389,28 @@ async def info():
         "network": [n.model_dump() for n in net], "dns": {"dns1": dns.get("nameserver"), "search": dns.get("search")},
         "api": {"host": "local", "token_id": "", "connected": True, "verify_ssl": True, "driver": "native_ubuntu"},
         "admin_username": settings.admin_username, "storage_root": str(settings.storage_root), "helper": "local",
-    }
+    }, hostname_editable=True)
+
+
+class HostnameBody(BaseModel):
+    hostname: str = Field(pattern=r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
+
+
+@router.post("/api/system/hostname", dependencies=[Depends(require_step_up_auth)])
+async def set_hostname(body: HostnameBody):
+    """Rename this host (hostnamectl + the 127.0.1.1 line of /etc/hosts); refused while it is a cluster member."""
+    from app import cluster
+    if cluster.in_cluster(cluster.load()):
+        raise HTTPException(409, "Leave the cluster before renaming this host")
+    await run("hostnamectl", "set-hostname", body.hostname)
+    hosts = FsPath("/etc/hosts")
+    text = hosts.read_text() if hosts.exists() else ""
+    line = f"127.0.1.1\t{body.hostname}"
+    hosts.write_text(re.sub(r"^127\.0\.1\.1\s.*$", line, text, flags=re.M) if re.search(r"^127\.0\.1\.1\s", text, re.M)
+                     else text.rstrip("\n") + f"\n{line}\n")
+    settings.node_name = body.hostname
+    system_info.invalidate()
+    return {"ok": True, "hostname": body.hostname}
 
 
 @router.post("/api/system/power")

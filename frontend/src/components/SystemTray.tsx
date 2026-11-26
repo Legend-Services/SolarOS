@@ -129,8 +129,8 @@ function TrayItemView({ id, up }: { id: TrayItem; up: boolean }) {
           icon={<ArrowUpCircle size={12} className={updateRunning ? "animate-pulse" : ""} />}
           label={updateRunning ? t("upd.badgeRunning", { percent: progressPercent }) : latestVersion ? t("upd.badge", { version: latestVersion }) : t("top.update")}
           tone="text-amber-300"
-          onClick={() => openLink("settings", { module: "software-updates", tab: "solardeck" })}
-          title={t("set.mod.software-updates")}
+          onClick={() => openLink("settings", { module: "system-info" })}
+          title={t("set.mod.system-info")}
         />
       );
     case "terminal": {

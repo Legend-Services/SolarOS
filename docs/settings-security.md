@@ -2,7 +2,7 @@
 
 # Settings › Privilege & Security
 
-Users, roles, 2FA, step-up authentication, hardening and audit logs.
+Users & RBAC roles, two-factor authentication & passkeys, security posture hardening, audit logs and module isolation.
 
 [← Manual](README.md)
 

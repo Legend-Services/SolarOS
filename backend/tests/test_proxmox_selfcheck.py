@@ -423,6 +423,7 @@ assert c.patch("/api/v1/guests/lxc/100/config", json={"resize_disk": "rootfs", "
 si = c.get("/api/system/info").json()
 assert si["api"]["connected"] and si["version"]["version"] == "8.4.1" and si["network"][0]["iface"] == "vmbr0", si
 assert si["dns"]["dns1"] == "1.1.1.1", si
+assert {"os", "updates", "hardware"} <= si.keys() and si["os"]["hostname"] and not si["os"]["hostname_editable"], si["os"]
 config.ENV_FILE = __import__("pathlib").Path(tmp).parent / f"env-{os.getpid()}"
 config.ENV_FILE.write_text("NODE_NAME=pve\nADMIN_PASSWORD=pw\nJWT_SECRET=x\n")
 assert c.post("/api/system/password", json={"current_password": "nope", "new_password": "longenough1"}).status_code == 403

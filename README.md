@@ -111,7 +111,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/
 | | |
 |---|---|
 | 🖥️ **A real desktop** | Movable windows with snapping, a dock or taskbar, live widgets, Spotlight search (Ctrl+K) and a Welcome Tour. |
-| ⚙️ **One Settings hub** | Every system, storage, security, network and hypervisor setting in one app: 5 categories, 24 sub-modules, a live filter and deep links from the top bar. The App Gallery stays focused on Settings, Compute, Files, App Center, Terminal and the apps you install. |
+| ⚙️ **One Settings hub** | Every system, storage, security, network and hypervisor setting in one app: 5 category cards, each with its own sidebar, a live filter across every sub-module and deep links from the top bar. The App Gallery stays focused on Settings, Compute, Files, App Center, Terminal and the apps you install. |
 | 📦 **Virtual machines & containers** | Create them with step-by-step wizards, open their screen or shell in the browser, pass through GPUs, PCI and USB devices. Desktop guest operating systems are ready out of the box. Switch any guest to the **Wireframe Architecture** view to inspect and edit every device and re-patch its network cards. |
 | 💽 **ZFS storage made easy** | Build mirrors and RAIDZ pools, datasets, snapshots and schedules, check SMART health and benchmark your disks. |
 | 🗂️ **Files, shares & backups** | A file browser, SMB shares for your network, and a Backup Center to back up and restore guests. |
@@ -149,7 +149,7 @@ Open a guest in **Compute** and pick the **Virtual Hardware & Lab** tab:
 
 ## Multi-Seat Workstations & Physical Ports
 
-Open **Compute → Multi-Seat & Ports** (or **Settings → System → Hardware & GPU → Multi-Seat & Ports**):
+Open **Compute → Multi-Seat & Ports** (or **Settings → System → Hardware, GPU & BIOS → Multi-Seat & Ports**):
 
 - **Seats.** Press **+ Create Seat** and pick the seat's VM, or press **Create New Seat VM**. Each seat card shows its power state with **Start Seat** / **Stop Seat**; **Start All Seats** starts every enabled seat, 3 seconds apart.
 - **Display & GPU output.** Choose the GPU whose monitors the seat uses: every GPU is listed with its PCIe slot, a *Boot GPU* badge for the card the server starts on, external Thunderbolt / USB4 GPUs (authorized from the studio), its HDMI / DisplayPort connectors (*HDMI-1: Connected*, *DP-1: Ready*) and *GPU Audio Included* for the card's own audio function. When a seat uses the boot GPU, SolarDeck releases it from the server's console before the seat starts, so every GPU in the machine can drive a desk.
@@ -221,9 +221,9 @@ chevron. Notifications and the Task Center share the bell icon.
 
 ## Updating
 
-Open **Settings → Software & Repositories** and click **Install Update Now**. A progress bar shows each step, and the
-page reloads by itself when the update reaches 100%. Your settings, users, pools and shares are never touched, and you
-can roll back to an earlier version from the same screen.
+Open **Settings → System → Info** and click **Check for Updates**, then **Install Update**. A progress bar shows each
+step, and the page reloads by itself when the update reaches 100%. Your settings, users, pools and shares are never
+touched. Schedules, version history and rollback live in **Settings → System → System Services & Repositories**.
 
 SolarDeck checks for new versions in the background and shows an **Update Ready** badge in the top bar (or in the
 taskbar tray). Under **Automatic Updates & Schedule** you can keep updates manual or let them install daily, weekly or

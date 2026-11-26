@@ -2,7 +2,7 @@
 
 # Settings › Storage & Data
 
-Storage pools, physical disks, snapshots, backups and network shares.
+ZFS storage pools, disk SMART health, backups & disaster recovery, snapshots, shared folders (SMB/NFS/WebDAV) and ISO library.
 
 [← Manual](README.md)
 
