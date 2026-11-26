@@ -1,10 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
-import { ExternalLink, Trash2 } from "lucide-react";
+import { ArrowUpRight, ExternalLink, Trash2 } from "lucide-react";
 import { api } from "../lib/api";
+import { useIntent } from "../lib/stores";
 import type { AppInstance } from "../lib/types";
-import { useTranslation } from "../i18n";
-import { GlassButton, GlassModal, GlassSwitch } from "./ui/GlassKit";
+import { useTranslation, type TKey } from "../i18n";
+import { GlassBadge, GlassButton, GlassModal, GlassSwitch } from "./ui/GlassKit";
 import { OperationProgressCard, useJobProgress } from "./ui/OperationProgressCard";
+
+/** Built-in features that replaced former App Center apps: search words, the App Center hint and where it opens. */
+export const NATIVE_FEATURES = {
+  smb_shares: { words: /samba|smb|cifs|file ?shar/, hint: "ac.native.smb", path: ["set.cat.storage", "set.mod.shared-folders"], open: () => useIntent.getState().go("settings", "shared-folders") },
+  reverse_proxy: { words: /nginx|reverse ?proxy|proxy manager|let'?s ?encrypt/, hint: "ac.native.proxy", path: ["set.cat.network", "set.mod.reverse-proxy"], open: () => useIntent.getState().go("settings", "reverse-proxy") },
+  docker_engine: { words: /docker|compose/, hint: "ac.native.docker", path: [], open: () => useIntent.getState().go("compute", "docker") },
+} satisfies Record<string, { words: RegExp; hint: TKey; path: TKey[]; open: () => void }>;
+export type NativeFeature = keyof typeof NATIVE_FEATURES;
 
 const CHANGED = "solardeck:apps-changed";
 /** Tell every open App Center / Settings list that an app instance was installed or removed. */
@@ -130,6 +139,7 @@ export function UninstallInstanceModal({ instance, onClose }: { instance: AppIns
 export function InstanceRow({ inst, onUninstall, openLabel }: { inst: AppInstance; onUninstall: (i: AppInstance) => void; openLabel?: string }) {
   const { t } = useTranslation();
   const status = useStatusText();
+  const native = inst.native_feature ? NATIVE_FEATURES[inst.native_feature] : undefined;
   return (
     <div className="flex items-center gap-3 rounded-xl bg-white/5 px-3 py-2 ring-1 ring-white/10">
       <span className={`h-2 w-2 shrink-0 rounded-full ${DOT[inst.status] ?? "bg-amber-400"}`} title={status(inst.status)} aria-label={status(inst.status)} role="img" />
@@ -141,6 +151,14 @@ export function InstanceRow({ inst, onUninstall, openLabel }: { inst: AppInstanc
           {t("inst.container", { id: inst.guest_id })} · <span className="font-mono">{inst.ip_address ?? t("inst.noIp")}</span> · {status(inst.status)}
           {inst.cores > 0 && ` · ${inst.cores} vCPU · ${(inst.memory_mb / 1024).toFixed(1).replace(/\.0$/, "")} GB`}
         </p>
+        {native && (
+          <p className="mt-1 flex flex-wrap items-center gap-1.5" title={t("inst.nativeHint")}>
+            <GlassBadge tone="info">{t("inst.nativeBadge")}</GlassBadge>
+            <button type="button" className="inline-flex items-center gap-0.5 text-[10px] text-sky-300 hover:text-sky-200" onClick={native.open}>
+              {t("inst.nativeOpen")} <ArrowUpRight size={10} />
+            </button>
+          </p>
+        )}
       </div>
       {inst.web_url && (
         <a className="btn shrink-0 border-sky-400/30 bg-sky-500/20 py-1 text-[11px] text-white" href={inst.web_url} target="_blank" rel="noreferrer">

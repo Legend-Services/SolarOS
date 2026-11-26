@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.20.0 - Native Docker Engine & App Center Catalog Consolidation — 2026-11-26
+
+### Added
+- **Docker Engine & Compose as a built-in platform feature**: a new `docker_engine` switch in **Settings → Features & Services** (its Security-by-Design options appear right under the card) and a **Docker** tab in **Compute**. The engine runs as an **Isolated Container (Recommended)** in its own runtime container or **Host Native**, and can be pinned to the management network, a VLAN, the DMZ or an isolated lab with the least-privilege rules of the other modules. The tab installs Docker Engine & Compose with a progress card, lists every container (image, state, ports, Compose stack) with start, stop, restart and remove, and lists Compose stacks. It works on both drivers through the same module runtime. Host-native installs keep the host's FORWARD policy (`ip-forward-no-drop`), so guests on the bridges keep their network.
+  - `GET /api/docker/status`, `POST /api/docker/enable`, `GET /api/docker/containers`, `POST /api/docker/containers/{id}/{start|stop|restart|pause|unpause|remove}`, `GET /api/docker/stacks`.
+- **SMB quick presets** in Shared Folders & SMB: **Public guest share** (`public` in `/public`, read-only, no password) and **Storage share** (`storage` over the whole storage root, read/write for SMB users, recycle bin). `POST /api/shares/presets/{public|storage}`.
+- **App Center shortcuts**: searching for Samba, SMB, Nginx, reverse proxy or Docker shows a banner that opens the built-in feature.
+
+### Changed
+- App Center catalog: **Samba File Server** and **Nginx Proxy Manager** are removed (Shared Folders & SMB and Reverse Proxy & SSL do the same job built in), and **Docker & Portainer CE** is replaced by standalone **Portainer CE** (multi-instance), an optional web UI for containers. The Server Setup Wizard offers Local AI Studio, Jellyfin, Immich, AdGuard Home and Portainer CE.
+- The Virtualization Host role and the Home & Media Server preset include Docker Engine & Compose. Features & Services now counts 29 features.
+
+### Notes
+- Instances of the removed apps installed on an older version stay listed in Settings → Installed Apps & Instances with a **Built-In Native Feature Available** badge and an *Open built-in feature* link; they keep working and can be opened or uninstalled as before. They can no longer be installed (`DeployBody` refuses legacy app ids).
+
 ## v2.19.0 - Features & Services Toggle Hub, Server Setup Wizard & Interactive Desktop Tour — 2026-11-26
 
 ### Added

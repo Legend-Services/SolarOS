@@ -44,6 +44,17 @@ Compute Manager lists every virtual machine and container with live status, and 
 
 > **Tip:** Legacy PCI and ISA devices need a power cycle (shut down, then start) before a running VM sees them.
 
+### Built-In Docker Engine & Compose
+
+Docker Engine and Docker Compose are part of the platform; no app is needed. The Docker tab (shown while Docker Engine & Compose is on in Settings › Features & Services) starts with its Security-by-Design header: run the engine in an Isolated Container (recommended: its own runtime container, so the hypervisor host stays untouched) or Host Native, and pin it to the management network, a VLAN, the DMZ or an isolated lab with least-privilege firewall rules. Below it, every container shows its image, state, published ports and Compose stack, with start, stop, restart and remove, and every Compose stack shows its status and compose files. Prefer a web UI? Install Portainer CE from App Center (as many instances as you like) and add this engine to it through the Portainer Agent.
+
+1. Open Compute and pick the Docker tab.
+2. Choose Isolated Container or Host Native and the network, then switch the module on.
+3. Press Install Docker Engine when it is not installed yet and follow the progress card.
+4. Use the buttons on a container row to start, stop, restart or remove it; the list of Compose stacks updates with it.
+
+![Built-In Docker Engine & Compose](screenshots/compute-docker.png)
+
 ### Wireframe Node Architecture & Hardware ID Overrides
 
 The Wireframe Architecture view draws the guest as a blueprint computer: live specs and a status LED on the case, then its network adapters, motherboard PCIe cards, capture / audio / USB peripherals and storage. Animated lines run from each network adapter to its switch or VLAN (with DHCP and DNS indicators and the guest's IP address), to an isolated lab when it is in one, and the case connects to the host placement node (Standalone Mode, or the cluster's preferred active host, standby hosts, ZFS sync and floating VIP).
@@ -84,6 +95,10 @@ App Center installs ready-made applications (media servers, ad blockers, home au
 4. Open the address shown on the deployment card to use the app.
 
 > **Tip:** Tick Storage when the app should see your files.
+
+> **Tip:** File sharing, the reverse proxy and Docker Engine are built in rather than apps: Settings › Storage & Data › Shared Folders & SMB, Settings › Network & Services › Reverse Proxy & SSL and Compute › Docker. Searching App Center for them shows a shortcut.
+
+> **Tip:** Apps installed on an older version that are now built in show a Built-In Native Feature Available badge in Settings › Hypervisor & Runtime › Installed Apps & Instances; they keep working and can be opened or uninstalled as usual.
 
 ## Local AI
 

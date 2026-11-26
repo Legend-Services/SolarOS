@@ -9,7 +9,7 @@ export const APPS = {
   compute: { title: "Compute Manager", desc: "Create and run virtual machines and containers", icon: Boxes, size: { w: 1000, h: 620 } },
   storage: { title: "Storage & ZFS", desc: "Disks, ZFS pools, datasets, snapshots and disk health", icon: HardDrive, size: { w: 1040, h: 680 } },
   files: { title: "File Station", desc: "Browse, upload and organize files on your storage", icon: FolderOpen, size: { w: 960, h: 620 } },
-  appcenter: { title: "App Center", desc: "One-click installs: Jellyfin, Docker, AdGuard Home and more", icon: Store, size: { w: 1040, h: 660 } },
+  appcenter: { title: "App Center", desc: "One-click installs: Jellyfin, Immich, AdGuard Home and more", icon: Store, size: { w: 1040, h: 660 } },
   "local-ai": { title: "Local AI", desc: "Download and run AI models on your GPU, with a test chat", icon: BrainCircuit, size: { w: 1080, h: 700 } },
   architect: { title: "Network Architect", desc: "Live blueprint of hosts, switches, VLANs, labs and every device on your networks", icon: Waypoints, size: { w: 1240, h: 760 } },
   backup: { title: "Backup Center", desc: "Back up, schedule and restore VMs and containers", icon: ArchiveRestore, size: { w: 980, h: 640 } },

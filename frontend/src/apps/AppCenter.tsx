@@ -13,7 +13,7 @@ import { ViewToggle } from "../components/ViewOptions";
 import { useAppView } from "../store/layoutStore";
 import { GlassButton, GlassInput, GlassModal } from "../components/ui/GlassKit";
 import {
-  ManageInstancesModal, UninstallInstanceModal, appsChanged, displayName, hostnameFor, onAppsChanged, useAppInstances,
+  ManageInstancesModal, NATIVE_FEATURES, UninstallInstanceModal, appsChanged, displayName, hostnameFor, onAppsChanged, useAppInstances,
 } from "../components/AppInstances";
 
 const ICONS: Record<string, LucideIcon> = { Clapperboard, Container, FolderTree, ShieldCheck, Waypoints, Images, BrainCircuit };
@@ -522,6 +522,8 @@ export default function AppCenter() {
       .filter((a) => (category === "all" || a.category === category) && (!q || `${a.name} ${a.description}`.toLowerCase().includes(q)))
       .sort((a, b) => Number(!!b.featured) - Number(!!a.featured));
   }, [apps, category, query]);
+  const needle = query.trim().toLowerCase();
+  const native = needle.length > 1 ? Object.entries(NATIVE_FEATURES).filter(([, f]) => f.words.test(needle)) : [];
 
   return (
     <div className="relative flex h-full">
@@ -553,6 +555,15 @@ export default function AppCenter() {
           </label>
         </div>
         {error && <div className="bg-rose-500/10 px-4 py-2 text-xs text-rose-300">{error}</div>}
+        {native.map(([id, f]) => (
+          <div key={id} role="note" className="flex items-center gap-2 border-b border-white/10 bg-sky-500/[0.07] px-4 py-2 text-[11px] text-sky-100">
+            <Sparkles size={12} className="shrink-0 text-sky-300" />
+            <span className="min-w-0 flex-1">{t(f.hint, { path: f.path.map((k) => t(k)).join(" › ") })}</span>
+            <GlassButton size="xs" onClick={f.open}>
+              {t("ac.native.open")}
+            </GlassButton>
+          </div>
+        ))}
         <div className="min-h-0 flex-1 overflow-auto p-4">
           {!apps && !error && <p className="text-sm text-slate-400">Loading…</p>}
           {apps && shown.length === 0 && <p className="text-sm text-slate-400">No apps match.</p>}

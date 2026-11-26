@@ -115,7 +115,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/
 | 📦 **Virtual machines & containers** | Create them with step-by-step wizards, open their screen or shell in the browser, pass through GPUs, PCI and USB devices. Desktop guest operating systems are ready out of the box. Switch any guest to the **Wireframe Architecture** view to inspect and edit every device and re-patch its network cards. |
 | 💽 **ZFS storage made easy** | Build mirrors and RAIDZ pools, datasets, snapshots and schedules, check SMART health and benchmark your disks. |
 | 🗂️ **Files, shares & backups** | A file browser, SMB shares for your network, and a Backup Center to back up and restore guests. |
-| 🛒 **App Center** | One click for Jellyfin, Docker + Portainer, AdGuard Home, Nginx Proxy Manager, Immich and more. |
+| 🛒 **App Center** | One click for Jellyfin, Immich, AdGuard Home, Portainer CE and Local AI Studio. Docker Engine & Compose, SMB shares and the reverse proxy are built in. |
 | 🧠 **Local AI** | Ollama + Open WebUI on your own GPU (NVIDIA, Intel, AMD) or CPU, with a model library that tells you what fits. |
 | 🧪 **Virtual hardware & labs** | Give any VM or container emulated peripherals (HD audio + microphone, retro sound, virtual webcam, SAS/RAID HBA, NVMe, 56k modem, 10 Mbps NIC, TPM 2.0, smartcard reader, watchdog, entropy), slow down its CPU and network (10 Mbps, 56k, 4G or your own latency and packet loss) and launch air-gapped lab networks in one click. |
 | 🪑 **Multi-seat workstations** | One machine, several desks: give each seat VM its own GPU with its monitors, its own physical USB ports (plug a keyboard in and it is assigned), USB controllers and dedicated CPU cores, then start every seat with one click. |

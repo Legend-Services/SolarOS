@@ -8,6 +8,8 @@ import { GlassBadge, GlassButton, GlassModal, Segmented } from "../components/ui
 import LabSandboxPanel from "../components/compute/LabSandbox";
 import MultiSeatStudio from "../components/compute/MultiSeatStudio";
 import ImageHubPanel from "../components/compute/ImageHubPanel";
+import DockerEnginePanel from "../components/compute/DockerEnginePanel";
+import { useFeatureEnabled } from "../store/featureStore";
 import ZeroTouchWizard from "../components/compute/ZeroTouchWizard";
 import { SecurityModuleHeader } from "../components/ui/SecurityModuleHeader";
 import { HaModal, MigrateModal, type Workload } from "../components/cluster/ClusterDialogs";
@@ -40,7 +42,8 @@ export default function ComputeManager() {
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Guest | null>(null);
-  const [view, setView] = useState<"guests" | "iso" | "images">("guests");
+  const [view, setView] = useState<"guests" | "iso" | "images" | "docker">("guests");
+  const docker = useFeatureEnabled("docker_engine");
   const [wizard, setWizard] = useState<GuestKind | null>(null);
   const [labs, setLabs] = useState(false);
   const [zeroTouch, setZeroTouch] = useState(false);
@@ -54,7 +57,7 @@ export default function ComputeManager() {
   const takeIntent = useIntent((s) => s.take);
   useEffect(() => {
     if (!intent) return;
-    if (intent === "iso") setView("iso");
+    if (intent === "iso" || intent === "docker") setView(intent);
     else setWizard(intent === "vm" ? "qemu" : "lxc");
     takeIntent("compute");
   }, [intent, takeIntent]);
@@ -167,6 +170,7 @@ export default function ComputeManager() {
             { id: "guests", label: "Guests" },
             { id: "iso", label: "ISO & Templates" },
             { id: "images", label: t("ih.tab") },
+            ...(docker ? [{ id: "docker" as const, label: t("dk.tab") }] : []),
           ]}
         />
         <div className="ml-auto flex gap-2">
@@ -193,6 +197,10 @@ export default function ComputeManager() {
       {view === "iso" ? (
         <div className="min-h-0 flex-1 overflow-auto">
           <IsoLibrary />
+        </div>
+      ) : view === "docker" && docker ? (
+        <div className="min-h-0 flex-1 overflow-auto p-3">
+          <SecurityModuleHeader module="docker_engine">{() => <DockerEnginePanel />}</SecurityModuleHeader>
         </div>
       ) : view === "images" ? (
         <div className="min-h-0 flex-1 overflow-auto p-3">

@@ -106,6 +106,14 @@ Choose which optional features this server shows. A feature you switch off disap
 
 > **Tip:** General & Appearance, Users & Roles, Software & Repositories and Features & Services itself can never be hidden, so you cannot lock yourself out.
 
+### Docker Engine & Compose
+
+Docker Engine & Compose is a built-in platform feature. While it is on, its card shows the Security-by-Design options right below it: Isolated Container (recommended) or Host Native, and the network it is pinned to (management, VLAN, DMZ or isolated lab). Containers and stacks are managed in Compute › Docker.
+
+1. Switch on Docker Engine & Compose.
+2. Pick Isolated Container or Host Native and the network, then press Save.
+3. Open Compute › Docker to install the engine and manage containers.
+
 ### Quick presets
 
 Quick presets switch many features at once: Minimal Core, Home & Media Server, Full Hypervisor Lab or Enable All.

@@ -106,7 +106,7 @@ assert [x["state"] for x in t] == ["running", "ok", "error"] and t[0]["id"] == "
 assert c.get("/api/v1/tasks/not-a-upid/status").status_code == 400
 
 cat = {a["id"]: a for a in c.get("/api/apps/catalog").json()}
-assert len(cat) == 7 and [i["vmid"] for i in cat["jellyfin"]["installed"]] == [110], cat["jellyfin"]
+assert len(cat) == 5 and "samba" not in cat and [i["vmid"] for i in cat["jellyfin"]["installed"]] == [110], cat["jellyfin"]
 assert all((apps.DATA / f"apps/{i}.sh").exists() for i in cat), "missing install script"
 body = apps.DeployBody(app_id="jellyfin", hostname="jf", cores=2, memory=2048, disk_gb=16,
                        ip_config={"cidr": "192.168.1.50/24", "gateway": "192.168.1.1"},

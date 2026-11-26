@@ -202,7 +202,7 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     app: "appcenter",
     title: "App Center Guide",
     blurb: "One-click installs of popular self-hosted apps.",
-    what: "App Center installs ready-made apps like Jellyfin, Docker, AdGuard Home and Ollama, each in its own container, with sensible CPU, memory and disk sizes already filled in.",
+    what: "App Center installs ready-made apps like Jellyfin, Immich, AdGuard Home, Portainer CE and Local AI Studio, each in its own container, with sensible CPU, memory and disk sizes already filled in. Docker Engine & Compose, SMB file sharing and the reverse proxy are built in (Compute › Docker, Settings › Storage & Data › Shared Folders & SMB, Settings › Network & Services › Reverse Proxy & SSL), so they are not in the catalog.",
     when: [
       "You want a media server, ad blocker or local AI without typing commands.",
       "Trying an app safely: removing its container removes it completely.",
@@ -868,7 +868,7 @@ const SUB_GUIDES: Guide[] = [
     what: "The wizard opens on the first sign-in of a new installation. You tick one or more server roles on wireframe cards, choose Standalone Server or Cluster Host, fine-tune single services, tick apps to install, and press Setup My Server. A live progress card runs from 0 to 100 %.",
     cards: [
       { title: "Roles", body: "Storage & Media, Virtualization Host, Multi-Seat Gaming, High-Availability Cluster, Network Gateway & VPN, AI Compute and Other Services. Combine as many as you like." },
-      { title: "Apps", body: "Tick Local AI Studio, Jellyfin, Immich, Docker & Portainer, AdGuard Home, Nginx Proxy Manager or Samba; each card shows its CPU, memory and disk needs." },
+      { title: "Apps", body: "Tick Local AI Studio, Jellyfin, Immich, AdGuard Home or Portainer CE; each card shows its CPU, memory and disk needs. Docker Engine, file sharing and the reverse proxy are built-in services you switch on under Customize Services." },
       { title: "Finish", body: "The finish screen shows the server address, roles and apps. Cluster Host opens cluster setup next." },
     ],
     when: ["Right after installing.", "The server takes on a new job.", "You want to start over with a clean selection."],
