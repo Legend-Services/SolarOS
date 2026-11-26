@@ -478,3 +478,10 @@ class HypervisorProvider(ABC):
         """The driver's cluster module for Multi-Host Clustering & HA (app.cluster documents the contract): cluster
         create / join / leave, live migration, HA configuration and replication. None = not supported."""
         return None
+
+    def module_driver(self):
+        """The driver's modules module for the Security-by-Design core modules: BACKUP_DIR, CLONE_TEMPLATES,
+        serial_command(guest_type, vmid), enable_serial(vmid), heartbeat_command(kind, vmid), usb_attach(device, vmid),
+        make_template(vmid), clone_template(vmid, new_vmid, name, full), zero_touch(body, job, user_data, network_config).
+        None = not supported."""
+        return None

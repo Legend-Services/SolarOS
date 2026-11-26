@@ -1272,6 +1272,10 @@ class NativeUbuntuProvider(HypervisorProvider):
         from . import cluster
         return cluster
 
+    def module_driver(self):
+        from . import modules
+        return modules
+
     async def backup_scheduler_loop(self) -> None:
         """Runs due backup jobs (started from app.main lifespan on this driver)."""
         while True:

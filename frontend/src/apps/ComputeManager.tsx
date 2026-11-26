@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRightLeft, Container, FlaskConical, Monitor, MonitorPlay, Play, Plus, Power, RotateCw, Search, Server, ShieldCheck, SlidersHorizontal, Square, SquareTerminal } from "lucide-react";
+import { ArrowRightLeft, Container, FlaskConical, Monitor, MonitorPlay, Play, Plus, Power, RotateCw, Search, Server, ShieldCheck, SlidersHorizontal, Square, SquareTerminal, Wand2 } from "lucide-react";
 import { api } from "../lib/api";
 import type { Guest } from "../lib/types";
 import { bytes, percent, uptime } from "../lib/format";
@@ -7,6 +7,9 @@ import { usePoll } from "../lib/hooks";
 import { GlassBadge, GlassButton, GlassModal, Segmented } from "../components/ui/GlassKit";
 import LabSandboxPanel from "../components/compute/LabSandbox";
 import MultiSeatStudio from "../components/compute/MultiSeatStudio";
+import ImageHubPanel from "../components/compute/ImageHubPanel";
+import ZeroTouchWizard from "../components/compute/ZeroTouchWizard";
+import { SecurityModuleHeader } from "../components/ui/SecurityModuleHeader";
 import { HaModal, MigrateModal, type Workload } from "../components/cluster/ClusterDialogs";
 import { useTranslation } from "../i18n";
 import { useCapabilities } from "../store/capabilitiesStore";
@@ -37,9 +40,10 @@ export default function ComputeManager() {
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Guest | null>(null);
-  const [view, setView] = useState<"guests" | "iso">("guests");
+  const [view, setView] = useState<"guests" | "iso" | "images">("guests");
   const [wizard, setWizard] = useState<GuestKind | null>(null);
   const [labs, setLabs] = useState(false);
+  const [zeroTouch, setZeroTouch] = useState(false);
   const [cluster, setCluster] = useState<{ mode: string; self: string; workloads: Workload[] } | null>(null);
   const [hostFilter, setHostFilter] = useState("all");
   const [migrating, setMigrating] = useState<Workload | null>(null);
@@ -162,6 +166,7 @@ export default function ComputeManager() {
           options={[
             { id: "guests", label: "Guests" },
             { id: "iso", label: "ISO & Templates" },
+            { id: "images", label: t("ih.tab") },
           ]}
         />
         <div className="ml-auto flex gap-2">
@@ -171,6 +176,11 @@ export default function ComputeManager() {
           {caps.supports_qemu && (
             <GlassButton variant="primary" onClick={() => setWizard("qemu")}>
               <Plus size={13} /> Create VM
+            </GlassButton>
+          )}
+          {caps.supports_qemu && (
+            <GlassButton onClick={() => setZeroTouch(true)}>
+              <Wand2 size={13} /> {t("zt.create")}
             </GlassButton>
           )}
           {caps.supports_lxc && (
@@ -183,6 +193,12 @@ export default function ComputeManager() {
       {view === "iso" ? (
         <div className="min-h-0 flex-1 overflow-auto">
           <IsoLibrary />
+        </div>
+      ) : view === "images" ? (
+        <div className="min-h-0 flex-1 overflow-auto p-3">
+          <SecurityModuleHeader module="image_hub" compact>
+            {() => <ImageHubPanel />}
+          </SecurityModuleHeader>
         </div>
       ) : (
         <>
@@ -366,6 +382,7 @@ export default function ComputeManager() {
       <MigrateModal guest={migrating} onClose={() => (setMigrating(null), load(), loadCluster())} />
       <HaModal guest={haFor} onClose={() => (setHaFor(null), loadCluster())} />
       <GuestWizard kind={wizard} open={!!wizard} onClose={() => setWizard(null)} onCreated={load} />
+      <ZeroTouchWizard open={zeroTouch} onClose={() => setZeroTouch(false)} onCreated={load} />
       <GlassModal open={labs} onClose={() => (setLabs(false), load())} width="max-w-3xl" title={t("lab.title")}>
         <LabSandboxPanel />
       </GlassModal>
