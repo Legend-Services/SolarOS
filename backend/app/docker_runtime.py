@@ -12,7 +12,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Path
 from pydantic import BaseModel
 
-from . import audit_log, platform_modules as pm, task_progress
+from . import audit_log, features, platform_modules as pm, task_progress
 from .auth import require_user
 
 router = APIRouter(prefix="/api/docker", tags=["docker"], dependencies=[Depends(require_user)])
@@ -98,8 +98,8 @@ async def _install(job: dict) -> dict:
 @router.post("/enable")
 async def enable(body: EnableBody | None = None, user: str = Depends(require_user)):
     """Switch the module on and install Docker Engine & Compose where it runs. Returns the job to follow."""
-    changes = {"enabled": True, **({"runtime_mode": body.runtime_mode} if body and body.runtime_mode else {})}
-    p = pm.update_profile(MODULE, **changes)
+    await features.apply({MODULE: True})  # the feature flag is the module's on/off state
+    p = pm.update_profile(MODULE, **({"runtime_mode": body.runtime_mode} if body and body.runtime_mode else {}))
     audit_log.record("docker.enable", user=user, runtime=p["runtime_mode"])
     if p["runtime_mode"] == "container":
         w = await pm.ensure_worker(MODULE)

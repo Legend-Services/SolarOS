@@ -86,6 +86,7 @@ function ModuleBody({ id, tab }: { id: ModuleId; tab?: string }) {
   const initialTab = tab as never;
   const caps = useCapabilities((s) => s.capabilities);
   const vis = useVisibility();
+  const docker = useFeatures((s) => on(s.enabled, "docker_engine"));
   switch (id) {
     case "general-appearance":
       return pad(<Appearance />);
@@ -189,7 +190,16 @@ function ModuleBody({ id, tab }: { id: ModuleId; tab?: string }) {
     case "cluster-ha":
       return <Views module={id} initial={tab} views={[["set.view.cluster", pad(<ClusterManagerPanel />)], ["set.view.oob", gated("oob_bmc", <OutOfBandPanel />)]]} />;
     case "system-services":
-      return pad(<SystemServicesPanel />);
+      return pad(
+        <>
+          {docker && (
+            <div data-anchor="docker-engine">
+              <SecurityModuleHeader module="docker_engine" />
+            </div>
+          )}
+          <SystemServicesPanel />
+        </>,
+      );
   }
 }
 

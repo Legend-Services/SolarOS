@@ -92,14 +92,15 @@ export function SecurityModuleHeader({ module, children, compact = false }: { mo
     <div className="space-y-4">
       <section className="glass-soft rounded-2xl p-4" aria-label={t(`sdm.m.${module}`)}>
         <div className="flex flex-wrap items-center gap-3">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-400 to-violet-600 text-white shadow-lg shadow-black/30">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sky-500/30 bg-sky-500/15 text-sky-400">
             <ShieldCheck size={18} />
           </span>
           <div className="min-w-0 flex-1">
             <h3 className="truncate text-sm font-semibold text-white">{t(`sdm.m.${module}`)}</h3>
             <GlassBadge tone={saved.enabled ? tone : "neutral"}>{saved.enabled ? t(label) : t("sdm.disabled")}</GlassBadge>
           </div>
-          <GlassSwitch checked={draft.enabled} label={t("sdm.enabled")} disabled={busy} onChange={(enabled) => (dirty ? set({ enabled }) : void save({ ...draft, enabled }))} />
+          {/* Docker is switched on and off in Settings › Features & Services only, so it gets no second switch here. */}
+          {module !== "docker_engine" && <GlassSwitch checked={draft.enabled} label={t("sdm.enabled")} disabled={busy} onChange={(enabled) => (dirty ? set({ enabled }) : void save({ ...draft, enabled }))} />}
         </div>
         {!compact && (
           <div className="mt-4 grid gap-4 md:grid-cols-2">

@@ -54,6 +54,13 @@ async def fake_run(module_id, script, timeout=300, log=None):
 pm.run = fake_run
 c = TestClient(app)
 
+# One switch: the docker_engine feature flag is the module's on/off state; the module PUT cannot override it.
+assert pm.profile("docker_engine")["enabled"] is True  # features default on
+assert c.put("/api/system/features", json={"enabled": {"docker_engine": False}}).status_code == 200
+assert pm.profile("docker_engine")["enabled"] is False
+body = {**pm.profile("docker_engine"), "enabled": True}
+assert c.put("/api/platform/modules/docker_engine", json=body).json()["enabled"] is False
+
 # Off: status answers, everything else is gated.
 assert c.get("/api/docker/status").json()["enabled"] is False
 assert c.get("/api/docker/containers").status_code == 409
@@ -61,6 +68,7 @@ assert c.get("/api/docker/containers").status_code == 409
 # Host native: enable runs the install job where the module lives.
 r = c.post("/api/docker/enable", json={"runtime_mode": "host_native"})
 assert r.status_code == 200 and r.json()["runtime_mode"] == "host_native", r.text
+assert features.enabled("docker_engine")
 job = tp.module_jobs[r.json()["job_id"]]
 for _ in range(100):
     if job["status"] != "running":
