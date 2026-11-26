@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.19.0 - Features & Services Toggle Hub, Server Setup Wizard & Interactive Desktop Tour — 2026-11-26
+
+### Added
+- **Settings → System → Features & Services** with a live `n / 28 Active` badge in the sidebar and on its tile: one switch per optional feature, grouped into Networking & Edge, Compute & Virtualization, Storage & Data Protection, System, Hardware & Security and Applications & AI, with search, plain-English descriptions and quick presets (**Minimal Core**, **Home & Media Server**, **Full Hypervisor Lab**, **Enable All**). Sub-features sit indented under their parent: **WireGuard VPN Server** and **WireGuard VPN Client** switch independently, **Per-VLAN DHCP Servers** live under Virtual Switch.
+  - A switched-off feature disappears from the Settings sidebar and tiles, from the inner tabs of its module (for example the WireGuard server tab while the client tab stays), from TopBar Global Search (apps, sub-modules, controls and manual articles), and its app from the desktop, App Gallery, launcher, Dock and taskbar. Pinned and ordered apps keep their place and come back when the feature is switched on again.
+  - Background services pause with their feature: running WireGuard server / client tunnels, per-VLAN DHCP servers and UPS monitoring units are recorded, disabled and stopped, and exactly those units start again when the feature is switched back on. Configuration files are never touched.
+  - General & Appearance, Users & Roles, Software & Repositories and Features & Services itself have no switch, so nobody can hide their way out of administration.
+  - Flags live in `backend/data/enabled_features.json` and default to on, so upgraded installations look exactly as before. `GET /api/system/features`, `PUT /api/system/features` (administrator only; seat users and viewers can read them so their desktop is filtered too).
+- **Server Setup Wizard**: opens full-screen on the first sign-in of a new installation and any time from **Re-run Setup Wizard** (Features & Services, Help & Support). Pick one or more server roles on cards with glowing schematic wireframes and checkmarks (Storage & Media, Virtualization Host, Multi-Seat Gaming, High-Availability Cluster, Network Gateway & VPN, AI Compute, Other Services), choose **Standalone Server** or **Cluster Host** (create or join), fine-tune single services, tick App Center apps with their vCPU / RAM / disk footprint, review the summary and press **Setup My Server**. A progress card runs from 0 to 100 % while features are applied, cluster readiness is checked and the apps install one after another; the finish screen shows the server address, roles and apps, and **Enter Desktop** opens cluster setup next for a cluster host. **Skip Setup & Use Defaults** keeps everything on. `GET /api/onboarding/state`, `POST /api/onboarding/apply` (a Task Center job), `POST /api/onboarding/skip`; state in `backend/data/onboarding_state.json`.
+- **Interactive Desktop Tour**: five Liquid Glass speech balloons with a pointer arrow and highlight ring on the real desktop (search bar, system tray and Task Center, widgets, Dock or taskbar, Settings → Features & Services), each with Step X of 5, Back, Next / Finish Tour and **Skip Guide**. It follows the wizard unless *Skip interactive get-started guide after setup* stays ticked, and starts any time from Help & Support or the top bar's help menu. `POST /api/onboarding/tour-complete`.
+- Manual, Global Search, guides, screenshots, `docs/` and the API reference cover the new screens. All new texts in English, Nederlands, Deutsch, Español and Français.
+
+### Notes
+- An installation that was already set up never sees the wizard automatically; the first-run state is written when the first administrator is created.
+- The reverse proxy's web server is not stopped when Reverse Proxy & SSL is hidden: on a single-host installation it may also serve this interface.
+
 ## v2.18.0 - Built-In Reverse Proxy & SSL, Security-by-Design Isolation & Core OS Modules — 2026-11-26
 
 ### Added

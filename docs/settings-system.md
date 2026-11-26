@@ -8,7 +8,7 @@ Core hardware, OS repositories, firmware, live telemetry, power and updates.
 
 ![System](screenshots/settings-system.png)
 
-**Sub-modules:** [General & Appearance](#general-appearance) · [Hardware & GPU](#hardware-gpu) · [BIOS & Firmware](#bios-firmware) · [Resource Monitor](#resource-monitor) · [Software & Repositories](#software-repositories) · [System Services](#system-services) · [Automation & Alerts](#automation-alerts) · [Host & Power](#host-power) · [Power & UPS](#power-ups)
+**Sub-modules:** [General & Appearance](#general-appearance) · [Features & Services](#features-services) · [Hardware & GPU](#hardware-gpu) · [BIOS & Firmware](#bios-firmware) · [Resource Monitor](#resource-monitor) · [Software & Repositories](#software-repositories) · [System Services](#system-services) · [Automation & Alerts](#automation-alerts) · [Host & Power](#host-power) · [Power & UPS](#power-ups)
 
 ## General & Appearance
 
@@ -89,6 +89,42 @@ Dock magnification and auto-hide.
 
 1. Choose a magnification strength.
 2. Turn on auto-hide to give open apps more room.
+
+## Features & Services
+
+![Features & Services](screenshots/settings-features-services.png)
+
+### Overview
+
+Choose which optional features this server shows. A feature you switch off disappears from the Settings sidebar, its inner tabs, the TopBar search and the desktop, so you only see what you use. Its saved settings stay, and switching it back on brings everything back. Features with a background service (WireGuard server and client tunnels, per-VLAN DHCP servers, UPS monitoring) pause that service while they are off and start it again when you switch them on.
+
+1. Open Settings › System › Features & Services (or press “Open This Setting / App →” above).
+2. Flip the switch next to a feature to show or hide it; the counter at the top shows how many are active.
+3. Sub-features sit indented under their parent: WireGuard VPN has separate switches for the server (remote access in) and the client (tunnels out); Per-VLAN DHCP Servers sit under Virtual Switch.
+4. Use a quick preset (Minimal Core, Home & Media Server, Full Hypervisor Lab, Enable All) to set many switches at once.
+5. Press Re-run Setup Wizard to pick server roles again.
+
+> **Tip:** General & Appearance, Users & Roles, Software & Repositories and Features & Services itself can never be hidden, so you cannot lock yourself out.
+
+### Quick presets
+
+Quick presets switch many features at once: Minimal Core, Home & Media Server, Full Hypervisor Lab or Enable All.
+
+1. Press a preset button; the switches below update right away.
+2. Fine-tune single switches afterwards.
+
+![Quick presets](screenshots/settings-features-services--feature-presets.png)
+
+### Server Setup
+
+The Server Setup Wizard opens on the first sign-in of a new installation and any time from Re-run Setup Wizard. Pick one or more server roles on wireframe cards (storage & media, virtualization host, multi-seat gaming, high-availability cluster, network gateway & VPN, AI compute or other services), choose Standalone Server or Cluster Host, fine-tune single services, tick App Center apps to install, review the summary and press Setup My Server. Live progress runs from 0 to 100 %, then the finish screen shows the server address, roles and apps.
+
+1. Press Re-run Setup Wizard.
+2. Tick one or more roles and pick Standalone Server or Cluster Host.
+3. Press Customize Services to fine-tune, then pick apps.
+4. Review the summary, choose whether to skip the desktop tour and press Setup My Server.
+
+> **Tip:** Skip Setup & Use Defaults (first run only) keeps every feature on and skips the tour.
 
 ## Hardware & GPU
 

@@ -16,6 +16,10 @@ import { useWizard } from "./store/wizardStore";
 import { useTheme } from "./store/themeStore";
 import { useBranding } from "./store/capabilitiesStore";
 import { DesktopWallpaperLayer } from "./components/ThemeQuickSwitcher";
+import ServerSetupWizard from "./components/onboarding/ServerSetupWizard";
+import DesktopGuidedTour from "./components/onboarding/DesktopGuidedTour";
+import { useFeatures } from "./store/featureStore";
+import { useOnboarding } from "./store/onboardingStore";
 
 // The automatic Welcome Tour shows at most once per page load (not again after a lock / unlock).
 let tourShown = false;
@@ -36,17 +40,20 @@ export default function App() {
     useTheme.getState().loadCustom().catch(() => {}); // custom themes; built-ins work offline
     void useBranding.getState().load(); // server name for the wallpaper brand badge
   }, [status]);
-  // Server preferences first, so a "don't show again" saved on another browser is respected.
-  useEffect(
-    () =>
-      status === "unlocked"
-        ? startPreferencesSync(() => {
-            const w = useWizard.getState();
-            if (w.welcomeAuto && !w.guide && !tourShown) (tourShown = true, w.show("welcome"));
-          })
-        : undefined,
-    [status],
-  );
+  // Server preferences first, so a "don't show again" saved on another browser is respected. The Welcome Tour
+  // waits for the onboarding state: it never stacks on the Server Setup Wizard or the Desktop Tour.
+  useEffect(() => {
+    if (status !== "unlocked") return;
+    void useFeatures.getState().load();
+    const onboarding = useOnboarding.getState().load();
+    return startPreferencesSync(() => {
+      void onboarding.then(() => {
+        const o = useOnboarding.getState();
+        const w = useWizard.getState();
+        if (!o.wizard && !o.tour && w.welcomeAuto && !w.guide && !tourShown) (tourShown = true, w.show("welcome"));
+      });
+    });
+  }, [status]);
 
   return (
     <div className="relative h-full w-full overflow-hidden">
@@ -74,6 +81,8 @@ export default function App() {
             <BugReportModal />
             <GuidedWizardModal />
             <StepUpAuthModal />
+            <DesktopGuidedTour />
+            <ServerSetupWizard />
           </>
         )}
       </div>

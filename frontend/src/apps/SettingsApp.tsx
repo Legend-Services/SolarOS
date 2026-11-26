@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import { useCapabilities } from "../store/capabilitiesStore";
+import { useFeatures, useVisibility } from "../store/featureStore";
+import { FEATURE_KEYS, on } from "../data/features";
 import { useWizard } from "../store/wizardStore";
 import { api } from "../lib/api";
 import { bytes } from "../lib/format";
@@ -42,14 +44,18 @@ import UsersRolesPanel from "./settings/UsersRolesPanel";
 import FirewallIdsPanel from "./settings/FirewallIdsPanel";
 import StorageProtocolsPanel from "./settings/StorageProtocolsPanel";
 import ImageHubPanel from "../components/compute/ImageHubPanel";
+import FeaturesServicesPanel from "../components/settings/FeaturesServicesPanel";
 
 const pad = (n: ReactNode) => <div className="h-full space-y-4 overflow-auto p-4" data-settings-body>{n}</div>;
 /** An optional Security-by-Design module: its header (on/off, runtime, network), then the panel while it is on. */
 const gated = (module: ModuleKey, body: ReactNode) => pad(<SecurityModuleHeader module={module}>{() => body}</SecurityModuleHeader>);
 
 /** A module made of several existing panels: a small tab row above the active one. */
-function Views({ views, initial, fallback = 0 }: { views: [TKey, ReactNode][]; initial?: string; fallback?: number }) {
+function Views({ module, views: all, initial, fallback = 0 }: { module: ModuleId; views: [TKey, ReactNode][]; initial?: string; fallback?: number }) {
   const { t } = useTranslation();
+  // Tabs of features switched off in Features & Services are left out.
+  const tab = useVisibility().tab;
+  const views = all.filter(([k]) => tab(module, k.slice("set.view.".length)));
   // A deep link to an inner tab of one view (not a view itself) opens `fallback`, the view that owns those tabs.
   const [i, setI] = useState(() => {
     const hit = views.findIndex(([k]) => k === `set.view.${initial}`);
@@ -79,11 +85,14 @@ function ModuleBody({ id, tab }: { id: ModuleId; tab?: string }) {
   // `tab` comes from a search / Help deep link: the inner tab to show first (each panel checks it against its own tabs).
   const initialTab = tab as never;
   const caps = useCapabilities((s) => s.capabilities);
+  const vis = useVisibility();
   switch (id) {
     case "general-appearance":
       return pad(<Appearance />);
+    case "features-services":
+      return pad(<FeaturesServicesPanel />);
     case "hardware-gpu":
-      return <Views initial={tab} views={[["set.view.gpu", pad(<HardwarePanel />)], ["set.view.multiseat", pad(<MultiSeatStudio />)]]} />;
+      return <Views module={id} initial={tab} views={[["set.view.gpu", pad(<HardwarePanel />)], ["set.view.multiseat", pad(<MultiSeatStudio />)]]} />;
     case "bios-firmware":
       return <div className="h-full overflow-auto p-4" data-settings-body><Bios focus={null} /></div>;
     case "resource-monitor":
@@ -91,6 +100,7 @@ function ModuleBody({ id, tab }: { id: ModuleId; tab?: string }) {
     case "software-updates":
       return (
         <Views
+          module={id}
           initial={tab}
           views={[
             ["set.view.solardeck", pad(<><UpdatesSection /><BugReportCard /></>)],
@@ -106,10 +116,11 @@ function ModuleBody({ id, tab }: { id: ModuleId; tab?: string }) {
     case "storage-zfs":
       return <StorageManager initialTab={initialTab} />;
     case "backup-restore":
-      return <Views initial={tab} views={[["set.view.backups", <BackupCenterApp initialTab={initialTab} />], ["set.view.dr", gated("offsite_backup", <DisasterRecoveryPanel />)]]} />;
+      return <Views module={id} initial={tab} views={[["set.view.backups", <BackupCenterApp initialTab={initialTab} />], ["set.view.dr", gated("offsite_backup", <DisasterRecoveryPanel />)]]} />;
     case "shared-folders":
       return (
         <Views
+          module={id}
           initial={tab}
           views={[
             ["set.view.smb", <SharesManager initialTab={initialTab} />],
@@ -120,15 +131,16 @@ function ModuleBody({ id, tab }: { id: ModuleId; tab?: string }) {
         />
       );
     case "iso-templates":
-      return <Views initial={tab} views={[["set.view.isos", <div className="h-full overflow-auto"><IsoLibrary /></div>], ["set.view.images", gated("image_hub", <ImageHubPanel />)]]} />;
+      return <Views module={id} initial={tab} views={[["set.view.isos", <div className="h-full overflow-auto"><IsoLibrary /></div>], ["set.view.images", gated("image_hub", <ImageHubPanel />)]]} />;
     case "users-roles":
       return (
         <Views
+          module={id}
           initial={tab}
           fallback={1}
           views={[
             ["set.view.accounts", gated("rbac_users", <UsersRolesPanel />)],
-            ["set.view.hostUsers", <DatacenterApp initialTab={initialTab} tabs={["users", "groups", "roles", "acl", "pools", "tokens", "realms"]} />],
+            ["set.view.hostUsers", <DatacenterApp initialTab={initialTab} tabs={["users", "groups", "roles", "acl", "pools", ...(vis.tab(id, "tokens") ? (["tokens"] as const) : []), "realms"]} />],
           ]}
         />
       );
@@ -139,10 +151,11 @@ function ModuleBody({ id, tab }: { id: ModuleId; tab?: string }) {
     case "security-posture":
       return pad(<PostureCard />);
     case "audit-logs":
-      return <Views initial={tab} views={[["set.view.audit", pad(<AuditLogCard />)], ["set.view.hostLogs", <DatacenterApp tabs={["logs"]} />]]} />;
+      return <Views module={id} initial={tab} views={[["set.view.audit", pad(<AuditLogCard />)], ["set.view.hostLogs", <DatacenterApp tabs={["logs"]} />]]} />;
     case "network-switch":
       return (
         <Views
+          module={id}
           initial={tab}
           views={[
             ["set.view.vswitch", <VisualSwitchStudio />],
@@ -160,11 +173,11 @@ function ModuleBody({ id, tab }: { id: ModuleId; tab?: string }) {
     case "reverse-proxy":
       return gated("reverse_proxy", <ReverseProxyStudio initialTab={tab} />);
     case "firewall-ids":
-      return <Views initial={tab} views={[["set.view.zones", gated("vlan_firewall", <FirewallIdsPanel view="zones" />)], ["set.view.ids", gated("vlan_firewall", <FirewallIdsPanel view="ids" />)]]} />;
+      return <Views module={id} initial={tab} views={[["set.view.zones", gated("vlan_firewall", <FirewallIdsPanel view="zones" />)], ["set.view.ids", gated("vlan_firewall", <FirewallIdsPanel view="ids" />)]]} />;
     case "firewall-forwarding":
-      return <Views initial={tab} views={[["set.view.firewall", <DatacenterApp tabs={["firewall"]} />], ["set.view.forwarding", <NetworkServicesApp tabs={["router"]} />]]} />;
+      return <Views module={id} initial={tab} views={[["set.view.firewall", <DatacenterApp tabs={["firewall"]} />], ["set.view.forwarding", <NetworkServicesApp tabs={["router"]} />]]} />;
     case "wireguard-vpn":
-      return <NetworkServicesApp initialTab={initialTab} tabs={["wg", "wgc"]} />;
+      return <NetworkServicesApp initialTab={initialTab} tabs={(["wg", "wgc"] as const).filter((x) => vis.tab(id, x))} />;
     case "automation-alerts":
       return pad(<AutomationPanel />);
     case "hypervisor-defaults":
@@ -174,7 +187,7 @@ function ModuleBody({ id, tab }: { id: ModuleId; tab?: string }) {
     case "local-ai-runtime":
       return <LocalAiApp initialTab={tab === "storage" ? "storage" : "hardware"} embedded />;
     case "cluster-ha":
-      return <Views initial={tab} views={[["set.view.cluster", pad(<ClusterManagerPanel />)], ["set.view.oob", gated("oob_bmc", <OutOfBandPanel />)]]} />;
+      return <Views module={id} initial={tab} views={[["set.view.cluster", pad(<ClusterManagerPanel />)], ["set.view.oob", gated("oob_bmc", <OutOfBandPanel />)]]} />;
     case "system-services":
       return pad(<SystemServicesPanel />);
   }
@@ -247,6 +260,14 @@ function HostSummary({ query, setQuery, onEnter }: { query: string; setQuery: (q
   );
 }
 
+/** "14 / 28 Active" on the Features & Services entry. */
+function FeatureCount() {
+  const { t } = useTranslation();
+  const enabled = useFeatures((s) => s.enabled);
+  const n = FEATURE_KEYS.filter((k) => on(enabled, k)).length;
+  return <span className="shrink-0 rounded-full bg-cyan-400/15 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-200 tabular-nums">{t("feat.count", { n, total: FEATURE_KEYS.length })}</span>;
+}
+
 function Tile({ id, onOpen, dot }: { id: ModuleId; onOpen: () => void; dot?: string }) {
   const { t } = useTranslation();
   const m = MODULES[id];
@@ -260,7 +281,10 @@ function Tile({ id, onOpen, dot }: { id: ModuleId; onOpen: () => void; dot?: str
       <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[30%] bg-gradient-to-br text-white shadow-lg shadow-black/30 ${m.tint}`}>
         <Icon size={19} />
       </span>
-      <span className="min-w-0 text-xs font-medium leading-snug text-slate-100">{t(`set.mod.${id}`)}</span>
+      <span className="min-w-0 text-xs font-medium leading-snug text-slate-100">
+        {t(`set.mod.${id}`)}
+        {id === "features-services" && <span className="mt-1 block"><FeatureCount /></span>}
+      </span>
       {dot && <span className={`absolute top-2 right-2 h-2 w-2 rounded-full ${dot}`} aria-hidden />}
     </button>
   );
@@ -292,13 +316,14 @@ export default function SettingsApp() {
   }, [nav.n]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(loadRelease, [loadRelease]);
 
-  const available = MODULE_IDS.filter((id) => id !== "bios-firmware" || caps.supports_bios_manager);
+  const vis = useVisibility();
+  const available = MODULE_IDS.filter((id) => (id !== "bios-firmware" || caps.supports_bios_manager) && vis.module(id));
   const q = query.trim().toLowerCase();
   const matches = (id: ModuleId) =>
     !q || `${t(`set.mod.${id}`)} ${t(`set.modDesc.${id}`)} ${t(`set.cat.${MODULES[id].cat}`)} ${id}`.toLowerCase().includes(q);
   const inCat = (c: CategoryId) => available.filter((id) => MODULES[id].cat === c);
 
-  if (module) {
+  if (module && available.includes(module)) {
     const cat = MODULES[module].cat;
     return (
       <div ref={root} className="flex h-full flex-col">
@@ -332,7 +357,8 @@ export default function SettingsApp() {
                         aria-current={id === module}
                         className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition ${id === module ? "bg-white/12 text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"}`}
                       >
-                        <Icon size={13} className="shrink-0" /> <span className="truncate">{t(`set.mod.${id}`)}</span>
+                        <Icon size={13} className="shrink-0" /> <span className="min-w-0 flex-1 truncate">{t(`set.mod.${id}`)}</span>
+                        {id === "features-services" && <FeatureCount />}
                       </button>
                     );
                   })}

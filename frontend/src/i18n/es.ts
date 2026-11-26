@@ -4,6 +4,7 @@ import proxyI18n from "./modules/proxy";
 import recoveryI18n from "./modules/recovery";
 import infraI18n from "./modules/infra";
 import netstoreI18n from "./modules/netstore";
+import onboardingI18n from "./modules/onboarding";
 
 export const es: Dict = {
   // Common
@@ -1541,4 +1542,5 @@ export const es: Dict = {
   ...recoveryI18n.es,
   ...infraI18n.es,
   ...netstoreI18n.es,
+  ...onboardingI18n.es,
 };

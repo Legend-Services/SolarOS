@@ -36,12 +36,15 @@ export function GlassSwitch({
   label,
   disabled,
   className = "",
+  ariaLabel,
 }: {
   checked: boolean;
   onChange: (v: boolean) => void;
   label?: ReactNode;
   disabled?: boolean;
   className?: string;
+  /** Accessible name when there is no visible label. */
+  ariaLabel?: string;
 }) {
   const id = useId();
   return (
@@ -51,7 +54,7 @@ export function GlassSwitch({
         type="button"
         role="switch"
         aria-checked={checked}
-        aria-label={typeof label === "string" ? label : undefined}
+        aria-label={ariaLabel ?? (typeof label === "string" ? label : undefined)}
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={`glass-switch ${checked ? "is-on" : ""}`}

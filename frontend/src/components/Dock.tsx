@@ -10,6 +10,7 @@ import { useSmoothReorder } from "../hooks/useSmoothReorder";
 
 import { useBarMenu } from "./SystemTray";
 import { useLayout } from "../store/layoutStore";
+import { useVisibility } from "../store/featureStore";
 
 
 const GALLERY = "gallery";
@@ -29,7 +30,9 @@ export default function Dock() {
   const hideTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const menuRef = useDismiss(!!menu, () => setMenu(null));
   // Pointer reorder of pinned icons along X; committed to useDock (+ preferences sync) once, on release.
-  const reorder = useSmoothReorder(storePinned, (next) => useDock.setState({ pinned: next }), { axis: "x" });
+  // Apps of hidden features stay pinned (appended after the visible ones) so they come back when re-enabled.
+  const appOn = useVisibility().app;
+  const reorder = useSmoothReorder(storePinned.filter(appOn), (next) => useDock.setState({ pinned: [...next, ...storePinned.filter((id) => !appOn(id))] }), { axis: "x" });
   const pinned = reorder.order;
   const drag = reorder.dragging;
 
@@ -81,6 +84,7 @@ export default function Dock() {
       >
         <div
           ref={flipRef}
+          data-tour="dock"
           className="glass pointer-events-auto flex items-end rounded-[22px] px-3 pb-1.5"
           style={{ gap, height: baseSize + 22 }}
           onMouseMove={onMove}
@@ -107,7 +111,7 @@ export default function Dock() {
             const isRunning = windows.some((w) => w.id === id);
             const b = isPinned ? reorder.bind(id) : undefined;
             return (
-              <div key={id} data-flip={id} {...b} className="relative flex touch-none items-end" style={{ gap, ...b?.style }}>
+              <div key={id} data-flip={id} data-tour={id === "settings" ? "settings" : undefined} {...b} className="relative flex touch-none items-end" style={{ gap, ...b?.style }}>
                 {i === pinned.length + 1 && <span className="mb-2 h-8 w-px self-end bg-white/20" aria-hidden />}
                 <button
                   onClick={() => click(id)}

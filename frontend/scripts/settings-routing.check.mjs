@@ -7,7 +7,7 @@ const ok = (c, m) => {
 };
 const eq = (a, b, m) => ok(JSON.stringify(a) === JSON.stringify(b), `${m}: ${JSON.stringify(a)}`);
 
-ok(MODULE_IDS.length === 22, "22 sub-modules");
+ok(MODULE_IDS.length === 31, "31 sub-modules");
 ok(!RETIRED.some((id) => APP_IDS.includes(id)) && APP_IDS.includes("settings"), "retired apps leave the launcher, Settings joins it");
 ok(DOCK_DEFAULT.every((id) => APP_IDS.includes(id)), "default dock only holds launchable apps");
 
