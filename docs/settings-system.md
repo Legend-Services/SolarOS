@@ -126,6 +126,23 @@ Motherboard model, BIOS version and system details.
 
 1. Read the System & Motherboard card.
 
+### Multi-Seat & Ports
+
+Several people work or play on one machine at the same time: every seat is a VM with its own GPU and monitors, its own physical USB ports and dedicated CPU cores.
+
+1. Press + Create Seat and pick the seat's VM (or Create New Seat VM).
+2. Choose the GPU whose monitors the seat uses; its HDMI/DP audio comes along.
+3. Press Plug to Assign and plug the seat's keyboard, mouse or USB hub into a free port on the server within 30 seconds.
+4. Press Auto-Balance Cores Across Seats, then Start All Seats.
+
+> **Tip:** USB ports are bound by their physical position, so two identical mice on different ports go to different seats.
+
+> **Tip:** When the seat uses the GPU the server boots on, the server's own console screen switches off while that seat runs.
+
+> **Tip:** IOMMU must be enabled in the BIOS; see BIOS & Firmware.
+
+![Multi-Seat & Ports](screenshots/settings-hardware-gpu--multiseat.png)
+
 ### Network Interfaces
 
 Physical network adapters with link speed and driver.

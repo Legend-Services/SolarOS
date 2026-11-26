@@ -33,8 +33,13 @@ Compute Manager lists every virtual machine and container with live status, and 
 2. Use the play, stop and restart buttons on a row to control a guest.
 3. Click a guest's name to open its settings drawer: CPU, memory, disks, network cards, snapshots and passthrough devices.
 4. Press Console (VMs) or Shell (containers) to see the screen or get a root prompt.
+5. The drawer's Virtual Hardware & Lab tab adds emulated devices (HD audio + microphone, retro sound, virtual webcam, SAS/RAID HBA, NVMe, 56k modem, 10 Mbps NIC, TPM 2.0, smartcard reader, watchdog, entropy) and throttles CPU speed and network links (10 Mbps, 56k modem, 4G, custom latency and packet loss).
+6. Press Isolated Lab Sandbox to launch an air-gapped lab network with its own switch, VLAN and DHCP server in one click.
+7. The Multi-Seat & Ports tab turns one machine into several workstations: give each seat VM its own GPU with its monitors, physical USB ports (Plug to Assign) and CPU cores, then press Start All Seats.
 
 > **Tip:** Install media lives in the ISO & Template Library; download an ISO there before creating a VM.
+
+> **Tip:** Legacy PCI and ISA devices need a power cycle (shut down, then start) before a running VM sees them.
 
 ## File Station
 
