@@ -34,7 +34,7 @@ export default function FeaturesServicesPanel() {
   const match = (k: FeatureKey) => !needle || `${t(`feat.${k}`)} ${t(`featDesc.${k}`)} ${k}`.toLowerCase().includes(needle);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-10">
       <section className="glass-soft rounded-2xl p-4">
         <div className="flex flex-wrap items-start gap-3">
           <div className="min-w-0 flex-1">
@@ -69,26 +69,32 @@ export default function FeaturesServicesPanel() {
         return (
           <section key={d} className="glass-soft rounded-2xl p-3">
             <h4 className="px-1 pb-2 text-[11px] font-semibold tracking-wide text-slate-400 uppercase">{t(`feat.domain.${d}`)}</h4>
-            <div className="grid gap-2 lg:grid-cols-2">
-              {keys.map((k, i) => {
+            <div className="grid grid-cols-1 items-stretch gap-3.5 xl:grid-cols-2">
+              {keys.map((k) => {
                 const parent = parentOf(k);
                 const Icon = FEATURES[k].icon;
-                // A heading parent (WireGuard VPN) is printed once above its first child.
-                const heading = parent && !isFeature(parent) && (i === 0 || parentOf(keys[i - 1]) !== parent);
                 const blocked = isFeature(parent) && !on(enabled, parent);
+                // Sub-features keep the grid tracks; the parent (a feature or a heading like WireGuard VPN) is a pill.
+                const parentLabel = parent && t((isFeature(parent) ? `feat.${parent}` : `feat.group.${parent}`) as TKey);
                 return (
                   <div key={k} className="contents">
-                    {heading && <p className="col-span-full px-1 pt-1 text-xs font-semibold text-slate-200">{t(`feat.group.${parent}` as TKey)}</p>}
-                    <div className={`flex items-start gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-3 ${parent ? "ml-5 border-l-2 border-l-cyan-400/30" : ""}`}>
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-400/30 to-violet-500/30 text-cyan-100">
-                        <Icon size={15} />
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-medium text-slate-100">{t(`feat.${k}`)}</p>
-                        <p className="mt-0.5 text-[11px] leading-snug text-slate-400">{t(`featDesc.${k}`)}</p>
-                        {blocked && <p className="mt-0.5 text-[10px] text-amber-300/80">{t("feat.needsParent", { parent: t(`feat.${parent}`) })}</p>}
+                    <div className="flex h-full min-h-[88px] items-center justify-between gap-4 rounded-2xl border border-white/5 bg-white/[0.03] p-4">
+                      <div className="flex min-w-0 flex-1 items-center gap-3.5">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400/30 to-violet-500/30 text-cyan-100">
+                          <Icon size={17} />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <p className="min-w-0 truncate text-sm leading-snug font-medium text-slate-100">{t(`feat.${k}`)}</p>
+                            {parentLabel && <span className="shrink-0 rounded-full bg-cyan-400/10 px-2 py-0.5 text-[10px] font-medium text-cyan-200/90">{parentLabel}</span>}
+                          </div>
+                          <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-slate-400">{t(`featDesc.${k}`)}</p>
+                          {blocked && <p className="mt-0.5 text-[10px] text-amber-300/80">{t("feat.needsParent", { parent: t(`feat.${parent}`) })}</p>}
+                        </div>
                       </div>
-                      <GlassSwitch checked={enabled[k] !== false} disabled={busy} onChange={(v) => apply({ [k]: v })} ariaLabel={t(`feat.${k}`)} />
+                      <div className="flex shrink-0 items-center">
+                        <GlassSwitch checked={enabled[k] !== false} disabled={busy} onChange={(v) => apply({ [k]: v })} ariaLabel={t(`feat.${k}`)} />
+                      </div>
                     </div>
                     {/* Docker's runtime (isolated container or host) and network pinning are set right here. */}
                     {k === "docker_engine" && on(enabled, k) && (

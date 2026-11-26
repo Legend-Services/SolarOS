@@ -46,7 +46,7 @@ import StorageProtocolsPanel from "./settings/StorageProtocolsPanel";
 import ImageHubPanel from "../components/compute/ImageHubPanel";
 import FeaturesServicesPanel from "../components/settings/FeaturesServicesPanel";
 
-const pad = (n: ReactNode) => <div className="h-full space-y-4 overflow-auto p-4" data-settings-body>{n}</div>;
+const pad = (n: ReactNode) => <div className="h-full space-y-4 overflow-auto p-4 pb-10" data-settings-body>{n}</div>;
 /** An optional Security-by-Design module: its header (on/off, runtime, network), then the panel while it is on. */
 const gated = (module: ModuleKey, body: ReactNode) => pad(<SecurityModuleHeader module={module}>{() => body}</SecurityModuleHeader>);
 
@@ -260,12 +260,14 @@ function HostSummary({ query, setQuery, onEnter }: { query: string; setQuery: (q
   );
 }
 
-/** "14 / 28 Active" on the Features & Services entry. */
-function FeatureCount() {
+/** "14 / 28 Active" on the Features & Services tile; a compact "14/28" in the narrow sidebar. */
+function FeatureCount({ compact }: { compact?: boolean }) {
   const { t } = useTranslation();
   const enabled = useFeatures((s) => s.enabled);
   const n = FEATURE_KEYS.filter((k) => on(enabled, k)).length;
-  return <span className="shrink-0 rounded-full bg-cyan-400/15 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-200 tabular-nums">{t("feat.count", { n, total: FEATURE_KEYS.length })}</span>;
+  const full = t("feat.count", { n, total: FEATURE_KEYS.length });
+  if (compact) return <span title={full} aria-label={full} className="shrink-0 rounded-full bg-cyan-400/15 px-2 py-0.5 text-[11px] leading-none font-semibold text-cyan-200 tabular-nums">{n}/{FEATURE_KEYS.length}</span>;
+  return <span className="shrink-0 rounded-full bg-cyan-400/15 px-1.5 py-0.5 text-[9px] font-semibold text-cyan-200 tabular-nums">{full}</span>;
 }
 
 function Tile({ id, onOpen, dot }: { id: ModuleId; onOpen: () => void; dot?: string }) {
@@ -344,7 +346,7 @@ export default function SettingsApp() {
         </nav>
         <div className="flex min-h-0 flex-1">
           {tree && (
-            <aside className="w-52 shrink-0 overflow-auto border-r border-white/10 bg-black/20 p-2 max-sm:hidden">
+            <aside className="w-60 shrink-0 overflow-auto border-r border-white/10 bg-black/20 p-2 max-sm:hidden">
               {CATEGORIES.map((c) => (
                 <div key={c} className="mb-2">
                   <p className="px-2 pt-1 pb-0.5 text-[10px] font-semibold tracking-wide text-slate-500 uppercase">{t(`set.cat.${c}`)}</p>
@@ -358,7 +360,7 @@ export default function SettingsApp() {
                         className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition ${id === module ? "bg-white/12 text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"}`}
                       >
                         <Icon size={13} className="shrink-0" /> <span className="min-w-0 flex-1 truncate">{t(`set.mod.${id}`)}</span>
-                        {id === "features-services" && <FeatureCount />}
+                        {id === "features-services" && <FeatureCount compact />}
                       </button>
                     );
                   })}
