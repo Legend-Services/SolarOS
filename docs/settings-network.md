@@ -8,7 +8,7 @@ Virtual switches, DNS, VPN, firewall and server automation.
 
 ![Network & Services](screenshots/settings-network.png)
 
-**Sub-modules:** [Network & Virtual Switch](#network-virtual-switch) · [Network Topology](#network-topology) · [DNS, AdBlock & DHCP](#dns-adblock-dhcp) · [Domains & Certificates](#domains-certificates) · [Firewall & Port Forwarding](#firewall-port-forwarding) · [WireGuard VPN](#wireguard-vpn)
+**Sub-modules:** [Network & Virtual Switch](#network-virtual-switch) · [Network Topology](#network-topology) · [DNS, AdBlock & DHCP](#dns-adblock-dhcp) · [Domains & Certificates](#domains-certificates) · [Reverse Proxy & SSL](#reverse-proxy-ssl) · [Firewall & Port Forwarding](#firewall-port-forwarding) · [Firewall & IDS](#firewall-ids) · [WireGuard VPN](#wireguard-vpn)
 
 ## Network & Virtual Switch
 
@@ -156,6 +156,92 @@ Let's Encrypt and custom TLS certificates.
 
 1. Request a Let's Encrypt certificate or upload your own.
 
+## Reverse Proxy & SSL
+
+![Reverse Proxy & SSL](screenshots/settings-reverse-proxy.png)
+
+### Overview
+
+Publish VMs, containers and apps under your own domain names with HTTPS: proxy hosts with WebSocket, HTTP/2, HSTS, upload limits and rate limiting, a private root CA with one-click certificates, Let's Encrypt, your own certificates, IP access lists, the SolarDeck 2FA sign-in gate and raw TCP / UDP stream forwarding.
+
+1. Open Settings › Network & Services › Reverse Proxy & SSL (or press “Open This Setting / App →” above).
+2. Turn the module on and pick Isolated Container (recommended) or Host Native, and optionally pin it to a DMZ VLAN.
+3. Under SSL Certificates, create the private root CA or request a Let's Encrypt certificate.
+4. Under Proxy Hosts, add a domain, pick the VM, container or app it points to, and choose the certificate.
+5. Install the downloaded root CA certificate on your devices so they trust the private certificates.
+
+> **Tip:** A proxy host with the SolarDeck 2FA gate only lets visitors through who are signed in to SolarDeck.
+
+> **Tip:** Every change is checked before it is applied; a rejected configuration leaves the previous one running.
+
+### Proxy hosts
+
+Proxy hosts: one or more domain names in front of a VM, container or app, with HTTPS, WebSocket, HTTP/2, HSTS, an upload size limit, rate limiting, an access list, the SolarDeck 2FA gate and optional advanced directives.
+
+1. Press Add Proxy Host.
+2. Enter the domain names and pick the VM, container or app (or type an address and port).
+3. Choose a certificate and switch on Force HTTPS.
+4. Turn on the SolarDeck 2FA gate for apps without a login of their own, then Save.
+
+> **Tip:** A change that cannot be applied is saved and reported; the previous configuration keeps running.
+
+![Proxy hosts](screenshots/settings-reverse-proxy--rp-hosts.png)
+
+### Certificates
+
+All certificates with their names, source (private CA, Let's Encrypt or uploaded), issuer and expiry date; one-click self-signed and wildcard certificates and certificate upload.
+
+1. Press Self-Signed Certificate and enter the domains (for example *.home.lan) to issue one from the private root CA.
+2. Or press Upload to paste your own certificate, private key and chain.
+
+![Certificates](screenshots/settings-reverse-proxy--rp-certs.png)
+
+### Private root CA
+
+Your own private root certificate authority (ECDSA P-384 or RSA-4096). Install its certificate on your computers and phones once and every certificate it signs is trusted.
+
+1. Press Create Root CA and choose the key type.
+2. Press Download solardeck-root-ca.crt.
+3. Import it as a trusted root certificate on each device.
+
+> **Tip:** The private key never leaves the server and is stored encrypted.
+
+### Public certificate (Let's Encrypt)
+
+Free public certificates from Let's Encrypt with the HTTP-01 challenge (port 80 reachable) or the DNS-01 challenge (wildcards, no open ports), renewed automatically 30 days before they expire.
+
+1. Enter the domains and your e-mail address.
+2. Pick HTTP-01, or DNS-01 with your DNS provider plugin and its API credentials.
+3. Press Request and follow the live log.
+
+### TCP/UDP streams
+
+Raw TCP and UDP port forwarding to a VM or container, for game servers, SSH, MQTT or databases.
+
+1. Enter the listen port, protocol and the target address and port.
+2. Press Add.
+
+> **Tip:** Ports 80 and 443 belong to the proxy hosts.
+
+![TCP/UDP streams](screenshots/settings-reverse-proxy--rp-streams.png)
+
+### Access lists
+
+Access lists: networks that may or may not connect, plus optional user names and passwords, attached to proxy hosts.
+
+1. Press Add Access List.
+2. Enter allowed and denied networks and optional users.
+3. Pick the list in a proxy host.
+
+![Access lists](screenshots/settings-reverse-proxy--rp-access.png)
+
+### SolarDeck 2FA gate
+
+The SolarDeck 2FA gate sends visitors of a protected host to the SolarDeck sign-in (with two-factor code) first; signing out or revoking the session ends access to every protected app.
+
+1. Turn on SolarDeck 2FA gate in a proxy host.
+2. Check the gate address here; change it if SolarDeck is reached under another name.
+
 ## Firewall & Port Forwarding
 
 ![Firewall & Port Forwarding](screenshots/settings-firewall-forwarding.png)
@@ -179,6 +265,54 @@ Allow and deny rules for the host and guests.
 Forward an outside port to a guest (NAT).
 
 1. Press Add, enter the outside port, the guest address and port.
+
+## Firewall & IDS
+
+![Firewall & IDS](screenshots/settings-firewall-ids.png)
+
+### Overview
+
+Group switches and VLANs into zones (management, DMZ, labs, guests) and decide with ordered rules which traffic may pass between them; intrusion prevention bans addresses that keep failing to sign in.
+
+1. Open Settings › Network & Services › Firewall & IDS (or press “Open This Setting / App →” above).
+2. Create zones and add the switches or VLAN interfaces that belong to each.
+3. Add rules from top to bottom: source zone, destination zone, protocol, ports and Accept, Drop or Reject.
+4. In Intrusion Prevention, choose the jails, ban time and retries, and ban or unban addresses by hand.
+
+> **Tip:** Traffic no rule matches keeps flowing as before, so turning the module on never cuts a network by itself.
+
+### Zones
+
+Zones group switches and VLAN interfaces, such as Management, DMZ, IoT or a lab.
+
+1. Press Add Zone.
+2. Give it a name, kind and color and pick its interfaces.
+
+![Zones](screenshots/settings-firewall-ids--fw-zones.png)
+
+### Rules
+
+Ordered rules between zones (first match wins) with protocol, ports, Accept / Drop / Reject and logging, plus a matrix of what each pair of zones may do.
+
+1. Press Add Rule and choose source and destination zone.
+2. Pick the protocol and ports and the action.
+3. Move rules up or down; the first match decides.
+
+### Intrusion prevention
+
+Intrusion prevention: which services are watched, how many failures lead to a ban, the ban time and networks that are never banned.
+
+1. Tick the jails to watch.
+2. Set ban time, find time and retries, add your own networks under never ban, and Save.
+
+![Intrusion prevention](screenshots/settings-firewall-ids--ids-settings.png)
+
+### Jails
+
+Every jail with its failed attempts and banned addresses; unban an address or ban one by hand.
+
+1. Press Unban next to an address to let it in again.
+2. Use Ban to block an address by hand.
 
 ## WireGuard VPN
 

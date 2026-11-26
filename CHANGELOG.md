@@ -1,5 +1,30 @@
 # Changelog
 
+## v2.18.0 - Built-In Reverse Proxy & SSL, Security-by-Design Isolation & Core OS Modules — 2026-11-26
+
+### Added
+- **Security-by-Design modules** (Settings → Privilege & Security → Security-by-Design Modules, and a header on top of every module): eight optional modules can each be switched on or off, run as an **Isolated Container (Recommended)** or **Host Native** where both are supported, and be pinned to the **Management Network**, a **VLAN**, the **DMZ Isolated Network** or an **Isolated Lab**. Pinned modules get least-privilege nftables rules (their service ports answer only on their own network; a container module may not open connections into the management subnet). Profiles live in `backend/data/platform_modules.json`; `GET /api/platform/modules`, `PUT /api/platform/modules/{module_id}`.
+- **Reverse Proxy & SSL** (Settings → Network & Services → Reverse Proxy & SSL):
+  - **Proxy Hosts** with several domains each, a quick pick of VMs, containers and App Center instances, WebSocket, HTTP/2, Force HTTPS, HSTS, upload size, per-host rate limiting, IP access lists with optional passwords, advanced directives (validated) and the **SolarDeck 2FA gate**: visitors who are not signed in to SolarDeck (password + two-factor code) are sent to its sign-in first, and signing out or revoking the session ends access to every protected app.
+  - **SSL Certificates & Private Root CA**: one-click ECDSA P-384 / RSA-4096 root CA with `solardeck-root-ca.crt` download, one-click self-signed and wildcard certificates (domains and IP addresses), Let's Encrypt with HTTP-01 or DNS-01 and automatic renewal 30 days before expiry, and certificate upload. Private keys are stored encrypted.
+  - **TCP/UDP Streams** for game servers, SSH, MQTT or databases.
+  - Runs in the hardened `solardeck-edge-proxy` container (read-only system paths, no new privileges, minimal capabilities), which can be moved onto a DMZ VLAN, or in dedicated files under `/etc/nginx/<prefix>-proxy.d/` on the host next to any existing server. Switching mode moves the configuration. Every change is checked with `nginx -t` and reloaded without dropping connections; a rejected configuration keeps the previous one running.
+- **Backups & Disaster Recovery → Disaster Recovery & 3-2-1**: AES-256-GCM encrypted **host snapshots** of SolarDeck's configuration (network, switches and VLANs, DHCP, reverse proxy rules and certificates, multi-seat, cluster, accounts, settings) with download, upload and restore; **offsite targets** (S3-compatible, SFTP, WebDAV) copied with rclone in an isolated backup-worker container or on the host, with retention; **Sandbox Restore Verification** restores a backup into an air-gapped isolated lab, boots it, waits for the guest agent heartbeat and removes everything again.
+- **Image & Template Hub** (Settings → Storage → ISO & Templates, and a **Templates & Images** tab in Compute): curated server, desktop, driver and cloud images resolved from their checksum lists and downloaded with checksum verification; **Zero-Touch Create** builds a VM from a cloud image with cloud-init (host name, admin user, password and/or SSH keys, DHCP or static address, guest agent, VLAN); **golden templates** with clone.
+- **Power & UPS** (Settings → System): Network UPS Tools for a USB UPS or one another machine serves, live charge / load / input voltage / runtime with a **battery pill in the top bar**, an ordered guest shutdown plus ZFS sync and power-off at a battery or runtime threshold, and **power profiles** (performance, balanced, eco — eco can stop chosen lab guests) on a weekly schedule.
+- **Out-of-band control** (Settings → Hypervisor & Runtime → Cluster & HA → Out-of-Band & Wake-on-LAN): IPMI and Redfish power on / off / cycle / soft reset and hardware sensors, and Wake-on-LAN for standby hosts; credentials are stored encrypted. A **Serial Console** tab in the guest drawer keeps a VM reachable when its display goes to a passed-through GPU (`WS /api/compute/{guest_type}/{guest_id}/serial`).
+- **Firewall & IDS** (Settings → Network & Services): visual inter-VLAN / DMZ **zones** and ordered **rules** (accept, drop, reject, logging) with a zone matrix, applied as their own nftables table; **intrusion prevention** with fail2ban jails, ban settings, banned addresses and manual ban / unban.
+- **Shared Folders**: **NFS & WebDAV** shares, a **Snapshot Files** browser that restores single files or folders from ZFS snapshots, and **USB Drives** with mount, unmount and attach-to-VM.
+- **Users & Roles → SolarDeck Accounts**: accounts besides the administrator with the roles admin, operator, seat user and viewer and per-account VMs, seats and shares. One request check covers every API route; seat users only control their own Seat VMs, consoles and USB ports, operators cannot change users, security, updates or clustering, and only the administrator gets the host shell.
+- Help & Support, Global Search, the guides and `docs/` cover every new module with new screenshots; `node scripts/generate-api-docs.mjs` writes the REST API reference to `docs/api/`. All new texts in English, Nederlands, Deutsch, Español and Français.
+
+### Changed
+- Validation errors now show their reasons instead of "Unprocessable Entity".
+
+### Notes
+- Extra accounts sign in with a password; two-factor sign-in belongs to the administrator. Seat users see the full guest list but can only act on their own guests.
+- Template cloning and NFS / WebDAV / UPS / firewall services run on the host; the first save installs the needed packages, which can take a minute.
+
 ## v2.17.0 - Wireframe Node Architect, Hardware Identity Editor & Network Architecture Explorer — 2026-11-26
 
 ### Added

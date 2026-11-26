@@ -1,4 +1,9 @@
 import type { Dict } from "./en";
+import platformI18n from "./modules/platform";
+import proxyI18n from "./modules/proxy";
+import recoveryI18n from "./modules/recovery";
+import infraI18n from "./modules/infra";
+import netstoreI18n from "./modules/netstore";
 
 export const fr: Dict = {
   // Common
@@ -1531,4 +1536,9 @@ export const fr: Dict = {
   "port.11434": "Serveur local de modèles d'IA",
   "port.32400": "Serveur personnel de streaming multimédia",
   "port.51820": "Point de terminaison d'un tunnel VPN WireGuard",
+  ...platformI18n.fr,
+  ...proxyI18n.fr,
+  ...recoveryI18n.fr,
+  ...infraI18n.fr,
+  ...netstoreI18n.fr,
 };

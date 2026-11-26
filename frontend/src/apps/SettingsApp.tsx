@@ -33,13 +33,28 @@ import VisualSwitchStudio from "../components/network/VisualSwitchStudio";
 import LabSandboxPanel from "../components/compute/LabSandbox";
 import MultiSeatStudio from "../components/compute/MultiSeatStudio";
 import ClusterManagerPanel from "../components/cluster/ClusterManagerPanel";
+import { PlatformModulesOverview, SecurityModuleHeader, type ModuleKey } from "../components/ui/SecurityModuleHeader";
+import ReverseProxyStudio from "./settings/ReverseProxyStudio";
+import DisasterRecoveryPanel from "./settings/DisasterRecoveryPanel";
+import PowerUpsPanel from "./settings/PowerUpsPanel";
+import OutOfBandPanel from "./settings/OutOfBandPanel";
+import UsersRolesPanel from "./settings/UsersRolesPanel";
+import FirewallIdsPanel from "./settings/FirewallIdsPanel";
+import StorageProtocolsPanel from "./settings/StorageProtocolsPanel";
+import ImageHubPanel from "../components/compute/ImageHubPanel";
 
 const pad = (n: ReactNode) => <div className="h-full space-y-4 overflow-auto p-4" data-settings-body>{n}</div>;
+/** An optional Security-by-Design module: its header (on/off, runtime, network), then the panel while it is on. */
+const gated = (module: ModuleKey, body: ReactNode) => pad(<SecurityModuleHeader module={module}>{() => body}</SecurityModuleHeader>);
 
 /** A module made of several existing panels: a small tab row above the active one. */
-function Views({ views, initial }: { views: [TKey, ReactNode][]; initial?: string }) {
+function Views({ views, initial, fallback = 0 }: { views: [TKey, ReactNode][]; initial?: string; fallback?: number }) {
   const { t } = useTranslation();
-  const [i, setI] = useState(() => Math.max(0, views.findIndex(([k]) => k === `set.view.${initial}`)));
+  // A deep link to an inner tab of one view (not a view itself) opens `fallback`, the view that owns those tabs.
+  const [i, setI] = useState(() => {
+    const hit = views.findIndex(([k]) => k === `set.view.${initial}`);
+    return hit >= 0 ? hit : initial ? fallback : 0;
+  });
   return (
     <div className="flex h-full flex-col">
       <div className="flex gap-1 border-b border-white/10 px-3 py-1.5">
@@ -86,16 +101,39 @@ function ModuleBody({ id, tab }: { id: ModuleId; tab?: string }) {
       );
     case "host-power":
       return pad(<WithSystemInfo>{(info) => <PowerSection info={info} />}</WithSystemInfo>);
+    case "power-ups":
+      return gated("ups_power", <PowerUpsPanel />);
     case "storage-zfs":
       return <StorageManager initialTab={initialTab} />;
     case "backup-restore":
-      return <BackupCenterApp initialTab={initialTab} />;
+      return <Views initial={tab} views={[["set.view.backups", <BackupCenterApp initialTab={initialTab} />], ["set.view.dr", gated("offsite_backup", <DisasterRecoveryPanel />)]]} />;
     case "shared-folders":
-      return <SharesManager initialTab={initialTab} />;
+      return (
+        <Views
+          initial={tab}
+          views={[
+            ["set.view.smb", <SharesManager initialTab={initialTab} />],
+            ["set.view.protocols", gated("storage_protocols", <StorageProtocolsPanel view="protocols" />)],
+            ["set.view.snapfiles", gated("storage_protocols", <StorageProtocolsPanel view="snapshots" />)],
+            ["set.view.usb", gated("storage_protocols", <StorageProtocolsPanel view="usb" />)],
+          ]}
+        />
+      );
     case "iso-templates":
-      return <div className="h-full overflow-auto"><IsoLibrary /></div>;
+      return <Views initial={tab} views={[["set.view.isos", <div className="h-full overflow-auto"><IsoLibrary /></div>], ["set.view.images", gated("image_hub", <ImageHubPanel />)]]} />;
     case "users-roles":
-      return <DatacenterApp initialTab={initialTab} tabs={["users", "groups", "roles", "acl", "pools", "tokens", "realms"]} />;
+      return (
+        <Views
+          initial={tab}
+          fallback={1}
+          views={[
+            ["set.view.accounts", gated("rbac_users", <UsersRolesPanel />)],
+            ["set.view.hostUsers", <DatacenterApp initialTab={initialTab} tabs={["users", "groups", "roles", "acl", "pools", "tokens", "realms"]} />],
+          ]}
+        />
+      );
+    case "platform-modules":
+      return pad(<PlatformModulesOverview />);
     case "security-2fa":
       return pad(<WithSystemInfo>{(info) => <Security info={info} />}</WithSystemInfo>);
     case "security-posture":
@@ -119,6 +157,10 @@ function ModuleBody({ id, tab }: { id: ModuleId; tab?: string }) {
       return <NetworkServicesApp initialTab={initialTab} tabs={["dns", "dhcp"]} />;
     case "domains-certs":
       return <NetworkServicesApp initialTab={initialTab} tabs={["domains", "certs"]} />;
+    case "reverse-proxy":
+      return gated("reverse_proxy", <ReverseProxyStudio initialTab={tab} />);
+    case "firewall-ids":
+      return <Views initial={tab} views={[["set.view.zones", gated("vlan_firewall", <FirewallIdsPanel view="zones" />)], ["set.view.ids", gated("vlan_firewall", <FirewallIdsPanel view="ids" />)]]} />;
     case "firewall-forwarding":
       return <Views initial={tab} views={[["set.view.firewall", <DatacenterApp tabs={["firewall"]} />], ["set.view.forwarding", <NetworkServicesApp tabs={["router"]} />]]} />;
     case "wireguard-vpn":
@@ -132,7 +174,7 @@ function ModuleBody({ id, tab }: { id: ModuleId; tab?: string }) {
     case "local-ai-runtime":
       return <LocalAiApp initialTab={tab === "storage" ? "storage" : "hardware"} embedded />;
     case "cluster-ha":
-      return pad(<ClusterManagerPanel />);
+      return <Views initial={tab} views={[["set.view.cluster", pad(<ClusterManagerPanel />)], ["set.view.oob", gated("oob_bmc", <OutOfBandPanel />)]]} />;
     case "system-services":
       return pad(<SystemServicesPanel />);
   }

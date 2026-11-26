@@ -231,11 +231,12 @@ monthly at a time you choose.
 
 ## Good to know
 
-- Anyone who can sign in to SolarDeck can control the whole server. Keep it on your home network and turn on
-  **2FA** in Settings → Security & 2FA.
+- The administrator controls the whole server. Keep SolarDeck on your home network, turn on **2FA** in
+  Settings → Security & 2FA, and give other people their own account with a limited role in
+  **Settings → Privilege & Security → Users & Roles**.
 - Found a bug? Click **Report a Bug** in the **?** menu. It opens a pre-filled GitHub issue with anonymized details.
 - Want to know how it works, run it from source or see the known limits? Read [docs/TECHNICAL.md](docs/TECHNICAL.md),
-  [hypervisor/README.md](hypervisor/README.md) and the [CHANGELOG](CHANGELOG.md).
+  [hypervisor/README.md](hypervisor/README.md), the [REST API reference](docs/api/README.md) and the [CHANGELOG](CHANGELOG.md).
 
 ## License
 

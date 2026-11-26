@@ -59,9 +59,24 @@ STAGES: dict[str, list[tuple[int, str, str]]] = {
                 (40, "cluster", "Updating cluster membership"),
                 (80, "sync", "Synchronizing cluster state, keys and inventory"),
                 (100, "done", "Cluster membership updated")],
+    "zerotouch": [(10, "validate", "Checking the image, storage and network"),
+                  (30, "create", "Creating the VM and its disk from the image"),
+                  (60, "seed", "Injecting cloud-init: host name, admin user, keys and network"),
+                  (85, "boot", "Starting the VM and waiting for the guest agent"),
+                  (100, "done", "VM provisioned")],
+    "sandbox": [(10, "restore", "Restoring the backup into a temporary guest"),
+                (35, "isolate", "Attaching it to an air-gapped isolated lab network"),
+                (55, "boot", "Booting the guest"),
+                (75, "heartbeat", "Waiting for the guest agent heartbeat"),
+                (90, "teardown", "Removing the sandbox guest and lab"),
+                (100, "done", "Restore verification finished")],
+    "offsite": [(10, "prepare", "Preparing the offsite target"),
+                (30, "upload", "Uploading backups to the offsite target"),
+                (90, "verify", "Checking the uploaded copies"),
+                (100, "done", "Offsite copy completed")],
 }
 MARK = re.compile(r"^@@stage (\w+) (\d+)@@$")
-JOB_ID = r"^(os-upgrade|gpu-[a-z-]{1,40}|app-\d{1,9}|uninstall-\d{1,9}|ai-[0-9a-f]{12}|cluster-[0-9a-f]{12})$"
+JOB_ID = r"^(os-upgrade|gpu-[a-z-]{1,40}|app-\d{1,9}|uninstall-\d{1,9}|ai-[0-9a-f]{12}|cluster-[0-9a-f]{12}|mod-[0-9a-f]{12})$"
 KEEP_FINISHED = 600  # seconds a finished job stays in the Task Center feed
 
 
@@ -183,11 +198,42 @@ async def resolve(job_id: str) -> dict | None:
         from . import local_ai
         job = local_ai._pulls.get(job_id[3:])
         return from_pull(job) if job else None
+    if job_id.startswith("mod-"):
+        job = module_jobs.get(job_id)
+        return from_cluster(job) if job else None
     if job_id.startswith("cluster-"):
         from . import cluster
         job = cluster._jobs.get(job_id)
         return from_cluster(job) if job else None
     return None
+
+
+# Background jobs of the optional platform modules (zero-touch VMs, sandbox restore checks, offsite copies).
+# shortcut: in memory like the other job registries; a backend restart forgets finished and running module jobs.
+module_jobs: dict[str, dict] = {}
+_bg: set = set()
+
+
+def start_job(kind: str, subject: str, work) -> dict:
+    """Run `work(job)` in the background; it advances job["stage"] and appends to job["logs"]."""
+    import asyncio
+    import secrets
+    job = {"id": f"mod-{secrets.token_hex(6)}", "kind": kind, "subject": subject, "status": "running", "stage": 0,
+           "logs": [], "error": None, "percent": None, "result": None}
+    module_jobs[job["id"]] = job
+
+    async def runner():
+        try:
+            job["result"] = await work(job)
+            job["status"] = "completed"
+        except Exception as e:  # noqa: BLE001 - surfaced in the progress card
+            job["status"], job["error"] = "failed", getattr(e, "detail", None) or str(e) or type(e).__name__
+            job["logs"].append(f"!! {job['error']}")
+
+    t = asyncio.create_task(runner())
+    _bg.add(t)
+    t.add_done_callback(_bg.discard)
+    return job
 
 
 def from_cluster(job: dict) -> dict:
@@ -227,6 +273,8 @@ async def feed(kind: str | None = None) -> list[dict]:
     if kind in (None, "cluster"):
         from . import cluster
         out += [v for job in list(cluster._jobs.values()) if _recent(v := from_cluster(job), job)]
+    if kind is None:
+        out += [v for job in list(module_jobs.values()) if _recent(v := from_cluster(job), job)]
     return out
 
 

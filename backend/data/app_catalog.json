@@ -69,5 +69,25 @@
     "web_port": 3000, "web_scheme": "http",
     "supports_igpu": false, "supports_storage_mount": false, "keyctl": false,
     "featured": true, "compute_selector": true
+  },
+  {
+    "id": "edge-proxy",
+    "name": "SolarDeck Edge Proxy",
+    "category": "System",
+    "description": "Hardened reverse proxy container managed by Settings > Reverse Proxy & SSL.",
+    "icon": "Shield",
+    "cores": 1, "memory_mb": 256, "disk_gb": 2,
+    "web_port": 80, "web_scheme": "http",
+    "supports_igpu": false, "supports_storage_mount": false, "keyctl": false, "system": true
+  },
+  {
+    "id": "backup-worker",
+    "name": "SolarDeck Backup Worker",
+    "category": "System",
+    "description": "Isolated offsite backup worker managed by Settings > Backups & Disaster Recovery.",
+    "icon": "CloudUpload",
+    "cores": 1, "memory_mb": 512, "disk_gb": 4,
+    "web_port": null, "web_scheme": "http",
+    "supports_igpu": false, "supports_storage_mount": true, "keyctl": false, "system": true
   }
 ]

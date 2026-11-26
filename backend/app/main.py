@@ -4,9 +4,9 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from . import (apps, architecture, audit_log, auth, automation, branding, bug_report, capabilities, cluster, console, disk_benchmark, domains, files, hardware_admin, help_center, host_services, host_ssh, hypervisor, local_ai, multiseat, net_services, network_switch, notifications,
-               provisioning, schedules, security, shares, storage_admin, system, system_extra, task_progress,
-               telemetry, themes, updater, virtual_hardware)
+from . import (apps, architecture, audit_log, auth, automation, branding, bug_report, capabilities, cluster, console, disaster_recovery, disk_benchmark, domains, files, hardware_admin, help_center, host_services, host_ssh, hypervisor, image_hub, local_ai, multiseat, net_services, network_switch, notifications,
+               oob_control, platform_modules, provisioning, rbac, reverse_proxy, schedules, security, shares, storage_admin, storage_extensions, system, system_extra, task_progress,
+               telemetry, themes, ups_power, updater, virtual_hardware, vlan_firewall)
 from .config import settings
 from providers import registry
 from providers.registry import get_provider
@@ -17,7 +17,8 @@ async def lifespan(_: FastAPI):
     host_ssh.public_key_or_none()  # create the bridge key on first start so install.sh / the UI can authorize it
     loops = [asyncio.create_task(schedules.scheduler_loop()), asyncio.create_task(updater.scheduler_loop()),
              asyncio.create_task(automation.scheduler_loop()), asyncio.create_task(virtual_hardware.shaping_loop()),
-             asyncio.create_task(cluster.monitor_loop())]
+             asyncio.create_task(cluster.monitor_loop()), asyncio.create_task(reverse_proxy.renew_loop()),
+             asyncio.create_task(ups_power.monitor_loop())]
     loops += [asyncio.create_task(c) for c in get_provider().scheduler_loops()]
     yield
     for t in loops:
@@ -47,13 +48,32 @@ app.include_router(provisioning.router)
 app.include_router(system_extra.router)
 app.include_router(task_progress.router)
 for module in (host_ssh, net_services, hardware_admin, help_center, disk_benchmark, updater, bug_report, local_ai, domains,
-               themes, branding, automation, security, host_services, network_switch, virtual_hardware, multiseat, cluster, architecture):
+               themes, branding, automation, security, host_services, network_switch, virtual_hardware, multiseat, cluster, architecture,
+               platform_modules, reverse_proxy, disaster_recovery, image_hub, ups_power, oob_control, vlan_firewall,
+               storage_extensions, rbac):
     app.include_router(module.router)
 app.include_router(themes.public)
 app.include_router(virtual_hardware.public)
 app.include_router(cluster.peer)
+app.include_router(reverse_proxy.public)
+app.include_router(oob_control.serial)
 app.include_router(capabilities.router, prefix="/api/system")
 app.include_router(capabilities.router, prefix="/api/v1/system")
+
+
+PUBLIC_PREFIXES = ("/api/auth/login", "/api/auth/setup", "/api/proxy/auth/", "/api/cluster/peer", "/api/health")
+
+
+@app.middleware("http")
+async def role_check(request: Request, call_next):
+    """Users & Roles: extra accounts only reach what their role and scopes allow (rbac.authorize)."""
+    path = request.url.path
+    if path.startswith("/api/") and not path.startswith(PUBLIC_PREFIXES):
+        user = auth.user_or_none(request)
+        if user and not rbac.authorize(user, request.method, path):
+            audit_log.record("rbac.denied", user=user, ip=auth.client_ip(request), ok=False, path=path, method=request.method)
+            return JSONResponse({"detail": "Your role does not allow this action"}, status_code=403)
+    return await call_next(request)
 
 
 @app.middleware("http")

@@ -1,4 +1,9 @@
 import type { Dict } from "./en";
+import platformI18n from "./modules/platform";
+import proxyI18n from "./modules/proxy";
+import recoveryI18n from "./modules/recovery";
+import infraI18n from "./modules/infra";
+import netstoreI18n from "./modules/netstore";
 
 export const nl: Dict = {
   // Common
@@ -1531,4 +1536,9 @@ export const nl: Dict = {
   "port.11434": "Lokale AI-modelserver",
   "port.32400": "Persoonlijke mediastreamingserver",
   "port.51820": "Eindpunt van een WireGuard VPN-tunnel",
+  ...platformI18n.nl,
+  ...proxyI18n.nl,
+  ...recoveryI18n.nl,
+  ...infraI18n.nl,
+  ...netstoreI18n.nl,
 };

@@ -145,7 +145,8 @@ async def host_shell_ws(ws: WebSocket):
         return
     # Browsers cannot set headers on a WebSocket, so the step-up token rides in the query string.
     ip = ws.client.host if ws.client else None
-    if not step_up_ok(ws.query_params.get("step_up"), claims):
+    from . import rbac
+    if not step_up_ok(ws.query_params.get("step_up"), claims) or not rbac.is_admin(claims["sub"]):
         audit_log.record("host_shell.denied", user=claims["sub"], ip=ip, ok=False)
         await ws.close(code=4403, reason=STEP_UP_REQUIRED)
         return

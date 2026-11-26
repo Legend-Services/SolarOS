@@ -13,9 +13,10 @@ import { PassthroughPicker, usePassthroughDevices, type PciSel, type UsbSel } fr
 import { HaPolicyForm } from "../components/cluster/ClusterDialogs";
 import VirtualHardwarePanel from "../components/compute/VirtualHardwarePanel";
 import WireframeNodeArchitect from "../components/compute/WireframeNodeArchitect";
+import SerialConsole from "../components/compute/SerialConsole";
 import { useTranslation } from "../i18n";
 
-type Tab = "resources" | "hardware" | "virtual" | "network" | "cloudinit" | "snapshots" | "ha" | "options";
+type Tab = "resources" | "hardware" | "virtual" | "network" | "cloudinit" | "snapshots" | "ha" | "serial" | "options";
 
 interface HostPci {
   key: string;
@@ -869,6 +870,7 @@ export default function GuestDrawer({ guest, onClose, onSaved, clustered = false
     { id: "network", label: "Network" },
     ...(qemu ? [{ id: "cloudinit" as Tab, label: "Cloud-Init" }] : []),
     { id: "snapshots", label: "Snapshots" },
+    { id: "serial", label: t("serial.tab") },
     ...(clustered ? [{ id: "ha" as Tab, label: t("cl.haTab") }] : []),
     { id: "options", label: "Options" },
   ];
@@ -905,6 +907,8 @@ export default function GuestDrawer({ guest, onClose, onSaved, clustered = false
             <SnapshotsTab guest={guest} />
           ) : tab === "ha" ? (
             <HaPolicyForm key={`${guest.type}${guest.vmid}`} guestType={guest.type} guestId={guest.vmid} />
+          ) : tab === "serial" ? (
+            <SerialConsole key={`${guest.type}${guest.vmid}`} guestType={guest.type} guestId={guest.vmid} />
           ) : tab === "virtual" ? (
             <VirtualHardwarePanel key={`${guest.type}${guest.vmid}`} guest={guest} />
           ) : !hw ? (

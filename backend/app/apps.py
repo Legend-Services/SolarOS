@@ -21,8 +21,9 @@ router = APIRouter(prefix="/api/apps", tags=["apps"], dependencies=[Depends(requ
 
 
 DATA = Path(__file__).resolve().parent.parent / "data"
-CATALOG: list[dict] = json.loads((DATA / "app_catalog.json").read_text())
-BY_ID = {a["id"]: a for a in CATALOG}
+_ALL: list[dict] = json.loads((DATA / "app_catalog.json").read_text())
+BY_ID = {a["id"]: a for a in _ALL}
+CATALOG = [a for a in _ALL if not a.get("system")]  # "system" apps are module workers, deployed by platform_modules
 TAG = settings.name("app")
 ALIASES = {"ollama": "local-ai"}  # pre-v1.6 Ollama installs show up under Local AI Studio
 
