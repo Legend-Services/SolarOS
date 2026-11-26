@@ -3,6 +3,7 @@ import { Expand, LayoutDashboard, LayoutGrid, Search, Shrink } from "lucide-reac
 import { activateApp, activeWindow, useDock, useSpotlight, useWindows } from "../lib/stores";
 import { useClock, useDismiss, useFlip } from "../lib/hooks";
 import { useLayout } from "../store/layoutStore";
+import { useVisibility } from "../store/featureStore";
 import type { AppId } from "../apps/registry";
 import { useTranslation } from "../i18n";
 import { AppIcon } from "./icons/AppIcons";
@@ -94,7 +95,9 @@ export default function Taskbar() {
   const { open, close, minimize, setDockIconRect } = useWindows();
   const { pinned: storePinned, pin, unpin, gallery, set: setDock } = useDock();
   // Pointer reorder of pinned buttons along X; committed to useDock (+ preferences sync) once, on release.
-  const reorder = useSmoothReorder(storePinned, (next) => useDock.setState({ pinned: next }), { axis: "x" });
+  // Apps of hidden features stay pinned (appended after the visible ones) so they come back when re-enabled.
+  const appOn = useVisibility().app;
+  const reorder = useSmoothReorder(storePinned.filter(appOn), (next) => useDock.setState({ pinned: [...next, ...storePinned.filter((id) => !appOn(id))] }), { axis: "x" });
   const pinned = reorder.order;
   const openSpotlight = useSpotlight((s) => s.set);
   const viewPanel = useLayout((s) => s.panel);
@@ -133,22 +136,24 @@ export default function Taskbar() {
   const flipRef = useFlip<HTMLDivElement>(pinned.join(","), reorder.settling);
 
   return (
-    <footer onContextMenu={onContextMenu} className="glass fixed inset-x-0 bottom-0 z-[9000] flex h-12 items-center gap-1 border-x-0 border-b-0 bg-slate-900/75 pl-2 text-xs" aria-label={t("taskbar.label")}>
+    <footer data-tour="dock" onContextMenu={onContextMenu} className="glass fixed inset-x-0 bottom-0 z-[9000] flex h-12 items-center gap-1 border-x-0 border-b-0 bg-slate-900/75 pl-2 text-xs" aria-label={t("taskbar.label")}>
       <div ref={flipRef} className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
         <BarButton label={t("taskbar.start")} onClick={toggleGallery} active={gallery}>
           <LayoutGrid size={20} className="text-sky-300" />
         </BarButton>
         <span className="mx-1 h-6 w-px shrink-0 bg-white/20" aria-hidden />
-        <BarButton label={t("top.search")} onClick={() => openSpotlight(true)}>
-          <Search size={18} />
-        </BarButton>
+        <span data-tour="search" className="flex">
+          <BarButton label={t("top.search")} onClick={() => openSpotlight(true)}>
+            <Search size={18} />
+          </BarButton>
+        </span>
         {tasks.map((id) => {
           const isRunning = windows.some((w) => w.id === id);
           const focused = active?.id === id;
           const isPinned = pinned.includes(id);
           const b = isPinned ? reorder.bind(id) : undefined;
           return (
-            <div key={id} data-flip={id} {...b} className="relative touch-none">
+            <div key={id} data-flip={id} data-tour={id === "settings" ? "settings" : undefined} {...b} className="relative touch-none">
               <button
                 ref={(el) => {
                   icons.current[id] = el;
@@ -198,7 +203,7 @@ export default function Taskbar() {
           {fullscreen ? <Shrink size={14} /> : <Expand size={14} />}
         </button>
         <span className="mx-0.5 h-6 w-px shrink-0 bg-white/15" aria-hidden />
-        <div className={`flex items-center gap-1 ${clockLeft ? "flex-row-reverse" : ""}`}>
+        <div data-tour="tray" className={`flex items-center gap-1 ${clockLeft ? "flex-row-reverse" : ""}`}>
           <TrayItems ids={tray.bar} up />
           {/* Chevron + View Settings stay one unit (chevron on the left), also when the clock side flips the row. */}
           <div className="flex items-center gap-1">

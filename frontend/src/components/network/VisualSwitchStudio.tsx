@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useFeatureEnabled } from "../../store/featureStore";
 import { Cable, CircleHelp, Globe, Layers, Network, Pencil, Plus, RefreshCw, Router, Server, ShieldCheck, Trash2, Undo2, Wifi } from "lucide-react";
 import { VipsPanel } from "../cluster/ClusterDialogs";
 import { api, ApiError } from "../../lib/api";
@@ -226,6 +227,7 @@ export default function VisualSwitchStudio() {
   const [editBridge, setEditBridge] = useState<Bridge | "new" | null>(null);
   const [vlanEdit, setVlanEdit] = useState<Vlan | "new" | null>(null);
   const [dhcpFor, setDhcpFor] = useState<Vlan | null>(null);
+  const dhcpOn = useFeatureEnabled("vlan_dhcp");
   const [trunkFor, setTrunkFor] = useState<Port | null>(null);
   const [addNic, setAddNic] = useState<string | null>(null);
   const [ipFor, setIpFor] = useState<Port | null>(null);
@@ -441,7 +443,7 @@ export default function VisualSwitchStudio() {
                 <div className="flex items-center gap-2" style={{ borderColor: v.color }}>
                   <span className="h-3 w-3 rounded-full shadow-[0_0_10px_currentColor]" style={{ background: v.color, color: v.color }} />
                   <span className="min-w-0 flex-1 truncate text-xs font-semibold text-white">VLAN {v.vlan_id} · {v.name}</span>
-                  <GlassBadge tone={v.dhcp_active ? "success" : "neutral"}>{v.dhcp_active ? t("vsw.dhcpOn") : t("vsw.dhcpOff")}</GlassBadge>
+                  {dhcpOn && <GlassBadge tone={v.dhcp_active ? "success" : "neutral"}>{v.dhcp_active ? t("vsw.dhcpOn") : t("vsw.dhcpOff")}</GlassBadge>}
                   <GlassButton size="xs" variant="ghost" onClick={() => setVlanEdit(v)} aria-label={t("common.edit")}><Pencil size={12} /></GlassButton>
                 </div>
                 <div className="mt-1 h-1 rounded-full" style={{ background: v.color }} />
@@ -451,7 +453,7 @@ export default function VisualSwitchStudio() {
                   {v.description ? ` · ${v.description}` : ""}
                 </p>
                 <p className="mt-1 text-[11px] text-slate-500">{t("vsw.portsOnVlan", { n: ports.filter((p) => p.mode !== "unassigned" && (p.access === v.vlan_id || p.tagged.includes(v.vlan_id))).length })}</p>
-                <GlassButton size="xs" className="mt-2" onClick={() => setDhcpFor(v)}><Router size={12} />{t("vsw.configureDhcp")}</GlassButton>
+                {dhcpOn && <GlassButton size="xs" className="mt-2" onClick={() => setDhcpFor(v)}><Router size={12} />{t("vsw.configureDhcp")}</GlassButton>}
               </DropZone>
             ))}
             <DropZone

@@ -2,6 +2,7 @@ import { APPS, APP_IDS, type AppId } from "../apps/registry";
 import { CATEGORIES, MODULES, MODULE_IDS, type CategoryId, type ModuleId } from "../apps/settings/modules";
 import { en, type TKey } from "../i18n/en";
 import type { Capabilities } from "../store/capabilitiesStore";
+import { appOn, moduleOn, on, tabOn, type Enabled, type FeatureKey } from "./features";
 
 /*
  * One registry behind the TopBar Global Search, the Help & Support manual and the generated docs/ folder
@@ -38,6 +39,8 @@ export interface Control {
   /** Captured by the screenshot script (major screens only; the rest reuse their sub-module's picture). */
   shot?: boolean;
   requires?: Cap;
+  /** Features & Services flag beyond its tab's own (a card inside a tab). */
+  feature?: FeatureKey;
 }
 
 export interface ArticleSection {
@@ -170,7 +173,15 @@ export const APP_DOCS: Partial<Record<AppId, Doc>> = {
   help: {
     intro: "Help & Support holds this manual, an offline “Ask” search, one-click problem fixes, BIOS guides, tutorials and the FAQ.",
     steps: ["Pick Manual to read the illustrated guide for every app and setting.", "Use the filter field above the article tree to find a topic.", "Press “Open This Setting / App →” in an article to jump straight to that screen.", "Fix problems runs a health check and fixes common issues for you."],
-    keywords: "help support manual documentation guide tutorial faq fix troubleshoot",
+    keywords: "help support manual documentation guide tutorial faq fix troubleshoot tour walkthrough",
+    more: [
+      {
+        id: "desktop-tour",
+        title: "Interactive Desktop Tour",
+        body: "Five Liquid Glass speech balloons point at the live desktop: the TopBar search (⌘K), the system tray and Task Center, the desktop widgets with Edit Widgets, the Dock or taskbar with your apps, and Settings › Features & Services. It starts by itself after the Server Setup Wizard unless you ticked Skip interactive get-started guide, and any time from Start tour on the Help & Support home page or the top bar's help menu.",
+        steps: ["Press Start tour.", "Use Next and Back, or press Skip Guide (×) or Escape to end it at any step."],
+      },
+    ],
   },
 };
 
@@ -178,6 +189,17 @@ export const APP_DOCS: Partial<Record<AppId, Doc>> = {
 const appDoc = (id: AppId): Doc => APP_DOCS[id] ?? { intro: APPS[id].desc, steps: [], keywords: id };
 
 export const MODULE_DOCS: Record<ModuleId, Doc> = {
+  "features-services": {
+    intro: "Choose which optional features this server shows. A feature you switch off disappears from the Settings sidebar, its inner tabs, the TopBar search and the desktop, so you only see what you use. Its saved settings stay, and switching it back on brings everything back. Features with a background service (WireGuard server and client tunnels, per-VLAN DHCP servers, UPS monitoring) pause that service while they are off and start it again when you switch them on.",
+    steps: [
+      "Flip the switch next to a feature to show or hide it; the counter at the top shows how many are active.",
+      "Sub-features sit indented under their parent: WireGuard VPN has separate switches for the server (remote access in) and the client (tunnels out); Per-VLAN DHCP Servers sit under Virtual Switch.",
+      "Use a quick preset (Minimal Core, Home & Media Server, Full Hypervisor Lab, Enable All) to set many switches at once.",
+      "Press Re-run Setup Wizard to pick server roles again.",
+    ],
+    tips: ["General & Appearance, Users & Roles, Software & Repositories and Features & Services itself can never be hidden, so you cannot lock yourself out."],
+    keywords: "features services toggle enable disable hide show modules presets minimal home lab wireguard server client dhcp clean interface wizard onboarding",
+  },
   "general-appearance": {
     intro: "Personalize the desktop: themes, light and dark mode, wallpapers, language, widgets, the Dock and the desktop layout.",
     steps: ["Pick a theme in the Theme Gallery and choose Dark, Light or Auto.", "Scroll down to set the language, widgets, layout and Dock behaviour."],
@@ -341,6 +363,10 @@ const c = (moduleId: ModuleId, items: C[]): Control[] =>
 
 /** Every Settings sub-sub-module, tab and key control, in Settings order. */
 export const CONTROLS: Control[] = [
+  ...c("features-services", [
+    { id: "feature-presets", anchorId: "feat-presets", titleKey: "feat.presets", shot: true, description: "Quick presets switch many features at once: Minimal Core, Home & Media Server, Full Hypervisor Lab or Enable All.", keywords: "preset minimal core home media server full lab enable all", steps: ["Press a preset button; the switches below update right away.", "Fine-tune single switches afterwards."] },
+    { id: "server-setup-wizard", anchorId: "feat-wizard", titleKey: "ob.title", description: "The Server Setup Wizard opens on the first sign-in of a new installation and any time from Re-run Setup Wizard. Pick one or more server roles on wireframe cards (storage & media, virtualization host, multi-seat gaming, high-availability cluster, network gateway & VPN, AI compute or other services), choose Standalone Server or Cluster Host, fine-tune single services, tick App Center apps to install, review the summary and press Setup My Server. Live progress runs from 0 to 100 %, then the finish screen shows the server address, roles and apps.", keywords: "setup wizard onboarding first boot server role wireframe cluster standalone apps install setup my server skip defaults", steps: ["Press Re-run Setup Wizard.", "Tick one or more roles and pick Standalone Server or Cluster Host.", "Press Customize Services to fine-tune, then pick apps.", "Review the summary, choose whether to skip the desktop tour and press Setup My Server."], tips: ["Skip Setup & Use Defaults (first run only) keeps every feature on and skips the tour."] },
+  ]),
   ...c("general-appearance", [
     { id: "theme-studio", titleKey: "kb.theme-studio", headings: ["Theme Gallery"], shot: true, description: "Choose, create, import and export desktop themes, and switch between Dark, Light and Auto mode.", keywords: "theme studio gallery dark light auto mode colors accent style import export", steps: ["Click a theme card to apply it.", "Use the Dark / Light / Auto switch at the top of the gallery.", "Press New theme to edit colors, style and wallpapers, then Save."], tips: ["Export a theme as a file to use it on another server."] },
     { id: "wallpapers", titleKey: "kb.wallpapers", headings: ["Wallpapers"], description: "Pick or upload the desktop wallpaper for dark and light mode.", keywords: "wallpaper background image desktop picture", steps: ["Open a theme in the editor.", "Choose a wallpaper or upload your own image."] },
@@ -427,7 +453,7 @@ export const CONTROLS: Control[] = [
     { id: "isolated-labs", titleKey: "set.view.labs", tabId: "labs", headingKey: "lab.title", description: "Air-gapped lab networks in one click: a switch without physical ports, a lab VLAN with its own DHCP server and the chosen VMs and containers moved onto it; one click tears it down again.", keywords: "isolated lab sandbox air gap airgapped test network vlan dhcp retro gaming firewall router malware", steps: ["Press New Lab and give the lab a name.", "Pick the subnet, the DHCP range and the guests to isolate.", "Press Launch lab; Tear down returns the guests to their previous network."], tips: ["Lab guests reach only each other and the lab's DHCP server: nothing is routed to your LAN or the internet."] },
     { id: "visual-switch", titleKey: "set.view.vswitch", tabId: "vswitch", shot: true, description: "Every virtual switch as a rack faceplate with its ports, IP address and VLAN-aware badge.", keywords: "visual switch bridge faceplate ports link speed", steps: ["Click a port to open the Port Inspector.", "Press Edit IP / Switch to change addresses."] },
     { id: "vlan-patch-panel", anchorId: "vlan-lanes", titleKey: "kb.vlan-patch-panel", tabId: "vswitch", headingKey: "vsw.lanes", shot: true, description: "Color-coded VLAN cards; drag a port onto a card to make it an access port, or onto the trunk zone to carry several VLANs.", keywords: "vlan patch panel drag drop trunk access port tagged untagged cables", steps: ["Press + VLAN to add a VLAN card.", "Drag a port onto the card.", "Press Apply safely and confirm with Keep Settings."] },
-    { id: "per-vlan-dhcp", anchorId: "vlan-lanes", titleKey: "kb.per-vlan-dhcp", tabId: "vswitch", headingKey: "vsw.lanes", description: "An isolated DHCP server per VLAN with gateway, range, DNS, lease time and static reservations.", keywords: "dhcp vlan server range gateway leases reservation static ip", steps: ["Open a VLAN card's DHCP & IP button.", "Set the gateway, range and DNS servers and switch DHCP on.", "Pin a live lease to make it a static reservation."] },
+    { id: "per-vlan-dhcp", feature: "vlan_dhcp", anchorId: "vlan-lanes", titleKey: "kb.per-vlan-dhcp", tabId: "vswitch", headingKey: "vsw.lanes", description: "An isolated DHCP server per VLAN with gateway, range, DNS, lease time and static reservations.", keywords: "dhcp vlan server range gateway leases reservation static ip", steps: ["Open a VLAN card's DHCP & IP button.", "Set the gateway, range and DNS servers and switch DHCP on.", "Pin a live lease to make it a static reservation."] },
     { id: "virtual-nics", titleKey: "kb.virtual-nics", tabId: "vswitch", description: "Add, edit and remove guest network cards and host VLAN interfaces.", keywords: "virtual nic network card guest mac vlan tag bandwidth", steps: ["Press + Add Virtual NIC on a switch.", "Choose the guest, VLAN tag and adapter model."] },
     { id: "host-interfaces", titleKey: "set.view.hostNet", tabId: "hostNet", description: "The host's network interfaces and DNS servers.", keywords: "host interfaces ip address dns gateway", steps: ["Open the Host Interfaces tab next to Visual Switch."] },
     { id: "clustered-switches", titleKey: "kb.clustered-switches", tabId: "vswitch", headingKey: "vsw.title", description: "Mark a virtual switch as clustered and it, its VLAN awareness and its VLANs are created on every cluster host, so workloads can migrate or fail over without network changes.", keywords: "clustered switch sync vlan cluster hosts bridge migrate failover floating vip", steps: ["Turn on Clustered Switch (Sync Across All Hosts) on the switch.", "Wait for the green Synced across N hosts badge.", "Press Floating VIPs to add an address that follows the healthy host."], tips: ["Physical ports and host addresses stay per host; only the switch and its VLANs are shared."] },
@@ -644,8 +670,19 @@ function snippet(text: string, words: string[]): { text: string; mark?: [number,
   return { text: `${pre}${body}${start + body.length < text.length ? "…" : ""}`, mark: [pre.length + i - start, pre.length + i - start + w.length] };
 }
 
-/** Search the registry; groups come back in the mandatory tier order, empty groups omitted. */
-export function searchKnowledge(query: string, tr: Translate, caps?: Partial<Capabilities>, limit = 6): { tier: Tier; hits: Hit[]; total: number }[] {
+/** A control shows while its module, inner tab and own feature are on. */
+export const controlOn = (e: Enabled, x: Control) => tabOn(e, x.moduleId, x.tabId) && (!x.feature || on(e, x.feature));
+
+/** An article shows while the app, sub-module or control it documents is on (Features & Services). */
+export function articleOn(e: Enabled, a: Article): boolean {
+  if (a.relatedAppId) return appOn(e, a.relatedAppId);
+  if (!a.relatedModuleId) return true;
+  const x = a.relatedSubSectionId ? CONTROLS.find((y) => y.moduleId === a.relatedModuleId && y.id === a.relatedSubSectionId) : undefined;
+  return x ? controlOn(e, x) : moduleOn(e, a.relatedModuleId);
+}
+
+/** Search the registry; groups come back in the mandatory tier order, empty groups omitted. Features switched off in `enabled` are left out. */
+export function searchKnowledge(query: string, tr: Translate, caps?: Partial<Capabilities>, limit = 6, enabled: Enabled = {}): { tier: Tier; hits: Hit[]; total: number }[] {
   const q = norm(query.trim());
   if (!q) return [];
   const words = q.split(/\s+/).filter(Boolean);
@@ -655,6 +692,7 @@ export function searchKnowledge(query: string, tr: Translate, caps?: Partial<Cap
   const add = (h: Hit, hay: string) => hasAll(words, norm(hay)) && groups[h.tier].push({ ...h, rank: rankOf(q, h.title) });
 
   for (const id of APP_IDS) {
+    if (!appOn(enabled, id)) continue;
     const title = tr(`app.${id}`);
     add({ key: `app:${id}`, tier: "apps", title, subtitle: tr(`appDesc.${id}`), appId: id, target: { kind: "app", appId: id } }, `${title} ${APPS[id].title} ${tr(`appDesc.${id}`)} ${appDoc(id).keywords} ${id}`);
   }
@@ -663,13 +701,13 @@ export function searchKnowledge(query: string, tr: Translate, caps?: Partial<Cap
     add({ key: `cat:${cat}`, tier: "categories", title, subtitle: crumb(tr("app.settings"), title), categoryId: cat, target: { kind: "settings", category: cat } }, `${title} ${en[`set.cat.${cat}`]} ${tr(`set.catDesc.${cat}`)} ${cat}`);
   }
   for (const m of MODULE_IDS) {
-    if (m === "bios-firmware" && !ok("supports_bios_manager")) continue;
+    if ((m === "bios-firmware" && !ok("supports_bios_manager")) || !moduleOn(enabled, m)) continue;
     const title = tr(`set.mod.${m}`);
     const cat = MODULES[m].cat;
     add({ key: `mod:${m}`, tier: "modules", title, subtitle: crumb(tr("app.settings"), tr(`set.cat.${cat}`), title), moduleId: m, target: { kind: "settings", module: m } }, `${title} ${en[`set.mod.${m}`]} ${tr(`set.modDesc.${m}`)} ${MODULE_DOCS[m].keywords} ${m}`);
   }
   for (const x of CONTROLS) {
-    if (!ok(x.requires)) continue;
+    if (!ok(x.requires) || !controlOn(enabled, x)) continue;
     const title = tr(x.titleKey);
     add(
       { key: `ctl:${x.moduleId}:${x.id}`, tier: "controls", title, subtitle: crumb(tr("app.settings"), tr(`set.cat.${x.categoryId}`), tr(`set.mod.${x.moduleId}`), title), moduleId: x.moduleId, target: controlTarget(x) },
@@ -677,7 +715,7 @@ export function searchKnowledge(query: string, tr: Translate, caps?: Partial<Cap
     );
   }
   for (const a of buildArticles(tr)) {
-    if (!ok(a.requires)) continue;
+    if (!ok(a.requires) || !articleOn(enabled, a)) continue;
     const help = (section?: string): NavTarget => ({ kind: "help", article: a.articleId, section, term: query.trim() });
     add({ key: `art:${a.articleId}`, tier: "articles", title: a.mainTitle, subtitle: crumb(tr("app.help"), a.category === "apps" ? tr("kb.group.apps") : tr(`set.cat.${a.category}`)), target: help() }, `${a.mainTitle} ${a.keywords}`);
     for (const s of a.sections) {

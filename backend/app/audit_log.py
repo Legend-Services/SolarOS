@@ -33,6 +33,8 @@ HTTP_EVENTS = [
     ("POST", r"^/api/system/updates/(apply|rollback)$", "update.apply"),
     ("POST", r"^/api/hardware/gpu-drivers/", "gpu.driver.change"),
     ("POST", r"^/api/system/password$", "password.change"),
+    ("PUT", r"^/api/system/features$", "features.update"),
+    ("POST", r"^/api/onboarding/apply$", "onboarding.apply"),
     ("POST", r"^/api/network/switch/(apply|confirm|revert)$", "network.switch.apply"),
     ("PUT", r"^/api/network/switch/vlans/\d+/dhcp$", "network.vlan.dhcp"),
     ("POST", r"^/api/multiseat/egpu/authorize$", "egpu.authorize"),

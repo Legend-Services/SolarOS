@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { ArrowRight, BookOpen, LibraryBig, Check, ChevronDown, Copy, Cpu, ExternalLink, HelpCircle, Printer, QrCode, RefreshCw, Search, Sparkles, Wrench } from "lucide-react";
+import { ArrowRight, BookOpen, LibraryBig, Check, ChevronDown, Copy, Cpu, ExternalLink, HelpCircle, MousePointerClick, Printer, QrCode, RefreshCw, Search, Sparkles, Wand2, Wrench } from "lucide-react";
+import { useOnboarding } from "../store/onboardingStore";
 import { api } from "../lib/api";
 import { useRunner } from "../lib/hooks";
 import { openLink, useIntent, type Intents } from "../lib/stores";
@@ -146,6 +147,18 @@ interface Ctx {
   setTab: (t: Tab) => void;
 }
 
+/** Help & Support › Interactive Desktop Tour and the Server Setup Wizard. */
+function TourCard() {
+  const { t } = useTranslation();
+  const { startTour, openWizard } = useOnboarding();
+  return (
+    <Section title={t("help.tour")} action={<GlassButton size="xs" variant="primary" onClick={startTour}><MousePointerClick size={12} /> {t("help.tourStart")}</GlassButton>}>
+      <p className="text-xs text-slate-300">{t("help.tourDesc")}</p>
+      <GlassButton size="xs" className="mt-2" onClick={openWizard}><Wand2 size={12} /> {t("feat.rerun")}</GlassButton>
+    </Section>
+  );
+}
+
 function Section({ title, children, action }: { title: ReactNode; children: ReactNode; action?: ReactNode }) {
   return (
     <section className="glass-soft rounded-2xl p-4">
@@ -185,6 +198,7 @@ function Ask({ ctx }: { ctx: Ctx }) {
           ))}
         </div>
       )}
+      {!q && <TourCard />}
       {!q && ctx.diags && (
         <Section title="Health check" action={<GlassButton size="xs" onClick={() => ctx.setTab("fix")}>Open <ArrowRight size={12} /></GlassButton>}>
           {ctx.problems.length ? (

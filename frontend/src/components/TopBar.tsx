@@ -10,6 +10,7 @@ import { APP_IDS } from "../apps/registry";
 import { AppIcon } from "./icons/AppIcons";
 import { useTranslation } from "../i18n";
 import { productOf, useCapabilities } from "../store/capabilitiesStore";
+import { useVisibility } from "../store/featureStore";
 import { TrayItems, TrayOverflow, useBarMenu, useTray } from "./SystemTray";
 
 interface Ups {
@@ -76,6 +77,7 @@ export default function TopBar() {
 
   const active = activeWindow(windows);
   const tray = useTray();
+  const appOn = useVisibility().app;
   const [onContextMenu, barMenu] = useBarMenu();
 
   // z above the Dock (9000): the top bar popovers (View Options, Help, notifications) must open over the Dock.
@@ -92,7 +94,7 @@ export default function TopBar() {
         </button>
         {launcher && (
           <div className="glass absolute top-8 left-0 grid w-80 grid-cols-3 gap-1 rounded-2xl p-3">
-            {APP_IDS.map((id) => {
+            {APP_IDS.filter(appOn).map((id) => {
               const title = appTitle(id);
               return (
                 <button
@@ -113,13 +115,15 @@ export default function TopBar() {
       </div>
 
       <div className="w-32 min-w-0 shrink truncate px-1 font-medium text-slate-300 max-lg:hidden">{active ? appTitle(active.id) : t("top.desktop")}</div>
-      <div className="flex min-w-0 flex-1 justify-center px-2">
+      <div className="flex min-w-0 flex-1 justify-center px-2" data-tour="search">
         <GlobalSearchBar />
       </div>
 
-      <TrayItems ids={tray.bar} />
-      <TrayOverflow ids={tray.overflow} />
-      <UpsPill />
+      <div className="flex items-center gap-1" data-tour="tray">
+        <TrayItems ids={tray.bar} />
+        <TrayOverflow ids={tray.overflow} />
+        <UpsPill />
+      </div>
       <div ref={viewRef} className="relative">
         <button
           onClick={() => setLayout({ panel: !viewPanel })}

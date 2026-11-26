@@ -5,6 +5,7 @@ import type { SearchKind, SearchResult } from "../../lib/types";
 import { navigate, useIntent, useSpotlight, useWindows, type Intents } from "../../lib/stores";
 import { AppIcon } from "../icons/AppIcons";
 import { CATEGORY_META, MODULES } from "../../apps/settings/modules";
+import { useFeatures } from "../../store/featureStore";
 import { searchKnowledge, type Hit, type Tier } from "../../data/knowledgeRegistry";
 import { useTranslation, type TKey } from "../../i18n";
 import { useCapabilities } from "../../store/capabilitiesStore";
@@ -55,6 +56,7 @@ function hitIcon(h: Hit): ReactNode {
 export function useSearchItems(q: string, active: boolean, close: () => void): Item[] {
   const { t } = useTranslation();
   const caps = useCapabilities((s) => s.capabilities);
+  const enabled = useFeatures((s) => s.enabled);
   const openWindow = useWindows((s) => s.open);
   const go = useIntent((s) => s.go);
   const [remote, setRemote] = useState<SearchResult[]>([]);
@@ -77,7 +79,7 @@ export function useSearchItems(q: string, active: boolean, close: () => void): I
     const term = q.trim().toLowerCase();
     if (!term) return [];
     const done = (fn: () => void) => () => (close(), fn());
-    const tiers: Item[] = searchKnowledge(q, t, caps).flatMap((g) =>
+    const tiers: Item[] = searchKnowledge(q, t, caps, 6, enabled).flatMap((g) =>
       g.hits.map((h) => ({ key: h.key, group: t(TIER_LABEL[g.tier]), count: g.total, title: h.title, subtitle: h.subtitle, mark: h.mark, icon: hitIcon(h), run: done(() => navigate(h.target)) })),
     );
     const intent = <K extends keyof Intents>(app: K & Parameters<typeof go>[0], v: Intents[K]) => done(() => go(app, v));
@@ -107,7 +109,7 @@ export function useSearchItems(q: string, active: boolean, close: () => void): I
       }),
     ];
     return [...tiers, ...found.map((f) => ({ ...f, group: t("search.tier.resources"), count: found.length }))];
-  }, [q, remote, t, caps, close, go, openWindow]);
+  }, [q, remote, t, caps, enabled, close, go, openWindow]);
 }
 
 /** Up/Down/Enter/Escape over `items`; returns the selection and the key handler. */

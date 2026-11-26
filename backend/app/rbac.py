@@ -36,14 +36,14 @@ ROLES = {
 ADMIN_ONLY = ("/api/rbac/users", "/api/auth/2fa", "/api/auth/sessions", "/api/platform/modules", "/api/system/update",
               "/api/updater", "/api/cluster", "/api/security", "/api/dr", "/api/oob", "/api/proxy/certificates/root-ca",
               "/api/system/services", "/api/automation/channels", "/api/host-ssh",
-              "/api/v1/guests/node")  # the host's own root terminal
+              "/api/v1/guests/node", "/api/system/features", "/api/onboarding")  # the host's own root terminal
 # Reads that hand out secrets (VPN client keys, DR archives, BMC credentials): admin only.
 SENSITIVE_GET = (re.compile(r"^/api/net/wg/peers/[^/]+/(conf|qr)$"), re.compile(r"^/api/dr/"), re.compile(r"^/api/oob/"),
                  re.compile(r"^/api/automation/channels"), re.compile(r"^/api/rbac/users"))
 ALWAYS = {("GET", "/api/auth/me"), ("GET", "/api/rbac/me"), ("POST", "/api/auth/logout"), ("POST", "/api/auth/step-up"),
           ("GET", "/api/health")}
 # Seat users: what the desktop needs to show itself plus their own guests and seats.
-SEAT_READ = re.compile(r"^/api/(auth/me|rbac/me|system/(info|preferences|capabilities|branding|themes.*|app-usage)|"
+SEAT_READ = re.compile(r"^/api/(auth/me|rbac/me|system/(info|preferences|capabilities|branding|themes.*|app-usage|features)|onboarding/state|"
                        r"v1/system/capabilities|telemetry.*|notifications.*|multiseat/(seats|topology)|v1/guests|"
                        r"v1/tasks/.*|tasks.*|ups/status)$")
 GUEST_PATH = re.compile(r"^/api/v1/guests/(qemu|lxc)/(\d+)/(action|vnc|terminal)$")

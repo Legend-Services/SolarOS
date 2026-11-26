@@ -6,6 +6,7 @@ import { mergeVisible, useSmoothReorder } from "../hooks/useSmoothReorder";
 import { APPS, APP_IDS, type AppId } from "../apps/registry";
 import { APP_GUIDES } from "../data/wizardGuides";
 import { useWizard } from "../store/wizardStore";
+import { useVisibility } from "../store/featureStore";
 import { useAppView, useLayout, useShell, type GallerySort } from "../store/layoutStore";
 import { AppIcon } from "./icons/AppIcons";
 import { useTranslation, type TKey } from "../i18n";
@@ -69,12 +70,13 @@ export default function AppGallery() {
   const menuRef = useDismiss(!!menu, () => setMenu(null));
   const close = () => set({ gallery: false });
 
-  const ordered = sortApps(sort, galleryAppOrder, usage, appTitle);
+  const appOn = useVisibility().app;
+  const ordered = sortApps(sort, galleryAppOrder, usage, appTitle).filter(appOn);
   const q = query.trim().toLowerCase();
   const apps = ordered.filter(
     (id) => (category === "all" || CATEGORY_OF[id] === category) && (!q || `${appTitle(id)} ${appDesc(id)} ${APPS[id].title}`.toLowerCase().includes(q)),
   );
-  const topUsed = sortApps("most-used", galleryAppOrder, usage).find((id) => (usage[id]?.launch_count ?? 0) > 0);
+  const topUsed = sortApps("most-used", galleryAppOrder, usage).find((id) => appOn(id) && (usage[id]?.launch_count ?? 0) > 0);
   // 2D pointer reorder of the visible tiles; search / category only hide tiles, and a drop always switches to Custom Order.
   const reorder = useSmoothReorder(apps, (next) => setLayout({ galleryAppOrder: mergeVisible(ordered, apps, next), gallerySortMode: "custom" }), { axis: "xy" });
   const drag = reorder.dragging;

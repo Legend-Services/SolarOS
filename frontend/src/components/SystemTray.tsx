@@ -21,8 +21,10 @@ import {
   Sparkles,
   SquareTerminal,
   SunMoon,
+  MousePointerClick,
   type LucideIcon,
 } from "lucide-react";
+import { useOnboarding } from "../store/onboardingStore";
 import { activeWindow, openLink, useBugReport, useDock, useTelemetry, useWindows, zfsHealth } from "../lib/stores";
 import { useDismiss, useFlip } from "../lib/hooks";
 import { mergeVisible, useSmoothReorder } from "../hooks/useSmoothReorder";
@@ -267,6 +269,9 @@ export function HelpMenu({ up = false }: { up?: boolean }) {
           )}
           <button onClick={() => (showGuide("welcome"), setHelp(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
             <Sparkles size={14} /> {t("top.welcomeTour")}
+          </button>
+          <button onClick={() => (useOnboarding.getState().startTour(), setHelp(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
+            <MousePointerClick size={14} /> {t("help.tour")}
           </button>
           <button onClick={() => (open("help"), setHelp(false))} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left hover:bg-white/10">
             <LifeBuoy size={14} /> {t("top.helpSupport")}
