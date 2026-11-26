@@ -2,7 +2,7 @@ import { useState, type CSSProperties, type KeyboardEvent, type PointerEvent } f
 import { PencilRuler } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { useSmoothReorder } from "../hooks/useSmoothReorder";
-import { openLink, useDock, usePrefs, useTelemetry, useWindows } from "../lib/stores";
+import { useDock, usePrefs, useTelemetry, useWindows } from "../lib/stores";
 import { useInsets, useLayout, useShell } from "../store/layoutStore";
 import { APP_IDS, type AppId } from "../apps/registry";
 import { AppListRow } from "./ViewOptions";
@@ -120,7 +120,7 @@ export default function Desktop() {
           <WidgetSlotArea slot="right" className="!flex" />
           {!editing && (
             <button
-              onClick={() => openLink("settings", "general-appearance")}
+              onClick={() => useWidgets.getState().setEditing(true)}
               className="glass-soft self-end rounded-full px-3 py-1 text-[11px] text-slate-300 opacity-60 transition-[background-color,border-color,box-shadow,transform,scale,opacity] hover:opacity-100"
             >
               <PencilRuler size={11} className="mr-1 inline" />
