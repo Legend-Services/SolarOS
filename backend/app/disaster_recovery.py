@@ -333,12 +333,16 @@ async def _offsite(t: dict, job: dict) -> dict:
         else:
             job["logs"].append(line)
 
-    await pm.run(MODULE, offsite_script(t, sources_for(t, runtime)), timeout=6 * 3600, log=on_line)
-    targets = load_targets()
-    for x in targets:
-        if x["id"] == t["id"]:
-            x["last_run"] = {"at": int(time.time()), "ok": True}
-    save_targets(targets)
+    ok = False
+    try:
+        await pm.run(MODULE, offsite_script(t, sources_for(t, runtime)), timeout=6 * 3600, log=on_line)
+        ok = True
+    finally:  # a failed copy must replace the last success, or the 3-2-1 status lies
+        targets = load_targets()
+        for x in targets:
+            if x["id"] == t["id"]:
+                x["last_run"] = {"at": int(time.time()), "ok": ok}
+        save_targets(targets)
     return {"target": t["id"]}
 
 

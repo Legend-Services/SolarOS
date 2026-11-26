@@ -48,7 +48,9 @@ export async function api<T>(path: string, init: RequestInit & { json?: unknown 
       const wait = res.headers.get("Retry-After");
       throw new ApiError(429, typeof detail === "string" ? detail : `Too many attempts${wait ? `; try again in ${wait} s` : ""}`);
     }
-    throw new ApiError(res.status, typeof detail === "string" ? detail : res.statusText || "Request failed");
+    // Validation errors arrive as [{loc, msg}]: show the reasons instead of "Unprocessable Entity".
+    const reasons = Array.isArray(detail) ? detail.map((d: { msg?: string }) => d?.msg?.replace(/^Value error, /, "")).filter(Boolean).join("; ") : "";
+    throw new ApiError(res.status, typeof detail === "string" ? detail : reasons || res.statusText || "Request failed");
   }
   return res.json();
 }

@@ -1,5 +1,6 @@
 import { useEffect, useId, useState, type ButtonHTMLAttributes, type CSSProperties, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
 import { X } from "lucide-react";
+import { useTranslation } from "../../i18n";
 
 /* Liquid Glass primitives. Surfaces, rims and press physics live in index.css (.glass-btn, .glass-field, …). */
 
@@ -265,6 +266,7 @@ export function ConfirmModal({
   error?: string;
   children?: ReactNode;
 }) {
+  const { t } = useTranslation();
   const [typed, setTyped] = useState("");
   useEffect(() => setTyped(""), [open]);
   const ok = !expect || typed === expect;
@@ -275,9 +277,9 @@ export function ConfirmModal({
       title={title}
       footer={
         <>
-          <GlassButton onClick={onClose}>Cancel</GlassButton>
+          <GlassButton onClick={onClose}>{t("common.cancel")}</GlassButton>
           <GlassButton variant="danger" disabled={!ok || busy} onClick={onConfirm}>
-            {busy ? "Working…" : confirmLabel}
+            {busy ? t("common.working") : confirmLabel}
           </GlassButton>
         </>
       }

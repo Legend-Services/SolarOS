@@ -140,3 +140,12 @@ Floating IPv4/IPv6 addresses bound to a clustered virtual switch or VLAN that fo
 2. Optionally add the VLAN and a label.
 3. Pick the preferred host and press Add VIP.
 
+### Out-of-band hosts
+
+Out-of-band control of physical servers through their IPMI or Redfish management controller: power on, off, cycle and reset, hardware sensors, and Wake-on-LAN for standby hosts.
+
+1. Press Add Host and enter the management controller's address and credentials (or only the MAC address for Wake-on-LAN).
+2. Use the power buttons, Sensors or Wake.
+
+![Out-of-band hosts](screenshots/settings-cluster-ha--oob-hosts.png)
+

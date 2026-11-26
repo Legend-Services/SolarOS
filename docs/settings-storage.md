@@ -110,6 +110,32 @@ Automatic backup schedules with retention.
 
 ![Backup Schedules](screenshots/settings-backup-restore--backup-schedules.png)
 
+### Host snapshots
+
+Encrypted host snapshots of SolarDeck's own configuration: network, switches and VLANs, DHCP, reverse proxy rules and certificates, multi-seat, cluster, accounts and settings.
+
+1. Enter a passphrase of at least 12 characters and press Create Snapshot.
+2. Download it or let an offsite target copy it.
+3. To restore, pick the snapshot, enter the passphrase and press Restore.
+
+> **Tip:** Without the passphrase the snapshot cannot be opened.
+
+![Host snapshots](screenshots/settings-backup-restore--dr-snapshots.png)
+
+### Offsite copies
+
+Offsite copies to S3-compatible storage, SFTP or WebDAV, with retention, for the 3-2-1 rule.
+
+1. Press Add Target and enter the connection details.
+2. Press Sync now and follow the progress.
+
+### Sandbox restore verification
+
+Proof that a backup works: it is restored into an air-gapped lab, booted, checked for a guest agent heartbeat and removed again.
+
+1. Pick a backup and the storage for the temporary guest.
+2. Press Verify in sandbox and watch the steps.
+
 ## Shared Folders & SMB
 
 ![Shared Folders & SMB](screenshots/settings-shared-folders.png)
@@ -137,6 +163,41 @@ Users that can connect to the shared folders, with read or write access.
 1. Add a user with a password.
 2. Give the user access on each share.
 
+### NFS shares
+
+NFS shares of host folders for other servers and computers on your network.
+
+1. Add a share with a host folder and the networks allowed to use it.
+2. Choose read-only and root squash per network, then Save.
+
+![NFS shares](screenshots/settings-shared-folders--nfs-shares.png)
+
+### WebDAV shares
+
+Password-protected WebDAV shares over HTTPS on their own port, read-only or writable.
+
+1. Add a share with a host folder and users.
+2. Connect from a file manager to the address shown.
+
+### Snapshot files
+
+Browse a dataset's snapshots read-only and bring back a single file or folder.
+
+1. Pick a dataset and a snapshot.
+2. Open folders until you find the file.
+3. Press Restore; it lands next to the current file unless you choose to overwrite.
+
+![Snapshot files](screenshots/settings-shared-folders--snap-browser.png)
+
+### USB drives
+
+External USB drives: mount one on the host or give it to a VM as a disk.
+
+1. Press Mount and give the drive a name, or Attach to VM.
+2. Unmount before you unplug it.
+
+![USB drives](screenshots/settings-shared-folders--usb-drives.png)
+
 ## ISO & Template Library
 
 ![ISO & Template Library](screenshots/settings-iso-templates.png)
@@ -148,4 +209,20 @@ Download and upload bootable ISO images, cloud images and container templates us
 1. Open Settings › Storage & Data › ISO & Template Library (or press “Open This Setting / App →” above).
 2. Paste a download link and press Download, or upload a file from your computer.
 3. Container templates can be downloaded from the template list.
+
+### Image catalog
+
+Curated server, desktop, firewall, driver and cloud images, downloaded with checksum verification.
+
+1. Pick the storage under Download to.
+2. Press Download next to an image; cloud images offer Zero-Touch Create.
+
+![Image catalog](screenshots/settings-iso-templates--ih-catalog.png)
+
+### Golden templates
+
+Golden templates: save a configured VM as a template and clone new VMs from it.
+
+1. Shut the VM down and press Save VM as Template.
+2. Press Clone to create a new VM from it.
 

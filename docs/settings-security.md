@@ -8,7 +8,7 @@ Users, roles, 2FA, step-up authentication, hardening and audit logs.
 
 ![Privilege & Security](screenshots/settings-security.png)
 
-**Sub-modules:** [Users & Roles](#users-roles) · [Security & 2FA](#security-2fa) · [Security Posture & Hardening](#security-posture-hardening) · [Audit & System Logs](#audit-system-logs)
+**Sub-modules:** [Users & Roles](#users-roles) · [Security & 2FA](#security-2fa) · [Security Posture & Hardening](#security-posture-hardening) · [Audit & System Logs](#audit-system-logs) · [Security-by-Design Modules](#security-by-design-modules)
 
 ## Users & Roles
 
@@ -66,6 +66,18 @@ API tokens for scripts and integrations.
 Authentication realms (local, LDAP, OpenID).
 
 1. Add a realm and set it as default if users should sign in with it.
+
+### SolarDeck accounts
+
+SolarDeck accounts besides the administrator, each with a role (admin, operator, seat user, viewer) and the VMs, seats and shares it may use.
+
+1. Press Add Account, choose a role and set a password.
+2. For a seat user, select the VMs and seats.
+3. Disable or delete accounts that are no longer needed.
+
+> **Tip:** Turning the module off locks every extra account out at once.
+
+![SolarDeck accounts](screenshots/settings-users-roles--users-accounts.png)
 
 ## Security & 2FA
 
@@ -149,4 +161,25 @@ Hash-chained log of every administrative action with integrity verification and 
 The host's system journal.
 
 1. Pick a time range and filter the journal.
+
+## Security-by-Design Modules
+
+![Security-by-Design Modules](screenshots/settings-platform-modules.png)
+
+### Overview
+
+One overview of every optional module: switch it on or off, run it in an isolated container or on the host, and pin it to the management network, a VLAN, the DMZ or an isolated lab with least-privilege firewall rules.
+
+1. Open Settings › Privilege & Security › Security-by-Design Modules (or press “Open This Setting / App →” above).
+2. Turn a module on with its switch.
+3. Choose Isolated Container or Host Native where the module supports both.
+4. Pick the network it lives on and press Apply.
+
+### Security-by-Design Modules
+
+Each module's switch, deployment mode (Isolated Container or Host Native) and network (management, VLAN, DMZ or isolated lab) with least-privilege firewall rules.
+
+1. Switch a module on.
+2. Choose its deployment mode and network.
+3. Press Apply.
 

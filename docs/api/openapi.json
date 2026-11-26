@@ -13741,6 +13741,55 @@
    }
   },
   "/api/proxy/streams/{stream_id}": {
+   "put": {
+    "tags": [
+     "reverse_proxy"
+    ],
+    "summary": "Update Stream",
+    "operationId": "update_stream_api_proxy_streams__stream_id__put",
+    "parameters": [
+     {
+      "name": "stream_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^[0-9a-f]{8}$",
+       "title": "Stream Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/StreamBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
    "delete": {
     "tags": [
      "reverse_proxy"
@@ -14812,7 +14861,7 @@
      "image_hub"
     ],
     "summary": "Create Template",
-    "description": "Turn a configured, shut-down VM into a golden template (on Proxmox VE this is `qm template`, a one-way step).",
+    "description": "Turn a configured, shut-down VM into a golden template (on some hypervisors a one-way step).",
     "operationId": "create_template_api_compute_templates_post",
     "requestBody": {
      "content": {
@@ -15364,7 +15413,7 @@
      "oob_control"
     ],
     "summary": "Enable Serial",
-    "description": "Proxmox VE VMs need a serial port for `qm terminal`; SolarOS VMs get one at creation.",
+    "description": "Give a VM a serial port where the hypervisor needs one for its serial console.",
     "operationId": "enable_serial_api_oob_serial__guest_type___guest_id__enable_post",
     "parameters": [
      {
@@ -15928,7 +15977,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/UsbMountBody"
+        "$ref": "#/components/schemas/UsbUnmountBody"
        }
       }
      },
@@ -22686,6 +22735,20 @@
      "host"
     ],
     "title": "UsbPassthrough"
+   },
+   "UsbUnmountBody": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$",
+      "title": "Name"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "title": "UsbUnmountBody"
    },
    "UserCreate": {
     "properties": {

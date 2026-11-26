@@ -8,6 +8,7 @@ README.md
 COMMERCIAL_LICENSE.md
 backend/.env.example
 docs
+scripts/generate-api-docs.mjs
 screenshots
 deploy/env-defaults-legacy
 frontend/scripts/generate-logos.py

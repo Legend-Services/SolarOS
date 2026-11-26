@@ -1,8 +1,9 @@
-import { useState } from "react";
-import { Bug, LayoutDashboard, LayoutGrid, Lock, LogOut, SlidersHorizontal, User } from "lucide-react";
+import { useEffect, useState } from "react";
+import { BatteryFull, BatteryLow, BatteryMedium, BatteryWarning, Bug, LayoutDashboard, LayoutGrid, Lock, LogOut, SlidersHorizontal, User } from "lucide-react";
+import { api } from "../lib/api";
 import { useLayout } from "../store/layoutStore";
 import { ViewOptionsPanel } from "./ViewOptions";
-import { activeWindow, useAuth, useBugReport, useWindows } from "../lib/stores";
+import { activeWindow, openLink, useAuth, useBugReport, useWindows } from "../lib/stores";
 import GlobalSearchBar from "./search/GlobalSearchBar";
 import { useClock, useDismiss } from "../lib/hooks";
 import { APP_IDS } from "../apps/registry";
@@ -10,6 +11,51 @@ import { AppIcon } from "./icons/AppIcons";
 import { useTranslation } from "../i18n";
 import { productOf, useCapabilities } from "../store/capabilitiesStore";
 import { TrayItems, TrayOverflow, useBarMenu, useTray } from "./SystemTray";
+
+interface Ups {
+  enabled: boolean;
+  online?: boolean;
+  on_battery?: boolean;
+  low_battery?: boolean;
+  charge_percent?: number | null;
+  load_percent?: number | null;
+  input_voltage?: number | null;
+  runtime_seconds?: number | null;
+}
+
+/** UPS battery pill: polls every 15 s, stops on an error or when the UPS module is off. */
+function UpsPill() {
+  const { t } = useTranslation();
+  const [ups, setUps] = useState<Ups | null>(null);
+  useEffect(() => {
+    let timer = 0;
+    const poll = () =>
+      api<Ups>("/ups/status").then(
+        (u) => {
+          setUps(u);
+          if (u.enabled) timer = window.setTimeout(poll, 15_000);
+        },
+        () => setUps(null),
+      );
+    void poll();
+    return () => clearTimeout(timer);
+  }, []);
+  if (!ups?.enabled || !ups.online) return null;
+  const charge = ups.charge_percent ?? 0;
+  const Icon = ups.low_battery ? BatteryWarning : charge < 30 ? BatteryLow : charge < 75 ? BatteryMedium : BatteryFull;
+  const tone = ups.low_battery ? "text-rose-300" : ups.on_battery ? "text-amber-300" : "text-slate-200";
+  const title = t("ups.pill", {
+    state: t(ups.low_battery ? "ups.state.low" : ups.on_battery ? "ups.state.battery" : "ups.state.online"),
+    load: ups.load_percent ?? "—",
+    volt: ups.input_voltage ?? "—",
+    min: ups.runtime_seconds == null ? "—" : Math.round(ups.runtime_seconds / 60),
+  });
+  return (
+    <button onClick={() => openLink("settings", "power-ups")} className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 tabular-nums hover:bg-white/10 ${tone}`} title={title} aria-label={title}>
+      <Icon size={14} /> {ups.charge_percent == null ? "" : `${Math.round(charge)}%`}
+    </button>
+  );
+}
 
 export default function TopBar() {
   const caps = useCapabilities((s) => s.capabilities);
@@ -73,6 +119,7 @@ export default function TopBar() {
 
       <TrayItems ids={tray.bar} />
       <TrayOverflow ids={tray.overflow} />
+      <UpsPill />
       <div ref={viewRef} className="relative">
         <button
           onClick={() => setLayout({ panel: !viewPanel })}

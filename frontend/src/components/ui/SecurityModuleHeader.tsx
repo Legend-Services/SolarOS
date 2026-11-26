@@ -62,9 +62,12 @@ export function SecurityModuleHeader({ module, children, compact = false }: { mo
   useEffect(() => {
     api<SwitchInfo>("/network/switch/state").then(setSw, () => setSw(null));
   }, []);
-  const progress = useJobProgress(`/tasks/${job}`, !!job, (ok) => {
-    if (ok) void run(() => api(`/platform/modules/${module}/place`, { method: "POST" }).then(load), t("sdm.saved"));
-  });
+  const placed = useCallback(
+    (ok: boolean) => {
+      if (ok) void run(() => api(`/platform/modules/${module}/place`, { method: "POST" }).then(load), t("sdm.saved"));
+    },
+    [run, module, load, t],
+  );
 
   if (!draft || !saved) return <Notice error={error} />;
   const set = (patch: Partial<ModuleProfile>) => setDraft({ ...draft, ...patch });
@@ -163,6 +166,9 @@ export function SecurityModuleHeader({ module, children, compact = false }: { mo
                     }}
                   >
                     <option value="">{t("sdm.noVlan")}</option>
+                    {draft.bound_vlan_id && !(sw?.vlans ?? []).some((v) => v.vlan_id === draft.bound_vlan_id) && (
+                      <option value={draft.bound_vlan_id}>{`VLAN ${draft.bound_vlan_id}`}</option>
+                    )}
                     {(draft.network_isolation_mode === "isolated_lab" ? labs : vlans).map((v) => (
                       <option key={v.vlan_id} value={v.vlan_id}>
                         {`VLAN ${v.vlan_id} · ${v.name}`}
@@ -190,11 +196,18 @@ export function SecurityModuleHeader({ module, children, compact = false }: { mo
             <Notice error={error} notice={notice} />
           </div>
         )}
-        {job && progress && <OperationProgressCard className="mt-3" title={t("sdm.deploying")} progress={progress} onDismiss={() => setJob(null)} />}
+        {job && <DeployProgress job={job} onDone={placed} onDismiss={() => setJob(null)} />}
       </section>
       {saved.enabled ? children?.(saved) : !compact && <p className="px-1 text-xs text-slate-400">{t("sdm.off")}</p>}
     </div>
   );
+}
+
+/** The worker container's deployment; mounted only while there is a job, so nothing is polled otherwise. */
+function DeployProgress({ job, onDone, onDismiss }: { job: string; onDone: (ok: boolean) => void; onDismiss: () => void }) {
+  const { t } = useTranslation();
+  const progress = useJobProgress(`/tasks/${job}`, true, onDone);
+  return progress && <OperationProgressCard className="mt-3" title={t("sdm.deploying")} progress={progress} onDismiss={onDismiss} />;
 }
 
 /** Settings > Privilege & Security > Security-by-Design Modules: every module's header in one list. */

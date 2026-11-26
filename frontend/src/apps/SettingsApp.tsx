@@ -48,9 +48,13 @@ const pad = (n: ReactNode) => <div className="h-full space-y-4 overflow-auto p-4
 const gated = (module: ModuleKey, body: ReactNode) => pad(<SecurityModuleHeader module={module}>{() => body}</SecurityModuleHeader>);
 
 /** A module made of several existing panels: a small tab row above the active one. */
-function Views({ views, initial }: { views: [TKey, ReactNode][]; initial?: string }) {
+function Views({ views, initial, fallback = 0 }: { views: [TKey, ReactNode][]; initial?: string; fallback?: number }) {
   const { t } = useTranslation();
-  const [i, setI] = useState(() => Math.max(0, views.findIndex(([k]) => k === `set.view.${initial}`)));
+  // A deep link to an inner tab of one view (not a view itself) opens `fallback`, the view that owns those tabs.
+  const [i, setI] = useState(() => {
+    const hit = views.findIndex(([k]) => k === `set.view.${initial}`);
+    return hit >= 0 ? hit : initial ? fallback : 0;
+  });
   return (
     <div className="flex h-full flex-col">
       <div className="flex gap-1 border-b border-white/10 px-3 py-1.5">
@@ -121,6 +125,7 @@ function ModuleBody({ id, tab }: { id: ModuleId; tab?: string }) {
       return (
         <Views
           initial={tab}
+          fallback={1}
           views={[
             ["set.view.accounts", gated("rbac_users", <UsersRolesPanel />)],
             ["set.view.hostUsers", <DatacenterApp initialTab={initialTab} tabs={["users", "groups", "roles", "acl", "pools", "tokens", "realms"]} />],

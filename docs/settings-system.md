@@ -8,7 +8,7 @@ Core hardware, OS repositories, firmware, live telemetry, power and updates.
 
 ![System](screenshots/settings-system.png)
 
-**Sub-modules:** [General & Appearance](#general-appearance) · [Hardware & GPU](#hardware-gpu) · [BIOS & Firmware](#bios-firmware) · [Resource Monitor](#resource-monitor) · [Software & Repositories](#software-repositories) · [System Services](#system-services) · [Automation & Alerts](#automation-alerts) · [Host & Power](#host-power)
+**Sub-modules:** [General & Appearance](#general-appearance) · [Hardware & GPU](#hardware-gpu) · [BIOS & Firmware](#bios-firmware) · [Resource Monitor](#resource-monitor) · [Software & Repositories](#software-repositories) · [System Services](#system-services) · [Automation & Alerts](#automation-alerts) · [Host & Power](#host-power) · [Power & UPS](#power-ups)
 
 ## General & Appearance
 
@@ -334,4 +334,44 @@ Reboot or shut down the host safely.
 1. Press Reboot or Shut down and confirm.
 
 > **Tip:** Guests with autostart come back on by themselves after a reboot.
+
+## Power & UPS
+
+![Power & UPS](screenshots/settings-power-ups.png)
+
+### Overview
+
+Protect the server with a UPS: live battery charge, load, input voltage and runtime, an ordered shutdown of every guest when the battery runs low, and eco power profiles that switch on a schedule.
+
+1. Open Settings › System › Power & UPS (or press “Open This Setting / App →” above).
+2. Connect the UPS by USB (or enter the UPS another machine serves) and press Save.
+3. Set the battery percentage or runtime at which the server shuts down, and the order of the guests.
+4. Pick a power profile, and add schedule entries to switch profiles automatically.
+
+> **Tip:** The battery level also appears in the top bar while the module is on.
+
+### UPS status
+
+Live UPS battery charge, load, input voltage, remaining runtime and whether the server runs on battery.
+
+1. Read the live values; they refresh every 10 seconds.
+
+![UPS status](screenshots/settings-power-ups--ups-status.png)
+
+### Configuration
+
+Connect a USB UPS or a UPS another machine serves, and choose when and in which order the guests shut down.
+
+1. Press Detect UPS or enter the driver and port.
+2. Set the battery percentage and runtime that trigger the shutdown.
+3. Order the guests that must stop first, then Save.
+
+> **Tip:** After the guests, ZFS is synced and the server powers off.
+
+### Power profile
+
+Power profiles (performance, balanced, eco) for the CPU, guests that eco mode shuts down, and a weekly schedule.
+
+1. Pick a profile and the lab guests eco mode may stop.
+2. Add schedule rows (time, days, profile) and press Apply.
 

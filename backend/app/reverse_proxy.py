@@ -579,7 +579,8 @@ async def upstreams():
     """Quick-pick targets: App Center instances (with their address) plus every VM and container."""
     from . import apps
     from providers.registry import get_provider
-    out = [{"kind": "app", "name": a["display_name"], "host": a.get("ip_address"), "port": None, "guest_id": a["guest_id"]}
+    out = [{"kind": "app", "name": a["display_name"], "host": a.get("ip_address"),
+            "port": apps.BY_ID.get(a["app_id"], {}).get("web_port"), "guest_id": a["guest_id"]}
            for a in await apps.reconcile()]
     for g in await get_provider().guest_rows():
         if g.get("type") in ("qemu", "lxc"):
@@ -640,14 +641,27 @@ async def list_streams():
     return load()["streams"]
 
 
+def _check_stream(s: dict, body: StreamBody, own: str | None) -> None:
+    protos = lambda p: {"tcp", "udp"} if p == "both" else {p}  # noqa: E731
+    if any(x["id"] != own and x["listen_port"] == body.listen_port and protos(x["protocol"]) & protos(body.protocol) for x in s["streams"]):
+        raise HTTPException(409, f"Port {body.listen_port} is already forwarded")
+
+
 @router.post("/streams", dependencies=gated)
 async def create_stream(body: StreamBody):
     s = load()
-    protos = lambda p: {"tcp", "udp"} if p == "both" else {p}  # noqa: E731
-    if any(x["listen_port"] == body.listen_port and protos(x["protocol"]) & protos(body.protocol) for x in s["streams"]):
-        raise HTTPException(409, f"Port {body.listen_port} is already forwarded")
+    _check_stream(s, body, None)
     st = {"id": new_id(), **body.model_dump()}
     s["streams"].append(st)
+    return {**await _save_apply(s), "stream": st}
+
+
+@router.put("/streams/{stream_id}", dependencies=gated)
+async def update_stream(body: StreamBody, stream_id: str = Path(pattern=ID_RE)):
+    s = load()
+    st = _find(s["streams"], stream_id)
+    _check_stream(s, body, stream_id)
+    st.update(body.model_dump())
     return {**await _save_apply(s), "stream": st}
 
 

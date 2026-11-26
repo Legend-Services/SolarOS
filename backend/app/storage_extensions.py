@@ -117,6 +117,10 @@ class UsbMountBody(BaseModel):
     read_only: bool = False
 
 
+class UsbUnmountBody(BaseModel):
+    name: str = Field(pattern=NAME_RE)  # /mnt/usb/<name>
+
+
 class UsbAttachBody(BaseModel):
     device: str = Field(pattern=r"^/dev/disk/by-id/usb-[A-Za-z0-9_.:+-]+$")
     vmid: int = Field(ge=100, le=999_999_999)
@@ -331,7 +335,7 @@ async def usb_mount(body: UsbMountBody):
 
 
 @router.post("/usb/unmount", dependencies=gated)
-async def usb_unmount(body: UsbMountBody):
+async def usb_unmount(body: UsbUnmountBody):
     await host_ssh.run(f"sync; umount /mnt/usb/{body.name} && rmdir /mnt/usb/{body.name}", timeout=120)
     return {"ok": True}
 
