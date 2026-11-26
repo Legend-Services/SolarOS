@@ -75,6 +75,8 @@ interface Doc {
   steps: string[];
   tips?: string[];
   keywords: string;
+  /** Extra illustrated sections of an app article (screenshot slug under docs/screenshots/). */
+  more?: { id: string; title: string; body: string; steps?: string[]; shot?: string }[];
 }
 
 export const APP_DOCS: Partial<Record<AppId, Doc>> = {
@@ -99,9 +101,47 @@ export const APP_DOCS: Partial<Record<AppId, Doc>> = {
       "The drawer's Virtual Hardware & Lab tab adds emulated devices (HD audio + microphone, retro sound, virtual webcam, SAS/RAID HBA, NVMe, 56k modem, 10 Mbps NIC, TPM 2.0, smartcard reader, watchdog, entropy) and throttles CPU speed and network links (10 Mbps, 56k modem, 4G, custom latency and packet loss).",
       "Press Isolated Lab Sandbox to launch an air-gapped lab network with its own switch, VLAN and DHCP server in one click.",
       "The Multi-Seat & Ports tab turns one machine into several workstations: give each seat VM its own GPU with its monitors, physical USB ports (Plug to Assign) and CPU cores, then press Start All Seats.",
+      "Switch the guest drawer from Form View to Wireframe Architecture to see the guest as a blueprint computer: click any network card, PCIe card, peripheral or drive to open the Hardware Device Inspector (name, MAC with randomizer, driver model, slot, vendor and device ID, serial, link and speed) and press Save & Apply.",
+      "In the wireframe, give a virtual capture card or webcam the Guest Device Manager name the guest should show (e.g. “Studio HDMI Capture Pro”); fields marked Visible in guest reach the guest, the rest are SolarDeck labels.",
+      "Click a network line or switch node in the wireframe to re-patch that network card to another virtual switch, physical bridge, router, VLAN or isolated lab in one click; the host node shows Standalone Mode or the cluster's preferred active host, standby hosts, ZFS sync and floating VIP.",
     ],
     tips: ["Install media lives in the ISO & Template Library; download an ISO there before creating a VM.", "Legacy PCI and ISA devices need a power cycle (shut down, then start) before a running VM sees them."],
-    keywords: "vm virtual machine container lxc guest create start stop console snapshot compute virtual hardware audio microphone webcam capture modem 56k nvme sas raid hba tpm smartcard watchdog rng throttle cpu limit bandwidth latency packet loss retro lab sandbox air gap isolated multi seat multiseat workstation station gpu monitor usb port keyboard mouse plug assign cpu pinning cluster host live migration migrate high availability ha failover standby",
+    keywords: "vm virtual machine container lxc guest create start stop console snapshot compute virtual hardware audio microphone webcam capture modem 56k nvme sas raid hba tpm smartcard watchdog rng throttle cpu limit bandwidth latency packet loss retro lab sandbox air gap isolated multi seat multiseat workstation station gpu monitor usb port keyboard mouse plug assign cpu pinning cluster host live migration migrate high availability ha failover standby wireframe architecture blueprint schematic form view hardware inspector identity device name device manager vendor id device id vid pid serial number mac address randomize nic model pci slot repatch re-patch endpoint change network",
+    more: [
+      {
+        id: "wireframe",
+        title: "Wireframe Node Architecture & Hardware ID Overrides",
+        body: "The Wireframe Architecture view draws the guest as a blueprint computer: live specs and a status LED on the case, then its network adapters, motherboard PCIe cards, capture / audio / USB peripherals and storage. Animated lines run from each network adapter to its switch or VLAN (with DHCP and DNS indicators and the guest's IP address), to an isolated lab when it is in one, and the case connects to the host placement node (Standalone Mode, or the cluster's preferred active host, standby hosts, ZFS sync and floating VIP).",
+        steps: [
+          "Click a device to open the Hardware Device Inspector & Editor and press Save & Apply.",
+          "For a network adapter: interface name or label, MAC address (the shuffle button generates a valid one), driver model, switch, VLAN tag, trunk VLANs, link state and rate limit.",
+          "For a virtual device: Guest Device Manager display name, vendor ID (VID), device ID (PID), serial number and address, plus its own settings such as a camera's stream source.",
+          "Click a network line or switch node and pick another virtual switch, physical bridge, router, VLAN or lab, then press Apply Now.",
+        ],
+        shot: "compute-wireframe",
+      },
+    ],
+  },
+  architect: {
+    intro: "Network Architect draws your whole environment as a live blueprint: the standalone host or every cluster host with quorum and floating VIPs, the gateway and physical switch neighbors, network ports, virtual switches, VLANs with DHCP and DNS badges, isolated labs, and every VM and container with its IP addresses. Click a network to drill into it and scan for every other device on it.",
+    steps: [
+      "Open Network Architect from the App Gallery or with Open Network Architect in Settings › Network & Services › Network Topology.",
+      "Drag to pan, scroll or use + and − to zoom the blueprint.",
+      "Click a switch, VLAN or lab (or pick it under Networks) to open its schematic: router, DHCP server, DNS server, this host and your guests around the network hub.",
+      "Press Scan Network Now: the host pings the subnet, reads the ARP and DHCP tables, looks up names (reverse DNS and mDNS) and checks common service ports.",
+      "More than six other devices are grouped into one Other Devices (+N) hub; click it (or Show Devices) to search and filter them by type.",
+      "Each device shows its type icon, name, IP and MAC address with hardware vendor, a functionality badge (e.g. Gateway, DHCP & DNS Resolver; Network Printer; RTSP IP Camera) and its open ports — click the port pills to read what every port is for.",
+    ],
+    tips: ["A network can only be scanned when the host has an address on it.", "Scans only open a connection to each port and close it again; they never log in or send data."],
+    keywords: "network architect architecture blueprint infrastructure map diagram topology cluster host vip gateway router uplink switch vlan lab dhcp dns scan discover discovery devices subnet port scan open ports printer camera nas phone iot mac vendor oui other devices",
+    more: [
+      {
+        id: "network-drill-down",
+        title: "Network Drill-Down & Discovered Devices Explorer",
+        body: "The network view puts the network hub in the middle with the router / gateway, DHCP server, DNS server, this SolarDeck host and the network's VMs and containers around it. Above six other devices the diagram shows one Other Devices (+N) hub; the Discovered Devices Explorer lists every device with its type icon, name, IP and MAC address with hardware vendor, a functionality badge and its open ports with a plain-English explanation of each.",
+        shot: "architect-network",
+      },
+    ],
   },
   files: {
     intro: "File Station browses the folders on your storage: upload, download, rename, move and delete files from the browser.",
@@ -227,8 +267,8 @@ export const MODULE_DOCS: Record<ModuleId, Doc> = {
   },
   "network-topology": {
     intro: "An interactive live map of the host, its switches, guests and VPN connections.",
-    steps: ["Drag to pan and scroll to zoom.", "Click a node to see its details and open the screen that owns it."],
-    keywords: "topology map network diagram graph live nodes",
+    steps: ["Drag to pan and scroll to zoom.", "Click a node to see its details and open the screen that owns it.", "Press Open Network Architect for the full infrastructure blueprint with per-network device and port discovery."],
+    keywords: "topology map network diagram graph live nodes architect blueprint scan devices",
   },
   "dns-dhcp": {
     intro: "A local DNS resolver with ad blocking and custom records, and the network-wide DHCP server.",
@@ -434,7 +474,10 @@ export function buildArticles(tr: Translate = (k) => en[k]): Article[] {
       screenshotPath: shot(slug.app(id)),
       target: { kind: "app", appId: id },
       keywords: d.keywords,
-      sections: [{ sectionId: "overview", subTitle: "Overview", bodyText: d.intro, steps: d.steps, tips: d.tips ?? [] }],
+      sections: [
+        { sectionId: "overview", subTitle: "Overview", bodyText: d.intro, steps: d.steps, tips: d.tips ?? [] },
+        ...(d.more ?? []).map((x) => ({ sectionId: x.id, subTitle: x.title, bodyText: x.body, steps: x.steps ?? [], tips: [], screenshotPath: x.shot && shot(x.shot) })),
+      ],
     });
   }
   for (const cat of CATEGORIES) {

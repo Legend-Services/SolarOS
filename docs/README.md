@@ -24,7 +24,7 @@ Opening a setting jumps straight to its tab and briefly highlights the card; ope
 
 ## Contents
 
-- [Apps](apps.md): Settings, Compute Manager, File Station, App Center, Local AI, Terminal, Help & Support
+- [Apps](apps.md): Settings, Compute Manager, File Station, App Center, Local AI, Network Architect, Terminal, Help & Support
 - [Settings › System](settings-system.md): General & Appearance, Hardware & GPU, BIOS & Firmware, Resource Monitor, Software & Repositories, System Services, Automation & Alerts, Host & Power
 - [Settings › Storage & Data](settings-storage.md): Storage & ZFS Pools, Backup & Restore, Shared Folders & SMB, ISO & Template Library
 - [Settings › Privilege & Security](settings-security.md): Users & Roles, Security & 2FA, Security Posture & Hardening, Audit & System Logs

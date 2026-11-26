@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.17.0 - Wireframe Node Architect, Hardware Identity Editor & Network Architecture Explorer — 2026-11-26
+
+### Added
+- **Wireframe Architecture view** for every VM and container: a **Form View | Wireframe Architecture** switch at the top of the guest drawer.
+  - A blueprint computer case with live specs (vCPU, RAM, OS profile, status LED) and sectioned slots: *Network adapters*, *Motherboard PCIe cards* (GPU / PCI passthrough, HD audio, watchdog …), *Capture, audio & USB peripherals* (virtual webcam, smartcard reader, modem, USB passthrough …) and *Storage controllers & drives* (disks, NVMe, SAS/RAID HBA).
+  - **Hardware Device Inspector & Editor** (slide-over, **Save & Apply**): network cards get interface name (containers) or label (VMs), MAC address with a valid random-MAC generator, driver model, switch, VLAN tag, trunk VLANs, link state and rate limit, plus their PCI vendor:device ID and IPv4 addresses; virtual devices get a **Guest Device Manager display name**, vendor ID (VID), device ID (PID), serial number and PCI/USB address next to their own settings (a camera's stream source, a modem's dial target …). Fields marked *Visible in guest* reach the guest — the virtual camera's card name (per-slot v4l2loopback `card_label`) and the NVMe serial; the others are SolarDeck labels, and the native IDs of the emulated chip are shown.
+  - Animated schematic lines from every network card to its **switch / VLAN node** (VLAN pill, DHCP and DNS indicators, guest IP) or **isolated lab node**; clicking a line or node opens **Change Network Endpoint** (virtual switch, physical bridge, router / NAT bridge, VLAN or lab; *Switch Lab* for lab ports). A **host placement node** shows *Standalone Mode* (host + IP) or *Cluster Mode* (preferred active host, standby hosts, ZFS sync interval, floating VIPs).
+- **Network Architect** app (App Gallery, and **Open Network Architect** in Settings → Network & Services → Network Topology):
+  - **Infrastructure Blueprint:** a pan / zoom canvas with the standalone host or cluster band (quorum, host cards with CPU / RAM, floating VIPs), gateways with MAC vendor and LLDP / CDP neighbors, physical uplinks, virtual switches, VLANs and labs with live **DHCP** / **DNS** badges, and every VM and container with its IP addresses and host.
+  - **Network drill-down:** the router / gateway, DHCP server, DNS server, SolarDeck host and the network's guests around the network hub; more than six unmanaged devices collapse into one **Other Devices (+N)** hub. **Scan Network Now** shows live progress.
+  - **Discovered Devices Explorer:** searchable and filterable by type, with a device-type icon (router, switch / AP, server, PC, phone / tablet, printer, camera, TV / media, NAS, IoT), name, IP, MAC + hardware vendor, a functionality badge (e.g. *Gateway, DHCP & DNS Resolver*, *Network Printer*, *RTSP IP Camera*) and open-port pills that expand into a plain-English purpose per port.
+- New endpoints: `GET /api/virtual-hardware/{guest_type}/{guest_id}/detailed`, `PUT /api/virtual-hardware/{guest_type}/{guest_id}/devices/{device_id}` (a virtual device id or `net0` … `net7`), `POST /api/virtual-hardware/{guest_type}/{guest_id}/repatch-endpoint` (switch + VLAN or lab in one call; joining a lab records the previous endpoint so deleting the lab restores it), `GET /api/architecture/overview`, `POST /api/architecture/networks/{network_id}/scan` and `GET /api/architecture/networks/{network_id}/devices` (`network_id`: a switch name, `vlan-<id>` or `lab-<id>`).
+- Scans run on the host over the SSH bridge: a ping sweep bound to the network's host interface (up to 1024 addresses), the ARP table, DHCP lease files and the host's own DHCP server, reverse DNS, an mDNS browse (`avahi-browse` when installed), MAC vendors from the host's IEEE OUI tables (`ieee-data`, `arp-scan` or `nmap`) and TCP connect probes (1 s, no data sent) on 37 common service ports. The last result per network persists in `backend/data/network_scans.json`.
+- Guides, Global Search, the Help manual and `docs/` cover *Wireframe Node Architecture & Hardware ID Overrides* and *Network & Infrastructure Architect*, with new screenshots. All new texts in English, Nederlands, Deutsch, Español and Français.
+
+### Notes
+- An emulated network card's vendor and device ID follow its driver model; pick another model to change them. Overrides of other virtual devices' VID / PID are SolarDeck labels: the emulated chip keeps its native IDs.
+- A new camera name applies once no program in the guest holds a camera open (the module reloads then); otherwise at the next module load.
+- UDP services are not probed: mDNS is reported from the browse answers and DNS from its TCP listener. A network can only be scanned when the host has an address on it.
+
 ## v2.16.0 - Multi-Host Clustering, Live Migration & Active/Passive High Availability — 2026-11-26
 
 ### Added
