@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.20.2 - Features & Services grid alignment — 2026-11-26
+
+### Fixed
+- **Settings → System → Features & Services**: every feature card now sits on one two-column grid with shared left edges, centre gutter and right edges. Sub-features (WireGuard VPN Server and Client, Per-VLAN DHCP Servers) are no longer indented; a small pill next to the title names their parent. Cards have one height, icon box and padding, and the switch stays vertically centred whether the description takes one line or two.
+- The last card of a Settings page is no longer clipped at the bottom of the scroll area.
+- The Settings sidebar is wider and shows a compact `n/total` badge, so **Features & Services** (and other long names) no longer truncate.
+
 ## v2.20.1 - Module worker network fix — 2026-11-26
 
 ### Fixed
