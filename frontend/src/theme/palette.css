@@ -5,7 +5,7 @@
 :root {
   --sd-tint: white; /* the end of a scale that faces the text */
   --sd-shade: black;
-  /* Secondary, slate-400 and muted text stay at WCAG AA (4.5:1) on every surface of both modes (audit-dual-theme). */
+  /* Secondary, slate-400 and muted text stay at WCAG AA (4.5:1) on every surface of both modes (audit-scaling-and-themes). */
   --sd-text-secondary: color-mix(in oklab, var(--sd-text-primary) 82%, var(--sd-bg-base));
   --sd-text-muted: color-mix(in oklab, var(--sd-text-primary) 68%, var(--sd-bg-base));
   --sd-border-glass: color-mix(in oklab, var(--sd-text-primary) 12%, transparent);
@@ -15,6 +15,17 @@
   --sd-surface-input: rgba(0, 0, 0, 0.25);
   --sd-shadow: rgba(0, 0, 0, 0.6);
   --sd-label-shadow: rgba(0, 0, 0, 0.6);
+
+  /* Semantic surface tiers: windows, dialogs, drawers, inputs and canvases read these, never a fixed gray.
+     All derive from the active theme (themeStore.ts → --sd-bg-base / --sd-surface-* / --sd-text-primary / accents). */
+  --sd-surface-window: var(--sd-surface-glass);
+  --sd-surface-panel: rgb(from var(--sd-surface-elevated) r g b / 0.97);
+  --sd-surface-card: color-mix(in oklab, var(--sd-text-primary) 5%, transparent);
+  --sd-surface-canvas: var(--bp-canvas);
+  --sd-border-hairline: var(--sd-border-glass);
+  --sd-accent: var(--sd-accent-primary);
+  --sd-accent-soft: color-mix(in oklab, var(--sd-accent-primary) 14%, transparent);
+  --sd-accent-border: color-mix(in oklab, var(--sd-accent-primary) 40%, transparent);
 
   /* Neutrals: text color faded into the background. Light mode inverts by itself (dark text, light background). */
   --color-white: var(--sd-text-primary);
@@ -106,6 +117,8 @@
   --sd-label-shadow: rgba(255, 255, 255, 0.85);
   /* One bright surface everywhere; zones are told apart by hairlines, not by gray fills (index.css). */
   --sd-hairline: rgba(15, 23, 42, 0.1);
+  --sd-border-hairline: var(--sd-hairline);
+  --sd-surface-card: rgba(255, 255, 255, 0.55);
   --color-slate-900: #f8fafc;
   --color-slate-950: #f8fafc;
   --bp-canvas: rgba(248, 250, 252, 0.95);

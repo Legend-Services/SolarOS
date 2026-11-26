@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Cable, Cpu, CreditCard, Dices, FlaskConical, HardDrive, MemoryStick, Mic, Monitor, Music, Network, Phone, RefreshCw, Server, ShieldCheck, Shuffle, Timer, Usb, Webcam, X } from "lucide-react";
 import { api } from "../../lib/api";
 import { ink } from "../../lib/format";
@@ -134,6 +134,8 @@ const CX = 20; // chassis
 const CW = 380;
 const RX = 560; // right-hand topology nodes
 const RW = 320;
+/** Inspector footer: stays at the bottom of the scrolling inspector body so Save & Apply is never clipped. */
+const STICKY_FOOTER = "sticky bottom-0 -mx-4 -mb-4 space-y-2 border-t border-[var(--sd-border-hairline)] bg-[var(--sd-surface-panel)] px-4 py-3";
 const SLOT_H = 30;
 const SLOT_STEP = 36;
 
@@ -264,10 +266,12 @@ function NicEditor({ gt, vmid, nic, bridges, onSaved }: { gt: "vm" | "lxc"; vmid
         <dd className="font-mono text-slate-200">{nic.ipv4_addresses.join(", ") || "—"}</dd>
       </dl>
       <p className="text-[11px] text-slate-400">{t("wf.nicIdsHint")}</p>
-      <Notice error={error} />
-      <GlassButton variant="primary" className="w-full" disabled={busy} onClick={save}>
-        {t("wf.saveApply")}
-      </GlassButton>
+      <div className={STICKY_FOOTER}>
+        <Notice error={error} />
+        <GlassButton variant="primary" className="w-full" disabled={busy} onClick={save}>
+          {t("wf.saveApply")}
+        </GlassButton>
+      </div>
     </div>
   );
 }
@@ -346,10 +350,12 @@ function DeviceEditor({ gt, vmid, dev, spec, onSaved }: { gt: "vm" | "lxc"; vmid
             ))}
         </div>
       )}
-      <Notice error={error} />
-      <GlassButton variant="primary" className="w-full" disabled={busy} onClick={save}>
-        {t("wf.saveApply")}
-      </GlassButton>
+      <div className={STICKY_FOOTER}>
+        <Notice error={error} />
+        <GlassButton variant="primary" className="w-full" disabled={busy} onClick={save}>
+          {t("wf.saveApply")}
+        </GlassButton>
+      </div>
     </div>
   );
 }
@@ -372,6 +378,17 @@ function RepatchPopover({ gt, vmid, nic, sw, labs, labsOnly, x, y, onClose, onDo
   const current = nic.lab ? `l:${nic.lab.lab_id}` : nic.vlan_tag ? `v:${nic.bridge}:${nic.vlan_tag}` : `b:${nic.bridge}`;
   const [target, setTarget] = useState(current);
   const { busy, error, run } = useRunner();
+  // Boundary-aware: the canvas scales to its column, so map SVG units to pixels and keep the whole popover inside it.
+  const box = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = box.current;
+    const host = el?.offsetParent as HTMLElement | null;
+    if (!el || !host) return;
+    const k = host.clientWidth / W;
+    const clamp = (v: number, room: number) => Math.max(8, Math.min(v, room - 8));
+    setPos({ left: clamp(x * k, host.clientWidth - el.offsetWidth), top: clamp(y * k, host.clientHeight - el.offsetHeight) });
+  }, [x, y]);
   const labBridges = new Set(labs.map((l) => l.bridge));
   const kindOf = (b: Bridge) => (b.mode === "nat" ? t("wf.routerBridge") : b.member_ports.length ? t("wf.physicalBridge", { ports: b.member_ports.join(", ") }) : t("wf.virtualSwitch"));
   const apply = () =>
@@ -382,7 +399,13 @@ function RepatchPopover({ gt, vmid, nic, sw, labs, labsOnly, x, y, onClose, onDo
       onDone(t("wf.repatched", { name: nic.net_id }));
     });
   return (
-    <div role="dialog" aria-label={t("wf.changeEndpoint")} className="glass-strong absolute z-20 w-80 space-y-2 rounded-xl border border-sky-400/30 bg-slate-950/95 p-3 shadow-2xl backdrop-blur-xl" style={{ left: x, top: y }}>
+    <div
+      ref={box}
+      role="dialog"
+      aria-label={t("wf.changeEndpoint")}
+      className="absolute z-20 w-80 max-w-[calc(100%-16px)] space-y-2 rounded-xl border border-[var(--sd-accent-border)] bg-[var(--sd-surface-panel)] p-3 shadow-2xl backdrop-blur-xl"
+      style={pos ?? { left: 8, top: 8, visibility: "hidden" }}
+    >
       <div className="flex items-center">
         <h4 className="flex-1 text-xs font-semibold text-white">{labsOnly ? t("wf.switchLab") : t("wf.changeEndpoint")}</h4>
         <button className="text-slate-400 hover:text-white" onClick={onClose} aria-label={t("common.close")}>
@@ -510,173 +533,180 @@ export default function WireframeNodeArchitect({ guest, onChanged }: { guest: Gu
         </GlassButton>
       </div>
       <Notice notice={notice} />
-      <div className="relative overflow-auto rounded-xl border border-[var(--bp-border)] bg-[var(--bp-canvas)]">
-        <svg width={W} height={layout.height} viewBox={`0 0 ${W} ${layout.height}`} className="block select-none" role="img" aria-label={t("wf.canvasLabel", { name: d.name })}>
-          <defs>
-            <pattern id="wf-grid" width="20" height="20" patternUnits="userSpaceOnUse">
-              <path d="M20 0H0V20" fill="none" stroke="var(--bp-grid)" />
-            </pattern>
-          </defs>
-          <style>{`@keyframes wfdash{to{stroke-dashoffset:-24}}.wf-flow{stroke-dasharray:6 6;animation:wfdash 1.2s linear infinite}
-            @media (prefers-reduced-motion:reduce){.wf-flow{animation:none}}.wf-hit{cursor:pointer}.wf-hit:focus{outline:none}.wf-hit:focus-visible>rect{stroke:#fde047}`}</style>
-          <rect width={W} height={layout.height} fill="url(#wf-grid)" />
+      <div className="flex min-h-0 flex-col gap-2 lg:flex-row lg:items-start">
+        <div className="relative min-w-0 flex-1 rounded-xl border border-[var(--bp-border)] bg-[var(--sd-surface-canvas)]">
+          <svg viewBox={`0 0 ${W} ${layout.height}`} className="block h-auto w-full select-none" role="img" aria-label={t("wf.canvasLabel", { name: d.name })}>
+            <defs>
+              <pattern id="wf-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                <path d="M20 0H0V20" fill="none" stroke="var(--bp-grid)" />
+              </pattern>
+            </defs>
+            <style>{`@keyframes wfdash{to{stroke-dashoffset:-24}}.wf-flow{stroke-dasharray:6 6;animation:wfdash 1.2s linear infinite}
+              @media (prefers-reduced-motion:reduce){.wf-flow{animation:none}}.wf-hit{cursor:pointer}.wf-hit:focus{outline:none}.wf-hit:focus-visible>rect{stroke:#fde047}`}</style>
+            <rect width={W} height={layout.height} fill="url(#wf-grid)" />
 
-          {/* Chassis */}
-          <rect x={CX} y={20} width={CW} height={layout.chassisH} rx={14} fill="var(--bp-node)" fillOpacity=".55" stroke={ink("#7dd3fc")} strokeWidth={1.5} />
-          <rect x={CX + 8} y={28} width={CW - 16} height={68} rx={8} fill="none" stroke={ink("#7dd3fc")} strokeOpacity=".45" strokeDasharray="3 3" />
-          <circle cx={CX + 26} cy={48} r={5} fill={ink(d.running ? "#4ade80" : "#64748b")}>
-            {d.running && <animate attributeName="opacity" values="1;.35;1" dur="2s" repeatCount="indefinite" />}
-          </circle>
-          <text x={CX + 40} y={53} fill="var(--bp-text)" fontSize={15} fontWeight={600}>
-            {clip(d.name, 28)}
-          </text>
-          <text x={CX + 20} y={78} fill="var(--bp-label)" fontSize={11} fontFamily="ui-monospace,monospace">
-            {`${vcpu} vCPU · ${memGb} RAM · ${d.os_profile ? (d.os_profile.startsWith("l2") ? "Linux" : d.os_profile) : gt === "lxc" ? t("wf.container") : "—"} · ${d.running ? t("wf.running") : t("wf.stopped")}`}
-          </text>
-          <text x={CX + CW - 18} y={53} fill="var(--bp-label)" fontSize={10} textAnchor="end">
-            {gt === "vm" ? "VM" : "CT"} {guest.vmid}
-          </text>
-          {layout.heads.map((h) => (
-            <text key={h.section} x={CX + 16} y={h.y + 15} fill="var(--bp-label)" fontSize={10} fontWeight={600} letterSpacing={1.2}>
-              {t(`wf.section.${h.section}` as TKey).toUpperCase()}
+            {/* Chassis */}
+            <rect x={CX} y={20} width={CW} height={layout.chassisH} rx={14} fill="var(--bp-node)" fillOpacity=".55" stroke={ink("#7dd3fc")} strokeWidth={1.5} />
+            <rect x={CX + 8} y={28} width={CW - 16} height={68} rx={8} fill="none" stroke={ink("#7dd3fc")} strokeOpacity=".45" strokeDasharray="3 3" />
+            <circle cx={CX + 26} cy={48} r={5} fill={ink(d.running ? "#4ade80" : "#64748b")}>
+              {d.running && <animate attributeName="opacity" values="1;.35;1" dur="2s" repeatCount="indefinite" />}
+            </circle>
+            <text x={CX + 40} y={53} fill="var(--bp-text)" fontSize={15} fontWeight={600}>
+              {clip(d.name, 28)}
             </text>
-          ))}
-          {slots.map((s) => {
-            const y = layout.pos[`${s.sel.kind}:${s.sel.id}`];
-            const on = isSel(s.sel);
-            return (
-              <g key={`${s.sel.kind}:${s.sel.id}`} className="wf-hit" role="button" tabIndex={0} aria-pressed={on} aria-label={`${s.label} — ${t("wf.inspect")}`} onClick={() => pick(s.sel)} onKeyDown={keyAct(() => pick(s.sel))}>
-                <rect x={CX + 16} y={y} width={CW - 32} height={SLOT_H} rx={6} fill={on ? "var(--bp-slot-on)" : "var(--bp-node)"} fillOpacity={on ? 1 : 0.8} stroke={ink(on ? "#22d3ee" : "#7dd3fc")} strokeOpacity={on ? 1 : 0.5} strokeWidth={on ? 2 : 1} style={on ? { filter: "drop-shadow(0 0 6px #22d3ee)" } : undefined} />
-                <g transform={`translate(${CX + 24} ${y + 8})`} color="var(--bp-text-2)">
-                  {s.icon}
-                </g>
-                <text x={CX + 46} y={y + 13} fill="var(--bp-text)" fontSize={11} fontWeight={500}>
-                  {clip(s.label, 34)}
-                </text>
-                <text x={CX + 46} y={y + 25} fill="var(--bp-label)" fontSize={9} fontFamily="ui-monospace,monospace">
-                  {clip(s.sub, 48)}
-                </text>
-                {s.sel.kind === "nic" && <circle cx={CX + CW} cy={y + SLOT_H / 2} r={4} fill="var(--bp-node)" stroke={ink("#22d3ee")} strokeWidth={2} />}
-              </g>
-            );
-          })}
-
-          {/* Host & cluster placement */}
-          <path d={curve(CX + CW, 62, RX, 20 + layout.ph / 2)} fill="none" stroke={ink("#a78bfa")} strokeWidth={1.5} className="wf-flow" />
-          <g aria-label={t("wf.placement")}>
-            <rect x={RX} y={20} width={RW} height={layout.ph} rx={10} fill="var(--bp-node-violet)" stroke={ink("#a78bfa")} strokeWidth={1.5} />
-            <g transform={`translate(${RX + 12} 32)`} color="var(--bp-violet-text)">
-              <Server size={14} />
-            </g>
-            <text x={RX + 32} y={44} fill="var(--bp-violet-text)" fontSize={12} fontWeight={600}>
-              {p.mode === "cluster" ? t("wf.clusterMode", { name: p.cluster_name ?? "" }) : t("wf.standaloneMode")}
+            <text x={CX + 20} y={78} fill="var(--bp-label)" fontSize={11} fontFamily="ui-monospace,monospace">
+              {`${vcpu} vCPU · ${memGb} RAM · ${d.os_profile ? (d.os_profile.startsWith("l2") ? "Linux" : d.os_profile) : gt === "lxc" ? t("wf.container") : "—"} · ${d.running ? t("wf.running") : t("wf.stopped")}`}
             </text>
-            <text x={RX + 14} y={64} fill="var(--bp-violet-text)" fontSize={10} fontFamily="ui-monospace,monospace">
-              {`${p.host ?? "—"}${p.host_ip ? ` · ${p.host_ip}` : ""}`}
+            <text x={CX + CW - 18} y={53} fill="var(--bp-label)" fontSize={10} textAnchor="end">
+              {gt === "vm" ? "VM" : "CT"} {guest.vmid}
             </text>
-            {p.mode === "cluster" && (
-              <>
-                <text x={RX + 14} y={82} fill="var(--bp-violet-text)" fontSize={10}>
-                  {`${t("wf.preferredActive")}: ${p.preferred_active_host ?? "—"}${p.ha_enabled ? "" : ` (${t("wf.noHa")})`}`}
-                </text>
-                <text x={RX + 14} y={98} fill="var(--bp-violet-text)" fontSize={10}>
-                  {`${t("wf.standbyHosts")}: ${p.passive_standby_hosts?.join(", ") || "—"}`}
-                </text>
-                <text x={RX + 14} y={114} fill="var(--bp-violet-text)" fontSize={10}>
-                  {`${t("wf.zfsSync")}: ${p.replication_interval_minutes ? t("wf.everyMin", { n: p.replication_interval_minutes }) : "—"}`}
-                </text>
-                <text x={RX + 14} y={130} fill="var(--bp-violet-text)" fontSize={10}>
-                  {`${t("wf.floatingVip")}: ${clip(p.floating_vips?.map((v) => v.address).join(", ") || "—", 36)}`}
-                </text>
-              </>
-            )}
-          </g>
-
-          {/* NIC → switch / VLAN / lab endpoints */}
-          {d.nics.map((n) => {
-            const y1 = layout.pos[`nic:${n.net_id}`] + SLOT_H / 2;
-            const ey = layout.ends[n.net_id];
-            const lab = n.lab;
-            const color = lab ? "#f59e0b" : n.vlan?.color || "#22d3ee";
-            const open = () => openPop(n, !!lab);
-            return (
-              <g key={n.net_id}>
-                <path d={curve(CX + CW, y1, RX, ey + 36)} fill="none" stroke="transparent" strokeWidth={14} className="wf-hit" onClick={open} />
-                <path d={curve(CX + CW, y1, RX, ey + 36)} fill="none" stroke={ink(color)} strokeWidth={n.link_up ? 2 : 1} strokeOpacity={n.link_up ? 1 : 0.4} className={n.link_up ? "wf-flow" : ""} pointerEvents="none" />
-                <g className="wf-hit" role="button" tabIndex={0} aria-label={`${lab ? lab.name : n.bridge} — ${lab ? t("wf.switchLab") : t("wf.changeEndpoint")}`} onClick={open} onKeyDown={keyAct(open)}>
-                  <rect x={RX} y={ey} width={RW} height={72} rx={10} fill={lab ? "var(--bp-node-amber)" : "var(--bp-node-sky)"} stroke={ink(color)} strokeWidth={1.5} />
-                  <g transform={`translate(${RX + 12} ${ey + 11})`} color={ink(color)}>
-                    {lab ? <FlaskConical size={14} /> : <Cable size={14} />}
+            {layout.heads.map((h) => (
+              <text key={h.section} x={CX + 16} y={h.y + 15} fill="var(--bp-label)" fontSize={10} fontWeight={600} letterSpacing={1.2}>
+                {t(`wf.section.${h.section}` as TKey).toUpperCase()}
+              </text>
+            ))}
+            {slots.map((s) => {
+              const y = layout.pos[`${s.sel.kind}:${s.sel.id}`];
+              const on = isSel(s.sel);
+              return (
+                <g key={`${s.sel.kind}:${s.sel.id}`} className="wf-hit" role="button" tabIndex={0} aria-pressed={on} aria-label={`${s.label} — ${t("wf.inspect")}`} onClick={() => pick(s.sel)} onKeyDown={keyAct(() => pick(s.sel))}>
+                  <rect x={CX + 16} y={y} width={CW - 32} height={SLOT_H} rx={6} fill={on ? "var(--bp-slot-on)" : "var(--bp-node)"} fillOpacity={on ? 1 : 0.8} stroke={ink(on ? "#22d3ee" : "#7dd3fc")} strokeOpacity={on ? 1 : 0.5} strokeWidth={on ? 2 : 1} style={on ? { filter: "drop-shadow(0 0 6px #22d3ee)" } : undefined} />
+                  <g transform={`translate(${CX + 24} ${y + 8})`} color="var(--bp-text-2)">
+                    {s.icon}
                   </g>
-                  <text x={RX + 32} y={ey + 23} fill="var(--bp-text)" fontSize={12} fontWeight={600}>
-                    {clip(lab ? `${t("wf.isolatedLab")}: ${lab.name}` : n.bridge || t("wf.unconnected"), 30)}
+                  <text x={CX + 46} y={y + 13} fill="var(--bp-text)" fontSize={11} fontWeight={500}>
+                    {clip(s.label, 34)}
                   </text>
-                  {n.vlan && !lab && (
-                    <g>
-                      <rect x={RX + RW - 92} y={ey + 10} width={80} height={17} rx={8.5} fill={ink(color)} fillOpacity=".25" stroke={ink(color)} />
-                      <text x={RX + RW - 52} y={ey + 22} fill="var(--bp-text)" fontSize={9.5} textAnchor="middle">
-                        {clip(`VLAN ${n.vlan.vlan_id}`, 12)}
-                      </text>
-                    </g>
-                  )}
-                  {lab && (
-                    <text x={RX + RW - 12} y={ey + 22} fill="var(--bp-warn-text)" fontSize={9.5} textAnchor="end">
-                      {t("wf.labBadge")}
-                    </text>
-                  )}
-                  <text x={RX + 14} y={ey + 42} fill="var(--bp-text-2)" fontSize={10} fontFamily="ui-monospace,monospace">
-                    {clip(`${n.net_id} · ${n.ipv4_addresses[0] ?? t("wf.noIp")}${n.vlan_tag && !n.vlan ? ` · tag ${n.vlan_tag}` : ""}${n.trunks.length ? ` · trunk ${n.trunks.join(",")}` : ""}`, 46)}
+                  <text x={CX + 46} y={y + 25} fill="var(--bp-label)" fontSize={9} fontFamily="ui-monospace,monospace">
+                    {clip(s.sub, 48)}
                   </text>
-                  {(() => {
-                    const dhcp = lab ? true : !!n.vlan?.dhcp_active;
-                    const dns = lab ? false : !!n.vlan?.dns_servers.length;
-                    return (
-                      <text x={RX + 14} y={ey + 60} fontSize={9.5}>
-                        <tspan fill={dhcp ? ink("#4ade80") : "var(--bp-pill-off-text)"}>● DHCP</tspan>
-                        <tspan dx={10} fill={dns ? ink("#4ade80") : "var(--bp-pill-off-text)"}>● DNS</tspan>
-                        <tspan dx={10} fill="var(--bp-label)">
-                          {clip(lab?.subnet_cidr ?? n.vlan?.subnet_cidr ?? "", 20)}
-                        </tspan>
-                      </text>
-                    );
-                  })()}
+                  {s.sel.kind === "nic" && <circle cx={CX + CW} cy={y + SLOT_H / 2} r={4} fill="var(--bp-node)" stroke={ink("#22d3ee")} strokeWidth={2} />}
                 </g>
-              </g>
-            );
-          })}
-          {!d.nics.length && (
-            <text x={RX} y={20 + layout.ph + 44} fill="var(--bp-label)" fontSize={11}>
-              {t("wf.noNics")}
-            </text>
-          )}
-        </svg>
+              );
+            })}
 
-        {pop && (() => {
-          const n = d.nics.find((x) => x.net_id === pop.net);
-          return n ? <RepatchPopover gt={gt} vmid={guest.vmid} nic={n} sw={sw} labs={labs} labsOnly={pop.labsOnly} x={pop.x} y={pop.y} onClose={() => setPop(null)} onDone={done} /> : null;
-        })()}
+            {/* Host & cluster placement */}
+            <path d={curve(CX + CW, 62, RX, 20 + layout.ph / 2)} fill="none" stroke={ink("#a78bfa")} strokeWidth={1.5} className="wf-flow" />
+            <g aria-label={t("wf.placement")}>
+              <rect x={RX} y={20} width={RW} height={layout.ph} rx={10} fill="var(--bp-node-violet)" stroke={ink("#a78bfa")} strokeWidth={1.5} />
+              <g transform={`translate(${RX + 12} 32)`} color="var(--bp-violet-text)">
+                <Server size={14} />
+              </g>
+              <text x={RX + 32} y={44} fill="var(--bp-violet-text)" fontSize={12} fontWeight={600}>
+                {p.mode === "cluster" ? t("wf.clusterMode", { name: p.cluster_name ?? "" }) : t("wf.standaloneMode")}
+              </text>
+              <text x={RX + 14} y={64} fill="var(--bp-violet-text)" fontSize={10} fontFamily="ui-monospace,monospace">
+                {`${p.host ?? "—"}${p.host_ip ? ` · ${p.host_ip}` : ""}`}
+              </text>
+              {p.mode === "cluster" && (
+                <>
+                  <text x={RX + 14} y={82} fill="var(--bp-violet-text)" fontSize={10}>
+                    {`${t("wf.preferredActive")}: ${p.preferred_active_host ?? "—"}${p.ha_enabled ? "" : ` (${t("wf.noHa")})`}`}
+                  </text>
+                  <text x={RX + 14} y={98} fill="var(--bp-violet-text)" fontSize={10}>
+                    {`${t("wf.standbyHosts")}: ${p.passive_standby_hosts?.join(", ") || "—"}`}
+                  </text>
+                  <text x={RX + 14} y={114} fill="var(--bp-violet-text)" fontSize={10}>
+                    {`${t("wf.zfsSync")}: ${p.replication_interval_minutes ? t("wf.everyMin", { n: p.replication_interval_minutes }) : "—"}`}
+                  </text>
+                  <text x={RX + 14} y={130} fill="var(--bp-violet-text)" fontSize={10}>
+                    {`${t("wf.floatingVip")}: ${clip(p.floating_vips?.map((v) => v.address).join(", ") || "—", 36)}`}
+                  </text>
+                </>
+              )}
+            </g>
+
+            {/* NIC → switch / VLAN / lab endpoints */}
+            {d.nics.map((n) => {
+              const y1 = layout.pos[`nic:${n.net_id}`] + SLOT_H / 2;
+              const ey = layout.ends[n.net_id];
+              const lab = n.lab;
+              const color = lab ? "#f59e0b" : n.vlan?.color || "#22d3ee";
+              const open = () => openPop(n, !!lab);
+              return (
+                <g key={n.net_id}>
+                  <path d={curve(CX + CW, y1, RX, ey + 36)} fill="none" stroke="transparent" strokeWidth={14} className="wf-hit" onClick={open} />
+                  <path d={curve(CX + CW, y1, RX, ey + 36)} fill="none" stroke={ink(color)} strokeWidth={n.link_up ? 2 : 1} strokeOpacity={n.link_up ? 1 : 0.4} className={n.link_up ? "wf-flow" : ""} pointerEvents="none" />
+                  <g className="wf-hit" role="button" tabIndex={0} aria-label={`${lab ? lab.name : n.bridge} — ${lab ? t("wf.switchLab") : t("wf.changeEndpoint")}`} onClick={open} onKeyDown={keyAct(open)}>
+                    <rect x={RX} y={ey} width={RW} height={72} rx={10} fill={lab ? "var(--bp-node-amber)" : "var(--bp-node-sky)"} stroke={ink(color)} strokeWidth={1.5} />
+                    <g transform={`translate(${RX + 12} ${ey + 11})`} color={ink(color)}>
+                      {lab ? <FlaskConical size={14} /> : <Cable size={14} />}
+                    </g>
+                    <text x={RX + 32} y={ey + 23} fill="var(--bp-text)" fontSize={12} fontWeight={600}>
+                      {clip(lab ? `${t("wf.isolatedLab")}: ${lab.name}` : n.bridge || t("wf.unconnected"), 30)}
+                    </text>
+                    {n.vlan && !lab && (
+                      <g>
+                        <rect x={RX + RW - 92} y={ey + 10} width={80} height={17} rx={8.5} fill={ink(color)} fillOpacity=".25" stroke={ink(color)} />
+                        <text x={RX + RW - 52} y={ey + 22} fill="var(--bp-text)" fontSize={9.5} textAnchor="middle">
+                          {clip(`VLAN ${n.vlan.vlan_id}`, 12)}
+                        </text>
+                      </g>
+                    )}
+                    {lab && (
+                      <text x={RX + RW - 12} y={ey + 22} fill="var(--bp-warn-text)" fontSize={9.5} textAnchor="end">
+                        {t("wf.labBadge")}
+                      </text>
+                    )}
+                    <text x={RX + 14} y={ey + 42} fill="var(--bp-text-2)" fontSize={10} fontFamily="ui-monospace,monospace">
+                      {clip(`${n.net_id} · ${n.ipv4_addresses[0] ?? t("wf.noIp")}${n.vlan_tag && !n.vlan ? ` · tag ${n.vlan_tag}` : ""}${n.trunks.length ? ` · trunk ${n.trunks.join(",")}` : ""}`, 46)}
+                    </text>
+                    {(() => {
+                      const dhcp = lab ? true : !!n.vlan?.dhcp_active;
+                      const dns = lab ? false : !!n.vlan?.dns_servers.length;
+                      return (
+                        <text x={RX + 14} y={ey + 60} fontSize={9.5}>
+                          <tspan fill={dhcp ? ink("#4ade80") : "var(--bp-pill-off-text)"}>● DHCP</tspan>
+                          <tspan dx={10} fill={dns ? ink("#4ade80") : "var(--bp-pill-off-text)"}>● DNS</tspan>
+                          <tspan dx={10} fill="var(--bp-label)">
+                            {clip(lab?.subnet_cidr ?? n.vlan?.subnet_cidr ?? "", 20)}
+                          </tspan>
+                        </text>
+                      );
+                    })()}
+                  </g>
+                </g>
+              );
+            })}
+            {!d.nics.length && (
+              <text x={RX} y={20 + layout.ph + 44} fill="var(--bp-label)" fontSize={11}>
+                {t("wf.noNics")}
+              </text>
+            )}
+          </svg>
+
+          {pop && (() => {
+            const n = d.nics.find((x) => x.net_id === pop.net);
+            return n ? <RepatchPopover gt={gt} vmid={guest.vmid} nic={n} sw={sw} labs={labs} labsOnly={pop.labsOnly} x={pop.x} y={pop.y} onClose={() => setPop(null)} onDone={done} /> : null;
+          })()}
+        </div>
 
         {sel && (
-          <aside className="glass-strong absolute bottom-0 right-0 top-0 z-10 w-[360px] space-y-3 overflow-y-auto border-l border-sky-400/20 bg-slate-950/95 p-4 backdrop-blur-xl" aria-label={t("wf.inspectorTitle")}>
-            <div className="flex items-center gap-2">
+          <aside
+            className="flex max-h-[70vh] w-full shrink-0 flex-col overflow-hidden rounded-xl border border-[var(--sd-border-hairline)] bg-[var(--sd-surface-panel)] lg:sticky lg:top-0 lg:max-h-[calc(100vh-8rem)] lg:w-[360px] xl:w-[400px]"
+            aria-label={t("wf.inspectorTitle")}
+          >
+            <div className="flex shrink-0 items-center gap-2 border-b border-[var(--sd-border-hairline)] px-4 py-3">
               <MemoryStick size={14} className="text-sky-300" />
               <h4 className="flex-1 text-sm font-semibold text-white">{t("wf.inspectorTitle")}</h4>
               <button className="text-slate-400 hover:text-white" onClick={() => setSel(null)} aria-label={t("common.close")}>
                 <X size={16} />
               </button>
             </div>
-            {selNic ? (
-              <>
-                <GlassButton className="w-full" onClick={() => openPop(selNic, false)}>
-                  <Cable size={14} /> {t("wf.changeEndpoint")}
-                </GlassButton>
-                <NicEditor gt={gt} vmid={guest.vmid} nic={selNic} bridges={(sw?.bridges ?? []).filter((b) => !labs.some((l) => l.bridge === b.name))} onSaved={done} />
-              </>
-            ) : selDev ? (
-              <DeviceEditor gt={gt} vmid={guest.vmid} dev={selDev} spec={spec[selDev.type] ?? []} onSaved={done} />
-            ) : (
-              <ReadOnly d={d} sel={sel} />
-            )}
+            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+              {selNic ? (
+                <>
+                  <GlassButton className="w-full" onClick={() => openPop(selNic, false)}>
+                    <Cable size={14} /> {t("wf.changeEndpoint")}
+                  </GlassButton>
+                  <NicEditor gt={gt} vmid={guest.vmid} nic={selNic} bridges={(sw?.bridges ?? []).filter((b) => !labs.some((l) => l.bridge === b.name))} onSaved={done} />
+                </>
+              ) : selDev ? (
+                <DeviceEditor gt={gt} vmid={guest.vmid} dev={selDev} spec={spec[selDev.type] ?? []} onSaved={done} />
+              ) : (
+                <ReadOnly d={d} sel={sel} />
+              )}
+            </div>
           </aside>
         )}
       </div>

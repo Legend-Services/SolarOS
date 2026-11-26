@@ -150,7 +150,7 @@ assert bad(ih.ZeroTouchBody, image_volume="local:iso/../../etc.img", vmid=150, n
 # ---- Disaster recovery: sealing, bundles, safe extraction, rclone.
 blob = dr.seal(b"secret config", "a long passphrase")
 assert blob.startswith(dr.MAGIC) and b"secret config" not in blob and dr.unseal(blob, "a long passphrase") == b"secret config"
-for broken in (lambda: dr.unseal(blob, "wrong passphrase!"), lambda: dr.unseal(blob[:-1] + b"x", "a long passphrase"),
+for broken in (lambda: dr.unseal(blob, "wrong passphrase!"), lambda: dr.unseal(blob[:-1] + bytes([blob[-1] ^ 1]), "a long passphrase"),
                lambda: dr.unseal(b"nope", "a long passphrase")):
     try:
         broken()

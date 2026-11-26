@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /**
- * Dual-theme audit: opens every app, Settings sub-module, inner tab, drawer, dialog and schematic canvas in headless
- * Chromium, once in Light Mode and once in Dark Mode, and flags surfaces and text that do not fit the active mode.
+ * Scaling & theme audit: opens every app, Settings sub-module, inner tab, drawer, dialog, nested popover and schematic
+ * canvas in headless Chromium at two viewports (1440×900 desktop, 1024×768 compact laptop), each in Light and Dark Mode.
+ * It flags layout faults (see geometry() below) and surfaces and text that do not fit the active mode.
  *
- *   node scripts/audit-dual-theme.mjs [--mode light|dark|both] [--only <screen-substring>] [--json <file>]
+ *   node scripts/audit-scaling-and-themes.mjs [--mode light|dark|both] [--viewport 1440x900,1024x768]
+ *                                            [--only <screen-substring>] [--json <file>]
  * Exit code 1 when anything is flagged. Uses the same dev server and API fixtures as generate-support-docs.mjs.
  *
  * A surface is the element's own background (or an SVG node's fill) composited over what lies under it, down to the
@@ -26,6 +28,11 @@ const only = opt("--only");
 const jsonOut = opt("--json");
 const MODES = opt("--mode") && opt("--mode") !== "both" ? [opt("--mode")] : ["light", "dark"];
 let MODE = MODES[0];
+const VIEWPORTS = (opt("--viewport") || "1440x900,1024x768").split(",").map((v) => {
+  const [width, height] = v.split("x").map(Number);
+  return { width, height, id: v };
+});
+let VIEW = VIEWPORTS[0];
 
 /* ---------------- In-page scanner ---------------- */
 
@@ -156,6 +163,71 @@ function scan(mode) {
   return out;
 }
 
+/* ---------------- In-page geometry check ---------------- */
+
+/**
+ * Layout faults of the open windows, dialogs and drawers:
+ *   overflow — a window, dialog, drawer or vertical scroll body that is wider than its box (sideways scroll or clipping)
+ *   clipped  — a footer button or primary action of a dialog / drawer that is not fully inside the viewport and every
+ *              clipping ancestor, so the user would have to scroll to reach it (or could not reach it at all)
+ *   overlap  — an inspector or device drawer that covers part of a blueprint canvas instead of sitting beside it
+ */
+function geometry() {
+  const vis = (el) => {
+    const r = el.getBoundingClientRect();
+    const cs = getComputedStyle(el);
+    return r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && cs.display !== "none" && !el.closest("[data-audit-ignore], .xterm, [aria-hidden=true]");
+  };
+  const name = (el) => {
+    const label = (el.getAttribute("aria-label") || el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 48);
+    const cls = (el.getAttribute("class") || "").split(/\s+/).filter((c) => /^((sm|md|lg|xl):)?(w-|max-w|max-h|h-|flex|overflow|absolute|sticky|glass)/.test(c)).slice(0, 8).join(" ");
+    return `<${el.tagName.toLowerCase()}${el.getAttribute("role") ? ` role=${el.getAttribute("role")}` : ""}${cls ? ` class="${cls}"` : ""}> "${label}"`;
+  };
+  const out = [];
+  const roots = [...document.querySelectorAll("[role=dialog], .sd-window, aside")].filter(vis);
+  for (const R of roots)
+    for (const b of [R, ...R.querySelectorAll(".overflow-y-auto")].filter(vis))
+      if (getComputedStyle(b).overflowX !== "visible" && b.scrollWidth > b.clientWidth + 1) out.push({ kind: "overflow", lum: b.scrollWidth - b.clientWidth, size: `${b.clientWidth}px`, el: name(b) });
+
+  const clipped = (el) => {
+    const r = el.getBoundingClientRect();
+    if (r.top < -1 || r.left < -1 || r.bottom > innerHeight + 1 || r.right > innerWidth + 1) return "viewport";
+    for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+      const cs = getComputedStyle(p);
+      if (cs.overflowX === "visible" && cs.overflowY === "visible") continue;
+      const q = p.getBoundingClientRect();
+      if (r.top < q.top - 1 || r.bottom > q.bottom + 1 || r.left < q.left - 1 || r.right > q.right + 1) return name(p);
+    }
+    return "";
+  };
+  for (const R of roots.filter((r) => !r.matches(".sd-window")))
+    for (const btn of R.querySelectorAll("footer button, button.glass-btn-primary"))
+      if (vis(btn) && btn.closest("[role=dialog], aside, .sd-window") === R) {
+        const by = clipped(btn);
+        if (by) out.push({ kind: "clipped", lum: 0, size: by, el: name(btn) });
+      }
+
+  const canvases = [...document.querySelectorAll("svg[role=img]")].filter(vis);
+  for (const a of document.querySelectorAll("aside"))
+    if (vis(a))
+      for (const c of canvases) {
+        if (a.contains(c) || c.contains(a)) continue;
+        const r = a.getBoundingClientRect();
+        // The canvas as it shows on screen: a wide SVG inside a scroll box is cut off at the box edge.
+        const q = { left: -Infinity, top: -Infinity, right: Infinity, bottom: Infinity };
+        for (let p = c; p && p !== document.body; p = p.parentElement) {
+          const cs = getComputedStyle(p);
+          if (p !== c && cs.overflowX === "visible" && cs.overflowY === "visible") continue;
+          const b = p.getBoundingClientRect();
+          Object.assign(q, { left: Math.max(q.left, b.left), top: Math.max(q.top, b.top), right: Math.min(q.right, b.right), bottom: Math.min(q.bottom, b.bottom) });
+        }
+        const w = Math.min(r.right, q.right) - Math.max(r.left, q.left);
+        const h = Math.min(r.bottom, q.bottom) - Math.max(r.top, q.top);
+        if (w > 1 && h > 1 && getComputedStyle(a).position !== "fixed") out.push({ kind: "overlap", lum: Math.round(w * h), size: `${Math.round(w)}×${Math.round(h)}`, el: `${name(a)} over ${name(c)}` });
+      }
+  return out;
+}
+
 /* ---------------- Screens ---------------- */
 
 const findings = [];
@@ -170,12 +242,12 @@ async function audit(page, screen) {
     (await import("/src/store/themeStore.ts")).useTheme.getState().setMode(m);
     (await import("/src/i18n/index.ts")).useLanguage.getState().setLanguage("en");
   }, MODE);
-  await page.mouse.move(1439, 899);
+  await page.mouse.move(VIEW.width - 1, VIEW.height - 1);
   await page.waitForTimeout(150);
   const mode = await page.evaluate(() => document.documentElement.dataset.colorMode);
   assert.equal(mode, MODE, `${screen}: color mode is ${mode}`);
-  const hits = await page.evaluate(scan, MODE);
-  for (const h of hits) findings.push({ mode: MODE, screen, ...h });
+  const hits = [...(await page.evaluate(scan, MODE)), ...(await page.evaluate(geometry))];
+  for (const h of hits) findings.push({ mode: `${MODE} ${VIEW.id}`, screen, ...h });
   process.stdout.write(`  ${hits.length ? "✗" : "✓"} ${screen}${hits.length ? ` (${hits.length})` : ""}\n`);
 }
 
@@ -212,7 +284,7 @@ async function run(page) {
     try {
       await fn();
     } catch (e) {
-      findings.push({ mode: MODE, screen, kind: "error", el: String(e.message).split("\n")[0] });
+      findings.push({ mode: `${MODE} ${VIEW.id}`, screen, kind: "error", el: String(e.message).split("\n")[0] });
       process.stdout.write(`  ! ${screen}: ${String(e.message).split("\n").slice(0, 12).join(" | ")}\n`);
     }
   };
@@ -280,6 +352,27 @@ async function run(page) {
       await click(page, page.getByRole("button", { name: /^net0 · / }));
       await audit(page, `compute › guest drawer ${g} › wireframe inspector`);
     });
+  await step("compute › guest drawer media-server › change network endpoint", async () => {
+    await compute();
+    await click(page, page.getByRole("button", { name: "media-server", exact: true }));
+    await click(page, page.getByRole("tab", { name: "Wireframe Architecture" }));
+    await click(page, page.getByRole("button", { name: /^net0 · / }));
+    await click(page, page.getByRole("button", { name: "Change Network Endpoint" }));
+    await audit(page, "compute › guest drawer media-server › change network endpoint");
+  });
+  await step("compute › guest drawer media-server › add virtual device", async () => {
+    await compute();
+    await click(page, page.getByRole("button", { name: "media-server", exact: true }));
+    await click(page, page.getByRole("tab", { name: "Virtual Hardware & Lab" }));
+    await click(page, page.getByRole("button", { name: "Add Virtual Device" }));
+    await audit(page, "compute › guest drawer media-server › add virtual device");
+  });
+  await step("compute › create group", async () => {
+    await page.evaluate(async () => (await import("/src/store/layoutStore.ts")).useLayout.setState((s) => ({ appViews: { ...s.appViews, compute: "grid" } })));
+    await show(page, { kind: "app", appId: "compute" });
+    await click(page, page.getByRole("button", { name: /Create Group/ }));
+    await audit(page, "compute › create group");
+  });
   await step("architect › zoomed in", async () => {
     await show(page, { kind: "app", appId: "architect" });
     await click(page, page.getByRole("button", { name: /zoom in/i }));
@@ -309,29 +402,47 @@ let code = 0;
 try {
   const browser = await launch();
   const errors = [];
+  for (VIEW of VIEWPORTS)
   for (MODE of MODES) {
-    const { page, errors: pageErrors } = await openPage(browser, { colorScheme: MODE, deviceScaleFactor: 1 });
+    const { page, errors: pageErrors } = await openPage(browser, { colorScheme: MODE, deviceScaleFactor: 1, viewport: { width: VIEW.width, height: VIEW.height } });
     await page.evaluate(async (m) => (await import("/src/store/themeStore.ts")).useTheme.getState().setMode(m), MODE);
     await settle(page, 500);
-    console.log(`\n${MODE === "light" ? "Light" : "Dark"} Mode audit:`);
+    // Self-check: a planted dialog with a sideways-scrolling body and a cut-off footer button, and a drawer over a canvas.
+    await page.evaluate(() =>
+      document.body.insertAdjacentHTML(
+        "beforeend",
+        `<div id="geometry-probe" style="position:fixed;inset:0;z-index:99999">
+          <div role="dialog" style="position:absolute;left:0;top:0;width:200px;height:100px;overflow:hidden">
+            <div class="overflow-y-auto" style="height:50px"><div style="width:400px;height:10px"></div></div>
+            <footer><button style="position:absolute;top:150px">Save</button></footer>
+          </div>
+          <svg role="img" style="position:absolute;left:300px;top:0;width:200px;height:200px"></svg>
+          <aside style="position:absolute;left:350px;top:0;width:100px;height:100px">x</aside>
+        </div>`,
+      ),
+    );
+    const probe = new Set((await page.evaluate(geometry)).map((f) => f.kind));
+    await page.evaluate(() => document.getElementById("geometry-probe").remove());
+    assert.deepEqual([...probe].sort(), ["clipped", "overflow", "overlap"], "geometry() self-check");
+    console.log(`\n${MODE === "light" ? "Light" : "Dark"} Mode audit at ${VIEW.id}:`);
     await run(page);
     errors.push(...pageErrors);
     await page.context().close();
   }
-  for (const m of MODES) {
+  for (const m of VIEWPORTS.flatMap((v) => MODES.map((x) => `${x} ${v.id}`))) {
     const real = findings.filter((f) => f.mode === m && f.kind !== "error");
     const byEl = new Map();
     for (const f of real) {
       const k = `${f.kind} ${f.el}`;
       byEl.set(k, [...(byEl.get(k) ?? []), f]);
     }
-    console.log(`\n${m === "light" ? "Light" : "Dark"} Mode: ${real.length} findings (${byEl.size} distinct)`);
+    console.log(`\n${m.startsWith("light") ? "Light" : "Dark"} Mode at ${m.split(" ")[1]}: ${real.length} findings (${byEl.size} distinct)`);
     for (const [k, fs] of [...byEl].sort())
-      console.log(`  ${k}\n      ${fs[0].kind === "contrast" ? "ratio" : "lum"} ${fs[0].lum} · ${fs[0].size} · ${fs.length}× · ${[...new Set(fs.map((f) => f.screen))].slice(0, 3).join(" | ")}`);
+      console.log(`  ${k}\n      ${{ contrast: "ratio", overflow: "px", overlap: "px²", clipped: "by" }[fs[0].kind] ?? "lum"} ${fs[0].kind === "clipped" ? "" : fs[0].lum} · ${fs[0].size} · ${fs.length}× · ${[...new Set(fs.map((f) => f.screen))].slice(0, 3).join(" | ")}`);
     for (const f of findings.filter((x) => x.mode === m && x.kind === "error")) console.log(`  could not open ${f.screen}: ${f.el}`);
   }
   const bad = findings.filter((f) => f.kind !== "error").length;
-  console.log(`\n${screens} screens audited (${MODES.join(" + ")}), ${bad} findings, ${findings.length - bad} screens failed to open`);
+  console.log(`\n${screens} screens audited (${MODES.join(" + ")} × ${VIEWPORTS.map((v) => v.id).join(" + ")}), ${bad} findings, ${findings.length - bad} screens failed to open`);
   if (jsonOut) writeFileSync(jsonOut, JSON.stringify(findings, null, 2));
   if (errors.length) console.error(`Page errors:\n  ${[...new Set(errors)].join("\n  ")}`);
   code = findings.length || errors.length ? 1 : 0;
