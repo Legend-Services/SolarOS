@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.22.1 - Single-column Settings categories — 2026-11-26
+
+### Changed
+- **All Settings now lists the five main categories in one column**, at the same width as the host summary and filter bar above them. Each category is one full-width row: its icon on the left, its title with a short description underneath, and a chevron on the right. The page has more space at the bottom, so the last card (Hypervisor & Runtime) no longer sits against the window's lower edge.
+- The Settings screenshot in the Manual shows the new layout.
+
 ## v2.22.0 - Five-category Settings home & System › Info hub — 2026-11-26
 
 ### Added
