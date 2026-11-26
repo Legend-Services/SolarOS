@@ -207,6 +207,26 @@ const ICONS: Record<AppId, { stops: [string, string, string]; glyph: ReactNode }
       </>
     ),
   },
+  architect: {
+    stops: ["#7dd3fc", "#2563eb", "#172554"],
+    glyph: (
+      <>
+        {/* Blueprint: a hub node wired to four devices on a faint grid. */}
+        <g stroke={W} strokeOpacity=".18" strokeWidth="1">
+          <path d="M14 22h36M14 32h36M14 42h36M22 14v36M32 14v36M42 14v36" />
+        </g>
+        <g stroke={W} strokeWidth="2.4" strokeLinecap="round" strokeDasharray="3 3">
+          <path d="M32 32 18 19M32 32l14-13M32 32 18 45M32 32l14 13" />
+        </g>
+        <rect x="11" y="13" width="12" height="10" rx="2.5" fill="none" stroke={W} strokeWidth="2.4" />
+        <rect x="41" y="13" width="12" height="10" rx="2.5" fill="none" stroke={W} strokeWidth="2.4" />
+        <rect x="11" y="41" width="12" height="10" rx="2.5" fill="none" stroke={W} strokeWidth="2.4" />
+        <rect x="41" y="41" width="12" height="10" rx="2.5" fill="none" stroke={W} strokeWidth="2.4" />
+        <circle cx="32" cy="32" r="7" fill={W} />
+        <circle cx="32" cy="32" r="3" fill="#2563eb" />
+      </>
+    ),
+  },
   console: {
     stops: ["#94a3b8", "#334155", "#0f172a"],
     glyph: (

@@ -132,6 +132,9 @@ export default function TopologyTab({ onTab }: { onTab: (tab: "router" | "wg") =
       <div className="flex items-center gap-2">
         <h3 className="flex-1 text-sm font-semibold text-slate-100">{t("topo.title")}</h3>
         <span className="text-[11px] text-slate-400 max-sm:hidden">{t("topo.hint")}</span>
+        <GlassButton variant="primary" size="xs" onClick={() => open("architect")}>
+          <Waypoints size={13} /> {t("arch.openApp")}
+        </GlassButton>
         <GlassButton variant="ghost" size="xs" onClick={load} aria-label={t("common.refresh")}>
           <RefreshCw size={13} />
         </GlassButton>
