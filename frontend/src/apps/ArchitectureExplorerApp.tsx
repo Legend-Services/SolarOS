@@ -113,7 +113,6 @@ const CATEGORIES = Object.keys(CATEGORY_ICON) as Category[];
 /** Above this many unmanaged devices the drill-down groups them into one "Other Devices (+N)" hub. */
 export const DENSITY_THRESHOLD = 6;
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
-const curve = (x1: number, y1: number, x2: number, y2: number) => `M${x1} ${y1} C${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2} ${y2}`;
 
 /** Functionality badge text in the active language, from the scanner's role keys. */
 export function useRoleText() {
@@ -308,37 +307,118 @@ function NodeBox({ x, y, w = 190, h = 58, icon, title, sub, color = "#7dd3fc", b
   );
 }
 
-/* ---------------- View 1: blueprint ---------------- */
+/* ---------------- View 1: blueprint (top-down tiers) ---------------- */
 
-const COL = [40, 280, 520, 780, 1040];
 const NODE_W = 200;
+const HOST_W = 260;
+const GAP = 24;
+const TIER_GAP = 72;
+const MAX_COLS = 8;
+type Pt = { x: number; y: number };
+type Edge = { key: string; d: string; color: string; flow: boolean; w?: number; op?: number };
 
-/** The standalone host or cluster band across the top of the blueprint and the overview. */
-function HostBand({ o }: { o: Overview }) {
+/** Drawing width that fits the widest tier (at most MAX_COLS boxes of width `w` per line). */
+const widthFor = (n: number, w = NODE_W) => Math.max(1260, Math.min(n, MAX_COLS) * (w + GAP) - GAP + 80);
+
+/** Top-left corners of `n` boxes (w × h) centered in a W-wide drawing from `y` down, wrapping onto new lines. */
+function rowOf(n: number, y: number, W: number, h: number, w = NODE_W) {
+  const cols = Math.max(1, Math.floor((W - 80 + GAP) / (w + GAP)));
+  const pos = Array.from({ length: n }, (_, i) => {
+    const line = Math.floor(i / cols);
+    const inLine = Math.min(cols, n - line * cols);
+    return { x: (W - inLine * (w + GAP) + GAP) / 2 + (i % cols) * (w + GAP), y: y + line * (h + GAP) };
+  });
+  return { pos, bottom: n ? y + Math.ceil(n / cols) * (h + GAP) - GAP : y };
+}
+
+/** Downward bezier from the bottom center of box `a` (height ah) to the top center of box `b`. */
+function down(a: Pt, ah: number, b: Pt, aw = NODE_W, bw = NODE_W) {
+  const x1 = a.x + aw / 2, y1 = a.y + ah, x2 = b.x + bw / 2, y2 = b.y, my = (y1 + y2) / 2;
+  return `M${x1} ${y1} C${x1} ${my}, ${x2} ${my}, ${x2} ${y2}`;
+}
+
+const Edges = ({ edges }: { edges: Edge[] }) => (
+  <>
+    {edges.map((e) => (
+      <path key={e.key} d={e.d} fill="none" stroke={ink(e.color)} strokeWidth={e.w ?? 1.6} strokeOpacity={e.op ?? 0.85} className={e.flow ? "arch-flow" : ""} />
+    ))}
+  </>
+);
+
+/** Tier caption in the gap above a row. */
+const TierHead = ({ y, text }: { y: number; text: string }) => (
+  <text x={36} y={y - 14} fill="var(--bp-label)" fontSize={10} fontWeight={700} letterSpacing={1.2}>
+    {text.toUpperCase()}
+  </text>
+);
+
+/** Width of tier 2: the host boxes, then the physical uplinks, side by side inside the host / cluster container. */
+// shortcut: tier 2 never wraps; many cluster hosts and NICs only widen the drawing (Fit to Screen still fits it).
+const tier2Width = (o: Overview) => Math.max(0, o.hosts.length * (HOST_W + GAP) + o.uplinks.length * (NODE_W + GAP) - GAP + (o.hosts.length && o.uplinks.length ? 40 : 0));
+
+/** Positions of tiers 1–2, shared by the overview and the blueprint: Internet / WAN, gateways and LLDP neighbors, then the
+    standalone host or cluster container holding the hosts and their physical uplinks. */
+function topLayout(o: Overview, W: number) {
+  const wan = { x: (W - NODE_W) / 2, y: 40 };
+  const tops = [...o.gateways.map((g) => ({ kind: "gw" as const, g })), ...o.lldp_neighbors.map((l) => ({ kind: "lldp" as const, l }))];
+  const gw = rowOf(tops.length, wan.y + 58 + TIER_GAP, W, 58);
+  const boxY = (tops.length ? gw.bottom : wan.y + 58) + TIER_GAP;
+  const rowY = boxY + 58;
+  const x0 = (W - tier2Width(o)) / 2;
+  const hosts = o.hosts.map((_, i) => ({ x: x0 + i * (HOST_W + GAP), y: rowY }));
+  const upX = x0 + o.hosts.length * (HOST_W + GAP) + (o.hosts.length && o.uplinks.length ? 40 : 0);
+  const up: Record<string, Pt> = Object.fromEntries(o.uplinks.map((u, i) => [u.name, { x: upX + i * (NODE_W + GAP), y: rowY + 8 }]));
+  return { wan, tops, gw: gw.pos, boxY, rowY, hosts, up, upX, bottom: rowY + 74 + 18 };
+}
+
+/** Tiers 1–2 and their links down to the virtual switches (`swAt`: top-left of each switch box). */
+function TopTiers({ o, W, L, swAt }: { o: Overview; W: number; L: ReturnType<typeof topLayout>; swAt: Record<string, Pt> }) {
   const { t } = useTranslation();
-  const hostW = Math.max(260, Math.min(1240 / Math.max(o.hosts.length, 1) - 16, 300));
+  const edges: Edge[] = [];
+  L.tops.forEach((it, i) => {
+    const p = L.gw[i];
+    const color = it.kind === "gw" ? "#38bdf8" : "#94a3b8";
+    if (it.kind === "gw") edges.push({ key: `wan${i}`, d: down(L.wan, 58, p), color, flow: true });
+    const dev = it.kind === "gw" ? it.g.dev : it.l.local_port;
+    const ups = o.uplinks.filter((u) => u.name === dev || u.bridge === dev);
+    ups.forEach((u) => edges.push({ key: `gw${i}${u.name}`, d: down(p, 58, L.up[u.name]), color, flow: it.kind === "gw" && u.link_up }));
+    if (!ups.length && swAt[dev]) edges.push({ key: `gw${i}sw`, d: down(p, 58, swAt[dev]), color, flow: true });
+  });
+  if (!L.tops.length) o.uplinks.forEach((u) => u.link_up && edges.push({ key: `wan${u.name}`, d: down(L.wan, 58, L.up[u.name]), color: "#38bdf8", flow: true }));
+  o.uplinks.forEach((u) => u.bridge && swAt[u.bridge] && edges.push({ key: `up${u.name}`, d: down(L.up[u.name], 58, swAt[u.bridge]), color: u.link_up ? "#38bdf8" : "#475569", flow: u.link_up }));
+
   return (
     <>
-      <rect x={20} y={14} width={1240} height={140} rx={14} fill="var(--bp-node-violet)" stroke={ink("#a78bfa")} strokeDasharray={o.mode === "cluster" ? undefined : "5 4"} />
-      <text x={36} y={38} fill="var(--bp-violet-text)" fontSize={13} fontWeight={700}>
+      <Edges edges={edges} />
+      <NodeBox x={L.wan.x} y={L.wan.y} w={NODE_W} icon={<Globe size={14} />} title={t("topo.type.internet")} sub={o.gateways.map((g) => g.ip).join(", ")} color="#38bdf8" />
+      {L.tops.length > 0 && <TierHead y={L.gw[0].y} text={t("arch.colGateways")} />}
+      {L.tops.map((it, i) =>
+        it.kind === "gw" ? (
+          <NodeBox key={`gw${it.g.ip}`} x={L.gw[i].x} y={L.gw[i].y} w={NODE_W} icon={<Router size={14} />} title={t("arch.gateway", { ip: it.g.ip })} sub={`${it.g.mac ?? ""}${it.g.mac_vendor ? ` · ${it.g.mac_vendor}` : ""}` || it.g.dev} color="#38bdf8" />
+        ) : (
+          <NodeBox key={`l${it.l.local_port}`} x={L.gw[i].x} y={L.gw[i].y} w={NODE_W} icon={<Wifi size={14} />} title={it.l.neighbor || t("arch.physicalSwitch")} sub={`${it.l.protocol ?? "LLDP"} · ${it.l.neighbor_port ?? ""}`} color="#94a3b8" />
+        ),
+      )}
+      <rect x={20} y={L.boxY} width={W - 40} height={L.bottom - L.boxY} rx={14} fill="var(--bp-node-violet)" stroke={ink("#a78bfa")} strokeDasharray={o.mode === "cluster" ? undefined : "5 4"} />
+      <text x={36} y={L.boxY + 24} fill="var(--bp-violet-text)" fontSize={13} fontWeight={700}>
         {o.mode === "cluster" ? t("arch.clusterTitle", { name: o.cluster_name ?? "" }) : t("arch.standaloneTitle")}
       </text>
       {o.quorum_status && (
-        <text x={36} y={56} fill={o.quorum_status === "healthy" ? "var(--bp-ok-text)" : "var(--bp-bad-text)"} fontSize={10.5}>
+        <text x={36} y={L.boxY + 42} fill={o.quorum_status === "healthy" ? "var(--bp-ok-text)" : "var(--bp-bad-text)"} fontSize={10.5}>
           {o.quorum_status === "healthy" ? t("arch.quorumHealthy") : t("arch.quorumLost")}
         </text>
       )}
       {o.floating_vips.length > 0 && (
-        <text x={1244} y={38} fill="var(--bp-violet-text)" fontSize={10.5} textAnchor="end">
+        <text x={W - 36} y={L.boxY + 24} fill="var(--bp-violet-text)" fontSize={10.5} textAnchor="end">
           {`${t("arch.floatingVips")}: ${o.floating_vips.map((v) => v.address).join(" · ")}`}
         </text>
       )}
       {o.hosts.map((h, i) => (
         <NodeBox
           key={h.host_id}
-          x={36 + i * (hostW + 12)}
-          y={68}
-          w={hostW}
+          x={L.hosts[i].x}
+          y={L.hosts[i].y}
+          w={HOST_W}
           h={74}
           color={h.status === "online" ? "#a78bfa" : h.status === "maintenance" ? "#f59e0b" : "#f87171"}
           icon={<Server size={14} />}
@@ -347,102 +427,112 @@ function HostBand({ o }: { o: Overview }) {
           badges={[{ text: t(`arch.hostStatus.${h.status}` as TKey), on: h.status === "online" }]}
         />
       ))}
-
+      {o.uplinks.length > 0 && (
+        <text x={L.upX} y={L.rowY - 4} fill="var(--bp-label)" fontSize={9.5} fontWeight={700} letterSpacing={1.2}>
+          {t("arch.colUplinks").toUpperCase()}
+        </text>
+      )}
+      {o.uplinks.map((u) => (
+        <NodeBox key={u.name} x={L.up[u.name].x} y={L.up[u.name].y} w={NODE_W} icon={<Cable size={14} />} title={u.name} sub={`${u.speed_mbps ? `${u.speed_mbps} Mb/s` : t("arch.noLink")} · ${u.mac}`} color={u.link_up ? "#38bdf8" : "#475569"} />
+      ))}
     </>
   );
 }
 
+/** Virtual switches in uplink order (so uplink → switch links barely cross), lab bridges left out. */
+function switchesOf(o: Overview) {
+  const labBridges = new Set(o.labs.map((l) => l.bridge));
+  const upIdx = (ports: string[]) => Math.min(1e9, ...ports.map((p) => o.uplinks.findIndex((u) => u.name === p)).filter((i) => i >= 0));
+  return o.switches.filter((s) => !labBridges.has(s.name)).sort((a, b) => upIdx(a.member_ports) - upIdx(b.member_ports));
+}
+
+/** DHCP / DNS service badges of a virtual switch. */
+function switchBadges(o: Overview, sw: Overview["switches"][number]) {
+  const n = o.networks.find((x) => x.network_id === sw.name);
+  const dns = !!(n?.dns_servers.length || (sw.ipv4_cidr && o.host_dns_servers.length && o.gateways.some((g) => g.dev === sw.name)));
+  return [{ text: "DHCP", on: !!n?.dhcp_active }, { text: "DNS", on: dns }];
+}
+
 function Blueprint({ o, onDrill }: { o: Overview; onDrill: (id: string) => void }) {
   const { t } = useTranslation();
-  const net = (id: string) => o.networks.find((n) => n.network_id === id);
   const labBridges = new Set(o.labs.map((l) => l.bridge));
-  const switches = o.switches.filter((s) => !labBridges.has(s.name));
-  const TOP = 190;
-  const stack = <T,>(items: T[], step: number) => items.map((it, i) => ({ it, y: TOP + i * step }));
-  const gws = stack([...o.gateways.map((g) => ({ kind: "gw" as const, g })), ...o.lldp_neighbors.map((l) => ({ kind: "lldp" as const, l }))], 76);
-  const ups = stack(o.uplinks, 76);
-  const sws = stack(switches, 86);
-  const segs = stack([...o.vlans.map((v) => ({ kind: "vlan" as const, v })), ...o.labs.map((l) => ({ kind: "lab" as const, l }))], 86);
-  const gs = stack(o.guests, 64);
-  const height = Math.max(TOP + 100, ...[gws, ups, sws, segs, gs].map((c) => TOP + c.length * 86)) + 40;
-  const mid = (y: number, h = 58) => y + h / 2;
-  const yOf = {
-    up: Object.fromEntries(ups.map((u) => [u.it.name, u.y])),
-    sw: Object.fromEntries(sws.map((s) => [s.it.name, s.y])),
-    seg: Object.fromEntries(segs.map((s) => [s.it.kind === "vlan" ? `${s.it.v.bridge}:${s.it.v.vlan_id}` : `lab:${s.it.l.bridge}`, s.y])),
+  const switches = switchesOf(o);
+  const swIdx = (b: string) => {
+    const i = switches.findIndex((s) => s.name === b);
+    return i < 0 ? switches.length : i;
   };
-  const edges: { d: string; color: string; flow: boolean }[] = [];
-  gws.forEach(({ it, y }) => {
-    if (it.kind === "gw") {
-      const ty = yOf.sw[it.g.dev] ?? yOf.up[it.g.dev];
-      if (ty !== undefined) edges.push({ d: curve(COL[0] + NODE_W, mid(y), it.g.dev in yOf.sw ? COL[2] : COL[1], mid(ty)), color: "#38bdf8", flow: true });
-    } else if (yOf.up[it.l.local_port] !== undefined) edges.push({ d: curve(COL[0] + NODE_W, mid(y), COL[1], mid(yOf.up[it.l.local_port])), color: "#94a3b8", flow: false });
-  });
-  ups.forEach(({ it, y }) => it.bridge && yOf.sw[it.bridge] !== undefined && edges.push({ d: curve(COL[1] + NODE_W, mid(y), COL[2], mid(yOf.sw[it.bridge])), color: it.link_up ? "#38bdf8" : "#475569", flow: it.link_up }));
-  segs.forEach(({ it, y }) => it.kind === "vlan" && yOf.sw[it.v.bridge] !== undefined && edges.push({ d: curve(COL[2] + NODE_W, mid(yOf.sw[it.v.bridge]), COL[3], mid(y)), color: it.v.color || "#c084fc", flow: false }));
-  gs.forEach(({ it, y }) =>
-    it.interfaces.forEach((i) => {
-      const seg = labBridges.has(i.bridge) ? yOf.seg[`lab:${i.bridge}`] : i.vlan_tag ? yOf.seg[`${i.bridge}:${i.vlan_tag}`] : undefined;
-      const sy = seg ?? yOf.sw[i.bridge];
-      if (sy === undefined) return;
-      edges.push({ d: curve(seg !== undefined ? COL[3] + NODE_W : COL[2] + NODE_W, mid(sy), COL[4], mid(y, 48)), color: labBridges.has(i.bridge) ? "#f59e0b" : "#34d399", flow: i.link_up && it.status === "running" });
-    }),
+  const segs = [
+    ...o.vlans.map((v) => ({ kind: "vlan" as const, v })).sort((a, b) => swIdx(a.v.bridge) - swIdx(b.v.bridge) || (a.v.vlan_id ?? 0) - (b.v.vlan_id ?? 0)),
+    ...o.labs.map((l) => ({ kind: "lab" as const, l })),
+  ];
+  const W = Math.max(widthFor(Math.max(o.gateways.length + o.lldp_neighbors.length, switches.length, segs.length, o.guests.length)), tier2Width(o) + 80);
+  const L = topLayout(o, W);
+  let y = L.bottom + TIER_GAP;
+  const sw = rowOf(switches.length, y, W, 66);
+  const swAt: Record<string, Pt> = Object.fromEntries(switches.map((s, i) => [s.name, sw.pos[i]]));
+  if (switches.length) y = sw.bottom + TIER_GAP;
+  const sg = rowOf(segs.length, y, W, 66);
+  const segAt: Record<string, Pt> = Object.fromEntries(segs.map((s, i) => [s.kind === "vlan" ? `${s.v.bridge}:${s.v.vlan_id}` : `lab:${s.l.bridge}`, sg.pos[i]]));
+  if (segs.length) y = sg.bottom + TIER_GAP;
+  // Each interface hangs from its lab or VLAN lane when it has one, else from its virtual switch.
+  const parents = (g: GuestRow) =>
+    g.interfaces.flatMap((i) => {
+      const lab = labBridges.has(i.bridge);
+      const p = segAt[lab ? `lab:${i.bridge}` : `${i.bridge}:${i.vlan_tag}`] ?? (lab ? undefined : swAt[i.bridge]);
+      return p ? [{ i, p, lab }] : [];
+    });
+  // Guests line up below their parents: ordered by the mean x of the boxes they hang from.
+  const px = (g: GuestRow) => {
+    const ps = parents(g);
+    return ps.length ? ps.reduce((a, b) => a + b.p.x, 0) / ps.length : 1e9;
+  };
+  const guests = [...o.guests].sort((a, b) => px(a) - px(b));
+  const gs = rowOf(guests.length, y, W, 48);
+  const height = (guests.length ? gs.bottom : y) + 40;
+
+  const edges: Edge[] = [];
+  segs.forEach((s, i) => s.kind === "vlan" && swAt[s.v.bridge] && edges.push({ key: `v${s.v.network_id}`, d: down(swAt[s.v.bridge], 66, sg.pos[i]), color: s.v.color || "#c084fc", flow: false }));
+  guests.forEach((g, gi) =>
+    parents(g).forEach(({ i, p, lab }) =>
+      edges.push({ key: `g${g.guest_type}${g.guest_id}${i.net_id}`, d: down(p, 66, gs.pos[gi]), color: lab ? "#f59e0b" : "#34d399", flow: i.link_up && g.status === "running" }),
+    ),
   );
-  const heads = [t("arch.colGateways"), t("arch.colUplinks"), t("arch.colSwitches"), t("arch.colVlans"), t("arch.colGuests")];
 
   return (
-    <Canvas width={1260} height={height} label={t("arch.blueprintLabel")} crumbs={[{ label: t("arch.viewBlueprint") }]}>
-      <HostBand o={o} />
-
-      {heads.map((hd, i) => (
-        <text key={hd} x={COL[i]} y={TOP - 14} fill="var(--bp-label)" fontSize={10} fontWeight={700} letterSpacing={1.2}>
-          {hd.toUpperCase()}
-        </text>
-      ))}
-      {edges.map((e, i) => (
-        <path key={i} d={e.d} fill="none" stroke={ink(e.color)} strokeWidth={1.6} strokeOpacity=".85" className={e.flow ? "arch-flow" : ""} />
-      ))}
-      {gws.map(({ it, y }) =>
-        it.kind === "gw" ? (
-          <NodeBox key={`gw${it.g.ip}`} x={COL[0]} y={y} w={NODE_W} icon={<Globe size={14} />} title={t("arch.gateway", { ip: it.g.ip })} sub={`${it.g.mac ?? ""}${it.g.mac_vendor ? ` · ${it.g.mac_vendor}` : ""}` || it.g.dev} color="#38bdf8" />
-        ) : (
-          <NodeBox key={`l${it.l.local_port}`} x={COL[0]} y={y} w={NODE_W} icon={<Router size={14} />} title={it.l.neighbor || t("arch.physicalSwitch")} sub={`${it.l.protocol ?? "LLDP"} · ${it.l.neighbor_port ?? ""}`} color="#94a3b8" />
-        ),
-      )}
-      {ups.map(({ it, y }) => (
-        <NodeBox key={it.name} x={COL[1]} y={y} w={NODE_W} icon={<Cable size={14} />} title={it.name} sub={`${it.speed_mbps ? `${it.speed_mbps} Mb/s` : t("arch.noLink")} · ${it.mac}`} color={it.link_up ? "#38bdf8" : "#475569"} />
-      ))}
-      {sws.map(({ it, y }) => {
-        const n = net(it.name);
-        return (
+    <Canvas width={W} height={height} label={t("arch.blueprintLabel")} crumbs={[{ label: t("arch.viewBlueprint") }]}>
+      <TopTiers o={o} W={W} L={L} swAt={swAt} />
+      <Edges edges={edges} />
+      {switches.length > 0 && <TierHead y={sw.pos[0].y} text={t("arch.colSwitches")} />}
+      {segs.length > 0 && <TierHead y={sg.pos[0].y} text={t("arch.colVlans")} />}
+      {guests.length > 0 && <TierHead y={gs.pos[0].y} text={t("arch.colGuests")} />}
+      {switches.map((it, i) => (
           <NodeBox
             key={it.name}
-            x={COL[2]}
-            y={y}
+            x={sw.pos[i].x}
+            y={sw.pos[i].y}
             w={NODE_W}
             h={66}
             icon={<Network size={14} />}
             title={`${it.name}${it.clustered ? " ⧉" : ""}`}
             sub={it.ipv4_cidr ?? t("arch.noHostAddress")}
             color="#a78bfa"
-            badges={[{ text: "DHCP", on: !!n?.dhcp_active }, { text: "DNS", on: !!(n?.dns_servers.length || (it.ipv4_cidr && o.host_dns_servers.length && o.gateways.some((g) => g.dev === it.name))) }]}
+            badges={switchBadges(o, it)}
             onClick={() => onDrill(it.name)}
             label={t("arch.drillInto", { name: it.name })}
           />
-        );
-      })}
-      {segs.map(({ it, y }) =>
+      ))}
+      {segs.map((it, i) =>
         it.kind === "vlan" ? (
-          <NodeBox key={it.v.network_id} x={COL[3]} y={y} w={NODE_W} h={66} icon={<Layers size={14} />} title={`VLAN ${it.v.vlan_id} · ${it.v.name}`} sub={it.v.subnet_cidr ?? t("arch.noSubnet")} color={it.v.color || "#c084fc"} badges={[{ text: "DHCP", on: it.v.dhcp_active }, { text: "DNS", on: it.v.dns_servers.length > 0 }]} onClick={() => onDrill(it.v.network_id)} label={t("arch.drillInto", { name: it.v.name })} />
+          <NodeBox key={it.v.network_id} x={sg.pos[i].x} y={sg.pos[i].y} w={NODE_W} h={66} icon={<Layers size={14} />} title={`VLAN ${it.v.vlan_id} · ${it.v.name}`} sub={it.v.subnet_cidr ?? t("arch.noSubnet")} color={it.v.color || "#c084fc"} badges={[{ text: "DHCP", on: it.v.dhcp_active }, { text: "DNS", on: it.v.dns_servers.length > 0 }]} onClick={() => onDrill(it.v.network_id)} label={t("arch.drillInto", { name: it.v.name })} />
         ) : (
-          <NodeBox key={it.l.network_id} x={COL[3]} y={y} w={NODE_W} h={66} dashed icon={<FlaskConical size={14} />} title={`${t("arch.lab")} · ${it.l.name}`} sub={it.l.subnet_cidr ?? ""} color="#f59e0b" badges={[{ text: "DHCP", on: it.l.dhcp_active }]} onClick={() => onDrill(it.l.network_id)} label={t("arch.drillInto", { name: it.l.name })} />
+          <NodeBox key={it.l.network_id} x={sg.pos[i].x} y={sg.pos[i].y} w={NODE_W} h={66} dashed icon={<FlaskConical size={14} />} title={`${t("arch.lab")} · ${it.l.name}`} sub={it.l.subnet_cidr ?? ""} color="#f59e0b" badges={[{ text: "DHCP", on: it.l.dhcp_active }]} onClick={() => onDrill(it.l.network_id)} label={t("arch.drillInto", { name: it.l.name })} />
         ),
       )}
-      {gs.map(({ it, y }) => (
+      {guests.map((it, i) => (
         <NodeBox
           key={`${it.guest_type}${it.guest_id}`}
-          x={COL[4]}
-          y={y}
+          x={gs.pos[i].x}
+          y={gs.pos[i].y}
           w={NODE_W}
           h={48}
           icon={it.guest_type === "vm" ? <Monitor size={14} /> : <Container size={14} />}
@@ -455,14 +545,10 @@ function Blueprint({ o, onDrill }: { o: Overview; onDrill: (id: string) => void 
   );
 }
 
-
 /* ---------------- Zoom level 1: semantic overview ---------------- */
 
 const CARD_W = 250;
 const CARD_H = 116;
-const CARD_GAP = 22;
-const CARD_X = 600;
-const CARD_COLS = 3;
 const KIND_ORDER = { switch: 0, vlan: 1, lab: 2, custom: 3, ungrouped: 4 };
 const SOURCE_ORDER = { network: 0, custom: 1, ungrouped: 2 };
 
@@ -485,9 +571,8 @@ const groupIcon = (kind: SemanticGroup["kind"], s: number) =>
 /** Hosts, uplinks and virtual switches, with every network / VLAN / lab and custom group collapsed into one clickable card. */
 function SemanticOverview({ o, onOpen }: { o: Overview; onOpen: (groupId: string) => void }) {
   const { t } = useTranslation();
-  const labBridges = new Set(o.labs.map((l) => l.bridge));
-  const switches = o.switches.filter((s) => !labBridges.has(s.name));
-  // Cards follow the switch column order (then labs), so the switch → card lines cross as little as possible.
+  const switches = switchesOf(o);
+  // Cards follow the switch order (then labs), so the switch → card links cross as little as possible.
   const swIndex = (g: SemanticGroup) => {
     const i = switches.findIndex((s) => s.name === g.bridge);
     return i < 0 ? switches.length : i;
@@ -495,17 +580,23 @@ function SemanticOverview({ o, onOpen }: { o: Overview; onOpen: (groupId: string
   const groups = o.semantic_groups
     .filter((g) => g.source !== "ungrouped" || g.total_guests > 0)
     .sort((a, b) => SOURCE_ORDER[a.source] - SOURCE_ORDER[b.source] || swIndex(a) - swIndex(b) || KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || (a.vlan_id ?? 0) - (b.vlan_id ?? 0) || a.name.localeCompare(b.name));
-  const TOP = 190;
-  const ups = o.uplinks.map((u, i) => ({ u, y: TOP + i * 76 }));
-  const sws = switches.map((sw, i) => ({ sw, y: TOP + i * 86 }));
-  const cards = groups.map((g, i) => ({ g, x: CARD_X + (i % CARD_COLS) * (CARD_W + CARD_GAP), y: TOP + Math.floor(i / CARD_COLS) * (CARD_H + CARD_GAP) }));
-  const width = CARD_X + CARD_COLS * (CARD_W + CARD_GAP) + 20;
-  const height = Math.max(TOP + Math.ceil(cards.length / CARD_COLS) * (CARD_H + CARD_GAP), TOP + sws.length * 86, TOP + ups.length * 76, TOP + 100) + 40;
-  const swY = Object.fromEntries(sws.map((x) => [x.sw.name, x.y]));
+  const W = Math.max(widthFor(Math.max(o.gateways.length + o.lldp_neighbors.length, switches.length)), widthFor(Math.min(groups.length, 5), CARD_W), tier2Width(o) + 80);
+  const L = topLayout(o, W);
+  let y = L.bottom + TIER_GAP;
+  const sw = rowOf(switches.length, y, W, 66);
+  const swAt: Record<string, Pt> = Object.fromEntries(switches.map((s, i) => [s.name, sw.pos[i]]));
+  if (switches.length) y = sw.bottom + TIER_GAP;
+  const cr = rowOf(groups.length, y, W, CARD_H, CARD_W);
+  const cards = groups.map((g, i) => ({ g, ...cr.pos[i] }));
+  const height = (groups.length ? cr.bottom : y) + 40;
   const bridgeOf = (g: SemanticGroup) => g.bridge ?? o.networks.find((n) => n.network_id === g.linked_network_id)?.bridge;
   const origin = (g: SemanticGroup) =>
     g.source === "custom" ? t("grp.customGroup") : g.source === "ungrouped" ? "" : t("grp.networkGroup", { label: t(`grp.kind.${g.kind}` as TKey, { id: g.vlan_id ?? "" }) });
   const name = (g: SemanticGroup) => (g.source === "ungrouped" ? t("grp.ungrouped") : g.name);
+  const edges: Edge[] = cards.flatMap(({ g, x, y }) => {
+    const b = bridgeOf(g);
+    return b && swAt[b] ? [{ key: g.group_id, d: down(swAt[b], 66, { x, y }, NODE_W, CARD_W), color: g.color, flow: false, w: 1.4, op: 0.6 }] : [];
+  });
 
   // Zooming in past DRILL_ZOOM opens the card under the pointer (or the one nearest to the zoom point).
   const onZoom = ({ k, prev, at }: ZoomEvent) => {
@@ -516,25 +607,13 @@ function SemanticOverview({ o, onOpen }: { o: Overview; onOpen: (groupId: string
   };
 
   return (
-    <Canvas width={width} height={height} label={t("arch.blueprintLabel")} crumbs={[{ label: t("sz.overview") }]} hint={t("sz.hint")} onZoom={onZoom} fitCap={DRILL_ZOOM - 0.04}>
-      <HostBand o={o} />
-      {[t("arch.colUplinks"), t("arch.colSwitches"), t("sz.colGroups")].map((hd, i) => (
-        <text key={hd} x={[40, 300, CARD_X][i]} y={TOP - 14} fill="var(--bp-label)" fontSize={10} fontWeight={700} letterSpacing={1.2}>
-          {hd.toUpperCase()}
-        </text>
-      ))}
-      {ups.map(({ u, y }) =>
-        u.bridge && swY[u.bridge] !== undefined ? <path key={`e${u.name}`} d={curve(240, y + 29, 300, swY[u.bridge] + 29)} fill="none" stroke={ink(u.link_up ? "#38bdf8" : "#475569")} strokeWidth={1.6} className={u.link_up ? "arch-flow" : ""} /> : null,
-      )}
-      {cards.map(({ g, x, y }) => {
-        const b = bridgeOf(g);
-        return b && swY[b] !== undefined ? <path key={`e${g.group_id}`} d={curve(500, swY[b] + 33, x, y + CARD_H / 2)} fill="none" stroke={ink(g.color)} strokeOpacity=".6" strokeWidth={1.4} /> : null;
-      })}
-      {ups.map(({ u, y }) => (
-        <NodeBox key={u.name} x={40} y={y} w={200} icon={<Cable size={14} />} title={u.name} sub={`${u.speed_mbps ? `${u.speed_mbps} Mb/s` : t("arch.noLink")} · ${u.mac}`} color={u.link_up ? "#38bdf8" : "#475569"} />
-      ))}
-      {sws.map(({ sw, y }) => (
-        <NodeBox key={sw.name} x={300} y={y} w={200} h={66} icon={<Network size={14} />} title={`${sw.name}${sw.clustered ? " ⧉" : ""}`} sub={sw.ipv4_cidr ?? t("arch.noHostAddress")} color="#a78bfa" onClick={() => onOpen(`net-${sw.name}`)} label={t("sz.zoomInto", { name: sw.name })} />
+    <Canvas width={W} height={height} label={t("arch.blueprintLabel")} crumbs={[{ label: t("sz.overview") }]} hint={t("sz.hint")} onZoom={onZoom} fitCap={DRILL_ZOOM - 0.04}>
+      <TopTiers o={o} W={W} L={L} swAt={swAt} />
+      <Edges edges={edges} />
+      {switches.length > 0 && <TierHead y={sw.pos[0].y} text={t("arch.colSwitches")} />}
+      {cards.length > 0 && <TierHead y={cards[0].y} text={t("sz.colGroups")} />}
+      {switches.map((it, i) => (
+        <NodeBox key={it.name} x={sw.pos[i].x} y={sw.pos[i].y} w={NODE_W} h={66} icon={<Network size={14} />} title={`${it.name}${it.clustered ? " ⧉" : ""}`} sub={it.ipv4_cidr ?? t("arch.noHostAddress")} color="#a78bfa" badges={switchBadges(o, it)} onClick={() => onOpen(`net-${it.name}`)} label={t("sz.zoomInto", { name: it.name })} />
       ))}
       {cards.map(({ g, x, y }) => (
         <g

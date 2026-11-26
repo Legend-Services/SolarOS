@@ -278,7 +278,7 @@ function HardwareTab({ guest, hw, reload }: { guest: Guest; hw: Hardware; reload
         {!hostpci.length && <p className="text-[11px] text-slate-500">No PCI devices passed through.</p>}
         <ul className="space-y-1">
           {hostpci.map((d) => (
-            <li key={d.key} className="flex flex-wrap items-center gap-2 rounded-lg bg-white/[0.03] px-2 py-1.5 text-[11px]">
+            <li key={d.key} className="flex flex-wrap items-center gap-2 rounded-lg bg-[var(--sd-surface-card)] px-2 py-1.5 text-[11px]">
               <span className="font-mono text-slate-400">{d.key}</span>
               <span className="font-mono text-slate-100">{d.id}</span>
               {d.all_functions && <GlassBadge tone="info">ALL FUNCTIONS</GlassBadge>}
@@ -304,7 +304,7 @@ function HardwareTab({ guest, hw, reload }: { guest: Guest; hw: Hardware; reload
         {!usb.length && <p className="text-[11px] text-slate-500">No USB devices passed through.</p>}
         <ul className="space-y-1">
           {usb.map((d) => (
-            <li key={d.key} className="flex items-center gap-2 rounded-lg bg-white/[0.03] px-2 py-1.5 text-[11px]">
+            <li key={d.key} className="flex items-center gap-2 rounded-lg bg-[var(--sd-surface-card)] px-2 py-1.5 text-[11px]">
               <span className="font-mono text-slate-400">{d.key}</span>
               <span className="font-mono text-slate-100">{d.host}</span>
               {d.usb3 && <GlassBadge tone="info">USB 3</GlassBadge>}
@@ -670,7 +670,7 @@ function SnapshotsTab({ guest }: { guest: Guest }) {
         ) : (
           <ul className="space-y-1">
             {tree.map(({ s, depth }) => (
-              <li key={s.name} className="flex items-center gap-2 rounded-lg bg-white/[0.03] px-2 py-1.5 text-[11px]" style={{ marginLeft: depth * 14 }}>
+              <li key={s.name} className="flex items-center gap-2 rounded-lg bg-[var(--sd-surface-card)] px-2 py-1.5 text-[11px]" style={{ marginLeft: depth * 14 }}>
                 <span className={`font-medium ${s.current ? "text-sky-200" : "text-slate-100"}`}>{s.current ? "NOW (current state)" : s.name}</span>
                 {s.vmstate && <GlassBadge tone="info">RAM</GlassBadge>}
                 <span className="min-w-0 flex-1 truncate text-slate-400">{s.description}</span>

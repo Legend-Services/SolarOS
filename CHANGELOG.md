@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.23.0 - Top-down network topology & theme-uniform guest wireframe editor — 2026-11-26
+
+### Changed
+- **Settings › Network & Services › Network Topology now reads top to bottom**: Internet / WAN at the top, then the physical NICs and bonds, the virtual switches, VLANs, VPN and port forwards, and at the bottom the VMs, containers and VPN peers. Each row is centered and wraps onto extra lines, and each node sits under the nodes it connects to. Links run as downward curves from the bottom of a node to the top of the next one.
+- **Virtual switch faceplates** show the physical port bank above the virtual port bank instead of beside it, so uplinks sit over the guests they carry.
+- **Network Architect › Overview and Infrastructure Blueprint use the same top-down tiers**: (1) Internet / WAN with the gateways and LLDP neighbors; (2) the standalone host or cluster container, holding every host (role, status, CPU and RAM) next to the physical uplinks, with quorum and floating VIPs; (3) the virtual switches with DHCP and DNS badges; (4) the VLANs, labs and groups (collapsed cards in the Overview, separate lanes in the Blueprint); and (5) in the Blueprint, every VM and container in a row below the network it hangs from. Pan, zoom, Fit to Screen, zoom-to-open and click-to-inspect work as before. The Networks tab and the network drill-down are unchanged.
+- **Guest edit window, Wireframe Architecture**: the diagram now uses the full width of the window. The **Hardware Device Inspector & Editor** opens directly below the diagram, for VMs and containers alike, and scrolls into view. Its header shows the device icon and name, *Change Network Endpoint* and *Close*. The fields (interface label or Guest Device Manager name, MAC address with the randomizer, driver model, vendor and device ID, serial number, switch, VLAN tag, trunk VLANs, rate limit and *Link connected*) sit in a responsive grid of one, two or three columns, with the read-only PCI slot, IDs and IPv4 address as cards. *Save & Apply* is in a footer row.
+- **Blueprint canvases follow the active theme**: the Network Topology, Network Architect and Wireframe Architecture canvases, nodes, grid, borders and text now come from the active theme preset's background, accent and text colors in Light and Dark Mode, instead of a fixed navy. Status colors (DHCP/DNS on, warnings, errors) keep their accessible contrast. The guest edit window's list rows use the theme's card surface.
+- The guides, Help articles, Manual and screenshots describe the new top-down layout and the inspector below the diagram.
+
 ## v2.22.1 - Single-column Settings categories — 2026-11-26
 
 ### Changed

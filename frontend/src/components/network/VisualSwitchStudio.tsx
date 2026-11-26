@@ -392,7 +392,7 @@ export default function VisualSwitchStudio() {
               <GlassButton size="xs" onClick={() => setAddNic(b.name)}><Plus size={12} />{t("vsw.addVnic")}</GlassButton>
               <GlassButton size="xs" onClick={() => setEditBridge(b)}><Pencil size={12} />{t("vsw.editBridge")}</GlassButton>
             </div>
-            <div className="grid gap-3 p-3 md:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+            <div className="grid gap-3 p-3">
               <div className="rounded-xl bg-black/25 p-2 ring-1 ring-white/5 ring-inset">
                 <div className="mb-1 px-1 text-[10px] font-semibold tracking-wider text-slate-400 uppercase">{t("vsw.physicalBank")}</div>
                 <div className="flex flex-wrap">
