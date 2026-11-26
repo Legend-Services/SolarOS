@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.20.1 - Module worker network fix — 2026-11-26
+
+### Fixed
+- Isolated module workers (Docker Engine runtime, edge proxy, backup worker) lost their IPv4 address when they were placed on their network: changing the NIC recreates the container's interface and nothing renewed the DHCP lease, so the worker could not reach the internet or its clients. Placement now renews the lease inside the container. Workers already affected get their address back when the container restarts or when their module's network is changed.
+
 ## v2.20.0 - Native Docker Engine & App Center Catalog Consolidation — 2026-11-26
 
 ### Added
