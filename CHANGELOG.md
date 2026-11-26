@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.21.0 - Smart Compute Groups & 3-tier semantic zoom — 2026-11-26
+
+### Added
+- **Compute Manager → Grouped / Flat List**: the Grouped view sorts machines into automatic **Network Groups** (one per virtual switch, VLAN and isolated lab, holding every VM and container with a network adapter on it), your own **Custom Groups**, and **Ungrouped** for everything else, so nothing is hidden. Filter pills: All Groups, Networks & VLANs, Custom Groups.
+- Each group header shows its colour, origin (e.g. *VLAN 20 · Network Group* or *Custom Group*), subnet and DHCP, *3 / 4 Running*, combined vCPU, average CPU and memory, and **Start Group / Stop Group** buttons that power every member with a progress card.
+- **Multi-homed machines**: a machine on several networks (or in several groups) shows up in every group, with the adapter and IP address it uses there (e.g. `net1 · 10.10.40.12`) and a *2 Networks* / *3 Groups* badge listing all its groups.
+- **Create / Edit Group** dialog: tick machines, link the group to a network if you like. Ticking a machine on a named VLAN, switch or lab fills in the name and accent colour from it (*Auto-filled from VLAN 20 · Production — edit anytime*) until you type your own name. **Assign to Group…** on every machine adds it to or removes it from custom groups in one click.
+- **Network Architect → 3-tier semantic zoom**: the new **Overview** shows hosts, network ports, virtual switches and one card per network, VLAN, lab and custom group (subnet, DHCP / DNS badges, node and discovered-device counts). Zooming in past 75 % over a card, or clicking it, opens that network or group with its gateway, DHCP and DNS servers and members (each with the adapter it uses there and a multi-network badge); clicking a machine opens its hardware & console drawer, and **Other Devices (+N)** opens the device explorer. A floating bar shows the breadcrumb (*Overview › VLAN 20 · Production*), zoom %, − / + and **Fit to Screen**; zooming back out returns to the Overview.
+- **Settings → Network & Services → Virtual Switch & VLANs** lists the same groups as pills that open Network Architect zoomed into that group.
+- API: `GET/POST /api/compute/groups`, `PUT/DELETE /api/compute/groups/{group_id}`, `GET /api/compute/groups/suggest`, `POST /api/compute/groups/{group_id}/power`; `/api/architecture/overview` now includes `semantic_groups`. Custom groups are stored in `backend/data/compute_groups.json`.
+- Manual, guides, tutorials, FAQ, screenshots and API reference updated; translations in English, Dutch, German, Spanish and French.
+
 ## v2.20.5 - Uniform Light Mode surfaces — 2026-11-26
 
 ### Fixed

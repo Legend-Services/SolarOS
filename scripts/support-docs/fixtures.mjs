@@ -700,6 +700,48 @@ const SCAN_BR0 = {
     dev("10.20.0.90", "00:0C:29:90:00:90", null, null, "unknown", [], "No open services found", []),
   ],
 };
+
+/* ---------------- Smart Compute Groups (same shape as backend/app/compute_groups.py) ---------------- */
+
+// media-server is multi-homed: a second NIC on VLAN 20 next to its br0 NIC.
+ARCH_OVERVIEW.guests.find((g) => g.guest_id === 100).interfaces.push({ net_id: "net1", bridge: "br0", vlan_tag: 20, ip_address: "10.20.20.45", mac_address: mac(200), link_up: true });
+const KIND_COLOR = { switch: "#a78bfa", vlan: "#c084fc", lab: "#f59e0b" };
+const vlanIds = (b) => NETWORKS.filter((n) => n.kind === "vlan" && n.bridge === b).map((n) => n.vlan_id);
+const onNet = (i, n) => i.bridge === n.bridge && (n.kind === "vlan" ? i.vlan_tag === n.vlan_id : n.kind === "lab" || !i.vlan_tag || !vlanIds(n.bridge).includes(i.vlan_tag));
+const rowOf = (g) => [...GUESTS, ...REMOTE_GUESTS].find((r) => r.vmid === g.guest_id && (r.type === "qemu") === (g.guest_type === "vm")) ?? {};
+const RAW_GROUPS = [
+  ...NETWORKS.map((n) => ({
+    group_id: `net-${n.network_id}`, source: "network", kind: n.kind, name: n.kind === "vlan" ? `VLAN ${n.vlan_id} · ${n.name}` : n.name, color: n.color ?? KIND_COLOR[n.kind],
+    description: "", linked_network_id: n.network_id, net: n, hits: ARCH_OVERVIEW.guests.map((g) => [g, g.interfaces.filter((i) => onNet(i, n))]).filter(([, i]) => i.length),
+  })),
+  { group_id: "grp-media", source: "custom", kind: "custom", name: "Media & Home", color: "#ec4899", description: "Streaming and home automation", linked_network_id: null, net: null,
+    hits: ARCH_OVERVIEW.guests.filter((g) => [100, 101, 105].includes(g.guest_id)).map((g) => [g, g.interfaces]) },
+];
+const GROUPED = new Set(RAW_GROUPS.flatMap((g) => g.hits.map(([x]) => x)));
+RAW_GROUPS.push({ group_id: "ungrouped", source: "ungrouped", kind: "ungrouped", name: "Ungrouped", color: "#64748b", description: "", linked_network_id: null, net: null,
+  hits: ARCH_OVERVIEW.guests.filter((g) => !GROUPED.has(g)).map((g) => [g, g.interfaces]) });
+const COMPUTE_GROUPS = RAW_GROUPS.map(({ net: n, hits, ...g }) => {
+  const members = hits.map(([x, ifs]) => {
+    const r = rowOf(x);
+    return {
+      guest_type: x.guest_type, guest_id: x.guest_id, name: x.name, status: x.status, host: x.host, vcpu: r.maxcpu ?? 0, cpu_pct: Math.round((r.cpu ?? 0) * 1000) / 10, mem: r.mem ?? 0, maxmem: r.maxmem ?? 0,
+      matched_interfaces: ifs.map((i) => ({ iface: i.net_id, ip: i.ip_address, mac: i.mac_address, bridge: i.bridge, vlan_id: i.vlan_tag, vlan_name: NETWORKS.find((v) => v.kind === "vlan" && v.bridge === i.bridge && v.vlan_id === i.vlan_tag)?.name ?? null, network_id: n?.network_id ?? null })),
+      all_group_ids: RAW_GROUPS.filter((y) => y.hits.some(([z]) => z === x)).map((y) => y.group_id),
+    };
+  });
+  const run = members.filter((m) => m.status === "running");
+  return {
+    ...g, vlan_id: n?.vlan_id ?? null, bridge: n?.bridge ?? null, subnet_cidr: n?.subnet_cidr ?? null, gateway_ip: n?.gateway_ip ?? null, dhcp_range: n?.dhcp_range ?? null,
+    network_kind: n?.kind ?? null, dhcp_active: !!n?.dhcp_active, dns_servers: n?.dns_servers ?? [], members,
+    device_count: n?.network_id === "br0" ? SCAN_BR0.devices.filter((d) => !d.is_managed_guest && !d.is_solardeck_host).length : n?.network_id === "vlan-20" ? 7 : 0,
+    total_guests: members.length, running_guests: run.length, total_vcpu: members.reduce((a, m) => a + m.vcpu, 0),
+    allocated_ram_mb: Math.floor(members.reduce((a, m) => a + m.maxmem, 0) / 2 ** 20), used_ram_mb: Math.floor(run.reduce((a, m) => a + m.mem, 0) / 2 ** 20),
+    avg_cpu_pct: run.length ? Math.round((10 * run.reduce((a, m) => a + m.cpu_pct, 0)) / run.length) / 10 : 0,
+  };
+});
+ARCH_OVERVIEW.semantic_groups = COMPUTE_GROUPS.map((g) => ({
+  ...g, members: g.members.map((m) => ({ guest_type: m.guest_type, guest_id: m.guest_id, interfaces: m.matched_interfaces, group_count: m.all_group_ids.length })),
+}));
 const VHW_CATALOG = {
   devices: [
     { type: "hd_audio", category: "audio", bus: "PCIe", guest_types: ["vm", "lxc"], hotplug: false, single: true, options: [] },
@@ -889,6 +931,8 @@ const MODULE_PATTERNS = [
 const EXACT = {
   ...MODULE_FIXTURES,
   "/architecture/overview": () => ARCH_OVERVIEW,
+  "/compute/groups": () => ({ groups: COMPUTE_GROUPS }),
+  "/compute/groups/suggest": () => ({ suggested_name: "VLAN 20 · Smart Home", suggested_color: "#22c55e", linked_network_id: "vlan-20", source_label: "VLAN 20 · Smart Home", network_kind: "vlan" }),
   "/virtual-hardware/catalog": () => VHW_CATALOG,
   "/virtual-hardware/labs/sandbox": () => ({ labs: [LAB] }),
   "/cluster/status": () => CLUSTER_STATUS,

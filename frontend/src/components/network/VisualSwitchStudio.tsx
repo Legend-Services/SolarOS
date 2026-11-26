@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { useFeatureEnabled } from "../../store/featureStore";
 import { Cable, CircleHelp, Globe, Layers, Network, Pencil, Plus, RefreshCw, Router, Server, ShieldCheck, Trash2, Undo2, Wifi } from "lucide-react";
 import { VipsPanel } from "../cluster/ClusterDialogs";
+import { GroupZoomPills } from "../compute/ComputeGroupSection";
 import { api, ApiError } from "../../lib/api";
 import type { Guest } from "../../lib/types";
 import { useTranslation, type TKey } from "../../i18n";
@@ -357,6 +358,8 @@ export default function VisualSwitchStudio() {
           <GlassButton onClick={() => setAddNic(state.default_bridge)}><Cable size={13} />{t("vsw.addVnic")}</GlassButton>
           <GlassButton variant="primary" onClick={() => setEditBridge("new")}><Plus size={13} />{t("vsw.addSwitch")}</GlassButton>
         </header>
+
+        <GroupZoomPills />
 
         {/* Faceplates */}
         {state.bridges.map((b) => (

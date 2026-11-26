@@ -1007,7 +1007,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/PowerBody"
+        "$ref": "#/components/schemas/app__system__PowerBody"
        }
       }
      },
@@ -2108,7 +2108,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/GroupBody"
+        "$ref": "#/components/schemas/app__access__GroupBody"
        }
       }
      },
@@ -16602,6 +16602,262 @@
     }
    }
   },
+  "/api/compute/groups": {
+   "get": {
+    "tags": [
+     "compute_groups"
+    ],
+    "summary": "List Groups",
+    "operationId": "list_groups_api_compute_groups_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "compute_groups"
+    ],
+    "summary": "Create",
+    "operationId": "create_api_compute_groups_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/app__compute_groups__GroupBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/compute/groups/suggest": {
+   "get": {
+    "tags": [
+     "compute_groups"
+    ],
+    "summary": "Suggest Route",
+    "operationId": "suggest_route_api_compute_groups_suggest_get",
+    "parameters": [
+     {
+      "name": "guest_ids",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "maxLength": 2000,
+       "default": "",
+       "title": "Guest Ids"
+      }
+     },
+     {
+      "name": "network_id",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string",
+         "pattern": "^[A-Za-z0-9_.-]{1,24}$"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Network Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/compute/groups/{group_id}": {
+   "put": {
+    "tags": [
+     "compute_groups"
+    ],
+    "summary": "Update",
+    "operationId": "update_api_compute_groups__group_id__put",
+    "parameters": [
+     {
+      "name": "group_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^[A-Za-z0-9_.-]{1,40}$",
+       "title": "Group Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/app__compute_groups__GroupBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "compute_groups"
+    ],
+    "summary": "Delete",
+    "operationId": "delete_api_compute_groups__group_id__delete",
+    "parameters": [
+     {
+      "name": "group_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^[A-Za-z0-9_.-]{1,40}$",
+       "title": "Group Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/compute/groups/{group_id}/power": {
+   "post": {
+    "tags": [
+     "compute_groups"
+    ],
+    "summary": "Power",
+    "operationId": "power_api_compute_groups__group_id__power_post",
+    "parameters": [
+     {
+      "name": "group_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^[A-Za-z0-9_.-]{1,40}$",
+       "title": "Group Id"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/app__compute_groups__PowerBody"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/system/themes/wallpapers/{filename}": {
    "get": {
     "tags": [
@@ -19235,27 +19491,6 @@
     ],
     "title": "GpuBody"
    },
-   "GroupBody": {
-    "properties": {
-     "groupid": {
-      "type": "string",
-      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
-      "title": "Groupid"
-     },
-     "comment": {
-      "type": "string",
-      "maxLength": 500,
-      "pattern": "^[^\\n]*$",
-      "title": "Comment",
-      "default": ""
-     }
-    },
-    "type": "object",
-    "required": [
-     "groupid"
-    ],
-    "title": "GroupBody"
-   },
    "GuestConfigBody": {
     "properties": {
      "cores": {
@@ -20381,6 +20616,30 @@
     ],
     "title": "MaintenanceBody"
    },
+   "Member": {
+    "properties": {
+     "guest_type": {
+      "type": "string",
+      "enum": [
+       "vm",
+       "lxc"
+      ],
+      "title": "Guest Type"
+     },
+     "guest_id": {
+      "type": "integer",
+      "maximum": 999999999,
+      "minimum": 1,
+      "title": "Guest Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "guest_type",
+     "guest_id"
+    ],
+    "title": "Member"
+   },
    "MemberBody": {
     "properties": {
      "device": {
@@ -21294,23 +21553,6 @@
      "int_ip"
     ],
     "title": "PortForward"
-   },
-   "PowerBody": {
-    "properties": {
-     "command": {
-      "type": "string",
-      "enum": [
-       "reboot",
-       "shutdown"
-      ],
-      "title": "Command"
-     }
-    },
-    "type": "object",
-    "required": [
-     "command"
-    ],
-    "title": "PowerBody"
    },
    "ProviderCapabilities": {
     "properties": {
@@ -23891,6 +24133,27 @@
     ],
     "title": "ZoneBody"
    },
+   "app__access__GroupBody": {
+    "properties": {
+     "groupid": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+      "title": "Groupid"
+     },
+     "comment": {
+      "type": "string",
+      "maxLength": 500,
+      "pattern": "^[^\\n]*$",
+      "title": "Comment",
+      "default": ""
+     }
+    },
+    "type": "object",
+    "required": [
+     "groupid"
+    ],
+    "title": "GroupBody"
+   },
    "app__access__PasswordBody": {
     "properties": {
      "password": {
@@ -24177,6 +24440,71 @@
     },
     "type": "object",
     "title": "TokenBody"
+   },
+   "app__compute_groups__GroupBody": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 64,
+      "minLength": 1,
+      "title": "Name"
+     },
+     "color": {
+      "type": "string",
+      "pattern": "^#[0-9a-fA-F]{6}$",
+      "title": "Color",
+      "default": "#38bdf8"
+     },
+     "description": {
+      "type": "string",
+      "maxLength": 500,
+      "title": "Description",
+      "default": ""
+     },
+     "linked_network_id": {
+      "anyOf": [
+       {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9_.-]{1,24}$"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Linked Network Id"
+     },
+     "members": {
+      "items": {
+       "$ref": "#/components/schemas/Member"
+      },
+      "type": "array",
+      "maxItems": 1000,
+      "title": "Members"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "title": "GroupBody"
+   },
+   "app__compute_groups__PowerBody": {
+    "properties": {
+     "action": {
+      "type": "string",
+      "enum": [
+       "start",
+       "shutdown",
+       "reboot"
+      ],
+      "title": "Action"
+     }
+    },
+    "type": "object",
+    "required": [
+     "action"
+    ],
+    "title": "PowerBody"
    },
    "app__disaster_recovery__RestoreBody": {
     "properties": {
@@ -24908,6 +25236,23 @@
      "new_password"
     ],
     "title": "PasswordBody"
+   },
+   "app__system__PowerBody": {
+    "properties": {
+     "command": {
+      "type": "string",
+      "enum": [
+       "reboot",
+       "shutdown"
+      ],
+      "title": "Command"
+     }
+    },
+    "type": "object",
+    "required": [
+     "command"
+    ],
+    "title": "PowerBody"
    },
    "app__updater__ApplyBody": {
     "properties": {

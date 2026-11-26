@@ -99,6 +99,9 @@ export const APP_DOCS: Partial<Record<AppId, Doc>> = {
     steps: [
       "Press “New VM” or “New Container” to start the guided wizard.",
       "Use the play, stop and restart buttons on a row to control a guest.",
+      "Pick Grouped or Flat List in the toolbar. Grouped shows every network, VLAN and isolated lab as its own collapsible group, plus your custom groups and the ungrouped rest; the pills filter to All Groups, Networks & VLANs or Custom Groups.",
+      "Press Start Group or Stop Group on a group's header to power every member at once; a progress card follows the batch.",
+      "Press + Create Group (or Assign to Group… on a guest) to make a custom group; picking a machine on a named VLAN, switch or lab fills in the group name and color for you.",
       "Click a guest's name to open its settings drawer: CPU, memory, disks, network cards, snapshots and passthrough devices.",
       "Press Console (VMs) or Shell (containers) to see the screen or get a root prompt.",
       "The drawer's Virtual Hardware & Lab tab adds emulated devices (HD audio + microphone, retro sound, virtual webcam, SAS/RAID HBA, NVMe, 56k modem, 10 Mbps NIC, TPM 2.0, smartcard reader, watchdog, entropy) and throttles CPU speed and network links (10 Mbps, 56k modem, 4G, custom latency and packet loss).",
@@ -109,8 +112,27 @@ export const APP_DOCS: Partial<Record<AppId, Doc>> = {
       "Click a network line or switch node in the wireframe to re-patch that network card to another virtual switch, physical bridge, router, VLAN or isolated lab in one click; the host node shows Standalone Mode or the cluster's preferred active host, standby hosts, ZFS sync and floating VIP.",
     ],
     tips: ["Install media lives in the ISO & Template Library; download an ISO there before creating a VM.", "Legacy PCI and ISA devices need a power cycle (shut down, then start) before a running VM sees them."],
-    keywords: "docker engine compose stack portainer vm virtual machine container lxc guest create start stop console snapshot compute virtual hardware audio microphone webcam capture modem 56k nvme sas raid hba tpm smartcard watchdog rng throttle cpu limit bandwidth latency packet loss retro lab sandbox air gap isolated multi seat multiseat workstation station gpu monitor usb port keyboard mouse plug assign cpu pinning cluster host live migration migrate high availability ha failover standby wireframe architecture blueprint schematic form view hardware inspector identity device name device manager vendor id device id vid pid serial number mac address randomize nic model pci slot repatch re-patch endpoint change network",
+    keywords: "group groups grouped flat list custom group network group vlan group multi homed multihomed two networks assign to group group power start group stop group auto fill docker engine compose stack portainer vm virtual machine container lxc guest create start stop console snapshot compute virtual hardware audio microphone webcam capture modem 56k nvme sas raid hba tpm smartcard watchdog rng throttle cpu limit bandwidth latency packet loss retro lab sandbox air gap isolated multi seat multiseat workstation station gpu monitor usb port keyboard mouse plug assign cpu pinning cluster host live migration migrate high availability ha failover standby wireframe architecture blueprint schematic form view hardware inspector identity device name device manager vendor id device id vid pid serial number mac address randomize nic model pci slot repatch re-patch endpoint change network",
     more: [
+      {
+        id: "smart-groups",
+        title: "Smart Compute Groups & Multi-Homed Machines",
+        body: "In the Grouped view, Compute Manager sorts your machines the way your network is built. Every virtual switch, VLAN and isolated lab is an automatic Network Group holding each VM and container with a network adapter on it; Custom Groups hold any machines you choose, optionally linked to a network; Ungrouped lists the machines on no named network or group, so nothing is ever hidden. Each group header shows its color, origin (for example VLAN 20 · Network Group or Custom Group), subnet and DHCP, how many members run, their combined vCPU, average CPU and memory, and Start Group / Stop Group buttons. A machine with adapters on several networks, or in several groups, appears in every one of them: under its name you see the adapter and IP address it uses in that group (such as net1 · 10.10.40.12) and a 2 Networks or 3 Groups badge that lists every group it belongs to.",
+        steps: [
+          "Press + Create Group, tick the VMs and containers that belong together and press Save Group.",
+          "As soon as you tick a machine on a named VLAN, switch or lab, the name and accent color fill in from that network (Auto-filled from VLAN 20 · Production — edit anytime); type your own name to keep it.",
+          "Link the group to a network to show that network's adapters, subnet and DHCP on the group, or leave it unlinked.",
+          "Use Assign to Group… on a machine to add it to or remove it from custom groups in one click.",
+          "Press Start Group or Stop Group to power the whole group; machines already in that state are skipped.",
+        ],
+        shot: "compute-groups",
+      },
+      {
+        id: "smart-groups-create",
+        title: "Create Group: Automatic Names from VLANs and Networks",
+        body: "The Create Group dialog lists every VM and container with the networks it sits on. Ticking a machine looks up the network the selected machines share most, preferring a VLAN or isolated lab over a plain switch, and fills in the group name and accent color from it with a small Auto-filled from … hint. Picking a Linked network does the same. Once you type a name yourself, auto-fill stops.",
+        shot: "compute-group-create",
+      },
       {
         id: "docker",
         title: "Built-In Docker Engine & Compose",
@@ -138,18 +160,26 @@ export const APP_DOCS: Partial<Record<AppId, Doc>> = {
     ],
   },
   architect: {
-    intro: "Network Architect draws your whole environment as a live blueprint: the standalone host or every cluster host with quorum and floating VIPs, the gateway and physical switch neighbors, network ports, virtual switches, VLANs with DHCP and DNS badges, isolated labs, and every VM and container with its IP addresses. Click a network to drill into it and scan for every other device on it.",
+    intro: "Network Architect draws your whole environment at three zoom levels. The Overview shows the standalone host or every cluster host, the network ports, the virtual switches and every network, VLAN, isolated lab and custom group as one card. Zoom in or click a card to open that network or group with its gateway, DHCP and DNS servers and members, then click a machine or the Other Devices hub to inspect it. The Blueprint view still draws the full detailed topology.",
     steps: [
       "Open Network Architect from the App Gallery or with Open Network Architect in Settings › Network & Services › Network Topology.",
-      "Drag to pan, scroll or use + and − to zoom the blueprint.",
-      "Click a switch, VLAN or lab (or pick it under Networks) to open its schematic: router, DHCP server, DNS server, this host and your guests around the network hub.",
+      "Drag to pan and scroll to zoom. The floating bar shows where you are (Overview › VLAN 20 · Production), the zoom level with − and + buttons, and Fit to Screen.",
+      "Level 1 — Overview: every network, VLAN, lab and custom group is a card with its color, subnet, DHCP and DNS badges, the number of managed nodes and discovered devices.",
+      "Level 2 — zoom in past 75 % over a card, or click it, to open that network or group: router, DHCP server, DNS server, this host and every member around the hub. Each member shows the adapter and IP address it uses on this network, and a badge when it is on more networks.",
+      "Level 3 — click a VM or container to open its hardware and console drawer, or click Other Devices (+N) to search the discovered devices. Click Overview in the bar, or zoom back out, to return.",
       "Press Scan Network Now: the host pings the subnet, reads the ARP and DHCP tables, looks up names (reverse DNS and mDNS) and checks common service ports.",
       "More than six other devices are grouped into one Other Devices (+N) hub; click it (or Show Devices) to search and filter them by type.",
       "Each device shows its type icon, name, IP and MAC address with hardware vendor, a functionality badge (e.g. Gateway, DHCP & DNS Resolver; Network Printer; RTSP IP Camera) and its open ports — click the port pills to read what every port is for.",
     ],
     tips: ["A network can only be scanned when the host has an address on it.", "Scans only open a connection to each port and close it again; they never log in or send data."],
-    keywords: "network architect architecture blueprint infrastructure map diagram topology cluster host vip gateway router uplink switch vlan lab dhcp dns scan discover discovery devices subnet port scan open ports printer camera nas phone iot mac vendor oui other devices",
+    keywords: "semantic zoom overview breadcrumb fit to screen zoom level group card drill down multi homed network architect architecture blueprint infrastructure map diagram topology cluster host vip gateway router uplink switch vlan lab dhcp dns scan discover discovery devices subnet port scan open ports printer camera nas phone iot mac vendor oui other devices",
     more: [
+      {
+        id: "semantic-zoom",
+        title: "3-Tier Semantic Zoom",
+        body: "Large environments stay readable because Network Architect changes what it draws as you zoom. Below 75 % you see the Overview: hosts, network ports, virtual switches and one card per network, VLAN, isolated lab and custom group. Zooming in over a card past 75 %, or clicking it, opens that network or group; zooming well back out, or clicking Overview in the breadcrumb bar, returns. From the network view, a click on a machine opens its hardware and console drawer and a click on Other Devices (+N) opens the device explorer. The groups are the same ones Compute Manager shows, and Settings › Network & Services › Virtual Switch & VLANs lists them as pills that open Network Architect zoomed into that group.",
+        shot: "architect-group",
+      },
       {
         id: "network-drill-down",
         title: "Network Drill-Down & Discovered Devices Explorer",
@@ -468,7 +498,7 @@ export const CONTROLS: Control[] = [
   ]),
   ...c("network-switch", [
     { id: "isolated-labs", titleKey: "set.view.labs", tabId: "labs", headingKey: "lab.title", description: "Air-gapped lab networks in one click: a switch without physical ports, a lab VLAN with its own DHCP server and the chosen VMs and containers moved onto it; one click tears it down again.", keywords: "isolated lab sandbox air gap airgapped test network vlan dhcp retro gaming firewall router malware", steps: ["Press New Lab and give the lab a name.", "Pick the subnet, the DHCP range and the guests to isolate.", "Press Launch lab; Tear down returns the guests to their previous network."], tips: ["Lab guests reach only each other and the lab's DHCP server: nothing is routed to your LAN or the internet."] },
-    { id: "visual-switch", titleKey: "set.view.vswitch", tabId: "vswitch", shot: true, description: "Every virtual switch as a rack faceplate with its ports, IP address and VLAN-aware badge.", keywords: "visual switch bridge faceplate ports link speed", steps: ["Click a port to open the Port Inspector.", "Press Edit IP / Switch to change addresses."] },
+    { id: "visual-switch", titleKey: "set.view.vswitch", tabId: "vswitch", shot: true, description: "Every virtual switch as a rack faceplate with its ports, IP address and VLAN-aware badge. Network groups pills above the faceplates show the same groups as Compute Manager; click one to open Network Architect zoomed into it.", keywords: "visual switch bridge faceplate ports link speed", steps: ["Click a port to open the Port Inspector.", "Press Edit IP / Switch to change addresses."] },
     { id: "vlan-patch-panel", anchorId: "vlan-lanes", titleKey: "kb.vlan-patch-panel", tabId: "vswitch", headingKey: "vsw.lanes", shot: true, description: "Color-coded VLAN cards; drag a port onto a card to make it an access port, or onto the trunk zone to carry several VLANs.", keywords: "vlan patch panel drag drop trunk access port tagged untagged cables", steps: ["Press + VLAN to add a VLAN card.", "Drag a port onto the card.", "Press Apply safely and confirm with Keep Settings."] },
     { id: "per-vlan-dhcp", feature: "vlan_dhcp", anchorId: "vlan-lanes", titleKey: "kb.per-vlan-dhcp", tabId: "vswitch", headingKey: "vsw.lanes", description: "An isolated DHCP server per VLAN with gateway, range, DNS, lease time and static reservations.", keywords: "dhcp vlan server range gateway leases reservation static ip", steps: ["Open a VLAN card's DHCP & IP button.", "Set the gateway, range and DNS servers and switch DHCP on.", "Pin a live lease to make it a static reservation."] },
     { id: "virtual-nics", titleKey: "kb.virtual-nics", tabId: "vswitch", description: "Add, edit and remove guest network cards and host VLAN interfaces.", keywords: "virtual nic network card guest mac vlan tag bandwidth", steps: ["Press + Add Virtual NIC on a switch.", "Choose the guest, VLAN tag and adapter model."] },

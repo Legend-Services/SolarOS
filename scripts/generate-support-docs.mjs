@@ -98,9 +98,29 @@ async function capture(page, reg) {
     await page.evaluate(async () => (await import("/src/lib/stores.ts")).useIntent.getState().go("compute", "docker"));
     await settle(page, 900);
   });
+  // Smart Compute Groups: the grouped view with a multi-homed guest's group list open, and the auto-filling Create Group dialog.
+  await snap("compute-groups", async () => {
+    await show(page, { kind: "app", appId: "compute" });
+    await settle(page, 700);
+    await page.getByRole("button", { name: /^\d+ (Networks|Groups)$/ }).first().click();
+    await settle(page, 300);
+  });
+  await snap("compute-group-create", async () => {
+    await show(page, { kind: "app", appId: "compute" });
+    await page.getByRole("button", { name: "Create Group" }).click();
+    await settle(page, 400);
+    await page.locator('[aria-modal="true"]').getByRole("checkbox").first().check(); // media-server, on VLAN 20
+    await settle(page, 600);
+  });
+  // Semantic zoom level 2: a VLAN group with its gateway, services and a multi-homed member.
+  await snap("architect-group", async () => {
+    await show(page, { kind: "app", appId: "architect" });
+    await page.getByRole("button", { name: "Zoom into VLAN 20 · Smart Home" }).click();
+    await settle(page, 700);
+  });
   await snap("architect-network", async () => {
     await show(page, { kind: "app", appId: "architect" });
-    await page.getByRole("button", { name: "Open the network view of br0" }).click();
+    await page.getByRole("button", { name: "Zoom into br0" }).first().click();
     await settle(page, 600);
     await page.getByRole("button", { name: /^Other Devices/ }).click();
     await settle(page, 500);
