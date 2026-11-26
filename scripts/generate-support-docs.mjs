@@ -127,8 +127,17 @@ async function capture(page, reg) {
   });
   for (const c of reg.categories) await snap(`settings-${c}`, () => show(page, { kind: "settings", category: c }).then(() => page.waitForTimeout(400)));
   for (const m of reg.modules) await snap(`settings-${m}`, () => show(page, { kind: "settings", module: m }));
+  // Controls that live inside a dialog: open it after navigating to the control's tab.
+  const deep = {
+    "vlan-templates": async () => {
+      await page.getByRole("button", { name: "Create New VLAN" }).click();
+      await settle(page, 400);
+      await page.getByRole("button", { name: "60 · DMZ" }).hover();
+      await settle(page, 300);
+    },
+  };
   for (const c of reg.controls.filter((x) => x.shot))
-    await snap(c.slug, () => show(page, { kind: "settings", module: c.moduleId, tab: c.tabId, anchor: c.anchorId }).then(() => page.waitForTimeout(300)));
+    await snap(c.slug, () => show(page, { kind: "settings", module: c.moduleId, tab: c.tabId, anchor: c.anchorId }).then(() => page.waitForTimeout(300)).then(deep[c.id]));
   await snap("help-manual", () => show(page, { kind: "help", article: "settings-network-switch", section: "per-vlan-dhcp", term: "dhcp" }));
   return shots;
 }

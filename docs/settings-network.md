@@ -54,6 +54,30 @@ Color-coded VLAN cards; drag a port onto a card to make it an access port, or on
 
 ![Drag-and-Drop VLAN Patch Panel](screenshots/settings-network-switch--vlan-patch-panel.png)
 
+### VLAN Templates (Management, IoT, Guest, Lab, Cameras, DMZ)
+
+Create New VLAN offers six templates: 10 · Management, 20 · IoT Devices, 30 · Guest Network, 40 · Lab, 50 · Cameras and 60 · DMZ. A click fills in the VLAN ID, name, host IP (10.10.<ID>.1/24), description and color. Hover or keyboard-focus a template to see what the network is for and how it works: every VLAN is its own Layer-2 broadcast domain, kept apart by its 802.1Q tag; its own Layer-3 subnet with the host address as gateway; and firewall zone rules decide which networks it may reach (WAN, LAN, Management).
+
+1. Press + Create New VLAN under the VLAN cards.
+2. Hover a template to read its purpose and technical explanation, then click it.
+3. Adjust the fields if needed and press Save; apply the staged change from the Apply bar.
+
+> **Tip:** 10 · Management: hypervisor, BMC/IPMI and switch management; only trusted admin workstations may connect in.
+
+> **Tip:** 20 · IoT Devices: keeps noisy broadcast/mDNS traffic apart; devices reach the internet or an MQTT broker but cannot start connections into Management or personal PCs.
+
+> **Tip:** 30 · Guest Network: own DHCP pool and DNS resolver, internet only; east-west and inter-VLAN traffic to the LAN is dropped.
+
+> **Tip:** 40 · Lab: an isolated broadcast domain where experimental DHCP servers, gateways and packet captures cannot cause IP conflicts on your main network.
+
+> **Tip:** 50 · Cameras: high-bitrate RTSP/ONVIF streams stay inside the VLAN, usually without internet access, talking only to the local NVR.
+
+> **Tip:** 60 · DMZ: a screened buffer subnet for internet-facing services (reverse proxy, web, mail relay, game servers) between WAN port-forwards and the LAN; a compromised guest there cannot pivot into Management (VLAN 10) or internal storage.
+
+> **Tip:** The isolation between VLANs comes from the firewall: add matching zones and rules in Firewall & Zones.
+
+![VLAN Templates (Management, IoT, Guest, Lab, Cameras, DMZ)](screenshots/settings-network-switch--vlan-templates.png)
+
 ### Per-VLAN DHCP Server
 
 An isolated DHCP server per VLAN with gateway, range, DNS, lease time and static reservations.

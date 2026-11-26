@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useFeatureEnabled } from "../../store/featureStore";
 import { Cable, CircleHelp, Globe, Layers, Network, Pencil, Plus, RefreshCw, Router, Server, ShieldCheck, Trash2, Undo2, Wifi } from "lucide-react";
 import { VipsPanel } from "../cluster/ClusterDialogs";
@@ -26,14 +27,18 @@ interface Lease { ip: string; mac: string; hostname: string; expires_at: number;
 interface Port { kind: "physical" | "host_vnic" | "guest_vnic"; id: string; bridge: string | null; label: string; sub: string; mode: VlanMode; access: number | null; tagged: number[]; up: boolean; speed: number | null; physical?: Physical; host?: HostVnic; guest?: GuestVnic }
 
 const DEFAULT_COLOR = "#94a3b8";
-const PRESETS: { id: number; key: TKey; color: string }[] = [
-  { id: 10, key: "vsw.preset.mgmt", color: "#38bdf8" },
-  { id: 20, key: "vsw.preset.iot", color: "#22c55e" },
-  { id: 30, key: "vsw.preset.guest", color: "#f59e0b" },
-  { id: 40, key: "vsw.preset.lab", color: "#a855f7" },
-  { id: 50, key: "vsw.preset.cameras", color: "#ef4444" },
+/** Quick-select VLAN templates; `reach` drives the WAN / LAN / Management badges in the educational tooltip. */
+const PRESETS: { id: number; slug: string; color: string; reach: { wan: boolean; lan: boolean; mgmt: boolean } }[] = [
+  { id: 10, slug: "mgmt", color: "#38bdf8", reach: { wan: true, lan: true, mgmt: true } },
+  { id: 20, slug: "iot", color: "#22c55e", reach: { wan: true, lan: false, mgmt: false } },
+  { id: 30, slug: "guest", color: "#f59e0b", reach: { wan: true, lan: false, mgmt: false } },
+  { id: 40, slug: "lab", color: "#a855f7", reach: { wan: true, lan: false, mgmt: false } },
+  { id: 50, slug: "cameras", color: "#ef4444", reach: { wan: false, lan: true, mgmt: false } },
+  { id: 60, slug: "dmz", color: "#f97316", reach: { wan: true, lan: false, mgmt: false } },
 ];
-const SWATCHES = ["#38bdf8", "#22c55e", "#f59e0b", "#a855f7", "#ef4444", "#ec4899", "#14b8a6", "#eab308"];
+type Preset = (typeof PRESETS)[number];
+const presetKey = (p: Preset, part?: "desc" | "purpose" | "how") => `vsw.preset.${p.slug}${part ? `.${part}` : ""}` as TKey;
+const SWATCHES = ["#38bdf8", "#22c55e", "#f59e0b", "#a855f7", "#ef4444", "#f97316", "#ec4899", "#14b8a6", "#eab308"];
 const DRAG_TYPE = "application/x-solardeck-port";
 
 /* ---------- IPv4 helpers (validation + range bar) */
@@ -756,6 +761,72 @@ function BridgeModal({ bridge, state, busy, onClose, run }: { bridge: Bridge | n
   );
 }
 
+/* ---------- VLAN template pill with an educational hover / focus tooltip */
+function PresetPill({ preset: p, onPick }: { preset: Preset; onPick: () => void }) {
+  const { t } = useTranslation();
+  const [pos, setPos] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
+  const tipId = `vsw-preset-tip-${p.id}`;
+  const show = (el: HTMLElement) => {
+    const r = el.getBoundingClientRect();
+    const left = Math.max(8, Math.min(r.left, window.innerWidth - 328)); // 320px card + 8px margin
+    // Flip above the pill when there is too little room below it.
+    setPos(window.innerHeight - r.bottom > 300 ? { left, top: r.bottom + 6 } : { left, bottom: window.innerHeight - r.top + 6 });
+  };
+  const hide = () => setPos(null);
+  const reach = (ok: boolean, label: string) => <GlassBadge tone={ok ? "success" : "danger"}>{ok ? "✓" : "✕"} {label}</GlassBadge>;
+  return (
+    <>
+      <GlassButton
+        size="xs"
+        onClick={onPick}
+        onMouseEnter={(e) => show(e.currentTarget)}
+        onMouseLeave={hide}
+        onFocus={(e) => show(e.currentTarget)}
+        onBlur={hide}
+        aria-describedby={pos ? tipId : undefined}
+      >
+        <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />
+        {p.id} · {t(presetKey(p))}
+      </GlassButton>
+      {pos &&
+        createPortal(
+          <div
+            id={tipId}
+            role="tooltip"
+            className="glass-panel pointer-events-none fixed z-[10000] w-80 space-y-2 rounded-xl border border-[var(--sd-border-hairline)] p-3 text-[11px] leading-relaxed text-[var(--sd-text-secondary)]"
+            style={{ ...pos, backgroundImage: "linear-gradient(var(--sd-surface-card), var(--sd-surface-card))" }}
+          >
+            <div className="flex items-center gap-2 text-xs font-semibold text-[var(--sd-text-primary)]">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ background: p.color }} />
+              {p.id} · {t(presetKey(p))}
+            </div>
+            <div>
+              <div className="font-semibold text-[var(--sd-text-primary)]">{t("vsw.tip.purpose")}</div>
+              {t(presetKey(p, "purpose"))}
+            </div>
+            <div>
+              <div className="font-semibold text-[var(--sd-text-primary)]">{t("vsw.tip.how")}</div>
+              {t(presetKey(p, "how"))}
+            </div>
+            <div className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-0.5 font-mono text-[10px]">
+              <span>{t("vsw.tip.l2")}</span>
+              <span className="text-[var(--sd-text-primary)]">802.1Q · tag {p.id}</span>
+              <span>{t("vsw.tip.l3")}</span>
+              <span className="text-[var(--sd-text-primary)]">10.10.{p.id}.0/24 · gw 10.10.{p.id}.1</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-1">
+              <span className="mr-0.5">{t("vsw.tip.reaches")}</span>
+              {reach(p.reach.wan, "WAN")}
+              {reach(p.reach.lan, "LAN")}
+              {reach(p.reach.mgmt, t("vsw.preset.mgmt"))}
+            </div>
+          </div>,
+          document.body,
+        )}
+    </>
+  );
+}
+
 /* ---------- VLAN editor with presets + color picker */
 function VlanModal({ vlan, state, busy, onClose, run }: { vlan: Vlan | null; state: SwitchState; busy: boolean; onClose: () => void; run: Run }) {
   const { t } = useTranslation();
@@ -794,10 +865,7 @@ function VlanModal({ vlan, state, busy, onClose, run }: { vlan: Vlan | null; sta
             <div className="mb-1.5 text-[11px] text-slate-400">{t("vsw.presets")}</div>
             <div className="flex flex-wrap gap-1.5">
               {PRESETS.map((p) => (
-                <GlassButton key={p.id} size="xs" onClick={() => set({ vlan_id: p.id, name: t(p.key), color: p.color })}>
-                  <span className="h-2 w-2 rounded-full" style={{ background: p.color }} />
-                  {p.id} · {t(p.key)}
-                </GlassButton>
+                <PresetPill key={p.id} preset={p} onPick={() => set({ vlan_id: p.id, name: t(presetKey(p)), color: p.color, host: `10.10.${p.id}.1/24`, description: t(presetKey(p, "desc")) })} />
               ))}
             </div>
           </div>
