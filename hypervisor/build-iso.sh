@@ -182,6 +182,12 @@ EOF
   M="$WORK/minimal"
   unsquashfs -q -n -d "$M" "$SQUASH" >/dev/null || die "cannot unpack ${SQUASH##*/}"
   install -D -m 644 "$R/solardeck-offline.gpg" "$M/etc/apt/trusted.gpg.d/solardeck-offline.gpg"
+  install -D -m 644 "$R/solardeck-offline.gpg" "$M/usr/share/keyrings/solardeck-offline.gpg"
+  # The image's ubuntu.sources pins Ubuntu's keyring (curtin points it at file:///cdrom): accept ours too. Its package
+  # lists from Ubuntu's build would make apt reject the archive's changed Origin: drop them (apt rebuilds them).
+  sed -i -E 's|^(Signed-By: /usr/share/keyrings/ubuntu-archive-keyring\.gpg)$|\1 /usr/share/keyrings/solardeck-offline.gpg|' \
+    "$M/etc/apt/sources.list.d/ubuntu.sources" 2>/dev/null || true
+  find "$M/var/lib/apt/lists" -maxdepth 1 -type f ! -name lock -delete 2>/dev/null || true
   COMP="$(unsquashfs -s "$SQUASH" | sed -n 's/^Compression //p')"
   mksquashfs "$M" "$SQUASH.new" -comp "${COMP:-xz}" -noappend -quiet >/dev/null || die "cannot repack ${SQUASH##*/}"
   du -sx --block-size=1 "$M" | cut -f1 >"${SQUASH%.squashfs}.size"
