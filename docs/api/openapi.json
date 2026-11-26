@@ -8912,7 +8912,7 @@
        "schema": {
         "anyOf": [
          {
-          "$ref": "#/components/schemas/ApplyBody"
+          "$ref": "#/components/schemas/app__updater__ApplyBody"
          },
          {
           "type": "null"
@@ -8975,7 +8975,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/ApplyBody"
+        "$ref": "#/components/schemas/app__updater__ApplyBody"
        }
       }
      },
@@ -16229,6 +16229,159 @@
     }
    }
   },
+  "/api/system/features": {
+   "get": {
+    "tags": [
+     "features"
+    ],
+    "summary": "Get Features",
+    "operationId": "get_features_api_system_features_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "tags": [
+     "features"
+    ],
+    "summary": "Put Features",
+    "operationId": "put_features_api_system_features_put",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/FeaturesBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/onboarding/state": {
+   "get": {
+    "tags": [
+     "onboarding"
+    ],
+    "summary": "State",
+    "operationId": "state_api_onboarding_state_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/onboarding/apply": {
+   "post": {
+    "tags": [
+     "onboarding"
+    ],
+    "summary": "Apply",
+    "operationId": "apply_api_onboarding_apply_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/app__onboarding__ApplyBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/onboarding/skip": {
+   "post": {
+    "tags": [
+     "onboarding"
+    ],
+    "summary": "Skip",
+    "description": "Skip Setup & Use Defaults: every feature stays as it is, no tour.",
+    "operationId": "skip_api_onboarding_skip_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/onboarding/tour-complete": {
+   "post": {
+    "tags": [
+     "onboarding"
+    ],
+    "summary": "Tour Complete",
+    "operationId": "tour_complete_api_onboarding_tour_complete_post",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/system/themes/wallpapers/{filename}": {
    "get": {
     "tags": [
@@ -16952,29 +17105,6 @@
      "cidr"
     ],
     "title": "AliasBody"
-   },
-   "ApplyBody": {
-    "properties": {
-     "target_ref": {
-      "anyOf": [
-       {
-        "type": "string",
-        "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$"
-       },
-       {
-        "type": "null"
-       }
-      ],
-      "title": "Target Ref"
-     },
-     "include_system_packages": {
-      "type": "boolean",
-      "title": "Include System Packages",
-      "default": false
-     }
-    },
-    "type": "object",
-    "title": "ApplyBody"
    },
    "AssignBody": {
     "properties": {
@@ -18701,6 +18831,23 @@
      "device"
     ],
     "title": "EgpuBody"
+   },
+   "FeaturesBody": {
+    "properties": {
+     "enabled": {
+      "additionalProperties": {
+       "type": "boolean"
+      },
+      "type": "object",
+      "maxProperties": 28,
+      "title": "Enabled"
+     }
+    },
+    "type": "object",
+    "required": [
+     "enabled"
+    ],
+    "title": "FeaturesBody"
    },
    "FwOptions": {
     "properties": {
@@ -24048,6 +24195,54 @@
     ],
     "title": "DhcpBody"
    },
+   "app__onboarding__ApplyBody": {
+    "properties": {
+     "selected_roles": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 20,
+      "title": "Selected Roles",
+      "default": []
+     },
+     "cluster_intent": {
+      "type": "string",
+      "enum": [
+       "standalone",
+       "create_cluster",
+       "join_cluster"
+      ],
+      "title": "Cluster Intent",
+      "default": "standalone"
+     },
+     "enabled_features": {
+      "additionalProperties": {
+       "type": "boolean"
+      },
+      "type": "object",
+      "maxProperties": 28,
+      "title": "Enabled Features",
+      "default": {}
+     },
+     "selected_app_ids": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 7,
+      "title": "Selected App Ids",
+      "default": []
+     },
+     "skip_tour": {
+      "type": "boolean",
+      "title": "Skip Tour",
+      "default": false
+     }
+    },
+    "type": "object",
+    "title": "ApplyBody"
+   },
    "app__platform_modules__ProfileBody": {
     "properties": {
      "enabled": {
@@ -24456,6 +24651,29 @@
      "new_password"
     ],
     "title": "PasswordBody"
+   },
+   "app__updater__ApplyBody": {
+    "properties": {
+     "target_ref": {
+      "anyOf": [
+       {
+        "type": "string",
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Target Ref"
+     },
+     "include_system_packages": {
+      "type": "boolean",
+      "title": "Include System Packages",
+      "default": false
+     }
+    },
+    "type": "object",
+    "title": "ApplyBody"
    },
    "app__ups_power__ProfileBody": {
     "properties": {

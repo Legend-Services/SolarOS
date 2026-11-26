@@ -9,6 +9,7 @@ import { AppListRow } from "./ViewOptions";
 import { WidgetSlotArea } from "./DesktopWidgets";
 import WidgetStudioDrawer from "./WidgetStudioDrawer";
 import { useWidgets } from "../store/widgetStore";
+import { useVisibility } from "../store/featureStore";
 import { useTranslation } from "../i18n";
 import { AppIcon } from "./icons/AppIcons";
 import DesktopContextMenu from "./DesktopContextMenu";
@@ -28,9 +29,10 @@ export default function Desktop() {
       desktopMaxColumns: s.desktopMaxColumns, iconClick: s.iconClick, showDesktopIcons: s.showDesktopIcons, desktopIconOrder: s.desktopIconOrder, setLayout: s.set,
     })),
   );
-  const shortcuts = [...desktopIconOrder, ...APP_IDS.filter((id) => !desktopIconOrder.includes(id))];
-  // 2D pointer reorder of the shortcuts (grid and list view); saved once, on release.
-  const reorder = useSmoothReorder(shortcuts, (next) => setLayout({ desktopIconOrder: next }), { axis: "xy" });
+  const appOn = useVisibility().app;
+  const shortcuts = [...desktopIconOrder, ...APP_IDS.filter((id) => !desktopIconOrder.includes(id))].filter(appOn);
+  // 2D pointer reorder of the shortcuts (grid and list view); saved once, on release. Hidden apps keep their place.
+  const reorder = useSmoothReorder(shortcuts, (next) => setLayout({ desktopIconOrder: [...next, ...desktopIconOrder.filter((id) => !appOn(id))] }), { axis: "xy" });
   const dockSize = useDock((s) => s.baseSize);
   const { top, bottom } = useInsets();
   // Dock layout: clear the floating Dock; taskbar layout: clear the taskbar.
@@ -113,7 +115,7 @@ export default function Desktop() {
 
       {/* Widgets: right column, with optional left column and middle grid (Widget Studio). */}
       {showWidgets && (
-        <div className="ml-auto hidden shrink-0 flex-col gap-4 md:flex">
+        <div className="ml-auto hidden shrink-0 flex-col gap-4 md:flex" data-tour="widgets">
           {error && <div className="glass w-80 rounded-xl px-3 py-2 text-xs text-rose-300">{error}</div>}
           <WidgetSlotArea slot="right" className="!flex" />
           {!editing && (

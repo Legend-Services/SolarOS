@@ -151,3 +151,10 @@ Help & Support holds this manual, an offline “Ask” search, one-click problem
 3. Press “Open This Setting / App →” in an article to jump straight to that screen.
 4. Fix problems runs a health check and fixes common issues for you.
 
+### Interactive Desktop Tour
+
+Five Liquid Glass speech balloons point at the live desktop: the TopBar search (⌘K), the system tray and Task Center, the desktop widgets with Edit Widgets, the Dock or taskbar with your apps, and Settings › Features & Services. It starts by itself after the Server Setup Wizard unless you ticked Skip interactive get-started guide, and any time from Start tour on the Help & Support home page or the top bar's help menu.
+
+1. Press Start tour.
+2. Use Next and Back, or press Skip Guide (×) or Escape to end it at any step.
+

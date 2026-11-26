@@ -18,6 +18,8 @@ from providers.registry import get_provider  # noqa: E402
 
 config.ENV_FILE = tmp / ".env"
 config.ENV_FILE.write_text("JWT_SECRET=x\n")
+from app import onboarding  # noqa: E402
+onboarding.STATE = tmp / "onboarding_state.json"  # setup opens the Server Setup Wizard (asserted below)
 calls = []
 
 
@@ -60,6 +62,7 @@ assert r.status_code == 200 and r.json()["username"] == "ty" and r.json()["token
 assert calls == [("ty", "Solar-Panel 42")]
 assert not settings.setup_code_file.exists()
 assert c.get("/api/auth/setup").json() == {"required": False}
+assert onboarding.load()["onboarding_completed"] is False  # a fresh install opens the wizard
 env = config.ENV_FILE.read_text()
 assert "Solar-Panel 42" not in env and "ADMIN_PASSWORD_HASH='scrypt$" in env and "ADMIN_USERNAME='ty'" in env, env
 assert c.post("/api/auth/setup", json={**good, "code": code}).status_code == 409  # only once

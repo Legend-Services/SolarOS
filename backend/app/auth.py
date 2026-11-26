@@ -213,6 +213,8 @@ async def setup(body: SetupBody, request: Request, response: Response):
     accounts.set_admin(body.username, body.password)
     settings.setup_code_file.unlink(missing_ok=True)
     save_security({**load_security(), "weak_password": False})
+    from . import onboarding  # lazy: onboarding imports apps, which imports this module
+    onboarding.first_run()
     audit_log.record("admin.setup", user=body.username, ip=client_ip(request))
     return _set_session(request, response, body.username)
 

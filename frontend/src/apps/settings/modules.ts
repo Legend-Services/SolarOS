@@ -1,6 +1,6 @@
 import {
   Activity, ArchiveRestore, Award, BatteryCharging, BellRing, Boxes, BrainCircuit, Cog, Cpu, Database, Disc3, FileClock, Flame, Globe, HardDrive, KeyRound, Layers, LayoutGrid,
-  MonitorCog, Network, Package, Palette, Power, Route, Server, Share2, ShieldAlert, ShieldCheck, Users, Waypoints, Workflow, type LucideIcon,
+  MonitorCog, Network, Package, Palette, Power, Route, Server, Share2, ShieldAlert, ShieldCheck, ToggleRight, Users, Waypoints, Workflow, type LucideIcon,
 } from "lucide-react";
 import type { AppId } from "../registry";
 
@@ -20,6 +20,7 @@ export const CATEGORY_META: Record<CategoryId, { icon: LucideIcon; tint: string 
 /** `guide`: the App Guide shown by the breadcrumb "? Guide" button. */
 export const MODULES = {
   "general-appearance": { cat: "system", icon: Palette, tint: "from-pink-400 to-rose-600", guide: "controlpanel" },
+  "features-services": { cat: "system", icon: ToggleRight, tint: "from-cyan-300 to-violet-600", guide: "settings" },
   "hardware-gpu": { cat: "system", icon: Cpu, tint: "from-emerald-400 to-teal-600", guide: "controlpanel" },
   "bios-firmware": { cat: "system", icon: MonitorCog, tint: "from-lime-300 to-green-600", guide: "help" },
   "resource-monitor": { cat: "system", icon: Activity, tint: "from-cyan-300 to-blue-600", guide: "monitor" },
