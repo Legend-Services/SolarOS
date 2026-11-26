@@ -8,6 +8,7 @@ import { useRunner } from "../lib/hooks";
 import { useTelemetry } from "../lib/stores";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassSelect, Notice, Segmented } from "../components/ui/GlassKit";
 import { TaskLog } from "../components/TaskCenter";
+import { useTranslation } from "../i18n";
 
 type Content = "iso" | "vztmpl";
 
@@ -24,6 +25,7 @@ export default function IsoLibrary() {
   const { busy, error, notice, run } = useRunner();
   const [progress, setProgress] = useState<number | null>(null);
   // Only the native driver streams uploads into its own storage; other platforms upload through their own tools.
+  const { t } = useTranslation();
   const canUpload = useDriver() === "native_ubuntu" && content === "iso";
   const stores = targets.filter((t) => t.active && t.content.split(",").includes(content)).map((t) => t.storage);
   const storeKey = stores.join(",");
@@ -99,11 +101,11 @@ export default function IsoLibrary() {
       </form>
       {canUpload && (
         <div className="glass-soft flex flex-wrap items-center gap-3 rounded-2xl p-3">
-          <label className={`inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-sky-500/80 px-3 py-1.5 text-xs font-medium text-white hover:bg-sky-500 ${busy || !store ? "pointer-events-none opacity-50" : ""}`}>
-            <Upload size={13} /> Upload ISO from this computer
+          <label className={`inline-flex cursor-pointer items-center gap-1.5 glass-btn glass-btn-primary rounded-lg px-3 py-1.5 text-xs font-medium text-white ${busy || !store ? "pointer-events-none opacity-50" : ""}`}>
+            <Upload size={13} /> {t("iso.uploadLocal")}
             <input type="file" accept=".iso,.img" className="sr-only" disabled={busy || !store} onChange={(e) => (upload(e.target.files?.[0]), (e.target.value = ""))} />
           </label>
-          <span className="text-[11px] text-slate-400">For installers you cannot download by URL, such as Windows. The file goes to {store || "local"}.</span>
+          <span className="text-[11px] text-slate-400">{t("iso.uploadHint", { store: store || "local" })}</span>
           {progress !== null && (
             <div className="flex w-full items-center gap-2" role="progressbar" aria-valuenow={progress} aria-valuemin={0} aria-valuemax={100}>
               <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">

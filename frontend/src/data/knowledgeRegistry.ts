@@ -335,7 +335,7 @@ export const MODULE_DOCS: Record<ModuleId, Doc> = {
   },
   "network-topology": {
     intro: "An interactive live map of the host, its switches, guests and VPN connections.",
-    steps: ["Drag to pan and scroll to zoom.", "Click a node to see its details and open the screen that owns it.", "Press Open Network Architect for the full infrastructure blueprint with per-network device and port discovery."],
+    steps: ["Scroll the map to see every column; nodes run from the internet uplink through ports and switches to guests and VPN peers.", "Click a node to highlight its connections, see its details and open the screen that owns it.", "Press Open Network Architect for the full infrastructure blueprint with per-network device and port discovery."],
     keywords: "topology map network diagram graph live nodes architect blueprint scan devices",
   },
   "dns-dhcp": {

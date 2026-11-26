@@ -118,7 +118,7 @@ export default function HelpCenterApp() {
           >
             {x.icon}
             <span className="flex-1 max-sm:hidden">{label(x.label)}</span>
-            {x.id === "fix" && problems.length > 0 && <span className="rounded-full bg-amber-400/90 px-1.5 text-[10px] font-bold text-slate-900 max-sm:hidden">{problems.length}</span>}
+            {x.id === "fix" && problems.length > 0 && <span className="rounded-full bg-amber-300 px-1.5 text-[10px] font-bold text-slate-900 max-sm:hidden">{problems.length}</span>}
           </button>
         ))}
       </nav>

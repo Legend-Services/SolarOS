@@ -158,7 +158,7 @@ export default function ConsoleApp({ params }: { params?: ConsoleTarget }) {
           <Expand size={12} />
         </button>
       </div>
-      <div ref={screen} className="min-h-0 flex-1 overflow-hidden bg-[#05070d] p-1" />
+      <div ref={screen} data-audit-ignore className="min-h-0 flex-1 overflow-hidden bg-[#05070d] p-1" />
     </div>
   );
 }

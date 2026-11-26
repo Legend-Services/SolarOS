@@ -63,7 +63,7 @@ export default function SpotlightSearch() {
             aria-expanded
             aria-controls="spotlight-list"
           />
-          <kbd className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-400">ESC</kbd>
+          <kbd className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] text-slate-300">ESC</kbd>
         </div>
         <SearchResults items={items} q={q} sel={sel} setSel={setSel} listRef={list} id="spotlight-list" />
         <SearchFooter />

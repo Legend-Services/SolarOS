@@ -32,3 +32,6 @@ export async function copyText(text: string) {
   document.execCommand("copy");
   ta.remove();
 }
+
+/** Accent color for blueprint SVG strokes/icons: as-is on the dark canvas, darkened (--bp-ink) on the light one. */
+export const ink = (color: string) => `color-mix(in oklab, ${color}, black var(--bp-ink))`;

@@ -47,7 +47,7 @@ export default function WidgetStudioDrawer() {
           </div>
         )}
         {reorder.order.map((wid) => byId.get(wid)!).map((w) => (
-          <div key={w.id} {...reorder.bind(w.id)} className={`glass-soft cursor-grab space-y-2 rounded-xl p-3 ${w.enabled ? "" : "opacity-60"} ${reorder.dragging === w.id ? "cursor-grabbing shadow-lg shadow-black/30" : ""}`}>
+          <div key={w.id} {...reorder.bind(w.id)} className={`glass-soft cursor-grab space-y-2 rounded-xl p-3 ${reorder.dragging === w.id ? "cursor-grabbing shadow-lg shadow-black/30" : ""}`}>
             <div className="flex items-center gap-2">
               <span className="text-slate-300">{WIDGET_META[w.id].icon}</span>
               <span className="min-w-0 flex-1">

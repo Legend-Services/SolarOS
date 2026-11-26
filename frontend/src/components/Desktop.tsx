@@ -121,7 +121,7 @@ export default function Desktop() {
           {!editing && (
             <button
               onClick={() => useWidgets.getState().setEditing(true)}
-              className="glass-soft self-end rounded-full px-3 py-1 text-[11px] text-slate-300 opacity-60 transition-[background-color,border-color,box-shadow,transform,scale,opacity] hover:opacity-100"
+              className="glass-soft self-end rounded-full px-3 py-1 text-[11px] text-slate-300 opacity-90 transition-[background-color,border-color,box-shadow,transform,scale,opacity] hover:opacity-100"
             >
               <PencilRuler size={11} className="mr-1 inline" />
               {t("widget.editPill")}
