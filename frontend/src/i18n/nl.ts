@@ -1429,6 +1429,8 @@ export const nl: Dict = {
   "arch.noSubnet": "geen subnet",
   "arch.lab": "Lab",
   "arch.drillInto": "Netwerkweergave van {name} openen",
+  "iso.uploadLocal": "ISO uploaden vanaf deze computer",
+  "iso.uploadHint": "Voor installers die je niet via een URL kunt downloaden. Het bestand komt op {store}.",
   "arch.zoomIn": "Inzoomen",
   "arch.zoomOut": "Uitzoomen",
   "arch.resetView": "Weergave herstellen",

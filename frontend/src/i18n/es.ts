@@ -1429,6 +1429,8 @@ export const es: Dict = {
   "arch.noSubnet": "sin subred",
   "arch.lab": "Laboratorio",
   "arch.drillInto": "Abrir la vista de red de {name}",
+  "iso.uploadLocal": "Subir ISO desde este equipo",
+  "iso.uploadHint": "Para instaladores que no se pueden descargar por URL. El archivo se guarda en {store}.",
   "arch.zoomIn": "Acercar",
   "arch.zoomOut": "Alejar",
   "arch.resetView": "Restablecer vista",

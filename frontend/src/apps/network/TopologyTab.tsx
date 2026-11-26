@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { ArrowRightLeft, Cable, Container, Globe, Layers, Merge, Monitor, Network, RefreshCw, Smartphone, SquareTerminal, Waypoints, Wrench } from "lucide-react";
 import { api } from "../../lib/api";
+import { ink } from "../../lib/format";
 import { usePoll } from "../../lib/hooks";
 import { useIntent, useWindows } from "../../lib/stores";
 import { useTranslation } from "../../i18n";
@@ -129,9 +130,9 @@ export default function TopologyTab({ onTab }: { onTab: (tab: "router" | "wg") =
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <h3 className="flex-1 text-sm font-semibold text-slate-100">{t("topo.title")}</h3>
-        <span className="text-[11px] text-slate-400 max-sm:hidden">{t("topo.hint")}</span>
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="min-w-0 flex-1 text-sm font-semibold text-slate-100">{t("topo.title")}</h3>
+        <span className="shrink-0 text-right text-[11px] text-slate-400 max-sm:hidden">{t("topo.hint")}</span>
         <GlassButton variant="primary" size="xs" onClick={() => open("architect")}>
           <Waypoints size={13} /> {t("arch.openApp")}
         </GlassButton>
@@ -141,7 +142,7 @@ export default function TopologyTab({ onTab }: { onTab: (tab: "router" | "wg") =
       </div>
       <Notice error={error} />
       <div className="flex flex-col gap-3 lg:flex-row">
-        <div className="glass-soft min-w-0 flex-1 overflow-auto rounded-2xl" onClick={() => setSel(null)}>
+        <div className="min-w-0 flex-1 overflow-auto rounded-2xl border border-[var(--bp-border)] bg-[var(--bp-canvas)]" onClick={() => setSel(null)}>
           <svg width={width} height={height} role="img" aria-label={t("topo.title")} className="block">
             {topo.edges.map((e) => {
               const a = pos.get(e.source);
@@ -155,13 +156,13 @@ export default function TopologyTab({ onTab }: { onTab: (tab: "router" | "wg") =
                   <path
                     d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`}
                     fill="none"
-                    stroke={on ? "#7dd3fc" : STYLE[byId.get(e.target)?.type ?? "nic"].color}
+                    stroke={ink(on ? "#7dd3fc" : STYLE[byId.get(e.target)?.type ?? "nic"].color)}
                     strokeOpacity={on ? 1 : 0.55}
                     strokeWidth={on ? 2.5 : 1.5}
                     strokeDasharray={e.kind === "forward" || e.kind === "vpn" ? "5 4" : undefined}
                   />
                   {e.label && on && (
-                    <text x={mx} y={(y1 + y2) / 2 - 4} textAnchor="middle" className="fill-slate-200 text-[10px]">
+                    <text x={mx} y={(y1 + y2) / 2 - 4} textAnchor="middle" fill="var(--bp-text)" className="text-[10px]">
                       {e.label}
                     </text>
                   )}
@@ -185,14 +186,14 @@ export default function TopologyTab({ onTab }: { onTab: (tab: "router" | "wg") =
                   onClick={(e) => (e.stopPropagation(), setSel(sel === n.id ? null : n.id))}
                   onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), setSel(sel === n.id ? null : n.id))}
                 >
-                  <rect width={NODE_W} height={NODE_H} rx={12} fill="var(--sd-glass-bg, rgba(15,23,42,.7))" fillOpacity={0.85} stroke={sel === n.id ? "#7dd3fc" : s.color} strokeOpacity={sel === n.id ? 1 : 0.6} strokeWidth={sel === n.id ? 2 : 1} />
-                  <rect width={4} height={NODE_H - 16} x={0} y={8} rx={2} fill={s.color} />
+                  <rect width={NODE_W} height={NODE_H} rx={12} fill="var(--bp-node)" stroke={ink(sel === n.id ? "#7dd3fc" : s.color)} strokeOpacity={sel === n.id ? 1 : 0.6} strokeWidth={sel === n.id ? 2 : 1} />
+                  <rect width={4} height={NODE_H - 16} x={0} y={8} rx={2} fill={ink(s.color)} />
                   <foreignObject x={10} y={0} width={NODE_W - 16} height={NODE_H}>
                     <div className="flex h-full items-center gap-2 text-[11px] leading-tight">
-                      <span style={{ color: s.color }}>{s.icon}</span>
+                      <span style={{ color: ink(s.color) }}>{s.icon}</span>
                       <span className="min-w-0 flex-1">
                         <span className="block truncate font-medium text-slate-100">{n.label}</span>
-                        <span className="block truncate text-[10px] text-slate-400">{n.ip ?? t(`topo.type.${n.type}`)}</span>
+                        <span className="block truncate text-[10px] text-slate-300">{n.ip ?? t(`topo.type.${n.type}`)}</span>
                       </span>
                       <span className={`h-2 w-2 shrink-0 rounded-full ${up ? "bg-emerald-400" : "bg-slate-500"}`} />
                     </div>
@@ -208,7 +209,7 @@ export default function TopologyTab({ onTab }: { onTab: (tab: "router" | "wg") =
           ) : (
             <>
               <div className="flex items-center gap-2">
-                <span style={{ color: STYLE[node.type].color }}>{STYLE[node.type].icon}</span>
+                <span style={{ color: ink(STYLE[node.type].color) }}>{STYLE[node.type].icon}</span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold text-white">{node.label}</span>
                   <span className="text-[10px] text-slate-400">{t(`topo.type.${node.type}`)}</span>

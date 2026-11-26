@@ -277,7 +277,7 @@ export default function GlobalSearchBar() {
           aria-controls="global-search-list"
           aria-activedescendant={open && items[sel] ? `global-search-list-${sel}` : undefined}
         />
-        <kbd className="hidden shrink-0 rounded bg-white/10 px-1.5 text-[10px] text-slate-400 sm:inline">{isMac ? "⌘K" : "Ctrl+K"}</kbd>
+        <kbd className="hidden shrink-0 rounded bg-white/10 px-1.5 text-[10px] text-slate-300 sm:inline">{isMac ? "⌘K" : "Ctrl+K"}</kbd>
       </div>
       {tip && !open && <SearchTip />}
       {open && (

@@ -1427,6 +1427,8 @@ export const en = {
   "arch.noSubnet": "no subnet",
   "arch.lab": "Lab",
   "arch.drillInto": "Open the network view of {name}",
+  "iso.uploadLocal": "Upload ISO from this computer",
+  "iso.uploadHint": "For installers you cannot download by URL. The file goes to {store}.",
   "arch.zoomIn": "Zoom in",
   "arch.zoomOut": "Zoom out",
   "arch.resetView": "Reset view",

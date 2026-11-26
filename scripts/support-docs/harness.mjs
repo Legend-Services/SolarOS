@@ -1,5 +1,5 @@
 /**
- * Shared headless-browser harness for scripts/generate-support-docs.mjs and scripts/audit-light-mode.mjs:
+ * Shared headless-browser harness for scripts/generate-support-docs.mjs and scripts/audit-dual-theme.mjs:
  * starts the Vite dev server, opens it in Chromium with every /api call answered from fixtures.mjs, and drives the UI
  * through its own stores.
  */
@@ -92,6 +92,7 @@ export async function reset(page) {
     s.useWindows.setState({ windows: [] });
     s.useDock.setState({ gallery: false });
     s.useSpotlight.setState({ open: false });
+    (await import("/src/store/widgetStore.ts")).useWidgets.getState().setEditing(false);
   });
   await page.mouse.move(720, 450);
 }
