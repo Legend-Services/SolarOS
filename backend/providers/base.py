@@ -239,6 +239,11 @@ class HypervisorProvider(ABC):
     # Local AI GPU provisioning
     @abstractmethod
     async def provision_ai_container(self, spec: dict) -> TaskInfo: ...
+
+    async def deploy_app(self, body) -> dict:
+        """Start an App Center install (app.apps.DeployBody): {vmid, upid, instance_id, display_name, job_id}."""
+        raise self.not_available()
+
     @abstractmethod
     async def configure_ai_gpu_passthrough(self, spec: dict) -> dict: ...
 

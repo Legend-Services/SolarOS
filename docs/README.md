@@ -29,7 +29,7 @@ Opening a setting jumps straight to its tab and briefly highlights the card; ope
 - [Settings › Storage & Data](settings-storage.md): Storage & ZFS Pools, Backup & Restore, Shared Folders & SMB, ISO & Template Library
 - [Settings › Privilege & Security](settings-security.md): Users & Roles, Security & 2FA, Security Posture & Hardening, Audit & System Logs
 - [Settings › Network & Services](settings-network.md): Network & Virtual Switch, Network Topology, DNS, AdBlock & DHCP, Domains & Certificates, Firewall & Port Forwarding, WireGuard VPN
-- [Settings › Hypervisor & Runtime](settings-hypervisor.md): Hypervisor Defaults, Local AI Runtime
+- [Settings › Hypervisor & Runtime](settings-hypervisor.md): Hypervisor Defaults, Installed Apps & Instances, Local AI Runtime
 
 ## The App Gallery
 
