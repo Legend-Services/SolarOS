@@ -8,6 +8,8 @@ import HostsTab from "./proxy/HostsTab";
 import CertsTab from "./proxy/CertsTab";
 import StreamsTab from "./proxy/StreamsTab";
 import AccessTab from "./proxy/AccessTab";
+import { OsiDisclosure } from "../../components/osi/OsiArchitecturePanel";
+import { osiValues } from "../../data/osiModelRegistry";
 
 const TABS = ["hosts", "certs", "streams", "access"] as const;
 type Tab = (typeof TABS)[number];
@@ -45,6 +47,7 @@ export default function ReverseProxyStudio({ initialTab }: { initialTab?: string
   return (
     <div className="space-y-3">
       <Segmented value={tab} onChange={setTab} options={TABS.map((id) => ({ id, label: t(`rp.tab.${id}` as TKey) }))} />
+      <OsiDisclosure kind="reverse_proxy" name={t(`rp.tab.${tab}` as TKey)} values={osiValues({ ports: ["TCP 80", "TCP 443", ...(d?.streams ?? []).map((s) => `${s.protocol.toUpperCase()} ${s.listen_port}`)], tls: "TLS 1.3", app: (d?.hosts ?? []).flatMap((h) => h.domain_names).slice(0, 6) })} />
       {fail && <Notice error={t("rp.notApplied", { error: fail })} />}
       <Notice error={error} />
       {!ctx ? (

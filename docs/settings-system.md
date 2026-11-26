@@ -183,7 +183,8 @@ Every app installed from App Center, grouped by app, with each instance's label,
 
 1. Open Settings › System › Installed Apps & Instances (or press “Open This Setting / App →” above).
 2. Press Open App to open an instance's web interface.
-3. Press Uninstall, choose whether to also delete the app's data, and confirm.
+3. Press OSI Architecture to see the instance's veth, IP address, port, TLS and web endpoint layer by layer.
+4. Press Uninstall, choose whether to also delete the app's data, and confirm.
 
 ## Hardware, GPU & BIOS
 

@@ -110,9 +110,10 @@ export const APP_DOCS: Partial<Record<AppId, Doc>> = {
       "Switch the guest drawer from Form View to Wireframe Architecture to see the guest as a blueprint computer: click any network card, PCIe card, peripheral or drive to open the Hardware Device Inspector below the diagram (name, MAC with randomizer, driver model, slot, vendor and device ID, serial, link and speed) and press Save & Apply.",
       "In the wireframe, give a virtual capture card or webcam the Guest Device Manager name the guest should show (e.g. “Studio HDMI Capture Pro”); fields marked Visible in guest reach the guest, the rest are SolarDeck labels.",
       "Click a network line or switch node in the wireframe to re-patch that network card to another virtual switch, physical bridge, router, VLAN or isolated lab in one click; the host node shows Standalone Mode or the cluster's preferred active host, standby hosts, ZFS sync and floating VIP.",
+      "Switch the guest drawer to OSI Architecture to see the guest's 7-layer OSI stack, or pick any vNIC, drive, peripheral or GPU above the diagram to see which layers that device works on; the L1–L7 pills in the Hardware Device Inspector jump straight there.",
     ],
     tips: ["Install media lives in the ISO & Template Library; download an ISO there before creating a VM.", "Legacy PCI and ISA devices need a power cycle (shut down, then start) before a running VM sees them."],
-    keywords: "group groups grouped flat list custom group network group vlan group multi homed multihomed two networks assign to group group power start group stop group auto fill docker engine compose stack portainer vm virtual machine container lxc guest create start stop console snapshot compute virtual hardware audio microphone webcam capture modem 56k nvme sas raid hba tpm smartcard watchdog rng throttle cpu limit bandwidth latency packet loss retro lab sandbox air gap isolated multi seat multiseat workstation station gpu monitor usb port keyboard mouse plug assign cpu pinning cluster host live migration migrate high availability ha failover standby wireframe architecture blueprint schematic form view hardware inspector identity device name device manager vendor id device id vid pid serial number mac address randomize nic model pci slot repatch re-patch endpoint change network",
+    keywords: "group groups grouped flat list custom group network group vlan group multi homed multihomed two networks assign to group group power start group stop group auto fill docker engine compose stack portainer vm virtual machine container lxc guest create start stop console snapshot compute virtual hardware audio microphone webcam capture modem 56k nvme sas raid hba tpm smartcard watchdog rng throttle cpu limit bandwidth latency packet loss retro lab sandbox air gap isolated multi seat multiseat workstation station gpu monitor usb port keyboard mouse plug assign cpu pinning cluster host live migration migrate high availability ha failover standby wireframe architecture blueprint schematic form view hardware inspector identity device name device manager vendor id device id vid pid serial number mac address randomize nic model pci slot repatch re-patch endpoint change network osi model 7 layer seven layers l1 l2 l3 l4 l5 l6 l7 physical data link network transport session presentation application pdu frame packet segment encapsulation junior learn",
     more: [
       {
         id: "smart-groups",
@@ -157,6 +158,18 @@ export const APP_DOCS: Partial<Record<AppId, Doc>> = {
         ],
         shot: "compute-wireframe",
       },
+      {
+        id: "osi",
+        title: "7-Layer OSI Architecture Explorer",
+        body: "The OSI Architecture view teaches how network traffic travels through each part of your server. It draws the seven OSI layers as a stack, from L7 Application at the top to L1 Physical at the bottom. The layers where the inspected component does its main job glow with a Primary Layer badge, and the layers it relies on or wraps traffic in carry an Encapsulation Layer badge. Each layer shows its unit (Data, Segment / Datagram, Packet, Frame or Bits) and the component's live values as chips: MAC address, VLAN tag, IP address and subnet, TCP/UDP ports, TLS and the application endpoint. Click any layer to open its learning card. The card explains what the layer does in plain words, what happens inside this component at that layer, and a troubleshooting tip, for example: if Layer 2 shows link down, check the virtual switch attachment; if Layer 2 is up but ping fails, check the Layer 3 subnet, gateway or firewall rules. Below the stack, How data flows through this component lists the steps from the wire upward.",
+        steps: [
+          "Open a VM or container and pick OSI Architecture next to Form View and Wireframe Architecture.",
+          "Pick Guest overall stack, or any network adapter, drive, peripheral or GPU, to see its layers: a vNIC works at Layer 2, a disk on a virtual bus at Layer 1, a remote display at Layers 6–7.",
+          "In Wireframe Architecture, click the L1–L7 pills in the Hardware Device Inspector to jump to that device's breakdown.",
+          "The same breakdown opens from the OSI Architecture button in Network Topology, in Network Architect (turn on the OSI Architecture toggle, then click any host, gateway, uplink, switch, VLAN, guest or discovered device), in the Port Inspector, the switch, VLAN and DHCP dialogs, the DNS, DHCP, WireGuard, Router, Reverse Proxy and Firewall pages, and on every App Center card and installed app instance.",
+        ],
+        shot: "compute-osi",
+      },
     ],
   },
   architect: {
@@ -170,9 +183,10 @@ export const APP_DOCS: Partial<Record<AppId, Doc>> = {
       "Press Scan Network Now: the host pings the subnet, reads the ARP and DHCP tables, looks up names (reverse DNS and mDNS) and checks common service ports.",
       "More than six other devices are grouped into one Other Devices (+N) hub; click it (or Show Devices) to search and filter them by type.",
       "Each device shows its type icon, name, IP and MAC address with hardware vendor, a functionality badge (e.g. Gateway, DHCP & DNS Resolver; Network Printer; RTSP IP Camera) and its open ports — click the port pills to read what every port is for.",
+      "Turn on OSI Architecture in the toolbar, then click any host, gateway, uplink, switch, VLAN, guest or discovered device to see its seven OSI layers with live MAC, VLAN, IP and port values; each device in Other Devices also has its own OSI Architecture button.",
     ],
     tips: ["A network can only be scanned when the host has an address on it.", "Scans only open a connection to each port and close it again; they never log in or send data."],
-    keywords: "semantic zoom overview breadcrumb fit to screen zoom level group card drill down multi homed network architect architecture blueprint infrastructure map diagram topology cluster host vip gateway router uplink switch vlan lab dhcp dns scan discover discovery devices subnet port scan open ports printer camera nas phone iot mac vendor oui other devices",
+    keywords: "semantic zoom overview breadcrumb fit to screen zoom level group card drill down multi homed network architect architecture blueprint infrastructure map diagram topology cluster host vip gateway router uplink switch vlan lab dhcp dns scan discover discovery devices subnet port scan open ports printer camera nas phone iot mac vendor oui other devices osi model 7 layer seven layers l1 l2 l3 l4 l5 l6 l7 physical data link network transport session presentation application pdu frame packet segment encapsulation junior learn",
     more: [
       {
         id: "semantic-zoom",
@@ -199,10 +213,11 @@ export const APP_DOCS: Partial<Record<AppId, Doc>> = {
     steps: ["Browse the categories or search for an app.", "Open an app card and review the suggested resources.", "Press Deploy and wait until the job log says done.", "Open the address shown on the deployment card to use the app."],
     tips: [
       "Tick Storage when the app should see your files.",
+      "Press OSI Architecture on a card to see how the app is reached: its container veth (L2), IP (L3), web port (L4), HTTPS (L6) and web interface (L7).",
       "File sharing, the reverse proxy and Docker Engine are built in rather than apps: Settings › Storage & Data › Shared Folders & SMB, Settings › Network & Services › Reverse Proxy & SSL and Compute › Docker. Searching App Center for them shows a shortcut.",
       "Apps installed on an older version that are now built in show a Built-In Native Feature Available badge in Settings › Hypervisor & Runtime › Installed Apps & Instances; they keep working and can be opened or uninstalled as usual.",
     ],
-    keywords: "app center store install deploy one click media docker portainer apps marketplace samba nginx proxy built in native",
+    keywords: "app center store install deploy one click media docker portainer apps marketplace samba nginx proxy built in native osi model 7 layer seven layers l1 l2 l3 l4 l5 l6 l7 physical data link network transport session presentation application pdu frame packet segment encapsulation junior learn port tls veth",
   },
   "local-ai": {
     intro: "Local AI Studio downloads AI models and runs them on your own hardware, with a private chat to test them. Nothing leaves your server.",
@@ -334,13 +349,13 @@ export const MODULE_DOCS: Record<ModuleId, Doc> = {
   "network-switch": {
     intro: "A visual virtual switch: VLANs as color-coded cards, drag-and-drop patching of ports, virtual NICs, host IP settings and a DHCP server per VLAN. Changes are applied with a 60-second rollback guard.",
     steps: ["Visual Switch shows every switch with its physical and virtual ports.", "Drag a port onto a VLAN card to patch it; drop it on the trunk zone to carry several VLANs.", "Press Apply safely, then Keep Settings within 60 seconds."],
-    tips: ["Without confirmation the previous network configuration comes back by itself, so a wrong address cannot lock you out."],
-    keywords: "network switch bridge vlan nic virtual nic ip address dhcp trunk port patch panel",
+    tips: ["Without confirmation the previous network configuration comes back by itself, so a wrong address cannot lock you out.", "Open Show OSI Architecture in the Port Inspector or in a switch, VLAN or DHCP dialog to learn which OSI layers that part works on."],
+    keywords: "network switch bridge vlan nic virtual nic ip address dhcp trunk port patch panel osi model 7 layer seven layers l1 l2 l3 l4 l5 l6 l7 physical data link network transport session presentation application pdu frame packet segment encapsulation junior learn",
   },
   "network-topology": {
     intro: "An interactive live map of the host, its switches, guests and VPN connections.",
     steps: ["The map runs top to bottom: the internet uplink, then ports and switches, with guests and VPN peers in rows below the switch they connect to; scroll to see every row.", "Click a node to highlight its connections, see its details and open the screen that owns it.", "Press Open Network Architect for the full infrastructure blueprint with per-network device and port discovery."],
-    keywords: "topology map network diagram graph live nodes architect blueprint scan devices",
+    keywords: "topology map network diagram graph live nodes architect blueprint scan devices osi model 7 layer seven layers l1 l2 l3 l4 l5 l6 l7 physical data link network transport session presentation application pdu frame packet segment encapsulation junior learn",
   },
   "dns-dhcp": {
     intro: "A local DNS resolver with ad blocking and custom records, and the network-wide DHCP server.",
@@ -369,7 +384,7 @@ export const MODULE_DOCS: Record<ModuleId, Doc> = {
   },
   "installed-apps": {
     intro: "Every app installed from App Center, grouped by app, with each instance's label, container ID, IP address and status.",
-    steps: ["Press Open App to open an instance's web interface.", "Press Uninstall, choose whether to also delete the app's data, and confirm."],
+    steps: ["Press Open App to open an instance's web interface.", "Press OSI Architecture to see the instance's veth, IP address, port, TLS and web endpoint layer by layer.", "Press Uninstall, choose whether to also delete the app's data, and confirm."],
     keywords: "installed apps instances uninstall remove app center container label manage",
   },
   "local-ai-runtime": {

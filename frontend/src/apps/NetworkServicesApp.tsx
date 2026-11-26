@@ -6,6 +6,8 @@ import { bytes } from "../lib/format";
 import { usePoll, useRunner } from "../lib/hooks";
 import { JobLog } from "../components/JobLog";
 import { GuideBanner } from "../components/wizards/GuidedWizardModal";
+import { OsiDisclosure } from "../components/osi/OsiArchitecturePanel";
+import { osiValues, type OsiKind } from "../data/osiModelRegistry";
 import { useIntent } from "../lib/stores";
 import DomainsTab from "./network/DomainsTab";
 import TopologyTab from "./network/TopologyTab";
@@ -144,6 +146,14 @@ interface CertState {
   nginx_https: boolean;
 }
 
+/** OSI component (and its well-known ports) each service tab configures. */
+const OSI_TAB: Partial<Record<Tab, [OsiKind, string[]]>> = {
+  dns: ["dns_server", ["UDP 53", "TCP 53"]],
+  dhcp: ["dhcp_server", ["UDP 67/68"]],
+  wg: ["wireguard_vpn", ["UDP 51820"]],
+  wgc: ["wireguard_vpn", []],
+  router: ["vrouter", []],
+};
 export type NetTab = Tab;
 type Tab = "topology" | "dns" | "dhcp" | "wg" | "wgc" | "router" | "domains" | "certs";
 const TABS: { id: Tab; label: TKey; icon: ReactNode }[] = [
@@ -1115,6 +1125,11 @@ export default function NetworkServicesApp({ initialTab, tabs }: { initialTab?: 
       )}
       <div className="min-w-0 flex-1 overflow-auto p-4">
         <Notice error={error} />
+        {OSI_TAB[tab] && (
+          <div className="mb-3">
+            <OsiDisclosure kind={OSI_TAB[tab][0]} name={tr(TABS.find((x) => x.id === tab)!.label)} values={osiValues({ ip: status?.host_ip, ports: OSI_TAB[tab][1] })} />
+          </div>
+        )}
         {tab === "topology" ? (
           <TopologyTab onTab={setTab} />
         ) : tab === "certs" ? (

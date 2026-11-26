@@ -25,6 +25,8 @@ A visual virtual switch: VLANs as color-coded cards, drag-and-drop patching of p
 
 > **Tip:** Without confirmation the previous network configuration comes back by itself, so a wrong address cannot lock you out.
 
+> **Tip:** Open Show OSI Architecture in the Port Inspector or in a switch, VLAN or DHCP dialog to learn which OSI layers that part works on.
+
 ### Isolated Labs
 
 Air-gapped lab networks in one click: a switch without physical ports, a lab VLAN with its own DHCP server and the chosen VMs and containers moved onto it; one click tears it down again.

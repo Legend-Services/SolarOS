@@ -42,6 +42,7 @@ Compute Manager lists every virtual machine and container with live status, and 
 11. Switch the guest drawer from Form View to Wireframe Architecture to see the guest as a blueprint computer: click any network card, PCIe card, peripheral or drive to open the Hardware Device Inspector below the diagram (name, MAC with randomizer, driver model, slot, vendor and device ID, serial, link and speed) and press Save & Apply.
 12. In the wireframe, give a virtual capture card or webcam the Guest Device Manager name the guest should show (e.g. “Studio HDMI Capture Pro”); fields marked Visible in guest reach the guest, the rest are SolarDeck labels.
 13. Click a network line or switch node in the wireframe to re-patch that network card to another virtual switch, physical bridge, router, VLAN or isolated lab in one click; the host node shows Standalone Mode or the cluster's preferred active host, standby hosts, ZFS sync and floating VIP.
+14. Switch the guest drawer to OSI Architecture to see the guest's 7-layer OSI stack, or pick any vNIC, drive, peripheral or GPU above the diagram to see which layers that device works on; the L1–L7 pills in the Hardware Device Inspector jump straight there.
 
 > **Tip:** Install media lives in the ISO & Template Library; download an ISO there before creating a VM.
 
@@ -87,6 +88,17 @@ The Wireframe Architecture view draws the guest as a blueprint computer: live sp
 
 ![Wireframe Node Architecture & Hardware ID Overrides](screenshots/compute-wireframe.png)
 
+### 7-Layer OSI Architecture Explorer
+
+The OSI Architecture view teaches how network traffic travels through each part of your server. It draws the seven OSI layers as a stack, from L7 Application at the top to L1 Physical at the bottom. The layers where the inspected component does its main job glow with a Primary Layer badge, and the layers it relies on or wraps traffic in carry an Encapsulation Layer badge. Each layer shows its unit (Data, Segment / Datagram, Packet, Frame or Bits) and the component's live values as chips: MAC address, VLAN tag, IP address and subnet, TCP/UDP ports, TLS and the application endpoint. Click any layer to open its learning card. The card explains what the layer does in plain words, what happens inside this component at that layer, and a troubleshooting tip, for example: if Layer 2 shows link down, check the virtual switch attachment; if Layer 2 is up but ping fails, check the Layer 3 subnet, gateway or firewall rules. Below the stack, How data flows through this component lists the steps from the wire upward.
+
+1. Open a VM or container and pick OSI Architecture next to Form View and Wireframe Architecture.
+2. Pick Guest overall stack, or any network adapter, drive, peripheral or GPU, to see its layers: a vNIC works at Layer 2, a disk on a virtual bus at Layer 1, a remote display at Layers 6–7.
+3. In Wireframe Architecture, click the L1–L7 pills in the Hardware Device Inspector to jump to that device's breakdown.
+4. The same breakdown opens from the OSI Architecture button in Network Topology, in Network Architect (turn on the OSI Architecture toggle, then click any host, gateway, uplink, switch, VLAN, guest or discovered device), in the Port Inspector, the switch, VLAN and DHCP dialogs, the DNS, DHCP, WireGuard, Router, Reverse Proxy and Firewall pages, and on every App Center card and installed app instance.
+
+![7-Layer OSI Architecture Explorer](screenshots/compute-osi.png)
+
 ## File Station
 
 ![File Station](screenshots/app-files.png)
@@ -116,6 +128,8 @@ App Center installs ready-made applications (media servers, ad blockers, home au
 4. Open the address shown on the deployment card to use the app.
 
 > **Tip:** Tick Storage when the app should see your files.
+
+> **Tip:** Press OSI Architecture on a card to see how the app is reached: its container veth (L2), IP (L3), web port (L4), HTTPS (L6) and web interface (L7).
 
 > **Tip:** File sharing, the reverse proxy and Docker Engine are built in rather than apps: Settings › Storage & Data › Shared Folders & SMB, Settings › Network & Services › Reverse Proxy & SSL and Compute › Docker. Searching App Center for them shows a shortcut.
 
@@ -151,6 +165,7 @@ Network Architect draws your whole environment at three zoom levels. The Overvie
 6. Press Scan Network Now: the host pings the subnet, reads the ARP and DHCP tables, looks up names (reverse DNS and mDNS) and checks common service ports.
 7. More than six other devices are grouped into one Other Devices (+N) hub; click it (or Show Devices) to search and filter them by type.
 8. Each device shows its type icon, name, IP and MAC address with hardware vendor, a functionality badge (e.g. Gateway, DHCP & DNS Resolver; Network Printer; RTSP IP Camera) and its open ports — click the port pills to read what every port is for.
+9. Turn on OSI Architecture in the toolbar, then click any host, gateway, uplink, switch, VLAN, guest or discovered device to see its seven OSI layers with live MAC, VLAN, IP and port values; each device in Other Devices also has its own OSI Architecture button.
 
 > **Tip:** A network can only be scanned when the host has an address on it.
 

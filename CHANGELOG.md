@@ -1,5 +1,15 @@
 # Changelog
 
+## v2.25.0 - Interactive 7-Layer OSI Architecture Explorer — 2026-11-26
+
+### Added
+- **OSI Architecture view**: a 7-layer stack from L7 Application down to L1 Physical. It shows which OSI layers a component works on: **Primary Layer** and **Encapsulation Layer** badges, the unit at each layer (Data, Segment / Datagram, Packet, Frame, Bits), and the component's live values as chips (MAC address, VLAN tag, IP address and subnet, TCP/UDP ports, TLS, endpoint). Click any layer to open a **Junior IT learning card**: what the layer does in plain words, what happens inside this component at that layer, and a troubleshooting tip. Below the stack, *How data flows through this component* walks through each step from the wire upward. It covers 20 kinds of component: Internet / WAN, the SolarDeck host, physical ports and bonds, virtual switches, VLANs, routers / gateways / NAT, DHCP, DNS & AdBlock, firewall & IDS, WireGuard, the reverse proxy, vNICs and veth, VMs, containers, storage controllers and disks, virtual peripherals, the virtual dial-up modem, GPU / PCIe passthrough, App Center apps and discovered network devices.
+- **Guest edit window › OSI Architecture**, next to Form View and Wireframe Architecture, for VMs and containers: shows the guest's overall stack, or any one network adapter, drive, peripheral or GPU. The Hardware Device Inspector in Wireframe Architecture shows clickable L1–L7 pills that jump to that device's breakdown.
+- **Network views**: an OSI Architecture button on the selected node in Network Topology. A collapsible *Show OSI Architecture* panel in the Port Inspector, the switch, VLAN and DHCP dialogs, and the DNS & AdBlock, DHCP, WireGuard Server and Client, Router, Reverse Proxy & SSL and Firewall & IDS pages.
+- **Network Architect**: an *OSI Architecture* toggle. While it is on, clicking any host, gateway, uplink, LLDP neighbor, switch, VLAN, lab, guest or discovered device in the Overview, Infrastructure Blueprint or network view opens its OSI breakdown. Every device in *Other Devices* also has its own OSI Architecture button with its MAC vendor, IP address and open ports.
+- **App Center & Installed Apps**: an OSI Architecture button on every catalog card and every app instance. It shows the container's veth (L2), its IP address (L3), the web port (L4), HTTPS (L6) and the web interface (L7).
+- A new guide *Learning the 7 OSI Layers with the OSI Architecture Explorer*, a Help FAQ, a Manual section with a screenshot, and translations in English, Dutch, German, Spanish and French.
+
 ## v2.24.0 - DMZ VLAN template & educational template tooltips — 2026-11-26
 
 ### Added

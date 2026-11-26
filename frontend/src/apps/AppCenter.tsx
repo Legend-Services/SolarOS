@@ -12,6 +12,15 @@ import { TaskLog } from "../components/TaskCenter";
 import { ViewToggle } from "../components/ViewOptions";
 import { useAppView } from "../store/layoutStore";
 import { GlassButton, GlassInput, GlassModal } from "../components/ui/GlassKit";
+import { OsiButton } from "../components/osi/OsiArchitecturePanel";
+import { osiValues } from "../data/osiModelRegistry";
+
+/** OSI target of a catalog app: its container veth, mapped web port, TLS and web interface. */
+const appOsi = (a: CatalogApp) => ({
+  kind: "app_instance" as const,
+  name: a.name,
+  values: osiValues({ model: "veth", ports: a.web_port ? [`TCP ${a.web_port}`] : [], tls: a.web_scheme === "https" ? "TLS (HTTPS)" : null, app: a.web_port ? `${a.web_scheme.toUpperCase()} Web UI` : null }),
+});
 import {
   ManageInstancesModal, NATIVE_FEATURES, UninstallInstanceModal, appsChanged, displayName, hostnameFor, onAppsChanged, useAppInstances,
 } from "../components/AppInstances";
@@ -584,6 +593,7 @@ export default function AppCenter() {
                   <span className="hidden shrink-0 text-[10px] text-slate-400 tabular-nums md:block">
                     {a.cores} vCPU · {a.memory_mb / 1024} GB · {a.disk_gb} GB{a.supports_igpu && " · iGPU"}
                   </span>
+                  <OsiButton {...appOsi(a)} />
                   {actions(a, false)}
                 </article>
               ))}
@@ -615,6 +625,9 @@ export default function AppCenter() {
                   <span className="rounded bg-white/5 px-1.5 py-0.5">{a.disk_gb} GB disk</span>
                   {a.supports_igpu && <span className="rounded bg-amber-400/15 px-1.5 py-0.5 text-amber-300">iGPU</span>}
                   {a.compute_selector && <span className="rounded bg-emerald-400/15 px-1.5 py-0.5 text-emerald-300">NVIDIA / Intel / AMD / CPU</span>}
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  <OsiButton strip {...appOsi(a)} />
                 </div>
                 {actions(a, true)}
               </article>

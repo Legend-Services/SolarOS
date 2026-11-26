@@ -7,6 +7,7 @@ import onboardingI18n from "./modules/onboarding";
 import dockerI18n from "./modules/docker";
 import groupsI18n from "./modules/groups";
 import sysinfoI18n from "./modules/sysinfo";
+import osiI18n from "./modules/osi";
 /** English source dictionary. Every other language must define exactly these keys (checked by TypeScript). */
 export const en = {
   // Common
@@ -1572,6 +1573,7 @@ export const en = {
   ...dockerI18n.en,
   ...groupsI18n.en,
   ...sysinfoI18n.en,
+  ...osiI18n.en,
 } as const;
 
 export type TKey = keyof typeof en;

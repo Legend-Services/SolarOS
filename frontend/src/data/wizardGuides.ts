@@ -787,6 +787,28 @@ const SUB_GUIDES: Guide[] = [
     action: { label: "Open Virtual Switch & VLANs", app: "settings", intent: { module: "network-switch", tab: "vswitch" } },
   }),
   guide({
+    id: "osi-explorer",
+    app: "compute",
+    title: "Learning the 7 OSI Layers with the OSI Architecture Explorer",
+    blurb: "See which of the seven network layers every guest, card, switch, service and app works on, with live values and troubleshooting tips.",
+    what: "The OSI model splits network communication into seven layers. L1 Physical carries bits over a cable or virtual cable. L2 Data Link delivers frames by MAC address (switches, VLAN tags). L3 Network routes packets by IP address (routers, NAT). L4 Transport moves segments between TCP/UDP ports. L5 Session keeps conversations open, L6 Presentation encrypts them with TLS, and L7 Application is the web page, API or DNS lookup itself. The OSI Architecture view highlights the layers a component works on and shows its live MAC, VLAN, IP, port and TLS values on the right layer.",
+    cards: [
+      { title: "Layers 1–2: link and switching", body: "Physical ports, bonds, vNICs, veth pairs and virtual switches. Link down? Check the cable or the virtual switch attachment." },
+      { title: "Layer 3: addresses and routing", body: "IP addresses, subnets, gateways, NAT and the WireGuard tunnel. Link up but no ping? Check the subnet, gateway and firewall rules." },
+      { title: "Layer 4: ports", body: "TCP and UDP ports: DNS on 53, DHCP on 67/68, WireGuard on 51820, web on 80/443. Ping works but the service is silent? Check the port and its firewall rule." },
+      { title: "Layers 5–7: sessions, TLS and apps", body: "Logins, WebSockets, certificates and the app itself. The reverse proxy works on all four upper layers at once." },
+    ],
+    when: ["You are new to networking and want to see how traffic moves through your server.", "Something does not connect and you want to find the layer where it breaks.", "You want to understand how an App Center app is reachable from your browser."],
+    how: [
+      "Open a VM or container and choose OSI Architecture next to Form View and Wireframe Architecture.",
+      "Pick the guest's overall stack or one of its network adapters, drives, peripherals or GPUs.",
+      "Click any layer to open its learning card: what the layer does, what happens in this component, and a troubleshooting tip.",
+      "In Network Architect, turn on OSI Architecture and click any node; in Network & Services, open Show OSI Architecture; in App Center, press OSI Architecture on an app.",
+    ],
+    tip: "Troubleshoot from the bottom up: confirm Layer 1 (link up), then Layer 2 (right switch and VLAN), Layer 3 (IP and gateway), Layer 4 (port open) and only then the app.",
+    action: { label: "Open Compute", app: "compute" },
+  }),
+  guide({
     id: "net-wireguard",
     app: "netservices",
     title: "Setting Up WireGuard VPN",

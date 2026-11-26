@@ -6,6 +6,8 @@ import { useRunner } from "../../lib/hooks";
 import type { Guest } from "../../lib/types";
 import { useTranslation, type TKey } from "../../i18n";
 import { Field, GlassBadge, GlassButton, GlassInput, GlassSelect, GlassSwitch, Notice } from "../ui/GlassKit";
+import { OsiArchitecturePanel, OsiLayerBadgeStrip, type OsiTarget } from "../osi/OsiArchitecturePanel";
+import { deviceKind, osiValues, type OsiLayer } from "../../data/osiModelRegistry";
 
 /* Shapes of GET /api/virtual-hardware/{guest_type}/{guest_id}/detailed (backend/app/virtual_hardware.py). */
 interface Identity {
@@ -482,7 +484,71 @@ function RepatchPopover({ gt, vmid, nic, sw, labs, labsOnly, x, y, onClose, onDo
 
 /* ---------------- Main ---------------- */
 
-export default function WireframeNodeArchitect({ guest, onChanged }: { guest: Guest; onChanged?: () => void }) {
+/** OSI target of the guest itself (no selection) or of one of its devices. */
+function osiTargetOf(d: Detailed, gt: "vm" | "lxc", sel: Sel | null, slots: Slot[], t: (k: TKey) => string): OsiTarget {
+  const slot = sel && slots.find((s) => s.sel.kind === sel.kind && s.sel.id === sel.id);
+  const nic = sel?.kind === "nic" ? d.nics.find((n) => n.net_id === sel.id) : undefined;
+  const dev = sel?.kind === "vdev" ? d.devices.find((v) => v.id === sel.id) : undefined;
+  const pci = sel?.kind === "pci" ? d.passthrough.pci.find((x) => x.key === sel.id) : undefined;
+  const disk = sel?.kind === "disk" ? d.disks.find((x) => x.key === sel.id) : undefined;
+  const usb = sel?.kind === "usb" ? d.passthrough.usb.find((x) => x.key === sel.id) : undefined;
+  const name = slot?.label ?? d.name;
+  if (nic)
+    return {
+      kind: "vnic",
+      name,
+      values: osiValues({
+        link: `${nic.link_up ? t("vsw.linkUp") : t("vsw.linkDown")}${nic.rate_mbps ? ` · ${nic.rate_mbps} MB/s` : ""} → ${nic.bridge || t("wf.unconnected")}`,
+        mac: nic.mac_address,
+        vlan: nic.vlan_tag ?? nic.vlan?.vlan_id,
+        model: gt === "lxc" ? "veth" : nic.model,
+        ip: [...nic.ipv4_addresses, nic.vlan?.subnet_cidr ? `${t("osi.l3.name")}: ${nic.vlan.subnet_cidr}` : null, nic.vlan?.gateway_ip ? `GW ${nic.vlan.gateway_ip}` : null],
+        app: nic.vlan?.dhcp_active ? "DHCP" : null,
+      }),
+    };
+  if (dev) return { kind: deviceKind(dev.type), name, values: osiValues({ link: `${dev.bus} · ${dev.identity.pci_or_usb_address}`, model: dev.identity.device_name }) };
+  if (pci) return { kind: "gpu_passthrough", name, values: osiValues({ link: `PCIe ${pci.key} · ${pci.id}` }) };
+  if (usb) return { kind: "peripheral_device", name, values: osiValues({ link: `USB ${usb.host}${usb.usb3 ? " · USB 3" : ""}` }) };
+  if (disk) return { kind: "storage_device", name, values: osiValues({ link: `${disk.key} · ${disk.volume}${disk.size ? ` · ${disk.size}` : ""}` }) };
+  return {
+    kind: gt === "vm" ? "vm_guest" : "container_guest",
+    name,
+    values: osiValues({
+      link: d.running ? t("wf.running") : t("wf.stopped"),
+      mac: d.nics[0]?.mac_address,
+      vlan: d.nics[0]?.vlan_tag,
+      ip: d.nics.flatMap((n) => n.ipv4_addresses),
+      app: d.os_profile,
+    }),
+  };
+}
+
+/** OSI Architecture view of the guest: the overall stack or any attached vNIC, drive, peripheral or GPU. */
+function OsiGuestView({ d, gt, sel, slots, layer, onPick }: { d: Detailed; gt: "vm" | "lxc"; sel: Sel | null; slots: Slot[]; layer?: OsiLayer; onPick: (s: Sel | null) => void }) {
+  const { t } = useTranslation();
+  const target = osiTargetOf(d, gt, sel, slots, t);
+  const btn = (on: boolean) => `flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[11px] ${on ? "border-[var(--sd-accent-primary)] bg-[var(--sd-surface-card)] text-[var(--sd-text-primary)]" : "border-[var(--sd-border-hairline)] text-[var(--sd-text-secondary)] hover:text-[var(--sd-text-primary)]"}`;
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={t("osi.pick")}>
+        <button type="button" role="tab" aria-selected={!sel} className={btn(!sel)} onClick={() => onPick(null)}>
+          <Server size={13} /> {t("osi.guestStack")}
+        </button>
+        {slots.map((s) => {
+          const on = sel?.kind === s.sel.kind && sel.id === s.sel.id;
+          return (
+            <button key={`${s.sel.kind}:${s.sel.id}`} type="button" role="tab" aria-selected={on} className={btn(on)} onClick={() => onPick(s.sel)}>
+              {s.icon} {clip(s.label, 30)}
+            </button>
+          );
+        })}
+      </div>
+      <OsiArchitecturePanel key={`${sel?.kind}:${sel?.id}:${layer ?? ""}`} {...target} initialLayer={layer} />
+    </div>
+  );
+}
+
+export default function WireframeNodeArchitect({ guest, onChanged, osi = false, onOsi }: { guest: Guest; onChanged?: () => void; osi?: boolean; onOsi?: () => void }) {
   const { t } = useTranslation();
   const gt = guest.type === "qemu" ? "vm" : "lxc";
   const [d, setD] = useState<Detailed | null>(null);
@@ -490,6 +556,7 @@ export default function WireframeNodeArchitect({ guest, onChanged }: { guest: Gu
   const [labs, setLabs] = useState<Lab[]>([]);
   const [spec, setSpec] = useState<Record<string, OptionSpec[]>>({});
   const [sel, setSel] = useState<Sel | null>(null);
+  const [osiLayer, setOsiLayer] = useState<OsiLayer | undefined>(undefined);
   const [pop, setPop] = useState<{ net: string; x: number; y: number; labsOnly: boolean } | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -546,6 +613,7 @@ export default function WireframeNodeArchitect({ guest, onChanged }: { guest: Gu
   const p = d.placement;
   const memGb = d.memory_mb ? `${(d.memory_mb / 1024).toFixed(d.memory_mb % 1024 ? 1 : 0)} GB` : "—";
   const vcpu = (d.cores ?? 1) * (d.sockets ?? 1);
+  if (osi) return <OsiGuestView d={d} gt={gt} sel={sel} slots={slots} layer={osiLayer} onPick={(s) => (setSel(s), setOsiLayer(undefined))} />;
   const openPop = (n: WfNic, labsOnly: boolean) => setPop({ net: n.net_id, x: RX - 20, y: Math.min(layout.ends[n.net_id] + 76, layout.height - 40), labsOnly });
 
   return (
@@ -714,6 +782,7 @@ export default function WireframeNodeArchitect({ guest, onChanged }: { guest: Gu
                 {t("wf.inspectorTitle")}
                 {selSlot && <span className="font-normal text-slate-300"> · {selSlot.label}</span>}
               </h4>
+              {onOsi && <OsiLayerBadgeStrip kind={osiTargetOf(d, gt, sel, slots, t).kind} onClick={(l) => (setOsiLayer(l), onOsi())} />}
               {selNic && (
                 <GlassButton onClick={() => openPop(selNic, false)}>
                   <Cable size={14} /> {t("wf.changeEndpoint")}

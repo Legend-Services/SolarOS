@@ -6,6 +6,8 @@ import type { AppInstance } from "../lib/types";
 import { useTranslation, type TKey } from "../i18n";
 import { GlassBadge, GlassButton, GlassModal, GlassSwitch } from "./ui/GlassKit";
 import { OperationProgressCard, useJobProgress } from "./ui/OperationProgressCard";
+import { OsiButton } from "./osi/OsiArchitecturePanel";
+import { osiValues, urlValues } from "../data/osiModelRegistry";
 
 /** Built-in features that replaced former App Center apps: search words, the App Center hint and where it opens. */
 export const NATIVE_FEATURES = {
@@ -136,6 +138,13 @@ export function UninstallInstanceModal({ instance, onClose }: { instance: AppIns
 }
 
 /** One instance: status dot, label, container id, IP, Open and Uninstall. */
+/** OSI target of a running instance: veth (L2), container IP (L3), web port (L4), TLS (L6), endpoint (L7). */
+const instanceOsi = (inst: AppInstance) => ({
+  kind: "app_instance" as const,
+  name: inst.display_name,
+  values: osiValues({ model: "veth", ip: inst.ip_address, ...urlValues(inst.web_url) }),
+});
+
 export function InstanceRow({ inst, onUninstall, openLabel }: { inst: AppInstance; onUninstall: (i: AppInstance) => void; openLabel?: string }) {
   const { t } = useTranslation();
   const status = useStatusText();
@@ -165,6 +174,7 @@ export function InstanceRow({ inst, onUninstall, openLabel }: { inst: AppInstanc
           <ExternalLink size={11} /> {openLabel ?? t("common.open")}
         </a>
       )}
+      <OsiButton {...instanceOsi(inst)} />
       <GlassButton size="xs" variant="danger" onClick={() => onUninstall(inst)} disabled={inst.status === "installing"}>
         <Trash2 size={11} /> {t("inst.uninstall")}
       </GlassButton>
