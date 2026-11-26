@@ -172,7 +172,7 @@ export default function WindowFrame({ win, mobile, Body }: { win: Win; mobile: b
           onPointerUp={end}
           onPointerCancel={end}
           onDoubleClick={() => !mobile && toggleMaximize(win.key)}
-          className={`flex h-10 shrink-0 cursor-default items-center gap-2 border-b border-white/10 bg-gradient-to-b from-white/[0.07] to-white/[0.02] select-none ${left ? "px-3" : "pr-0 pl-3"}`}
+          className={`flex h-10 shrink-0 cursor-default items-center gap-2 border-b border-[var(--sd-border-hairline)] bg-gradient-to-b from-white/[0.07] to-white/[0.02] select-none ${left ? "px-3" : "pr-0 pl-3"}`}
         >
           {left && (
             // Traffic-light circles; the glyphs appear while the pointer (or keyboard focus) is on the group.
