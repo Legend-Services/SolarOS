@@ -5,7 +5,6 @@ import { useFeatures } from "../../store/featureStore";
 import { useOnboarding } from "../../store/onboardingStore";
 import { FEATURES, FEATURE_DOMAINS, FEATURE_KEYS, PRESETS, isFeature, on, only, parentOf, type FeatureKey, type PresetId } from "../../data/features";
 import { GlassBadge, GlassButton, GlassInput, GlassSwitch, Notice } from "../ui/GlassKit";
-import { SecurityModuleHeader } from "../ui/SecurityModuleHeader";
 
 /** Settings › Features & Services: show or hide every optional feature, with presets and the Setup Wizard. */
 export default function FeaturesServicesPanel() {
@@ -96,12 +95,6 @@ export default function FeaturesServicesPanel() {
                         <GlassSwitch checked={enabled[k] !== false} disabled={busy} onChange={(v) => apply({ [k]: v })} ariaLabel={t(`feat.${k}`)} />
                       </div>
                     </div>
-                    {/* Docker's runtime (isolated container or host) and network pinning are set right here. */}
-                    {k === "docker_engine" && on(enabled, k) && (
-                      <div data-anchor="docker-engine" className="col-span-full">
-                        <SecurityModuleHeader module="docker_engine" />
-                      </div>
-                    )}
                   </div>
                 );
               })}

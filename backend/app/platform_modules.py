@@ -23,7 +23,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Path
 from pydantic import BaseModel, Field, field_validator
 
-from . import audit_log, host_ssh
+from . import audit_log, features, host_ssh
 from .auth import require_user
 from .config import settings
 
@@ -90,6 +90,8 @@ def load() -> dict[str, dict]:
         p = {**default_profile(mid), **saved.get(mid, {})}
         p["recommended_runtime_mode"], p["supported_runtime_modes"] = SPECS[mid]["recommended"], SPECS[mid]["modes"]
         out[mid] = p
+    # Docker has one switch: its Features & Services flag (GET/PUT /api/system/features) is its on/off state.
+    out["docker_engine"]["enabled"] = features.enabled("docker_engine")
     return out
 
 
@@ -297,6 +299,8 @@ async def put_module(body: ProfileBody, module_id: ModuleId = Path(), user: str 
         raise HTTPException(422, "Pick the VLAN this module is pinned to")
     if body.network_isolation_mode == "management":
         body.bound_vlan_id = None
+    if module_id == "docker_engine":
+        body.enabled = features.enabled(module_id)  # switched in Features & Services only
     before = profile(module_id)
     p = update_profile(module_id, **body.model_dump())
     audit_log.record("module.update", user=user, module=module_id, enabled=body.enabled, runtime=body.runtime_mode,
