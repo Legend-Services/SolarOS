@@ -109,8 +109,20 @@ export const APP_DOCS: Partial<Record<AppId, Doc>> = {
       "Click a network line or switch node in the wireframe to re-patch that network card to another virtual switch, physical bridge, router, VLAN or isolated lab in one click; the host node shows Standalone Mode or the cluster's preferred active host, standby hosts, ZFS sync and floating VIP.",
     ],
     tips: ["Install media lives in the ISO & Template Library; download an ISO there before creating a VM.", "Legacy PCI and ISA devices need a power cycle (shut down, then start) before a running VM sees them."],
-    keywords: "vm virtual machine container lxc guest create start stop console snapshot compute virtual hardware audio microphone webcam capture modem 56k nvme sas raid hba tpm smartcard watchdog rng throttle cpu limit bandwidth latency packet loss retro lab sandbox air gap isolated multi seat multiseat workstation station gpu monitor usb port keyboard mouse plug assign cpu pinning cluster host live migration migrate high availability ha failover standby wireframe architecture blueprint schematic form view hardware inspector identity device name device manager vendor id device id vid pid serial number mac address randomize nic model pci slot repatch re-patch endpoint change network",
+    keywords: "docker engine compose stack portainer vm virtual machine container lxc guest create start stop console snapshot compute virtual hardware audio microphone webcam capture modem 56k nvme sas raid hba tpm smartcard watchdog rng throttle cpu limit bandwidth latency packet loss retro lab sandbox air gap isolated multi seat multiseat workstation station gpu monitor usb port keyboard mouse plug assign cpu pinning cluster host live migration migrate high availability ha failover standby wireframe architecture blueprint schematic form view hardware inspector identity device name device manager vendor id device id vid pid serial number mac address randomize nic model pci slot repatch re-patch endpoint change network",
     more: [
+      {
+        id: "docker",
+        title: "Built-In Docker Engine & Compose",
+        body: "Docker Engine and Docker Compose are part of the platform; no app is needed. The Docker tab (shown while Docker Engine & Compose is on in Settings › Features & Services) starts with its Security-by-Design header: run the engine in an Isolated Container (recommended: its own runtime container, so the hypervisor host stays untouched) or Host Native, and pin it to the management network, a VLAN, the DMZ or an isolated lab with least-privilege firewall rules. Below it, every container shows its image, state, published ports and Compose stack, with start, stop, restart and remove, and every Compose stack shows its status and compose files. Prefer a web UI? Install Portainer CE from App Center (as many instances as you like) and add this engine to it through the Portainer Agent.",
+        steps: [
+          "Open Compute and pick the Docker tab.",
+          "Choose Isolated Container or Host Native and the network, then switch the module on.",
+          "Press Install Docker Engine when it is not installed yet and follow the progress card.",
+          "Use the buttons on a container row to start, stop, restart or remove it; the list of Compose stacks updates with it.",
+        ],
+        shot: "compute-docker",
+      },
       {
         id: "wireframe",
         title: "Wireframe Node Architecture & Hardware ID Overrides",
@@ -155,8 +167,12 @@ export const APP_DOCS: Partial<Record<AppId, Doc>> = {
   appcenter: {
     intro: "App Center installs ready-made applications (media servers, ad blockers, home automation and more) into their own container with one click.",
     steps: ["Browse the categories or search for an app.", "Open an app card and review the suggested resources.", "Press Deploy and wait until the job log says done.", "Open the address shown on the deployment card to use the app."],
-    tips: ["Tick Storage when the app should see your files."],
-    keywords: "app center store install deploy one click media docker apps marketplace",
+    tips: [
+      "Tick Storage when the app should see your files.",
+      "File sharing, the reverse proxy and Docker Engine are built in rather than apps: Settings › Storage & Data › Shared Folders & SMB, Settings › Network & Services › Reverse Proxy & SSL and Compute › Docker. Searching App Center for them shows a shortcut.",
+      "Apps installed on an older version that are now built in show a Built-In Native Feature Available badge in Settings › Hypervisor & Runtime › Installed Apps & Instances; they keep working and can be opened or uninstalled as usual.",
+    ],
+    keywords: "app center store install deploy one click media docker portainer apps marketplace samba nginx proxy built in native",
   },
   "local-ai": {
     intro: "Local AI Studio downloads AI models and runs them on your own hardware, with a private chat to test them. Nothing leaves your server.",
@@ -253,8 +269,8 @@ export const MODULE_DOCS: Record<ModuleId, Doc> = {
   },
   "shared-folders": {
     intro: "Share folders with every computer and phone on your network over SMB, with per-user permissions.",
-    steps: ["Press New shared folder, choose a path and a name.", "Add share users under Users and give them read or write access.", "Connect from another computer with the address shown on the share card."],
-    keywords: "share smb samba network folder nas permissions users file sharing",
+    steps: ["Press New shared folder, choose a path and a name.", "Or use a Quick preset: Public guest share creates a read-only 'public' share anyone on the network can open without a password; Storage share creates a read/write 'storage' share of the whole storage root for SMB users, with a recycle bin.", "Add share users under Users and give them read or write access.", "Connect from another computer with the address shown on the share card."],
+    keywords: "share smb samba cifs network folder nas permissions users file sharing guest public read only preset file server",
   },
   "iso-templates": {
     intro: "Download and upload bootable ISO images, cloud images and container templates used by the VM and container wizards.",
@@ -364,6 +380,7 @@ const c = (moduleId: ModuleId, items: C[]): Control[] =>
 /** Every Settings sub-sub-module, tab and key control, in Settings order. */
 export const CONTROLS: Control[] = [
   ...c("features-services", [
+    { id: "docker-engine", feature: "docker_engine", titleKey: "feat.docker_engine", description: "Docker Engine & Compose is a built-in platform feature. While it is on, its card shows the Security-by-Design options right below it: Isolated Container (recommended) or Host Native, and the network it is pinned to (management, VLAN, DMZ or isolated lab). Containers and stacks are managed in Compute › Docker.", keywords: "docker engine compose container runtime isolated host native vlan portainer", steps: ["Switch on Docker Engine & Compose.", "Pick Isolated Container or Host Native and the network, then press Save.", "Open Compute › Docker to install the engine and manage containers."] },
     { id: "feature-presets", anchorId: "feat-presets", titleKey: "feat.presets", shot: true, description: "Quick presets switch many features at once: Minimal Core, Home & Media Server, Full Hypervisor Lab or Enable All.", keywords: "preset minimal core home media server full lab enable all", steps: ["Press a preset button; the switches below update right away.", "Fine-tune single switches afterwards."] },
     { id: "server-setup-wizard", anchorId: "feat-wizard", titleKey: "ob.title", description: "The Server Setup Wizard opens on the first sign-in of a new installation and any time from Re-run Setup Wizard. Pick one or more server roles on wireframe cards (storage & media, virtualization host, multi-seat gaming, high-availability cluster, network gateway & VPN, AI compute or other services), choose Standalone Server or Cluster Host, fine-tune single services, tick App Center apps to install, review the summary and press Setup My Server. Live progress runs from 0 to 100 %, then the finish screen shows the server address, roles and apps.", keywords: "setup wizard onboarding first boot server role wireframe cluster standalone apps install setup my server skip defaults", steps: ["Press Re-run Setup Wizard.", "Tick one or more roles and pick Standalone Server or Cluster Host.", "Press Customize Services to fine-tune, then pick apps.", "Review the summary, choose whether to skip the desktop tour and press Setup My Server."], tips: ["Skip Setup & Use Defaults (first run only) keeps every feature on and skips the tour."] },
   ]),
@@ -425,7 +442,7 @@ export const CONTROLS: Control[] = [
     { id: "backup-schedules", titleKey: "kb.backup-schedules", tabId: "schedules", shot: true, description: "Automatic backup schedules with retention.", keywords: "backup schedule automatic retention daily weekly", steps: ["Press New schedule.", "Pick the guests, the time and how many backups to keep."] },
   ]),
   ...c("shared-folders", [
-    { id: "smb-shares", titleKey: "kb.smb-shares", tabId: "shares", description: "SMB shared folders visible to every computer and phone on the network.", keywords: "smb shares shared folders network samba", steps: ["Press New shared folder and choose a path.", "Copy the address on the card to connect from another computer."] },
+    { id: "smb-shares", titleKey: "kb.smb-shares", tabId: "shares", description: "SMB shared folders visible to every computer and phone on the network, with one-click presets for a read-only guest share and an authenticated storage share.", keywords: "smb shares shared folders network samba guest public preset", steps: ["Press New shared folder and choose a path, or press a Quick preset.", "Copy the address on the card to connect from another computer."] },
     { id: "share-users", titleKey: "kb.share-users", tabId: "users", description: "Users that can connect to the shared folders, with read or write access.", keywords: "share users smb accounts access read write", steps: ["Add a user with a password.", "Give the user access on each share."] },
   ]),
   ...c("users-roles", [

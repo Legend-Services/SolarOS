@@ -105,7 +105,7 @@ def state():
 
 @router.post("/apply")
 async def apply(body: ApplyBody):
-    bad = [a for a in body.selected_app_ids if a not in apps.BY_ID or apps.BY_ID[a].get("system")]
+    bad = [a for a in body.selected_app_ids if a not in {x["id"] for x in apps.CATALOG}]
     if bad:
         raise HTTPException(422, f"Unknown app: {', '.join(bad)}")
     if any(j["kind"] == "onboarding" and j["status"] == "running" for j in task_progress.module_jobs.values()):

@@ -37,7 +37,7 @@ RULES_SH = f"/etc/{P}/net/module-isolation.sh"
 HEADER = "# Managed by SolarDeck (Security-by-Design module isolation). Changes here are overwritten.\n"
 
 ModuleId = Literal["reverse_proxy", "offsite_backup", "image_hub", "ups_power", "oob_bmc", "vlan_firewall",
-                   "storage_protocols", "rbac_users"]
+                   "storage_protocols", "rbac_users", "docker_engine"]
 Runtime = Literal["container", "host_native"]
 Isolation = Literal["management", "vlan", "dmz", "isolated_lab"]
 
@@ -56,6 +56,9 @@ SPECS: dict[str, dict] = {
     "storage_protocols": {"modes": ["host_native"], "recommended": "host_native",
                           "ports": [("tcp", "2049"), ("udp", "2049"), ("tcp", "111"), ("udp", "111"), ("tcp", "8090")]},
     "rbac_users": {"modes": ["host_native"], "recommended": "host_native", "ports": []},
+    # Published container ports change all the time, so only the lateral-movement rule applies to it.
+    "docker_engine": {"modes": ["container", "host_native"], "recommended": "container", "worker": "docker-engine",
+                      "ports": []},
 }
 MODULE_IDS = tuple(SPECS)
 

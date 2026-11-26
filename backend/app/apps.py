@@ -23,7 +23,9 @@ router = APIRouter(prefix="/api/apps", tags=["apps"], dependencies=[Depends(requ
 DATA = Path(__file__).resolve().parent.parent / "data"
 _ALL: list[dict] = json.loads((DATA / "app_catalog.json").read_text())
 BY_ID = {a["id"]: a for a in _ALL}
-CATALOG = [a for a in _ALL if not a.get("system")]  # "system" apps are module workers, deployed by platform_modules
+# "system" apps are module workers, deployed by platform_modules. "legacy" apps were replaced by a built-in feature
+# (native_feature): they are no longer installable, but existing instances are still listed, opened and uninstalled.
+CATALOG = [a for a in _ALL if not a.get("system") and not a.get("legacy")]
 TAG = settings.name("app")
 ALIASES = {"ollama": "local-ai"}  # pre-v1.6 Ollama installs show up under Local AI Studio
 
@@ -63,7 +65,7 @@ def clean_label(v: str) -> str:
 
 
 def hostname_for(app_id: str, label: str) -> str:
-    """RFC 1123 host name: "<app_id>-<slug of label>" ("Dev" -> docker-portainer-dev), or the app id alone."""
+    """RFC 1123 host name: "<app_id>-<slug of label>" ("Dev" -> portainer-dev), or the app id alone."""
     seg = re.sub(r"[^a-z0-9]+", "-", unicodedata.normalize("NFKD", label).encode("ascii", "ignore").decode().lower())
     return (f"{app_id}-{seg.strip('-')}" if seg.strip("-") else app_id)[:63].rstrip("-")
 
@@ -105,6 +107,13 @@ class DeployBody(BaseModel):
     compute_target: str = Field("cpu", pattern=TARGET_RE)
     install_open_webui: bool = False
     starter_models: list[Annotated[str, StringConstraints(pattern=MODEL_RE)]] = Field([], max_length=5)
+
+    @field_validator("app_id")
+    @classmethod
+    def _installable(cls, v: str) -> str:
+        if BY_ID.get(v, {}).get("legacy"):
+            raise ValueError(f"{BY_ID[v]['name']} is now a built-in feature and can no longer be installed")
+        return v
 
     @model_validator(mode="after")
     def _names(self):
@@ -210,15 +219,21 @@ async def reconcile() -> list[dict]:
             rec["ip_address"] = await p.container_ip(vmid)
             rec["web_url"] = rec["web_url"] or _web_url(app_id, rec["ip_address"])
         keep[rec["instance_id"]] = rec
-        out.append({**rec, "status": status, "cores": int(c.get("maxcpu") or c.get("cpus") or 0),
-                    "memory_mb": int(c.get("maxmem") or 0) // 1048576})
+        out.append({**rec, **native_badge(app_id), "status": status,
+                    "cores": int(c.get("maxcpu") or c.get("cpus") or 0), "memory_mb": int(c.get("maxmem") or 0) // 1048576})
     for iid, rec in reg.items():  # an install that has not created its container yet
         if iid not in keep and _busy(rec["guest_id"]):
             keep[iid] = rec
-            out.append({**rec, "status": "installing", "cores": 0, "memory_mb": 0})
+            out.append({**rec, **native_badge(rec["app_id"]), "status": "installing", "cores": 0, "memory_mb": 0})
     if keep != reg:
         save_registry(keep)
     return sorted(out, key=lambda r: (r["app_name"], r["guest_id"]))
+
+
+def native_badge(app_id: str) -> dict:
+    """Fields the instance list adds for an app that became a built-in feature (legacy installs on older servers)."""
+    nf = BY_ID.get(app_id, {}).get("native_feature")
+    return {"legacy": True, "native_feature": nf, "badge": "Built-In Native Feature Available"} if nf else {}
 
 
 @router.get("/instances")

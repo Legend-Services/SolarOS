@@ -3,9 +3,9 @@ import configparser
 import re
 import subprocess
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
@@ -131,6 +131,23 @@ def _write_share(body: ShareBody, target: Path) -> dict:
     cp[body.name] = share_section(body, target)
     _save(cp)
     return _share(body.name, cp[body.name])
+
+
+# One-click shares (what the former standalone file-server app created): a read-only guest share and a password
+# protected read/write share of the whole storage root for every SMB user.
+PRESETS = {
+    "public": ShareBody(name="public", path="/public", comment="Public files (read-only guest access)",
+                        read_only=True, guest_ok=True),
+    "storage": ShareBody(name="storage", path="/", comment="Storage (SMB users, read/write)", recycle_bin=True),
+}
+
+
+@router.post("/presets/{preset}")
+def create_preset(preset: Literal["public", "storage"],
+                  users: list[Annotated[str, Field(pattern=USER_RE)]] = Body([], max_length=50, embed=True)):
+    """Create (or reset) a preset share; `users` limits the storage share to those SMB users."""
+    body = PRESETS[preset].model_copy(update={"users": users})
+    return _write_share(body, safe_path(body.path))
 
 
 @router.delete("/{name}")

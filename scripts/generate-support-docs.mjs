@@ -203,6 +203,11 @@ async function capture(page, reg) {
     await page.getByRole("button", { name: /^net0 · / }).first().click();
     await settle(page, 500);
   });
+  await snap("compute-docker", async () => {
+    await show(page, { kind: "app", appId: "compute" });
+    await page.evaluate(async () => (await import("/src/lib/stores.ts")).useIntent.getState().go("compute", "docker"));
+    await settle(page, 900);
+  });
   await snap("architect-network", async () => {
     await show(page, { kind: "app", appId: "architect" });
     await page.getByRole("button", { name: "Open the network view of br0" }).click();

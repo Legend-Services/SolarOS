@@ -15,7 +15,7 @@ features.DATA = onboarding.DATA = tmp
 
 # Defaults: everything visible, upgrades count as already set up.
 v = features.view()
-assert all(v["enabled"].values()) and len(v["features"]) == len(features.KEYS) == 28
+assert all(v["enabled"].values()) and len(v["features"]) == len(features.KEYS) == 29
 assert "features-services" in v["protected"] and "users-roles" in v["protected"]
 assert onboarding.load()["onboarding_completed"] is True
 
@@ -65,7 +65,7 @@ async def fake_install(app_id, body):
     assert body.cores == apps.BY_ID[app_id]["cores"] and body.memory == apps.BY_ID[app_id]["memory_mb"]
     installed.append(app_id)
     vmid = 500 + len(installed)
-    apps._jobs[vmid] = {"phase": "error" if app_id == "samba" else "done", "error": "boom"}
+    apps._jobs[vmid] = {"phase": "error" if app_id == "adguard-home" else "done", "error": "boom"}
     return {"vmid": vmid}
 
 apps.install = fake_install
@@ -73,7 +73,7 @@ apps.install = fake_install
 
 async def run():
     body = onboarding.ApplyBody(selected_roles=["storage"], enabled_features={"local_ai": False},
-                                selected_app_ids=["jellyfin", "samba", "immich"], skip_tour=False)
+                                selected_app_ids=["jellyfin", "adguard-home", "immich"], skip_tour=False)
     res = await onboarding.apply(body)
     job = task_progress.module_jobs[res["job_id"]]
     while job["status"] == "running":
@@ -82,8 +82,8 @@ async def run():
 
 job = asyncio.run(run())
 assert job["status"] == "completed", job
-assert installed == ["jellyfin", "samba", "immich"]
-assert job["result"] == {"installed": ["jellyfin", "immich"], "failed": ["samba"]}
+assert installed == ["jellyfin", "adguard-home", "immich"]
+assert job["result"] == {"installed": ["jellyfin", "immich"], "failed": ["adguard-home"]}
 assert task_progress.from_cluster(job)["progress_percent"] == 100
 st = onboarding.load()
 assert st["onboarding_completed"] and not st["tour_completed"] and st["selected_roles"] == ["storage"]

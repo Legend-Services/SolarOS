@@ -453,14 +453,16 @@ const BIOS = {
 const app = (id, name, category, description, icon, cores, memory_mb, disk_gb, web_port, extra = {}) => ({
   id, name, category, description, icon, cores, memory_mb, disk_gb, web_port, web_scheme: "http", supports_igpu: false, supports_storage_mount: true, featured: false, compute_selector: false, installed: [], ...extra,
 });
-const inst = (app_id, app_name, label, guest_id, ip, port, status, scheme = "http") => ({
+const inst = (app_id, app_name, label, guest_id, ip, port, status, scheme = "http", extra = {}) => ({
   instance_id: `${app_id}-${guest_id}`, app_id, app_name, instance_label: label, display_name: label ? `${app_name} — ${label}` : app_name, guest_id,
-  ip_address: ip, web_url: ip ? `${scheme}://${ip}:${port}` : null, created_at: "2026-11-20T09:00:00+00:00", status, cores: 2, memory_mb: 2048,
+  ip_address: ip, web_url: ip ? `${scheme}://${ip}:${port}` : null, created_at: "2026-11-20T09:00:00+00:00", status, cores: 2, memory_mb: 2048, ...extra,
 });
 const INSTANCES = [
-  inst("docker-portainer", "Container Host", "", 110, "192.168.1.60", 9443, "running", "https"),
-  inst("docker-portainer", "Container Host", "Dev", 111, null, 9443, "stopped", "https"),
+  inst("portainer", "Portainer CE", "", 110, "192.168.1.60", 9443, "running", "https"),
+  inst("portainer", "Portainer CE", "Dev", 111, null, 9443, "stopped", "https"),
   inst("local-ai", "Local AI Studio", "", 105, "192.168.1.55", 8080, "running"),
+  // Installed before file sharing became built in: still listed, opened and uninstalled, with the badge.
+  inst("samba", "File Server (legacy)", "", 108, "192.168.1.58", null, "running", "http", { legacy: true, native_feature: "smb_shares", badge: "Built-In Native Feature Available" }),
 ];
 
 const CATALOG = [
@@ -468,12 +470,10 @@ const CATALOG = [
   app("jellyfin", "Jellyfin Media Server", "Media", "Stream your movies, shows and music to any device, with hardware transcoding when a GPU is present.", "Clapperboard", 2, 2048, 16, 8096, { supports_igpu: true }),
   app("immich", "Immich", "Media", "Self-hosted photo and video backup with phone apps, face recognition and shared albums.", "Images", 4, 4096, 32, 2283),
   app("music-library", "Music Library", "Media", "Organise and stream your music collection in the browser.", "Clapperboard", 1, 1024, 8, 4533),
-  app("docker-portainer", "Container Host", "Infrastructure", "A container engine in a nested container, managed from a web dashboard.", "Container", 2, 2048, 32, 9443, { web_scheme: "https", installed: [{ vmid: 110, name: "docker-portainer", status: "running" }, { vmid: 111, name: "docker-portainer-dev", status: "stopped" }] }),
+  app("portainer", "Portainer CE", "Infrastructure", "Optional web UI for containers. Docker Engine & Compose are built in (Compute > Docker); each instance runs in its own lightweight container.", "Container", 1, 1024, 16, 9443, { web_scheme: "https", multi_instance: true, installed: [{ vmid: 110, name: "portainer", status: "running" }, { vmid: 111, name: "portainer-dev", status: "stopped" }] }),
   app("git-server", "Git Server", "Infrastructure", "Lightweight self-hosted code hosting with issues and pull requests.", "Container", 1, 1024, 16, 3000),
   app("uptime-monitor", "Uptime Monitor", "Infrastructure", "Watch your websites and services and get alerts when they go down.", "Waypoints", 1, 512, 4, 3001),
-  app("samba", "Samba File Server", "Network", "Standalone SMB server that shares a folder with every computer on your network.", "FolderTree", 1, 512, 4, null, { supports_storage_mount: true }),
   app("adguard-home", "AdGuard Home", "Network", "Network-wide DNS ad and tracker blocking. Point your router's DNS at it.", "ShieldCheck", 1, 512, 4, 3000, { installed: [{ vmid: 103, name: "dns-filter", status: "running" }] }),
-  app("nginx-proxy-manager", "Nginx Proxy Manager", "Network", "Reverse proxy with free TLS certificates and a simple web interface.", "Waypoints", 1, 1024, 8, 81),
   app("vpn-gateway", "VPN Gateway", "Network", "Reach your home network securely from anywhere.", "ShieldCheck", 1, 512, 4, 51821),
   app("notebook-lab", "Notebook Lab", "AI & Compute", "Interactive notebooks for data science and machine-learning experiments.", "BrainCircuit", 4, 8192, 32, 8888),
 ];
@@ -751,7 +751,16 @@ const MOD_SPEC = {
   vlan_firewall: ["host_native", ["host_native"], "management", null, null],
   storage_protocols: ["host_native", ["host_native"], "vlan", 20, null],
   rbac_users: ["host_native", ["host_native"], "management", null, null],
+  docker_engine: ["container", ["container", "host_native"], "vlan", 30, "10.30.0.12"],
 };
+const DOCKER_STATUS = { enabled: true, runtime_mode: "container", network_isolation_mode: "vlan", bound_vlan_id: 30, service_ip: "10.30.0.12", installed: true, running: true, version: "28.5.1", compose_version: "2.40.0", worker_vmid: 112 };
+const DOCKER_CONTAINERS = [
+  { id: "3f1c9a2b7d10", name: "media-web-1", image: "nginx:stable", state: "running", status: "Up 3 days", ports: "0.0.0.0:8080->80/tcp", stack: "media" },
+  { id: "8a77e01c5b22", name: "media-db-1", image: "postgres:16", state: "running", status: "Up 3 days", ports: "5432/tcp", stack: "media" },
+  { id: "c2d4e6f80a13", name: "home-dashboard", image: "ghcr.io/example/dashboard:latest", state: "running", status: "Up 26 hours", ports: "0.0.0.0:3001->3000/tcp", stack: null },
+  { id: "e9b8a7c6d544", name: "backup-check", image: "alpine:3.21", state: "exited", status: "Exited (0) 2 hours ago", ports: "", stack: null },
+];
+const DOCKER_STACKS = [{ name: "media", status: "running(2)", config_files: "/srv/stacks/media/compose.yaml" }];
 const moduleProfile = (id) => {
   const [rec, modes, net, vid, ip] = MOD_SPEC[id];
   return { module_id: id, enabled: true, runtime_mode: rec, recommended_runtime_mode: rec, supported_runtime_modes: modes, network_isolation_mode: net,
@@ -820,6 +829,9 @@ const RBAC_USERS = [
 ];
 const MODULE_FIXTURES = {
   "/platform/modules": () => ({ modules: Object.keys(MOD_SPEC).map(moduleProfile) }),
+  "/docker/status": () => DOCKER_STATUS,
+  "/docker/containers": () => DOCKER_CONTAINERS,
+  "/docker/stacks": () => DOCKER_STACKS,
   "/proxy": () => ({ module: moduleProfile("reverse_proxy"), settings: { solardeck_url: "", acme_email: "admin@example.net" }, gate_url: `https://${HOST}`, applied: T0 - 600, counts: { hosts: 3, streams: 3, access_lists: 1, certificates: 3 }, root_ca: ROOT_CA }),
   "/proxy/hosts": () => PROXY_HOSTS,
   "/proxy/streams": () => PROXY_STREAMS,

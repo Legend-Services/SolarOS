@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Check, Copy, FolderOpen, Plus, Share2, Trash2, UserPlus, Users } from "lucide-react";
+import { Check, Copy, FolderOpen, Plus, Share2, Trash2, UserPlus, Users, Zap } from "lucide-react";
+import { useTranslation } from "../i18n";
 import { api } from "../lib/api";
 import type { Share, ZfsDatasetInfo } from "../lib/types";
 import { useRunner } from "../lib/hooks";
@@ -187,6 +188,36 @@ function UsersTab({ users, reload }: { users: string[]; reload: () => void }) {
   );
 }
 
+/** One-click shares: a read-only guest "public" share and a password-protected read/write "storage" share. */
+function SharePresets({ existing, onDone }: { existing: string[]; onDone: () => void }) {
+  const { t } = useTranslation();
+  const { busy, error, notice, run } = useRunner(onDone);
+  const presets = (["public", "storage"] as const).filter((p) => !existing.includes(p));
+  if (!presets.length && !notice && !error) return null;
+  return (
+    <section className="glass-soft space-y-2 rounded-2xl p-3" aria-label={t("shp.title")}>
+      <p className="text-[11px] font-semibold tracking-wide text-slate-400 uppercase">{t("shp.title")}</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {presets.map((p) => (
+          <button
+            key={p}
+            type="button"
+            disabled={busy}
+            onClick={() => void run(() => api(`/shares/presets/${p}`, { method: "POST", json: {} }), t("shp.done", { name: p }))}
+            className="rounded-xl border border-white/5 bg-white/[0.03] p-3 text-left hover:bg-white/[0.06] disabled:opacity-50"
+          >
+            <span className="flex items-center gap-1.5 text-xs font-medium text-white">
+              <Zap size={12} className="text-sky-300" /> {t(p === "public" ? "shp.public" : "shp.storage")}
+            </span>
+            <span className="mt-0.5 block text-[11px] leading-snug text-slate-400">{t(p === "public" ? "shp.publicDesc" : "shp.storageDesc")}</span>
+          </button>
+        ))}
+      </div>
+      <Notice error={error} notice={notice} />
+    </section>
+  );
+}
+
 export default function SharesManager({ initialTab }: { initialTab?: Tab } = {}) {
   const [tab, setTab] = useState<Tab>(initialTab === "users" ? "users" : "shares");
   const [shares, setShares] = useState<Share[] | null>(null);
@@ -257,6 +288,7 @@ export default function SharesManager({ initialTab }: { initialTab?: Tab } = {})
                 </GlassButton>
               )}
             </div>
+            {shares && <SharePresets existing={shares.map((s) => s.name)} onDone={load} />}
             {creating && <ShareForm users={users} onDone={() => (setCreating(false), load())} />}
             {shares === null && !error && <p className="text-sm text-slate-400">Loading…</p>}
             {shares?.length === 0 && !creating && (
