@@ -56,13 +56,28 @@ def arg_fragment(dev: dict, image: str = "") -> str:
     raise HTTPException(422, f"{t} has no emulator arguments")
 
 
-def boot_storage(cfg: dict) -> str:
-    """Storage of the VM's first disk (where its TPM state goes)."""
+def boot_storage(cfg: dict) -> str | None:
+    """Storage of the VM's first disk (where its TPM state goes), None for a VM without disks."""
     for k in sorted(cfg):
         vol = parse_props(cfg[k]).get("_", "") if DISK_RE.match(k) else ""
         if ":" in vol and "media=cdrom" not in str(cfg[k]) and "cloudinit" not in vol:
             return vol.split(":")[0]
-    return "local-lvm"
+    return None
+
+
+def audio_driver(cfg: dict) -> str:
+    """The host audio backend: SPICE needs a SPICE (qxl) display, otherwise the card has no host output."""
+    return "spice" if str(cfg.get("vga", "")).startswith("qxl") else "none"
+
+
+async def image_storage(cfg: dict) -> str:
+    if s := boot_storage(cfg):
+        return s
+    out = await host_ssh.run("pvesm status --content images --enabled 2>/dev/null | awk 'NR>1{print $1}'", check=False)
+    names = out.split()
+    if not names:
+        raise HTTPException(409, "No storage for VM disks is available for the TPM state")
+    return next((n for n in ("local-lvm", "local-zfs") if n in names), names[0])
 
 
 # ---------------------------------------------------------------- Contract
@@ -93,12 +108,13 @@ async def attach(kind: str, vmid: int, dev: dict) -> dict:
         free = [i for i in range(256) if i not in used][:len(paths)]
         await pct_set(vmid, {f"dev{i}": f"{p},mode=0666" for i, p in zip(free, paths)})
         return {"keys": [f"dev{i}" for i in free]}
-    native = {"hd_audio": ("audio0", "device=ich9-intel-hda,driver=spice"),
+    native = {"hd_audio": ("audio0", f"device=ich9-intel-hda,driver={audio_driver(cfg)}"),
               "watchdog": ("watchdog", f"model=i6300esb,action={o.get('action')}"),
-              "virtio_rng": ("rng0", "source=/dev/urandom"),
-              "vtpm": ("tpmstate0", f"{boot_storage(cfg)}:1,version=v2.0")}
+              "virtio_rng": ("rng0", "source=/dev/urandom")}
+    if t == "vtpm":
+        native[t] = ("tpmstate0", f"{await image_storage(cfg)}:1,version=v2.0")
     if t == "legacy_audio" and o["model"] == "ac97":
-        native[t] = ("audio0", "device=AC97,driver=spice")
+        native[t] = ("audio0", f"device=AC97,driver={audio_driver(cfg)}")
     if t in native:
         key, val = native[t]
         if key in cfg:

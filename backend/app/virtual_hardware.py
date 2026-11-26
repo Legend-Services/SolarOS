@@ -32,6 +32,7 @@ from .guest_hardware import QEMU_MODELS, NetBody
 from providers.registry import get_provider
 
 router = APIRouter(prefix="/api/virtual-hardware", tags=["virtual_hardware"], dependencies=[Depends(require_user)])
+public = APIRouter(prefix="/api/virtual-hardware", tags=["virtual_hardware"])  # the static device catalog only
 
 DATA = FsPath(__file__).resolve().parent.parent / "data"
 PROFILES = DATA / "virtual_hardware.json"
@@ -256,12 +257,15 @@ async def need(cmd: str, hint: str) -> None:
 
 
 async def snd_nodes() -> list[str]:
-    """Load the ALSA loopback card (a virtual sound card with playback + capture) and list the host's /dev/snd nodes."""
+    """Load the ALSA loopback card (a virtual sound card with playback + capture) and list its /dev/snd nodes; the
+    host's own sound cards are never handed to a container."""
     out = await host_ssh.run("modprobe snd-aloop 2>/dev/null; grep -qx snd-aloop /etc/modules-load.d/*.conf 2>/dev/null || "
-                             f"echo snd-aloop > /etc/modules-load.d/{P}-vhw.conf; ls /dev/snd 2>/dev/null; true")
-    nodes = [f"/dev/snd/{n}" for n in out.split() if re.fullmatch(r"(controlC|pcmC|timer|seq)[0-9A-Za-z]*", n)]
+                             f"echo snd-aloop > /etc/modules-load.d/{P}-vhw.conf; "
+                             "c=$(readlink /proc/asound/Loopback 2>/dev/null); echo card:${c#card}; ls /dev/snd 2>/dev/null; true")
+    card = next((w[5:] for w in out.split() if w.startswith("card:")), "")
+    nodes = [f"/dev/snd/{n}" for n in out.split() if card.isdigit() and re.fullmatch(rf"controlC{card}|pcmC{card}D\d+[cp]|timer", n)]
     if not nodes:
-        raise HTTPException(409, "The host has no sound devices and the ALSA loopback module (snd-aloop) could not be loaded")
+        raise HTTPException(409, "The ALSA loopback module (snd-aloop) could not be loaded on the host")
     return nodes
 
 
@@ -320,7 +324,8 @@ def modem_container_script(dev: dict, remove: bool = False) -> str:
     unit = f"{P}-modem"
     if remove:
         return (f"systemctl disable -q --now {unit} 2>/dev/null; pkill -f /usr/local/lib/{P}/vhw_modem.py; "
-                f"rm -f /etc/systemd/system/{unit}.service /usr/local/lib/{P}/vhw_modem.py /etc/rc.local.d/{unit}; true\n")
+                f"rm -f /etc/systemd/system/{unit}.service /usr/local/lib/{P}/vhw_modem.py; "
+                "for l in /dev/ttyS0 /dev/ttyVHW0; do [ -L $l ] && rm -f $l; done; true\n")
     code = (FsPath(__file__).parent / "vhw_modem.py").read_text()
     link = "/dev/ttyS0"
     cmd = f"/usr/bin/python3 /usr/local/lib/{P}/vhw_modem.py --pty $LINK{_modem_args(dev['options'])}"
@@ -336,7 +341,7 @@ def modem_container_script(dev: dict, remove: bool = False) -> str:
 # ---------------------------------------------------------------- Routes: catalog & profiles
 
 
-@router.get("/catalog")
+@public.get("/catalog")
 async def catalog():
     return {"devices": [{"type": t, **c, "driver_compat": "universal_inbox"} for t, c in CATALOG.items()],
             "cpu_models": list(CPU_MODELS), "net_presets": {k: (None if v is None else dict(
@@ -570,7 +575,8 @@ async def add_device(body: DeviceBody, guest_type: GuestTypeT, guest_id: int = G
                 await modem_vm_start(guest_id, dev, dev["state"]["socket"])
         prof["devices"].append(dev)
         _store(guest_type, guest_id, prof)
-    running = g.get("status") == "running"
+    # Container device nodes and in-container services apply live; VM hardware outside hot-plug waits for a power cycle.
+    running = g.get("status") == "running" and kind == "qemu"
     return {"ok": True, "device": dev, "restart_required": running and not spec["hotplug"]}
 
 
@@ -599,7 +605,9 @@ async def remove_device(guest_type: GuestTypeT, guest_id: int = GUEST_ID, device
             await host_ssh.run(f"rm -f {shlex.quote(dev['state']['image'])}")
         prof["devices"] = [x for x in prof["devices"] if x["id"] != device_id]
         _store(guest_type, guest_id, prof)
-    return {"ok": True, "restart_required": running and not CATALOG[dev["type"]]["hotplug"]}
+    # A running container keeps removed device nodes until it restarts; VM hardware outside hot-plug needs a power cycle.
+    cold = not CATALOG[dev["type"]]["hotplug"] if kind == "qemu" else bool(dev["state"].get("keys"))
+    return {"ok": True, "restart_required": running and cold}
 
 
 # ---------------------------------------------------------------- Routes: throttling

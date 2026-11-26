@@ -15,5 +15,6 @@ assert pv.args_remove(a, "vhweeeeee") == user + " -device megasas,id=vhwa1b2c3"
 assert pv.args_remove(pv.args_remove(a, "vhweeeeee"), "vhwa1b2c3") == user
 assert pv.args_remove("", "vhwx") == "" and pv.args_add("", "-device sb16,id=vhwx") == "-device sb16,id=vhwx"
 assert pv.boot_storage({"ide2": "local:iso/x.iso,media=cdrom", "scsi0": "fast-zfs:vm-101-disk-0,size=32G"}) == "fast-zfs"
-assert pv.boot_storage({}) == "local-lvm"
+assert pv.boot_storage({}) is None
+assert pv.audio_driver({"vga": "qxl,memory=32"}) == "spice" and pv.audio_driver({}) == "none"
 print("proxmox virtual hardware ok")

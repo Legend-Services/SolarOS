@@ -49,6 +49,7 @@ for module in (host_ssh, net_services, hardware_admin, help_center, disk_benchma
                themes, branding, automation, security, host_services, network_switch, virtual_hardware):
     app.include_router(module.router)
 app.include_router(themes.public)
+app.include_router(virtual_hardware.public)
 app.include_router(capabilities.router, prefix="/api/system")
 app.include_router(capabilities.router, prefix="/api/v1/system")
 
