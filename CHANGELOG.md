@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.20.5 - Uniform Light Mode surfaces — 2026-11-26
+
+### Fixed
+- **Light Mode**: window bars, breadcrumbs, tab bars, sidebars, toolbars, cards, drawers and dialogs now share one bright surface and are separated by thin 1px lines instead of gray blocks. Active tabs, selected sidebar items and segmented controls show as a crisp white pill.
+- The TopBar, taskbar, popovers and the Compute wireframe inspector no longer draw a blue-gray strip in Light Mode.
+- Log and code viewers (task logs, install output, firewall rulesets, API URLs in Local AI Studio) were dark boxes with dark text in Light Mode; they are now light and readable.
+- **Terminal / Console**: the toolbar follows the theme; only the terminal itself stays black.
+- The last item of the Settings sidebar no longer sits flush against the bottom edge of the window.
+
+### Added
+- `scripts/audit-light-mode.mjs`: opens every app, Settings sub-module, inner tab, drawer and dialog (203 screens) in Light Mode and fails on any dark bar or gray block. The support-docs generator and the audit share one headless-browser harness (`scripts/support-docs/harness.mjs`).
+- Refreshed manual screenshots.
+
 ## v2.20.4 - One Docker Engine switch — 2026-11-26
 
 ### Fixed

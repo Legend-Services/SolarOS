@@ -138,6 +138,8 @@ downgrades and re-installs keep `HYPERVISOR_DRIVER` like every other `.env` valu
 
 Every surface reads CSS variables (`--sd-bg-base`, `--sd-surface-glass`, `--sd-text-primary`, `--sd-accent-primary`, `--sd-radius-window`, …) that `frontend/src/store/themeStore.ts` sets on `<html>` with `data-color-mode="dark|light"` and `data-window-chrome="standard|traffic-dots|angular-hud"`. `frontend/src/theme/palette.css` maps Tailwind's palette onto those variables, so every app follows the theme without per-app styles: neutrals are derived from the theme's text and background colors, sky/blue follow the primary accent and violet/indigo the secondary one, and the other color scales are mirrored in Light Mode.
 
+In Light Mode every structural zone (window bars, breadcrumbs, tab bars, sidebars, canvases, cards, drawers, dialogs) uses the same bright surface and is set apart by 1px hairlines (`--sd-hairline`) instead of gray fills: `index.css` repaints the `bg-white/N` tints (white is the text color here) and `bg-black/N` wells as white, with active tabs and selected items as a crisp white pill. `node scripts/audit-light-mode.mjs` opens every app, Settings sub-module, inner tab, drawer and dialog in Light Mode in headless Chromium and fails on any dark bar or gray block it measures.
+
 | Theme | Character |
 |---|---|
 | SolarDeck Liquid Glass (default) | cosmic indigo glass / alabaster glass, electric blue and violet |
@@ -249,6 +251,7 @@ for t in tests/test_*.py; do .venv/bin/python -m tests.$(basename $t .py); done
 
 # Frontend (proxies /api to :8000)
 cd frontend && npm ci && npm run dev
+node scripts/audit-light-mode.mjs           # Light Mode dark-bar / gray-block audit of every window
 ```
 
 ## Known limits

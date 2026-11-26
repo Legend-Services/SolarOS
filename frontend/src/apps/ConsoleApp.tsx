@@ -130,7 +130,7 @@ export default function ConsoleApp({ params }: { params?: ConsoleTarget }) {
   const fullscreen = () => (document.fullscreenElement ? document.exitFullscreen() : frame.current?.requestFullscreen());
 
   return (
-    <div ref={frame} className="flex h-full flex-col bg-[#05070d]">
+    <div ref={frame} className="flex h-full flex-col">
       <div className="flex shrink-0 items-center gap-2 border-b border-white/10 bg-slate-900/80 px-3 py-1.5">
         <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium capitalize ${BADGE[status]}`}>{status}</span>
         <span className="min-w-0 flex-1 truncate text-[11px] text-slate-400">
@@ -158,7 +158,7 @@ export default function ConsoleApp({ params }: { params?: ConsoleTarget }) {
           <Expand size={12} />
         </button>
       </div>
-      <div ref={screen} className="min-h-0 flex-1 overflow-hidden p-1" />
+      <div ref={screen} className="min-h-0 flex-1 overflow-hidden bg-[#05070d] p-1" />
     </div>
   );
 }

@@ -356,7 +356,7 @@ export default function SettingsApp() {
         </nav>
         <div className="flex min-h-0 flex-1">
           {tree && (
-            <aside className="w-60 shrink-0 overflow-auto border-r border-white/10 bg-black/20 p-2 max-sm:hidden">
+            <aside className="w-60 shrink-0 overflow-auto border-r border-white/10 bg-black/20 p-2 pb-8 max-sm:hidden">
               {CATEGORIES.map((c) => (
                 <div key={c} className="mb-2">
                   <p className="px-2 pt-1 pb-0.5 text-[10px] font-semibold tracking-wide text-slate-500 uppercase">{t(`set.cat.${c}`)}</p>

@@ -161,6 +161,33 @@
   background-image: linear-gradient(to bottom, color-mix(in oklab, var(--sd-accent-primary) 85%, white), var(--sd-accent-primary));
 }
 
+/* Light Mode surfaces. --color-white is the text color, so bg-white/N would paint gray tints and bg-black/N dark wells
+   (tab bars, toolbars, log viewers). Here they become the same bright surface, set apart by 1px hairlines.
+   :where() keeps the specificity of the utility itself, so hover:/active: variants still win. */
+@layer utilities {
+  :where(:root[data-color-mode="light"]) :is(.bg-black\/15, .bg-black\/20, .bg-black\/25, .bg-black\/30, .bg-black\/35, .bg-black\/40, .bg-black\/50):not(:where(.inset-0)) {
+    background-color: rgba(255, 255, 255, 0.72);
+  }
+  :where(:root[data-color-mode="light"]) :is(.bg-white\/5, .bg-white\/7, .bg-white\/8, .bg-white\/10, .bg-white\/\[0\.02\], .bg-white\/\[0\.03\], .bg-white\/\[0\.04\], .bg-white\/\[0\.045\], .bg-white\/\[0\.05\], .bg-white\/\[0\.06\], .bg-white\/\[0\.07\]) {
+    background-color: rgba(255, 255, 255, 0.55);
+  }
+  /* Active tabs, selected sidebar items and segmented-control pills: a crisp white pill. */
+  :where(:root[data-color-mode="light"]) :is(.bg-white\/12, .bg-white\/15, .bg-white\/20, .bg-white\/25) {
+    background-color: #fff;
+  }
+  :where(:root[data-color-mode="light"] :is(.bg-white\/12, .bg-white\/15, .bg-white\/20, .bg-white\/25)) {
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08), inset 0 0 0 1px var(--sd-hairline);
+  }
+  :where(:root[data-color-mode="light"] :is(.bg-black\/15, .bg-black\/20, .bg-black\/25, .bg-black\/30, .bg-black\/35, .bg-black\/40, .bg-black\/50):not(.inset-0, [class*="border"], [class*="ring-"])) {
+    box-shadow: inset 0 0 0 1px var(--sd-hairline);
+  }
+}
+@layer components {
+  :root[data-color-mode="light"] .glass-soft {
+    background-color: rgba(255, 255, 255, 0.55);
+  }
+}
+
 /* Angular HUD window chrome: chamfered corners and an accent rim. */
 :root[data-window-chrome="angular-hud"] .sd-window:not(.is-full) {
   border-radius: 0;
