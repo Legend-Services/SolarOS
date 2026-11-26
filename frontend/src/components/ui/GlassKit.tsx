@@ -237,15 +237,15 @@ export function GlassModal({
       <div
         role="dialog"
         aria-modal="true"
-        className={`glass-panel relative flex w-full flex-col overflow-hidden border border-slate-700/80 shadow-2xl transition-[opacity,translate,scale] duration-300 ${width} ${
+        className={`glass-panel relative flex w-full flex-col overflow-hidden border border-[var(--sd-border-hairline)] text-[var(--sd-text-primary)] shadow-2xl transition-[opacity,translate,scale] duration-300 ${width} ${
           side ? `h-full max-h-full rounded-none rounded-l-2xl ${shown ? "translate-x-0" : "translate-x-8 opacity-0"}` : `max-h-[88vh] rounded-2xl ${shown ? "scale-100 opacity-100" : "scale-95 opacity-0"}`
         }`}
         style={{
           transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
-          backgroundColor: "rgb(from var(--sd-surface-elevated) r g b / 0.97)", // theme surface, near-opaque: nothing bleeds through
+          backgroundColor: "var(--sd-surface-panel)", // theme surface, near-opaque: nothing bleeds through
         }}
       >
-        <header className="flex shrink-0 items-start gap-2 border-b border-white/10 px-4 py-3">
+        <header className="flex shrink-0 items-start gap-2 border-b border-[var(--sd-border-hairline)] px-4 py-3">
           <div className="min-w-0 flex-1">
             <h3 className="truncate text-sm font-semibold text-white">{title}</h3>
             {subtitle && <p className="mt-0.5 text-[11px] leading-relaxed text-slate-400">{subtitle}</p>}
@@ -255,7 +255,7 @@ export function GlassModal({
           </GlassButton>
         </header>
         <div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>
-        {footer && <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-white/10 px-4 py-3">{footer}</footer>}
+        {footer && <footer className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[var(--sd-border-hairline)] px-4 py-3">{footer}</footer>}
       </div>
     </div>,
     document.body,

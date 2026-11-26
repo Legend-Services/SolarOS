@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, Container, FlaskConical, Layers, Monitor, Network, Pencil, Play, Power, Sparkles, Tag, Trash2 } from "lucide-react";
 import { api } from "../../lib/api";
+import { ink } from "../../lib/format";
 import { usePoll } from "../../lib/hooks";
 import type { Guest } from "../../lib/types";
 import { useTranslation, type TKey } from "../../i18n";
@@ -85,7 +86,15 @@ export function MultiGroupBadge({ member, groups }: { member: GroupMember; group
   const { t } = useTranslation();
   const name = useGroupName();
   const [open, setOpen] = useState(false);
+  // Boundary-aware: open toward whichever side of the window (or viewport) has room for the 18rem list.
+  const [side, setSide] = useState({ right: false, up: false });
   const ref = useRef<HTMLSpanElement>(null);
+  const toggle = () => {
+    const r = ref.current?.getBoundingClientRect();
+    const box = ref.current?.closest(".sd-window")?.getBoundingClientRect() ?? { right: innerWidth, bottom: innerHeight };
+    if (r) setSide({ right: r.left + 288 > box.right, up: r.bottom + 240 > box.bottom && r.top > 240 });
+    setOpen(!open);
+  };
   useEffect(() => {
     if (!open) return;
     const off = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
@@ -97,13 +106,12 @@ export function MultiGroupBadge({ member, groups }: { member: GroupMember; group
   const nets = mine.filter((g) => g.source === "network").length;
   return (
     <span ref={ref} className="relative inline-block">
-      <button className="rounded-full bg-sky-400/15 px-2 py-0.5 text-[10px] font-semibold text-sky-200 ring-1 ring-sky-300/30 ring-inset hover:bg-sky-400/25" onClick={() => setOpen(!open)} aria-expanded={open}>
+      <button className="rounded-full bg-sky-400/15 px-2 py-0.5 text-[10px] font-semibold text-sky-200 ring-1 ring-sky-300/30 ring-inset hover:bg-sky-400/25" onClick={toggle} aria-expanded={open}>
         {nets === mine.length ? t("grp.networks", { n: nets }) : t("grp.groups", { n: mine.length })}
       </button>
       {open && (
         <div
-          className="absolute left-0 z-30 mt-1 w-72 rounded-xl border border-slate-700/80 p-2 shadow-2xl"
-          style={{ backgroundColor: "rgb(from var(--sd-surface-elevated) r g b / 0.98)" }}
+          className={`absolute z-30 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--sd-border-hairline)] bg-[var(--sd-surface-panel)] p-2 shadow-2xl ${side.right ? "right-0" : "left-0"} ${side.up ? "bottom-full mb-1" : "mt-1"}`}
           role="dialog"
           aria-label={t("grp.memberOf")}
         >
@@ -367,7 +375,7 @@ export function GroupModal({ open, group, guests, groups, onClose, onSaved }: {
                   />
                   <span className="ml-auto flex flex-wrap justify-end gap-1">
                     {nets.map((n) => (
-                      <span key={n.group_id} className="rounded-full px-1.5 py-0.5 text-[10px]" style={{ background: `${n.color}22`, color: n.color }}>
+                      <span key={n.group_id} className="rounded-full px-1.5 py-0.5 text-[10px]" style={{ background: `${n.color}22`, color: ink(n.color) }}>
                         {n.name}
                       </span>
                     ))}
@@ -454,7 +462,7 @@ export function AssignGroupModal({ guest, groups, onClose, onSaved, onCreate }: 
         {nets.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {nets.map((n) => (
-              <span key={n.group_id} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]" style={{ background: `${n.color}22`, color: n.color }}>
+              <span key={n.group_id} className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px]" style={{ background: `${n.color}22`, color: ink(n.color) }}>
                 <KindIcon kind={n.kind} size={11} /> {n.name}
               </span>
             ))}

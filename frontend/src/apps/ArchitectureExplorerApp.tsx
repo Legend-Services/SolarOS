@@ -205,9 +205,12 @@ function Canvas({ width, height, children, label, crumbs = [], hint, onZoom, fit
   const { t } = useTranslation();
   const pz = usePanZoom(onZoom);
   useEffect(() => {
-    const r = requestAnimationFrame(() => pz.fit(width, height, fitCap, false));
-    return () => cancelAnimationFrame(r);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- fit once on open; "Fit to Screen" refits
+    // Fit on open and whenever the canvas changes size (window resize, a drawer opening beside it); "Fit to Screen" refits too.
+    let r = 0;
+    const ro = new ResizeObserver(() => (cancelAnimationFrame(r), (r = requestAnimationFrame(() => pz.fit(width, height, fitCap, false)))));
+    if (pz.ref.current) ro.observe(pz.ref.current);
+    return () => (cancelAnimationFrame(r), ro.disconnect());
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <div ref={pz.ref} className="relative h-full min-h-[420px] overflow-hidden rounded-xl border border-[var(--bp-border)] bg-[var(--bp-canvas)] touch-none" {...pz.handlers}>
       <svg width="100%" height="100%" className="absolute inset-0 cursor-grab select-none active:cursor-grabbing" role="img" aria-label={label}>
@@ -640,7 +643,10 @@ function DevicesDrawer({ devices, onClose }: { devices: ScannedDevice[]; onClose
     (d) => (!cat || d.device_category === cat) && (!q || [d.display_name, d.ip_address, d.mac_address, d.mac_vendor, d.functionality_summary, ...d.open_ports.map((p) => String(p.port))].some((s) => s?.toLowerCase().includes(q.toLowerCase()))),
   );
   return (
-    <aside className="glass-strong absolute bottom-0 right-0 top-0 z-10 flex w-[440px] max-w-full flex-col gap-2 border-l border-sky-400/20 bg-slate-950/95 p-3 backdrop-blur-xl" aria-label={t("arch.devicesTitle")}>
+    <aside
+      className="flex max-h-[50vh] w-full shrink-0 flex-col gap-2 rounded-xl border border-[var(--sd-border-hairline)] bg-[var(--sd-surface-panel)] p-3 lg:max-h-full lg:w-[400px] xl:w-[440px]"
+      aria-label={t("arch.devicesTitle")}
+    >
       <div className="flex items-center gap-2">
         <h4 className="flex-1 text-sm font-semibold text-white">{t("arch.devicesTitle")}</h4>
         <GlassBadge>{list.length}</GlassBadge>
@@ -749,7 +755,8 @@ function DrillDown({ o, group, root, onBack }: { o: Overview; group: SemanticGro
   });
   // Zooming well back out returns to the overview (hysteresis below DRILL_ZOOM so a drill-in does not bounce back).
   const BACK = DRILL_ZOOM - 0.25;
-  const onZoom = ({ k, prev }: ZoomEvent) => prev >= BACK && k < BACK && onBack();
+  // Only a user zoom (it has a focus point) leaves the view; fitting the canvas to a new size never does.
+  const onZoom = ({ k, prev, at }: ZoomEvent) => at && prev >= BACK && k < BACK && onBack();
 
   return (
     <div className="flex h-full flex-col gap-2">
@@ -783,27 +790,30 @@ function DrillDown({ o, group, root, onBack }: { o: Overview; group: SemanticGro
         </div>
       )}
       <Notice error={error || (scan.status === "failed" ? scan.error : "") || (n && !n.host_cidr ? t("arch.needHostAddress") : "")} notice={n ? "" : t("sz.noNetwork")} />
-      <div className="relative min-h-0 flex-1">
-        <Canvas width={1120} height={680} label={t("arch.drillLabel", { name: title })} crumbs={[{ label: root, onClick: onBack }, { label: title }]} onZoom={onZoom}>
-          {pos.map((p, i) => (
-            <path key={spokes[i].key} d={`M${CXc} ${CYc} L${p.x + 95} ${p.y + 29}`} stroke={ink(spokes[i].color)} strokeOpacity=".7" strokeWidth={1.4} className={spokes[i].key === "others" ? "" : "arch-flow"} fill="none" />
-          ))}
-          <g data-node="">
-            <circle cx={CXc} cy={CYc} r={62} fill="var(--bp-node)" stroke={ink(group.color)} strokeWidth={2} />
-            <g transform={`translate(${CXc - 9} ${CYc - 36})`} color={ink(group.color)}>
-              {groupIcon(group.kind, 18)}
+      {/* The device explorer sits beside the canvas (below it on narrow screens), never over its nodes. */}
+      <div className="flex min-h-0 flex-1 flex-col gap-2 lg:flex-row">
+        <div className="relative min-h-0 min-w-0 flex-1">
+          <Canvas width={1120} height={680} label={t("arch.drillLabel", { name: title })} crumbs={[{ label: root, onClick: onBack }, { label: title }]} onZoom={onZoom}>
+            {pos.map((p, i) => (
+              <path key={spokes[i].key} d={`M${CXc} ${CYc} L${p.x + 95} ${p.y + 29}`} stroke={ink(spokes[i].color)} strokeOpacity=".7" strokeWidth={1.4} className={spokes[i].key === "others" ? "" : "arch-flow"} fill="none" />
+            ))}
+            <g data-node="">
+              <circle cx={CXc} cy={CYc} r={62} fill="var(--bp-node)" stroke={ink(group.color)} strokeWidth={2} />
+              <g transform={`translate(${CXc - 9} ${CYc - 36})`} color={ink(group.color)}>
+                {groupIcon(group.kind, 18)}
+              </g>
+              <text x={CXc} y={CYc + 2} fill="var(--bp-text)" fontSize={12} fontWeight={700} textAnchor="middle">
+                {clip(n ? (n.kind === "vlan" ? `VLAN ${n.vlan_id}` : n.bridge) : title, 16)}
+              </text>
+              <text x={CXc} y={CYc + 18} fill="var(--bp-text-2)" fontSize={9.5} textAnchor="middle" fontFamily="ui-monospace,monospace">
+                {n?.subnet_cidr ?? ""}
+              </text>
             </g>
-            <text x={CXc} y={CYc + 2} fill="var(--bp-text)" fontSize={12} fontWeight={700} textAnchor="middle">
-              {clip(n ? (n.kind === "vlan" ? `VLAN ${n.vlan_id}` : n.bridge) : title, 16)}
-            </text>
-            <text x={CXc} y={CYc + 18} fill="var(--bp-text-2)" fontSize={9.5} textAnchor="middle" fontFamily="ui-monospace,monospace">
-              {n?.subnet_cidr ?? ""}
-            </text>
-          </g>
-          {spokes.map((s, i) => (
-            <NodeBox key={s.key} x={pos[i].x} y={pos[i].y} icon={s.icon} title={s.title} sub={s.sub} color={s.color} dashed={s.dashed} onClick={s.onClick} badges={s.badges} />
-          ))}
-        </Canvas>
+            {spokes.map((s, i) => (
+              <NodeBox key={s.key} x={pos[i].x} y={pos[i].y} icon={s.icon} title={s.title} sub={s.sub} color={s.color} dashed={s.dashed} onClick={s.onClick} badges={s.badges} />
+            ))}
+          </Canvas>
+        </div>
         {drawer && <DevicesDrawer devices={devs} onClose={() => setDrawer(false)} />}
       </div>
       <GuestDrawer guest={guest} onClose={() => setGuest(null)} onSaved={() => {}} />

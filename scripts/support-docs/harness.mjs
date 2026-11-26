@@ -1,5 +1,5 @@
 /**
- * Shared headless-browser harness for scripts/generate-support-docs.mjs and scripts/audit-dual-theme.mjs:
+ * Shared headless-browser harness for scripts/generate-support-docs.mjs and scripts/audit-scaling-and-themes.mjs:
  * starts the Vite dev server, opens it in Chromium with every /api call answered from fixtures.mjs, and drives the UI
  * through its own stores.
  */
@@ -44,8 +44,8 @@ export async function launch() {
 
 export const missing = new Set();
 
-export async function openPage(browser, { colorScheme = "dark", deviceScaleFactor = 2 } = {}) {
-  const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor, colorScheme, locale: "en-US" });
+export async function openPage(browser, { colorScheme = "dark", deviceScaleFactor = 2, viewport = { width: 1440, height: 900 } } = {}) {
+  const context = await browser.newContext({ viewport, deviceScaleFactor, colorScheme, locale: "en-US" });
   await context.addInitScript(() => {
     // English interface (the Welcome Tour is closed after load).
     localStorage.setItem("solardeck-language", JSON.stringify({ state: { language: "en" }, version: 0 }));
@@ -94,7 +94,7 @@ export async function reset(page) {
     s.useSpotlight.setState({ open: false });
     (await import("/src/store/widgetStore.ts")).useWidgets.getState().setEditing(false);
   });
-  await page.mouse.move(720, 450);
+  await page.mouse.move(page.viewportSize().width / 2, page.viewportSize().height / 2);
 }
 
 export const settle = (page, ms = 900) => page.waitForLoadState("networkidle").then(() => page.waitForTimeout(ms));

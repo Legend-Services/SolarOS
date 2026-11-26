@@ -1050,6 +1050,7 @@ const PATTERNS = [
   [/^\/ai\/chats\/[^/]+$/, () => CHAT],
   [/^\/architecture\/networks\/([^/]+)\/devices$/, (m) => (m[1] === "br0" ? SCAN_BR0 : { status: "idle", progress: 0, devices: [], network_id: m[1] })],
   [/^\/virtual-hardware\/(vm|lxc)\/(\d+)\/detailed$/, (m) => { const g = GUESTS.find((x) => x.vmid === +m[2]); return g && detailed(g); }],
+  [/^\/virtual-hardware\/(vm|lxc)\/(\d+)$/, (m) => { const g = GUESTS.find((x) => x.vmid === +m[2]); const d = g && detailed(g); return d && { running: d.running, devices: d.devices, throttling: d.throttling, nics: d.nics.map((n) => ({ net_id: n.net_id, model: n.model, bridge: n.bridge })) }; }],
 ];
 
 export function fixture(method, path, search = new URLSearchParams()) {

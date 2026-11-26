@@ -27,7 +27,7 @@ export default function WidgetStudioDrawer() {
       aria-label={t("studio.title")}
       onContextMenu={(e) => e.stopPropagation()}
     >
-      <header className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
+      <header className="flex shrink-0 items-center gap-2 border-b border-[var(--sd-border-hairline)] px-4 py-3">
         <h3 className="flex-1 text-sm font-semibold text-white">{t("studio.title")}</h3>
         <GlassButton variant="primary" size="xs" onClick={() => setEditing(false)}>
           {t("common.done")}
