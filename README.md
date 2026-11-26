@@ -156,6 +156,16 @@ Open **Compute → Multi-Seat & Ports** (or **Settings → System → Hardware &
 - **Physical USB ports & hubs.** Press **Plug to Assign** and plug a mouse, keyboard, game controller, audio DAC or USB hub into any port of the server within 30 seconds: the port is bound to the seat by its physical position (`1-4`, `3-2.1`), so two identical mice on different ports go to different seats. A whole USB controller can be passed through too, for hot-plug and full bandwidth.
 - **CPU core pinning.** Click core pairs (a physical core with its Hyper-Threading sibling) or press **Auto-Balance Cores Across Seats**. Seats never share a core, and the first core(s) stay reserved for the server itself.
 
+## Multi-Host Cluster, Live Migration & High Availability
+
+Open **Settings → Hypervisor & Runtime → Cluster & High Availability**:
+
+- **Standalone to cluster without downtime.** A fresh install is a standalone host with a readiness list (network address, clock sync, ZFS pool, SSH keys & certificates). **Create New Cluster** turns it into the coordinator and shows a single-use **join token** (copy it or scan the QR code); **Join Existing Cluster** on another host adds it with its running guests, storage pools and settings. With Proxmox VE this is a regular Corosync cluster (`pvecm`); with SolarOS it is the SolarOS Cluster Control Plane (its own certificate authority, signed peer calls and 3-second heartbeats).
+- **2-host clusters.** Add a **quorum witness** (a QDevice with Proxmox VE, any other SolarOS host with SolarOS) so the surviving host keeps quorum and can fail over without split-brain.
+- **Live migration.** In **Compute** press **Migrate to Host…** on any workload: VMs move while running (memory and disks), containers move with a short restart, followed live from 0 to 100 %. **Enter Maintenance (Drain)** on a host card live-migrates every running workload away first.
+- **Active/passive HA.** Per workload: a preferred active host, one or more passive standby hosts kept in sync with incremental ZFS replication every 1, 5, 15 or 60 minutes, a failover timeout (10–120 s) and optional **auto-failback**. When the active host goes down the first healthy standby starts the workload from its latest replica, the event goes to the audit log and to your Telegram / Discord / webhook / email alerts. **Switchover Now** swaps active and standby on purpose. A host that loses quorum stops its HA workloads itself.
+- **Clustered virtual switches & floating VIPs.** Turn on **Clustered Switch (Sync Across All Hosts)** in the Visual Switch and the switch and its VLANs exist on every host, so workloads migrate without network changes. **Floating VIPs** keep a service reachable at one IPv4/IPv6 address that follows the healthy host (VRRP).
+
 ## Security by Design & Hardening
 
 The same security layer runs in both editions (SolarDeck for Proxmox VE and SolarOS). Open **Settings →

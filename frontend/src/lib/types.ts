@@ -90,7 +90,7 @@ export type TaskState = "running" | "ok" | "error";
 /** Unified stage progress of a long-running job (backend app/task_progress.py). */
 export interface JobProgress {
   job_id: string;
-  kind: "gpu" | "app" | "os" | "ai" | "uninstall";
+  kind: "gpu" | "app" | "os" | "ai" | "uninstall" | "migrate" | "drain" | "failover" | "cluster";
   /** GPU name, app name or model tag. */
   subject: string;
   status: "running" | "completed" | "failed";

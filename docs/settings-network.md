@@ -75,6 +75,16 @@ The host's network interfaces and DNS servers.
 
 1. Open the Host Interfaces tab next to Visual Switch.
 
+### Clustered Virtual Switches
+
+Mark a virtual switch as clustered and it, its VLAN awareness and its VLANs are created on every cluster host, so workloads can migrate or fail over without network changes.
+
+1. Turn on Clustered Switch (Sync Across All Hosts) on the switch.
+2. Wait for the green Synced across N hosts badge.
+3. Press Floating VIPs to add an address that follows the healthy host.
+
+> **Tip:** Physical ports and host addresses stay per host; only the switch and its VLANs are shared.
+
 ## Network Topology
 
 ![Network Topology](screenshots/settings-network-topology.png)

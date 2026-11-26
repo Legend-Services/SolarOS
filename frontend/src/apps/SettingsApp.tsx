@@ -32,6 +32,7 @@ import SystemServicesPanel from "./settings/SystemServicesPanel";
 import VisualSwitchStudio from "../components/network/VisualSwitchStudio";
 import LabSandboxPanel from "../components/compute/LabSandbox";
 import MultiSeatStudio from "../components/compute/MultiSeatStudio";
+import ClusterManagerPanel from "../components/cluster/ClusterManagerPanel";
 
 const pad = (n: ReactNode) => <div className="h-full space-y-4 overflow-auto p-4" data-settings-body>{n}</div>;
 
@@ -130,6 +131,8 @@ function ModuleBody({ id, tab }: { id: ModuleId; tab?: string }) {
       return pad(<InstalledAppsPanel />);
     case "local-ai-runtime":
       return <LocalAiApp initialTab={tab === "storage" ? "storage" : "hardware"} embedded />;
+    case "cluster-ha":
+      return pad(<ClusterManagerPanel />);
     case "system-services":
       return pad(<SystemServicesPanel />);
   }
