@@ -212,7 +212,7 @@ Download and upload bootable ISO images, cloud images and container templates us
 
 ### Image catalog
 
-Curated server, desktop, firewall, driver and cloud images, downloaded with checksum verification.
+Curated server, desktop, driver and cloud images, downloaded with checksum verification.
 
 1. Pick the storage under Download to.
 2. Press Download next to an image; cloud images offer Zero-Touch Create.

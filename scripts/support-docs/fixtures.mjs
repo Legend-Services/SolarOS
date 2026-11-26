@@ -792,7 +792,6 @@ const IMAGE_CATALOG = [
   ["debian-stable", "Debian 13 (netinst)", "server", "installer", "Small network installer of the current stable release."],
   ["alma-9", "AlmaLinux 9 (minimal)", "server", "installer", "Enterprise-compatible server distribution."],
   ["ubuntu-desktop-lts", "Ubuntu Desktop 24.04 LTS", "desktop", "installer", "Desktop release for Seat VMs and workstations."],
-  ["opnsense", "OPNsense firewall (DVD)", "firewall", "installer", "Open-source firewall and router appliance."],
   ["virtio-drivers", "VirtIO guest drivers (stable)", "drivers", "installer", "Paravirtual disk, network, balloon and guest agent drivers."],
   ["ubuntu-cloud-lts", "Ubuntu Server 24.04 LTS (cloud image)", "cloud", "cloud", "Ready-to-boot disk image for Zero-Touch provisioning with cloud-init."],
   ["debian-cloud", "Debian 13 (generic cloud image)", "cloud", "cloud", "Ready-to-boot disk image for Zero-Touch provisioning with cloud-init."],
