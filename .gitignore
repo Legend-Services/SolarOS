@@ -13,3 +13,5 @@ backend/data/native_backup_jobs.json
 hypervisor/.cache/
 *.iso
 __pycache__/
+backend/data/enabled_features.json
+backend/data/onboarding_state.json

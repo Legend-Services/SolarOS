@@ -74,6 +74,10 @@ STAGES: dict[str, list[tuple[int, str, str]]] = {
                 (30, "upload", "Uploading backups to the offsite target"),
                 (90, "verify", "Checking the uploaded copies"),
                 (100, "done", "Offsite copy completed")],
+    "onboarding": [(5, "features", "Applying features and services"),
+                   (20, "cluster", "Preparing standalone or cluster mode"),
+                   (30, "apps", "Installing the selected applications"),
+                   (100, "done", "Server setup completed")],
 }
 MARK = re.compile(r"^@@stage (\w+) (\d+)@@$")
 JOB_ID = r"^(os-upgrade|gpu-[a-z-]{1,40}|app-\d{1,9}|uninstall-\d{1,9}|ai-[0-9a-f]{12}|cluster-[0-9a-f]{12}|mod-[0-9a-f]{12})$"
