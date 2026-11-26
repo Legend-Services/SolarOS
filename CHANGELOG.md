@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.13.0 - Multi-Instance Naming & App Uninstaller — 2026-11-26
+
+### Added
+- **Configure Instance dialog (App Center):** *Install another* (or *Custom name* on a first install) asks for an instance label first. It is pre-filled with the next free *Instance N*, so **Install** works straight away. Preset chips (*Production*, *Dev*, *Staging*, *Testing*, *Lab*, *Backup*) fill it in one click, and a live preview shows the display name (*Docker & Portainer CE — Dev*) and the container hostname (`docker-portainer-dev`). *Advanced options…* opens the full install drawer with the label kept.
+- **Uninstall from App Center:** installed cards show *Installed* or *N Instances* plus **Install another** and **Uninstall** (one instance) or **Manage** (two or more). **Manage** lists every instance with its label, container ID, IP address, status dot, **Open** and its own **Uninstall**.
+- **Uninstall confirmation:** shows the instance name, container ID and IP address, with an *Also delete persistent app data & volumes* switch (off by default; data in `/mnt/storage/apps/<instance_id>` is kept). Removal runs as a tracked job with a live progress card and shows up in **Notifications → Task Center**: stop container 15%, remove container + virtual NICs 45%, clean up routes + metadata 75%, storage retention 90%, removed 100%.
+- **Settings → Hypervisor & Runtime → Installed Apps & Instances:** every instance grouped by app, with label, container ID, IP address, status, **Open App** and **Uninstall**. Global Search and the Help manual find it. An uninstall from Settings refreshes App Center straight away.
+- **Instance registry** `backend/data/installed_apps.json` (`instance_id`, `app_id`, `app_name`, `instance_label`, `display_name`, `guest_id`, `ip_address`, `web_url`, `created_at`). It is reconciled against the live containers of the active driver: earlier installs are adopted automatically, and guests deleted elsewhere drop out. Nothing is pruned while the hypervisor is unreachable. Deploys and updates preserve the file.
+- New endpoints: `GET /api/apps/instances`, `DELETE /api/apps/instances/{instance_id}?delete_data=false` and `POST /api/apps/{app_id}/install`. Install requests accept `instance_label`; the hostname is derived from it when left empty. Install responses add `instance_id`, `display_name` and `job_id`. `GET /api/system/tasks?kind=uninstall` and `GET /api/tasks/uninstall-<id>` report removal progress.
+- All new texts in English, Nederlands, Deutsch, Español and Français.
+
+### Fixed
+- App Center card titles (such as *Local AI Studio*) are no longer truncated next to the *Featured* / *Installed* pills: the title has its own line, and the pills wrap below it.
+- SolarOS: the host-wide guest list used by automation rules, the network switch and global search now includes containers and VMs (it was empty).
+- Uninstalling Local AI Studio clears its state, so the Local AI app shows the install screen again.
+
 ## v2.12.0 - Zero-Flicker Bitmap Wallpaper & Universal Progress Bars — 2026-11-26
 
 ### Added
