@@ -1,16 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import {
   BrainCircuit, Clapperboard, Container, Cpu, ExternalLink, FolderTree, HardDrive, Images, LayoutGrid, Network, Package,
-  Search, Server, ShieldCheck, Sparkles, Waypoints, X, Zap, type LucideIcon,
+  Search, Server, Settings2, ShieldCheck, Sparkles, Trash2, Waypoints, X, Zap, type LucideIcon,
 } from "lucide-react";
 import { api } from "../lib/api";
-import type { AiHardware, CatalogApp, Deployment, JobProgress } from "../lib/types";
+import type { AiHardware, AppInstance, CatalogApp, Deployment, JobProgress } from "../lib/types";
 import { usePoll } from "../lib/hooks";
 import { useTranslation } from "../i18n";
 import { OperationProgressCard } from "../components/ui/OperationProgressCard";
 import { TaskLog } from "../components/TaskCenter";
 import { ViewToggle } from "../components/ViewOptions";
 import { useAppView } from "../store/layoutStore";
+import { GlassButton, GlassInput, GlassModal } from "../components/ui/GlassKit";
+import {
+  ManageInstancesModal, UninstallInstanceModal, appsChanged, displayName, hostnameFor, onAppsChanged, useAppInstances,
+} from "../components/AppInstances";
 
 const ICONS: Record<string, LucideIcon> = { Clapperboard, Container, FolderTree, ShieldCheck, Waypoints, Images, BrainCircuit };
 
@@ -170,9 +174,10 @@ function ComputeSelector({ value, onChange }: { value: string; onChange: (id: st
   );
 }
 
-function InstallDrawer({ app, onClose }: { app: CatalogApp; onClose: (deployed: boolean) => void }) {
+function InstallDrawer({ app, label = "", autoStart = false, onClose }: { app: CatalogApp; label?: string; autoStart?: boolean; onClose: (deployed: boolean) => void }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState({
-    hostname: app.id,
+    hostname: hostnameFor(app.id, label),
     cores: app.cores,
     memory: app.memory_mb,
     disk_gb: app.disk_gb,
@@ -190,8 +195,7 @@ function InstallDrawer({ app, onClose }: { app: CatalogApp; onClose: (deployed: 
   const [job, setJob] = useState<{ vmid: number; upid: string } | null>(null);
   const set = <K extends keyof typeof form>(k: K, v: (typeof form)[K]) => setForm((f) => ({ ...f, [k]: v }));
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
+  const deploy = async () => {
     setBusy(true);
     setError("");
     try {
@@ -200,6 +204,7 @@ function InstallDrawer({ app, onClose }: { app: CatalogApp; onClose: (deployed: 
           method: "POST",
           json: {
             app_id: app.id,
+            instance_label: label,
             hostname: form.hostname,
             cores: form.cores,
             memory: form.memory,
@@ -215,12 +220,25 @@ function InstallDrawer({ app, onClose }: { app: CatalogApp; onClose: (deployed: 
           },
         }),
       );
+      appsChanged();
     } catch (err) {
       setError((err as Error).message);
     } finally {
       setBusy(false);
     }
   };
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    deploy();
+  };
+  const started = useRef(false);
+  useEffect(() => {
+    if (autoStart && !started.current) {
+      started.current = true;
+      deploy();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- start once when opened from the naming dialog
+  }, []);
 
   const num = (k: "cores" | "memory" | "disk_gb", label: string, min: number, max: number, step = 1) => (
     <label className="block text-[11px] text-slate-400">
@@ -237,12 +255,14 @@ function InstallDrawer({ app, onClose }: { app: CatalogApp; onClose: (deployed: 
         </button>
         {job ? (
           <Progress app={app} vmid={job.vmid} upid={job.upid} onClose={() => onClose(true)} />
+        ) : autoStart && !error ? (
+          <p className="text-xs text-slate-400">{t("inst.preparing")}</p>
         ) : (
           <form onSubmit={submit} className="space-y-4">
             <div className="flex items-center gap-3">
               <AppIcon app={app} size={18} />
               <div>
-                <h3 className="text-sm font-semibold text-white">Install {app.name}</h3>
+                <h3 className="text-sm font-semibold break-words text-white">{t("progress.title.appInstall", { name: displayName(app.name, label) })}</h3>
                 <p className="text-[11px] text-slate-400">Unprivileged Debian 12 LXC · nesting enabled</p>
               </div>
             </div>
@@ -351,11 +371,91 @@ function InstallDrawer({ app, onClose }: { app: CatalogApp; onClose: (deployed: 
   );
 }
 
+const PRESETS = ["production", "dev", "staging", "testing", "lab", "backup"] as const;
+
+/** Next free "Instance N" label (N = installed count + 1, skipping labels already taken). */
+function nextLabel(t: ReturnType<typeof useTranslation>["t"], count: number, taken: string[]) {
+  let n = count + 1;
+  while (taken.includes(t("inst.defaultLabel", { n }))) n++;
+  return count ? t("inst.defaultLabel", { n }) : "";
+}
+
+/** Configure Instance: label (pre-filled), preset chips and a live preview of the display name and host name. */
+function ConfigureInstanceModal({ app, initial, onClose, onStart }: { app: CatalogApp; initial: string; onClose: () => void; onStart: (label: string, advanced: boolean) => void }) {
+  const { t } = useTranslation();
+  const [label, setLabel] = useState(initial);
+  const clean = label.replace(/\s+/g, " ").trim().slice(0, 40);
+  return (
+    <GlassModal
+      open
+      onClose={onClose}
+      title={t("inst.configureTitle")}
+      footer={
+        <>
+          <GlassButton variant="ghost" onClick={() => onStart(clean, true)} className="mr-auto">
+            <Settings2 size={12} /> {t("inst.advanced")}
+          </GlassButton>
+          <GlassButton onClick={onClose}>{t("common.cancel")}</GlassButton>
+          <GlassButton variant="primary" onClick={() => onStart(clean, false)}>
+            {t("inst.install")}
+          </GlassButton>
+        </>
+      }
+    >
+      <form
+        className="space-y-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onStart(clean, false);
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <AppIcon app={app} size={16} />
+          <p className="min-w-0 text-sm font-semibold break-words text-white">{app.name}</p>
+        </div>
+        <label className="block text-[11px] text-slate-400">
+          {t("inst.label")}
+          <GlassInput className="mt-1 w-full" value={label} maxLength={40} onChange={(e) => setLabel(e.target.value)} autoFocus placeholder={t("inst.labelPlaceholder")} />
+        </label>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label={t("inst.presets")}>
+          {PRESETS.map((p) => {
+            const v = t(`inst.preset.${p}`);
+            return (
+              <button
+                type="button"
+                key={p}
+                onClick={() => setLabel(v)}
+                aria-pressed={clean === v}
+                className={`rounded-full px-2.5 py-1 text-[11px] ring-1 transition ${clean === v ? "bg-sky-500/30 text-white ring-sky-300/60" : "bg-white/5 text-slate-300 ring-white/10 hover:bg-white/10"}`}
+              >
+                {v}
+              </button>
+            );
+          })}
+        </div>
+        <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-xl bg-white/5 p-3 text-xs ring-1 ring-white/10">
+          <dt className="text-slate-400">{t("inst.previewName")}</dt>
+          <dd className="break-words text-white">{displayName(app.name, clean)}</dd>
+          <dt className="text-slate-400">{t("inst.previewHost")}</dt>
+          <dd className="font-mono break-all text-white">{hostnameFor(app.id, clean)}</dd>
+        </dl>
+        <p className="text-[11px] text-slate-500">{t("inst.labelHint")}</p>
+      </form>
+    </GlassModal>
+  );
+}
+
 export default function AppCenter() {
+  const { t } = useTranslation();
   const [apps, setApps] = useState<CatalogApp[] | null>(null);
   const [category, setCategory] = useState("all");
   const [query, setQuery] = useState("");
-  const [installing, setInstalling] = useState<CatalogApp | null>(null);
+  const [installing, setInstalling] = useState<{ app: CatalogApp; label: string; autoStart: boolean } | null>(null);
+  const [naming, setNaming] = useState<CatalogApp | null>(null);
+  const [managing, setManaging] = useState<CatalogApp | null>(null);
+  const [removing, setRemoving] = useState<AppInstance | null>(null);
+  const { instances } = useAppInstances();
+  const instancesOf = (a: CatalogApp) => (instances ?? []).filter((i) => i.app_id === a.id);
   const [error, setError] = useState("");
   const [view] = useAppView("appcenter");
 
@@ -368,6 +468,7 @@ export default function AppCenter() {
       .catch((e) => setError(e.message));
   }, []);
   useEffect(load, [load]);
+  useEffect(() => onAppsChanged(load), [load]);
 
   // Install progress on the app tiles (in-memory App Center jobs only, so polling is cheap); the catalog reloads when
   // a job reaches 100 % so the new container shows as installed.
@@ -375,13 +476,45 @@ export default function AppCenter() {
   const running = useRef(new Set<string>());
   const pollJobs = useCallback(() => {
     api<{ tasks: JobProgress[] }>("/system/tasks?kind=app").then(({ tasks }) => {
-      if (tasks.some((j) => j.status === "completed" && running.current.has(j.job_id))) load();
+      if (tasks.some((j) => j.status === "completed" && running.current.has(j.job_id))) appsChanged();
       running.current = new Set(tasks.filter((j) => j.status === "running").map((j) => j.job_id));
       setJobs(tasks);
     }, () => {});
-  }, [load]);
+  }, []);
   usePoll(pollJobs, 3000);
   const jobFor = (a: CatalogApp) => jobs.find((j) => j.subject === a.name);
+
+  const badge = (a: CatalogApp) =>
+    a.installed.length > 0 && (
+      <span className="shrink-0 rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-medium whitespace-nowrap text-emerald-300" title={a.installed.map((i) => `${i.name} (${i.vmid}, ${i.status})`).join("\n")}>
+        {a.installed.length === 1 ? t("inst.installed") : t("inst.count", { count: a.installed.length })}
+      </span>
+    );
+  const install = (a: CatalogApp) => (a.installed.length ? setNaming(a) : setInstalling({ app: a, label: "", autoStart: false }));
+  const actions = (a: CatalogApp, grid: boolean) => {
+    const mine = instancesOf(a);
+    return (
+      <div className={`flex shrink-0 flex-wrap items-center gap-1.5 ${grid ? "mt-3" : ""}`}>
+        <button className={`btn border-sky-400/30 bg-sky-500/20 text-white hover:bg-sky-500/30 ${grid ? "flex-1 justify-center" : ""}`} onClick={() => install(a)}>
+          {a.installed.length ? t("inst.installAnother") : t("inst.install")}
+        </button>
+        {a.installed.length === 0 && (
+          <button className="text-[11px] text-sky-300 underline-offset-2 hover:underline" onClick={() => setNaming(a)}>
+            {t("inst.customName")}
+          </button>
+        )}
+        {a.installed.length > 0 && (
+          <button
+            className="btn border-rose-400/30 bg-rose-500/15 text-rose-100 hover:bg-rose-500/25 disabled:opacity-50"
+            disabled={!mine.length}
+            onClick={() => (mine.length === 1 ? setRemoving(mine[0]) : setManaging(a))}
+          >
+            {mine.length === 1 ? <Trash2 size={12} /> : <Settings2 size={12} />} {mine.length === 1 ? t("inst.uninstall") : t("inst.manage")}
+          </button>
+        )}
+      </div>
+    );
+  };
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -429,10 +562,10 @@ export default function AppCenter() {
                 <article key={a.id} className="glass-soft flex items-center gap-3 rounded-xl px-3 py-2">
                   <AppIcon app={a} />
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <h3 className="truncate text-sm font-semibold text-white">{a.name}</h3>
-                      <span className="text-[10px] text-slate-500">{a.category}</span>
-                      {a.installed.length > 0 && <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-medium text-emerald-300">Installed</span>}
+                    <div className="flex min-w-0 items-center gap-2">
+                      <h3 className="min-w-0 truncate text-sm font-semibold text-white" title={a.name}>{a.name}</h3>
+                      <span className="shrink-0 text-[10px] text-slate-500">{a.category}</span>
+                      {badge(a)}
                     </div>
                     <p className="truncate text-[11px] text-slate-400">{a.description}</p>
                     {jobFor(a) && <OperationProgressCard compact className="mt-1.5" title={a.name} progress={jobFor(a)!} />}
@@ -440,9 +573,7 @@ export default function AppCenter() {
                   <span className="hidden shrink-0 text-[10px] text-slate-400 tabular-nums md:block">
                     {a.cores} vCPU · {a.memory_mb / 1024} GB · {a.disk_gb} GB{a.supports_igpu && " · iGPU"}
                   </span>
-                  <button className="btn shrink-0 border-sky-400/30 bg-sky-500/20 text-white hover:bg-sky-500/30" onClick={() => setInstalling(a)}>
-                    {a.installed.length ? "Install another" : "Install"}
-                  </button>
+                  {actions(a, false)}
                 </article>
               ))}
             </div>
@@ -453,19 +584,17 @@ export default function AppCenter() {
                 <div className="flex items-start gap-3">
                   <AppIcon app={a} />
                   <div className="min-w-0 flex-1">
-                    <h3 className="truncate text-sm font-semibold text-white">{a.name}</h3>
-                    <p className="text-[11px] text-slate-400">{a.category}</p>
+                    <h3 className="line-clamp-2 text-sm leading-snug font-semibold break-words text-white" title={a.name}>{a.name}</h3>
+                    <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] text-slate-400">{a.category}</span>
+                      {a.featured && (
+                        <span className="flex items-center gap-1 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-medium whitespace-nowrap text-violet-200">
+                          <Sparkles size={10} /> {t("inst.featured")}
+                        </span>
+                      )}
+                      {badge(a)}
+                    </div>
                   </div>
-                  {a.featured && (
-                    <span className="flex items-center gap-1 rounded-full bg-violet-500/20 px-2 py-0.5 text-[10px] font-medium text-violet-200">
-                      <Sparkles size={10} /> Featured
-                    </span>
-                  )}
-                  {a.installed.length > 0 && (
-                    <span className="rounded-full bg-emerald-400/15 px-2 py-0.5 text-[10px] font-medium text-emerald-300" title={a.installed.map((i) => `${i.name} (${i.vmid}, ${i.status})`).join("\n")}>
-                      Installed{a.installed.length > 1 ? ` ×${a.installed.length}` : ""}
-                    </span>
-                  )}
                 </div>
                 <p className="mt-3 line-clamp-3 flex-1 text-xs text-slate-300">{a.description}</p>
                 {jobFor(a) && <OperationProgressCard compact className="mt-3" title={a.name} progress={jobFor(a)!} />}
@@ -476,9 +605,7 @@ export default function AppCenter() {
                   {a.supports_igpu && <span className="rounded bg-amber-400/15 px-1.5 py-0.5 text-amber-300">iGPU</span>}
                   {a.compute_selector && <span className="rounded bg-emerald-400/15 px-1.5 py-0.5 text-emerald-300">NVIDIA / Intel / AMD / CPU</span>}
                 </div>
-                <button className="btn mt-3 justify-center border-sky-400/30 bg-sky-500/20 text-white hover:bg-sky-500/30" onClick={() => setInstalling(a)}>
-                  {a.installed.length ? "Install another" : "Install"}
-                </button>
+                {actions(a, true)}
               </article>
             ))}
           </div>
@@ -487,13 +614,28 @@ export default function AppCenter() {
       </div>
       {installing && (
         <InstallDrawer
-          app={installing}
+          app={installing.app}
+          label={installing.label}
+          autoStart={installing.autoStart}
           onClose={(deployed) => {
             setInstalling(null);
-            if (deployed) load();
+            if (deployed) appsChanged();
           }}
         />
       )}
+      {naming && (
+        <ConfigureInstanceModal
+          app={naming}
+          initial={nextLabel(t, naming.installed.length, instancesOf(naming).map((i) => i.instance_label))}
+          onClose={() => setNaming(null)}
+          onStart={(label, advanced) => {
+            setInstalling({ app: naming, label, autoStart: !advanced });
+            setNaming(null);
+          }}
+        />
+      )}
+      {managing && <ManageInstancesModal appName={managing.name} instances={instancesOf(managing)} onClose={() => setManaging(null)} />}
+      <UninstallInstanceModal instance={removing} onClose={() => setRemoving(null)} />
     </div>
   );
 }

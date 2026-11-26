@@ -453,12 +453,22 @@ const BIOS = {
 const app = (id, name, category, description, icon, cores, memory_mb, disk_gb, web_port, extra = {}) => ({
   id, name, category, description, icon, cores, memory_mb, disk_gb, web_port, web_scheme: "http", supports_igpu: false, supports_storage_mount: true, featured: false, compute_selector: false, installed: [], ...extra,
 });
+const inst = (app_id, app_name, label, guest_id, ip, port, status, scheme = "http") => ({
+  instance_id: `${app_id}-${guest_id}`, app_id, app_name, instance_label: label, display_name: label ? `${app_name} — ${label}` : app_name, guest_id,
+  ip_address: ip, web_url: ip ? `${scheme}://${ip}:${port}` : null, created_at: "2026-11-20T09:00:00+00:00", status, cores: 2, memory_mb: 2048,
+});
+const INSTANCES = [
+  inst("docker-portainer", "Container Host", "", 110, "192.168.1.60", 9443, "running", "https"),
+  inst("docker-portainer", "Container Host", "Dev", 111, null, 9443, "stopped", "https"),
+  inst("local-ai", "Local AI Studio", "", 105, "192.168.1.55", 8080, "running"),
+];
+
 const CATALOG = [
   app("local-ai", "Local AI Studio", "AI & Compute", "Private AI chat on your own hardware, with a model library and a web chat interface.", "BrainCircuit", 8, 12288, 64, 8080, { featured: true, installed: [{ vmid: 105, name: "local-ai", status: "running" }] }),
   app("jellyfin", "Jellyfin Media Server", "Media", "Stream your movies, shows and music to any device, with hardware transcoding when a GPU is present.", "Clapperboard", 2, 2048, 16, 8096, { supports_igpu: true }),
   app("immich", "Immich", "Media", "Self-hosted photo and video backup with phone apps, face recognition and shared albums.", "Images", 4, 4096, 32, 2283),
   app("music-library", "Music Library", "Media", "Organise and stream your music collection in the browser.", "Clapperboard", 1, 1024, 8, 4533),
-  app("docker-portainer", "Container Host", "Infrastructure", "A container engine in a nested container, managed from a web dashboard.", "Container", 2, 2048, 32, 9443, { web_scheme: "https" }),
+  app("docker-portainer", "Container Host", "Infrastructure", "A container engine in a nested container, managed from a web dashboard.", "Container", 2, 2048, 32, 9443, { web_scheme: "https", installed: [{ vmid: 110, name: "docker-portainer", status: "running" }, { vmid: 111, name: "docker-portainer-dev", status: "stopped" }] }),
   app("git-server", "Git Server", "Infrastructure", "Lightweight self-hosted code hosting with issues and pull requests.", "Container", 1, 1024, 16, 3000),
   app("uptime-monitor", "Uptime Monitor", "Infrastructure", "Watch your websites and services and get alerts when they go down.", "Waypoints", 1, 512, 4, 3001),
   app("samba", "Samba File Server", "Network", "Standalone SMB server that shares a folder with every computer on your network.", "FolderTree", 1, 512, 4, null, { supports_storage_mount: true }),
@@ -630,6 +640,7 @@ const EXACT = {
   "/help/bios": () => BIOS,
   "/apps/catalog": () => CATALOG,
   "/apps/deployments": () => [],
+  "/apps/instances": () => INSTANCES,
   "/ai/status": () => AI_STATUS,
   "/ai/models/local": () => LOCAL_MODELS,
   "/ai/models/online": () => ONLINE_MODELS,

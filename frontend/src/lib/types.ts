@@ -90,7 +90,7 @@ export type TaskState = "running" | "ok" | "error";
 /** Unified stage progress of a long-running job (backend app/task_progress.py). */
 export interface JobProgress {
   job_id: string;
-  kind: "gpu" | "app" | "os" | "ai";
+  kind: "gpu" | "app" | "os" | "ai" | "uninstall";
   /** GPU name, app name or model tag. */
   subject: string;
   status: "running" | "completed" | "failed";
@@ -131,6 +131,22 @@ export interface CatalogApp {
   featured?: boolean;
   compute_selector?: boolean;
   installed: { vmid: number; name: string; status: string }[];
+}
+
+/** One deployed App Center instance (GET /api/apps/instances). */
+export interface AppInstance {
+  instance_id: string;
+  app_id: string;
+  app_name: string;
+  instance_label: string;
+  display_name: string;
+  guest_id: number;
+  ip_address: string | null;
+  web_url: string | null;
+  created_at: string;
+  status: "running" | "stopped" | "installing" | string;
+  cores: number;
+  memory_mb: number;
 }
 
 /* ---------------- Local AI Studio ---------------- */

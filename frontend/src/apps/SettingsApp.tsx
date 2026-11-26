@@ -27,6 +27,7 @@ import NetworkServicesApp from "./NetworkServicesApp";
 import AutomationPanel from "./AutomationPanel";
 import LocalAiApp from "./LocalAiApp";
 import HypervisorDefaultsPanel from "./settings/HypervisorDefaultsPanel";
+import InstalledAppsPanel from "./settings/InstalledAppsPanel";
 import SystemServicesPanel from "./settings/SystemServicesPanel";
 import VisualSwitchStudio from "../components/network/VisualSwitchStudio";
 
@@ -122,6 +123,8 @@ function ModuleBody({ id, tab }: { id: ModuleId; tab?: string }) {
       return pad(<AutomationPanel />);
     case "hypervisor-defaults":
       return pad(<HypervisorDefaultsPanel />);
+    case "installed-apps":
+      return pad(<InstalledAppsPanel />);
     case "local-ai-runtime":
       return <LocalAiApp initialTab={tab === "storage" ? "storage" : "hardware"} embedded />;
     case "system-services":
