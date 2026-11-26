@@ -95,7 +95,6 @@ mv "$WORK/grub.cfg" "$WORK/iso/boot/grub/grub.cfg"
 sed -i -E '\#\./(pool/|casper/hwe-|casper/.*generic-hwe\.)#d' "$WORK/iso/md5sum.txt" 2>/dev/null || true
 
 # ---------------------------------------------------------------- Offline package repository (signed)
-REPO_KEY="$WORK/solardeck-offline.asc"
 if [[ -z "$NO_REPO" ]]; then
   SQUASH="$WORK/iso/casper/ubuntu-server-minimal.squashfs"
   [[ -f "$SQUASH" ]] || die "no casper/ubuntu-server-minimal.squashfs in the source ISO"
@@ -170,8 +169,7 @@ EOF
   gpg --batch --quiet --passphrase '' --quick-gen-key "SolarOS Offline Repository <offline@solaros.invalid>" ed25519 sign never
   gpg --batch --quiet --yes --armor --detach-sign -o "$R/dists/${CODENAME}/Release.gpg" "$R/dists/${CODENAME}/Release"
   gpg --batch --quiet --yes --clearsign -o "$R/dists/${CODENAME}/InRelease" "$R/dists/${CODENAME}/Release"
-  gpg --batch --armor --export >"$REPO_KEY"
-  cp "$REPO_KEY" "$R/solardeck-offline.asc"  # next to dists/ and pool/: late-commands copy all three
+  gpg --batch --armor --export >"$R/solardeck-offline.asc"  # next to dists/ and pool/: late-commands copy them
   gpg --batch --export >"$R/solardeck-offline.gpg"
   gpgconf --kill all 2>/dev/null || true
   unset GNUPGHOME
@@ -207,11 +205,7 @@ for mode in manual ${AUTO_DISK:+auto}; do
   if [[ -n "$NO_REPO" ]]; then
     sed -i '/@@OFFLINE_BEGIN@@/,/@@OFFLINE_END@@/d' "$WORK/user-data"
   else
-    # Keep the offline blocks (minus their markers) and put the repository key into the primary mirror entry.
-    awk -v keyfile="$REPO_KEY" '/@@OFFLINE_(BEGIN|END)@@/ {next}
-      /@@REPO_KEY@@/ {ind = $0; sub(/@@REPO_KEY@@.*/, "", ind); while ((getline l < keyfile) > 0) print ind l; next} {print}' \
-      "$WORK/user-data" >"$WORK/user-data.new"
-    mv "$WORK/user-data.new" "$WORK/user-data"
+    sed -i -E '/@@OFFLINE_(BEGIN|END)@@/d' "$WORK/user-data"  # keep the offline blocks, minus their markers
   fi
   mv "$WORK/user-data" "$WORK/iso/nocloud/$mode/user-data"
   cp "${ROOT}/hypervisor/autoinstall/meta-data" "$WORK/iso/nocloud/$mode/meta-data"
