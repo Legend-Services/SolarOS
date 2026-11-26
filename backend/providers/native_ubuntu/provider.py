@@ -257,6 +257,14 @@ class NativeUbuntuProvider(HypervisorProvider):
     async def container(self, vmid: int) -> dict:
         return await run_json("incus", "query", f"/1.0/instances/{host.name_of(vmid, 'lxc')}?recursion=1")
 
+    async def guest_rows(self) -> list[dict]:
+        try:
+            guests = await self.list_guests()
+        except Exception:  # noqa: BLE001 - contract: [] when the hypervisor is unreachable
+            return []
+        reg = host.load_guests()
+        return [{**g.model_dump(), "tags": reg.get(g.vmid, {}).get("tags", "")} for g in guests]
+
     async def container_ip(self, vmid: int) -> str | None:
         """First IPv4 on eth0 of a running container (Local AI, App Center)."""
         try:
@@ -632,6 +640,7 @@ class NativeUbuntuProvider(HypervisorProvider):
                 job["ip"] = await self.container_ip(vmid)
                 if is_ai:
                     await local_ai.after_install(vmid, body, job["ip"], log)
+                apps.instance_ready(job)
                 job["phase"] = "done"
                 log("==> Installation complete")
             except Exception as e:
@@ -641,7 +650,7 @@ class NativeUbuntuProvider(HypervisorProvider):
         upid = start_job("appdeploy", vmid, work)
         job["upid"] = upid
         job["log"] = host.JOBS[upid]["log"]  # one log for the App Center panel and the Task Center
-        return {"vmid": vmid, "upid": upid}
+        return {"vmid": vmid, "upid": upid, **apps.register_instance(vmid, body)}
 
     async def attach_ai_compute(self, name: str, target: str, log) -> dict:
         """Give the (stopped) container exactly the device `target` needs. Returns GPU facts for local_ai.json."""

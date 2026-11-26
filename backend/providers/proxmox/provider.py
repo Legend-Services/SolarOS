@@ -133,6 +133,10 @@ class ProxmoxProvider(HypervisorProvider):
     async def provision_ai_container(self, spec: dict) -> TaskInfo:
         return _task(await local_ai.deploy_ai(local_ai.LocalAiDeployBody(**spec)))
 
+    async def deploy_app(self, body) -> dict:
+        from .routes import apps as pve_apps  # lazy: the route module imports the shared app layer
+        return await pve_apps.deploy(body)
+
     async def configure_ai_gpu_passthrough(self, spec: dict) -> dict:
         return await local_ai.switch(local_ai.SwitchBody(**spec))
 

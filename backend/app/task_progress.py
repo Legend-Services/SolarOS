@@ -1,5 +1,5 @@
 """Unified stage-based progress for long-running jobs: GPU driver installs and mode switches, App Center installs,
-OS package upgrades and Local AI model pulls. Every job is reported in one shape, shown by the frontend's
+OS package upgrades, Local AI model pulls and app uninstalls. Every job is reported in one shape, shown by the frontend's
 OperationProgressCard and the Task Center:
 
     {job_id, kind, subject, status: running|completed|failed, progress_percent: 0..100, current_stage, stage_key,
@@ -39,9 +39,14 @@ STAGES: dict[str, list[tuple[int, str, str]]] = {
            (100, "done", "OS packages up to date")],
     "ai": [(0, "pull", "Downloading model"),
            (100, "done", "Model ready")],
+    "uninstall": [(15, "stop", "Stopping application container"),
+                  (45, "remove", "Removing container and virtual network interfaces"),
+                  (75, "cleanup", "Cleaning up reverse proxy routes and application metadata"),
+                  (90, "retention", "Applying storage retention policy"),
+                  (100, "done", "Application instance removed")],
 }
 MARK = re.compile(r"^@@stage (\w+) (\d+)@@$")
-JOB_ID = r"^(os-upgrade|gpu-[a-z-]{1,40}|app-\d{1,9}|ai-[0-9a-f]{12})$"
+JOB_ID = r"^(os-upgrade|gpu-[a-z-]{1,40}|app-\d{1,9}|uninstall-\d{1,9}|ai-[0-9a-f]{12})$"
 KEEP_FINISHED = 600  # seconds a finished job stays in the Task Center feed
 
 
@@ -125,6 +130,11 @@ def from_app(job: dict) -> dict:
     return view(f"app-{job['vmid']}", "app", status, index, job["log"], name, job.get("error"))
 
 
+def from_uninstall(job: dict) -> dict:
+    return view(f"uninstall-{job['vmid']}", "uninstall", job["status"], job["stage"], job["log"], job["subject"],
+                job["error"])
+
+
 def from_pull(job: dict) -> dict:
     status = {"done": "completed", "error": "failed"}.get(job["state"], "running")
     return view(f"ai-{job['id']}", "ai", status, 0, [job["status"]] if job.get("status") else [], job["model"],
@@ -150,6 +160,10 @@ async def resolve(job_id: str) -> dict | None:
         from . import apps
         job = apps._jobs.get(int(job_id[4:]))
         return from_app(job) if job else None
+    if job_id.startswith("uninstall-"):
+        from . import apps
+        job = apps._removals.get(int(job_id[10:]))
+        return from_uninstall(job) if job else None
     if job_id.startswith("ai-"):
         from . import local_ai
         job = local_ai._pulls.get(job_id[3:])
@@ -166,7 +180,7 @@ def _recent(v: dict, w: dict) -> bool:
 
 
 async def feed(kind: str | None = None) -> list[dict]:
-    """Running jobs plus those finished in the last KEEP_FINISHED seconds; `kind` limits it to gpu / app / os / ai."""
+    """Running jobs plus those finished in the last KEEP_FINISHED seconds; `kind` limits it to gpu / app / os / ai / uninstall."""
     from . import apps, local_ai
     out = []
     for job_id, w in list(_watch.items()):
@@ -182,13 +196,15 @@ async def feed(kind: str | None = None) -> list[dict]:
         out.append(v)
     if kind in (None, "app"):
         out += [v for job in list(apps._jobs.values()) if _recent(v := from_app(job), job)]
+    if kind in (None, "uninstall"):
+        out += [v for job in list(apps._removals.values()) if _recent(v := from_uninstall(job), job)]
     if kind in (None, "ai"):
         out += [v for job in list(local_ai._pulls.values()) if _recent(v := from_pull(job), job)]
     return out
 
 
 @router.get("/api/system/tasks")
-async def tasks(kind: Literal["gpu", "app", "os", "ai"] | None = None):
+async def tasks(kind: Literal["gpu", "app", "os", "ai", "uninstall"] | None = None):
     return {"tasks": await feed(kind)}
 
 

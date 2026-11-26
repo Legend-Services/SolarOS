@@ -252,6 +252,11 @@ export const MODULE_DOCS: Record<ModuleId, Doc> = {
     steps: ["Adjust the VM and container profiles.", "Choose the default storage target.", "Turn on nested virtualization if guests run their own hypervisor."],
     keywords: "hypervisor defaults profile cpu memory disk nested virtualization storage target",
   },
+  "installed-apps": {
+    intro: "Every app installed from App Center, grouped by app, with each instance's label, container ID, IP address and status.",
+    steps: ["Press Open App to open an instance's web interface.", "Press Uninstall, choose whether to also delete the app's data, and confirm."],
+    keywords: "installed apps instances uninstall remove app center container label manage",
+  },
   "local-ai-runtime": {
     intro: "Which GPU runs the AI models, the AI model service and where models are stored.",
     steps: ["Pick the GPU under GPU assignment.", "Choose a model storage folder with enough space."],

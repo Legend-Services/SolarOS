@@ -5,7 +5,7 @@ import re
 from fastapi import APIRouter, Depends, HTTPException
 
 from app import host
-from app.apps import BY_ID, CATALOG, DATA, TAG, DeployBody, _jobs, installed_map
+from app.apps import BY_ID, CATALOG, DATA, TAG, DeployBody, _jobs, installed_map, instance_ready, register_instance
 from app.auth import require_user
 from app.config import settings
 
@@ -103,6 +103,7 @@ async def _finish(vmid: int, upid: str, app: dict, body: DeployBody) -> None:
         job["ip"] = inet.split("/")[0] or None
         if local_ai:
             await local_ai.after_install(vmid, body, job["ip"], log)
+        instance_ready(job)
         job["phase"] = "done"
         log("==> Installation complete")
     except Exception as e:  # noqa: BLE001 - surfaced to the UI
@@ -126,4 +127,4 @@ async def deploy(body: DeployBody):
     t = asyncio.create_task(_finish(vmid, upid, app, body))
     _bg.add(t)
     t.add_done_callback(_bg.discard)
-    return {"vmid": vmid, "upid": upid}
+    return {"vmid": vmid, "upid": upid, **register_instance(vmid, body)}
