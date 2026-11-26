@@ -31,6 +31,7 @@ import InstalledAppsPanel from "./settings/InstalledAppsPanel";
 import SystemServicesPanel from "./settings/SystemServicesPanel";
 import VisualSwitchStudio from "../components/network/VisualSwitchStudio";
 import LabSandboxPanel from "../components/compute/LabSandbox";
+import MultiSeatStudio from "../components/compute/MultiSeatStudio";
 
 const pad = (n: ReactNode) => <div className="h-full space-y-4 overflow-auto p-4" data-settings-body>{n}</div>;
 
@@ -66,7 +67,7 @@ function ModuleBody({ id, tab }: { id: ModuleId; tab?: string }) {
     case "general-appearance":
       return pad(<Appearance />);
     case "hardware-gpu":
-      return pad(<HardwarePanel />);
+      return <Views initial={tab} views={[["set.view.gpu", pad(<HardwarePanel />)], ["set.view.multiseat", pad(<MultiSeatStudio />)]]} />;
     case "bios-firmware":
       return <div className="h-full overflow-auto p-4" data-settings-body><Bios focus={null} /></div>;
     case "resource-monitor":

@@ -21,6 +21,38 @@ log() { echo "solardeck-firstboot: $*"; }
 [[ $EUID -eq 0 ]] || { log "run as root"; exit 1; }
 mkdir -p "$STATE" && chmod 700 "$STATE"
 
+# ---------------------------------------------------------------- 0. APT: the offline repository from the ISO
+# The installer left the ISO (/cdrom) as the package source. Use the copy in /opt/solardeck-offline/repo instead, so
+# every package installs without internet; the Ubuntu mirrors are enabled only when they can be reached (otherwise they
+# stay listed with "Enabled: no": set it to yes once the server is online to get updates).
+OFFLINE="/opt/solardeck-offline"
+if [[ -f "${OFFLINE}/repo/solardeck-offline.gpg" ]]; then
+  . /etc/os-release
+  install -D -m 644 "${OFFLINE}/repo/solardeck-offline.gpg" /etc/apt/keyrings/solardeck-offline.gpg
+  echo "deb [signed-by=/etc/apt/keyrings/solardeck-offline.gpg] file://${OFFLINE}/repo ${VERSION_CODENAME} main" \
+    >/etc/apt/sources.list.d/solardeck-offline.list
+  [[ -f /etc/apt/sources.list ]] && sed -i -E 's|^([^#].*file:/+cdrom)|# \1|' /etc/apt/sources.list
+  ONLINE=no
+  curl -fsS -m 10 -o /dev/null "http://archive.ubuntu.com/ubuntu/dists/${VERSION_CODENAME}/Release" 2>/dev/null && ONLINE=yes
+  cat >/etc/apt/sources.list.d/ubuntu.sources <<EOF
+# Ubuntu mirrors. Enabled: ${ONLINE} at first boot (no = there was no internet); set it to yes to get online updates.
+Types: deb
+URIs: http://archive.ubuntu.com/ubuntu
+Suites: ${VERSION_CODENAME} ${VERSION_CODENAME}-updates ${VERSION_CODENAME}-backports
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+Enabled: ${ONLINE}
+
+Types: deb
+URIs: http://security.ubuntu.com/ubuntu
+Suites: ${VERSION_CODENAME}-security
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+Enabled: ${ONLINE}
+EOF
+  log "APT uses the offline repository ${OFFLINE}/repo (Ubuntu mirrors enabled: ${ONLINE})"
+fi
+
 # ---------------------------------------------------------------- 1. br0 on the primary NIC
 primary_nic() {
   local nic

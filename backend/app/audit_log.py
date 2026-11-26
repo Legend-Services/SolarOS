@@ -35,6 +35,8 @@ HTTP_EVENTS = [
     ("POST", r"^/api/system/password$", "password.change"),
     ("POST", r"^/api/network/switch/(apply|confirm|revert)$", "network.switch.apply"),
     ("PUT", r"^/api/network/switch/vlans/\d+/dhcp$", "network.vlan.dhcp"),
+    ("POST", r"^/api/multiseat/egpu/authorize$", "egpu.authorize"),
+    ("POST", r"^/api/multiseat/seats/([0-9a-f]{8}/start|start-all)$", "seat.start"),
 ]
 
 
