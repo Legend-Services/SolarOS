@@ -14,9 +14,8 @@ import posixpath
 import re
 import shlex
 import time
-from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
 from . import host_ssh, platform_modules as pm
@@ -340,20 +339,4 @@ async def usb_unmount(body: UsbMountBody):
 @router.post("/usb/attach", dependencies=gated)
 async def usb_attach(body: UsbAttachBody):
     """Give a VM the whole USB drive as a disk (unmount it on the host first)."""
-    dev = shlex.quote(body.device)
-    if settings.hypervisor_driver == "proxmox":
-        cfg = await host_ssh.run(f"qm config {body.vmid}", timeout=30)
-        slot = next((f"scsi{i}" for i in range(1, 30) if f"scsi{i}:" not in cfg), None)
-        if not slot:
-            raise HTTPException(409, "This VM has no free SCSI slot")
-        await host_ssh.run(f"qm set {body.vmid} -{slot} {dev},backup=0", timeout=60)
-        return {"ok": True, "slot": slot}
-    from providers.native_ubuntu import host as native_host
-    name = shlex.quote(native_host.name_of(body.vmid, "qemu"))
-    xml = await host_ssh.run(f"virsh dumpxml {name}", timeout=30)
-    slot = next((f"vd{c}" for c in "bcdefghijklmnop" if f"dev='vd{c}'" not in xml), None)
-    if not slot:
-        raise HTTPException(409, "This VM has no free disk slot")
-    live = "--live " if "running" in await host_ssh.run(f"virsh domstate {name}", check=False) else ""
-    await host_ssh.run(f"virsh attach-disk {name} {dev} {slot} {live}--persistent", timeout=60)
-    return {"ok": True, "slot": slot}
+    return {"ok": True, "slot": await pm.driver().usb_attach(body.device, body.vmid)}

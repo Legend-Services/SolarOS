@@ -5,8 +5,8 @@ BMC records live in data/oob_hosts.json (mode 600) with their passwords encrypte
 line); Redfish is spoken directly over HTTPS (BMCs ship self-signed certificates, so they are not verified). Wake-on-LAN
 magic packets are broadcast from the host, so they reach standby hosts on its own LAN.
 
-The serial console (WS /api/compute/{guest_type}/{guest_id}/serial) is a PTY relay to `qm terminal` / `pct console`
-(Proxmox VE) or `virsh console` / `incus console` (SolarOS), so a VM whose display went to a passed-through GPU stays
+The serial console (WS /api/compute/{guest_type}/{guest_id}/serial) is a PTY relay to the hypervisor's own serial /
+container console command (the driver's serial_command), so a VM whose display went to a passed-through GPU stays
 reachable from the browser.
 """
 import ipaddress
@@ -14,7 +14,6 @@ import json
 import re
 import secrets
 import shlex
-from contextlib import suppress
 from pathlib import Path as FsPath
 from typing import Literal
 from urllib.parse import urlparse
@@ -25,7 +24,6 @@ from pydantic import BaseModel, Field, field_validator
 
 from . import audit_log, host_ssh, platform_modules as pm, secrets_vault
 from .auth import COOKIE, require_user, session_claims
-from .config import settings
 
 MODULE = "oob_bmc"
 router = APIRouter(prefix="/api/oob", tags=["oob_control"], dependencies=[Depends(require_user)])
@@ -105,12 +103,6 @@ def ipmi_script(h: dict, args: str) -> str:
             f"ipmitool -I lanplus -H {shlex.quote(h['address'])} -U {shlex.quote(h['username'])} -E {args}\n")
 
 
-def serial_command(driver: str, guest_type: str, vmid: int, name: str | None) -> str:
-    if driver == "proxmox":
-        return f"qm terminal {vmid}" if guest_type == "qemu" else f"pct console {vmid}"
-    return f"virsh console --force {shlex.quote(name or str(vmid))}" if guest_type == "qemu" else f"incus console {shlex.quote(name or str(vmid))}"
-
-
 # ---------------------------------------------------------------- Redfish
 
 
@@ -153,7 +145,7 @@ async def update_host(body: BmcBody, host_id: str = Path(pattern=r"^[0-9a-f]{8}$
     if not h:
         raise HTTPException(404, "No such host")
     h.update(body.model_dump(exclude={"password"}))
-    if body.password is not None:
+    if body.password:  # empty keeps the stored password
         h["password"] = secrets_vault.encrypt(body.password)
     save(hosts)
     return view(h)
@@ -217,11 +209,8 @@ async def wake(host_id: str = Path(pattern=r"^[0-9a-f]{8}$"), user: str = Depend
 
 @router.post("/serial/{guest_type}/{guest_id}/enable")
 async def enable_serial(guest_type: Literal["qemu"], guest_id: int = Path(ge=100)):
-    """Proxmox VE VMs need a serial port for `qm terminal`; SolarOS VMs get one at creation."""
-    if settings.hypervisor_driver == "proxmox":
-        await host_ssh.run(f"qm set {guest_id} -serial0 socket", timeout=30)
-        return {"ok": True, "restart_needed": True}
-    return {"ok": True, "restart_needed": False}
+    """Give a VM a serial port where the hypervisor needs one for its serial console."""
+    return {"ok": True, "restart_needed": await pm.driver().enable_serial(guest_id)}
 
 
 @serial.websocket("/{guest_type}/{guest_id}/serial")
@@ -240,11 +229,11 @@ async def serial_ws(ws: WebSocket, guest_type: Literal["qemu", "lxc"], guest_id:
     if not rbac.can_guest(claims["sub"], guest_id):
         await ws.close(code=4403, reason="Your role does not allow this console")
         return
-    name = None
-    if settings.hypervisor_driver != "proxmox":
-        with suppress(Exception):  # unknown guest: the console command reports it in the terminal
-            from providers.native_ubuntu import host as native_host
-            name = native_host.name_of(guest_id, guest_type)
+    try:
+        command = pm.driver().serial_command(guest_type, guest_id)
+    except HTTPException:
+        await ws.close(code=4404, reason="No such guest")
+        return
     audit_log.record("serial_console.open", user=claims["sub"], guest=f"{guest_type}/{guest_id}")
     await _accept(ws)
-    await ssh_relay(ws, serial_command(settings.hypervisor_driver, guest_type, guest_id, name))
+    await ssh_relay(ws, command)

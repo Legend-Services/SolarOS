@@ -186,6 +186,46 @@ App Center → AI & Compute → **Local AI Studio** creates an unprivileged Debi
 
 Models are stored on `/mnt/storage/ai-models` (bind-mounted at `/usr/share/ollama/.ollama/models`) when that option is on. The **Local AI** desktop app browses the ollama.com library (cached for 15 minutes, with a built-in catalog as a fallback), rates every size for your GPU's VRAM, downloads models with live progress, shows which models are loaded in VRAM, switches between GPU and CPU, toggles Flash Attention and KV cache quantization, and has a test chat. Other tools can use the OpenAI-compatible endpoint `http://<container IP>:11434/v1`.
 
+### Security-by-Design modules
+
+Eight optional modules are governed by `backend/app/platform_modules.py` (`GET /api/platform/modules`,
+`PUT /api/platform/modules/{module_id}`). Each has a profile in `backend/data/platform_modules.json`: `enabled`,
+`runtime_mode` (`container` or `host_native`, only where the module supports it), `network_isolation_mode`
+(`management`, `vlan`, `dmz`, `isolated_lab`), `bound_bridge`, `bound_vlan_id`, `service_ip` and `security_hardening`.
+A switched-off module answers `409` on its write routes.
+
+| Module | Runtime | What runs where |
+|---|---|---|
+| `reverse_proxy` | container (recommended) / host | nginx in the `edge-proxy` worker container, or `/etc/nginx/<prefix>-proxy.d/` on the host |
+| `offsite_backup` | container (recommended) / host | rclone in the `backup-worker` container (sees `/mnt/storage`) or on the host |
+| `image_hub` | host | downloads into the hypervisor's ISO storage; zero-touch VMs via the driver |
+| `ups_power` | host | Network UPS Tools (`upsd`, `upsmon`) and the backend's 10 s watchdog |
+| `oob_bmc` | host | `ipmitool -I lanplus` on the host, Redfish over HTTPS, Wake-on-LAN broadcast from the host |
+| `vlan_firewall` | host | nftables table `inet <prefix>_zones`, fail2ban jails in `/etc/fail2ban/jail.d/<prefix>.local` |
+| `storage_protocols` | host | `/etc/exports.d/<prefix>.exports`, an nginx WebDAV server on its own HTTPS port |
+| `rbac_users` | host | accounts in `backend/data/rbac_users.json`, enforced by the `role_check` middleware in `main.py` |
+
+Worker containers are App Center system apps (`"system": true` in `app_catalog.json`, hidden from the gallery) with a
+hardened service (read-only system paths, no new privileges, minimal capabilities). A module pinned to a VLAN or DMZ
+gets least-privilege rules in the nftables table `inet <prefix>_modules`: its service ports are dropped on every other
+interface, and a container module's address may not open new connections into the management subnet.
+
+The reverse proxy renders one bundle (server blocks, stream servers, certificates, htpasswd files), ships it as a
+tarball, swaps it in atomically, checks it with `nginx -t` and reloads; a rejected bundle restores the previous one.
+Host-name upstreams resolve per request (an unresolvable name fails only its own requests). Private keys and ACME
+credentials are encrypted with the secrets vault. The SolarDeck 2FA gate uses `auth_request` against
+`GET /api/proxy/auth/verify`; visitors without a gate cookie go through `/api/proxy/auth/start` (needs a SolarDeck
+session) and `/__solardeck_gate` on the proxied host, which trades a one-time 60-second ticket for an HttpOnly cookie
+bound to that host and session.
+
+Host snapshots (`POST /api/dr/host-snapshot`) are `SDDR1 | salt | nonce | AES-256-GCM(tar)` with a scrypt-derived
+key; they hold `backend/data` (including the vault key) and `.env`, plus `/etc/<prefix>/net`, the interfaces file and
+DHCP leases. A restore writes the data back, restores the network state JSON (the interfaces file is staged as
+`restored-interfaces` for a manual check) and restarts the backend.
+
+Module jobs (zero-touch VMs, sandbox restore checks, offsite copies) report through `GET /api/tasks/mod-<id>` like
+every other long-running job. The full endpoint list is in [api/README.md](api/README.md).
+
 ### Host helper and permissions
 
 Some operations are limited to root on the host and can't be done with the API token: ZFS dataset snapshots, bind mounts and `/dev/dri` passthrough for App Center containers, and running installers inside new containers. The installer puts `deploy/proxmox-os-helper.sh` on the host at `/usr/local/sbin/proxmox-os-helper`. The container's SSH key for it is locked to that script (`command="…",restrict`). The helper accepts only a fixed list of commands, validates every argument, and refuses guests that SolarDeck didn't tag.
@@ -213,7 +253,8 @@ cd frontend && npm ci && npm run dev
 
 ## Known limits
 
-- There is a single admin account from `.env` and no login rate limiting. Keep the UI on a trusted network.
+- Extra accounts (Users & Roles) sign in with a password only; two-factor sign-in belongs to the administrator.
+  Seat users only control their own VMs and seats, but lists such as the guest list still show every guest.
 - The installer doesn't add bind mounts for pools created after the container. Delete the container and re-run the installer to pick them up.
 - Network throughput and ZFS ARC come from Proxmox's 1-minute averages, so those charts update in steps.
 - SolarOS: task logs live in memory and are lost when the backend restarts; VM snapshots

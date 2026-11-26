@@ -100,8 +100,6 @@ pkt = oob.magic_packet("aa:bb:cc:dd:ee:ff")
 assert len(pkt) == 102 and pkt[:6] == b"\xff" * 6 and pkt[6:12] == bytes.fromhex("aabbccddeeff")
 sdr = oob.parse_sdr("CPU Temp         | 30h | ok  |  3.1 | 45 degrees C\nFan1             | 41h | ok  | 29.1 | 4800 RPM\n")
 assert sdr == [{"name": "CPU Temp", "status": "ok", "reading": "45 degrees C"}, {"name": "Fan1", "status": "ok", "reading": "4800 RPM"}]
-assert oob.serial_command("proxmox", "qemu", 105, None) == "qm terminal 105"
-assert oob.serial_command("native_ubuntu", "lxc", 105, "web") == "incus console web"
 script = oob.ipmi_script({"password": "p'w", "address": "10.0.0.9", "username": "admin"}, "chassis power on")
 assert "export IPMI_PASSWORD='p'\"'\"'w'" in script and "-E chassis power on" in script and "p'w" not in script.split("\n")[-2]
 assert bad(oob.BmcBody, name="x", address="10.0.0.1; reboot")
@@ -145,9 +143,6 @@ zt = ih.ZeroTouchBody(image_volume="local:iso/noble-server-cloudimg-amd64.img", 
 ud = ih.user_data(zt)
 assert ud.startswith("#cloud-config\n") and "hostname: web01" in ud and "qemu-guest-agent" in ud and '"correct-horse"' in ud
 assert "addresses: [192.168.40.10/24]" in ih.network_config(zt) and "via: 192.168.40.1" in ih.network_config(zt)
-pve = ih.proxmox_script(zt)
-assert "import-from=$IMG" in pve and "bridge=br0,tag=40" in pve and "--ipconfig0 ip=192.168.40.10/24,gw=192.168.40.1" in pve
-assert "qm resize 150 scsi0 20G" in pve and "--cicustom vendor=local:snippets/" in pve
 assert bad(ih.ZeroTouchBody, image_volume="local:iso/x.img", vmid=150, name="a", storage="local")  # no password or key
 assert bad(ih.ZeroTouchBody, image_volume="local:iso/x.img", vmid=150, name="a", storage="local", ssh_keys=["not a key"])
 assert bad(ih.ZeroTouchBody, image_volume="local:iso/../../etc.img", vmid=150, name="a", storage="local", password="longenough")
@@ -170,8 +165,8 @@ env = d / ".env"
 env.write_text("JWT_SECRET=x")
 with tarfile.open(fileobj=io.BytesIO(dr.pack_local(d, env))) as tar:
     assert sorted(tar.getnames()) == ["data/.env", "data/settings.json", "env/.env"], tar.getnames()
-parts = dr.unbundle(dr.bundle(b"L", b"H", {"node": "pve"}))
-assert parts["local.tar.gz"] == b"L" and json.loads(parts["meta.json"]) == {"node": "pve"}
+parts = dr.unbundle(dr.bundle(b"L", b"H", {"node": "host1"}))
+assert parts["local.tar.gz"] == b"L" and json.loads(parts["meta.json"]) == {"node": "host1"}
 evil = io.BytesIO()
 with tarfile.open(fileobj=evil, mode="w") as tar:
     for name in ("data/ok.json", "../etc/passwd", "/etc/shadow", "data/../../x", "other/y"):

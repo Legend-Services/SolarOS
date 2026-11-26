@@ -5,17 +5,12 @@ the entry's pattern is picked from that checksum file, so point releases never b
 storage download verifies the checksum.
 
 Zero-Touch provisioning boots a cloud image as the VM's disk with an injected cloud-init seed: host name, admin user,
-password and/or SSH keys, DHCP or a static address, and the QEMU guest agent.
-  - Proxmox VE: `qm create … --scsi0 <storage>:0,import-from=<image>` plus its cloud-init drive; the guest agent comes
-    from a vendor-data snippet on the "local" storage.
-  - SolarOS: the driver's VM creation with a cloud-init seed, then the image is written onto the new disk and the seed
-    is regenerated with the network config and guest agent.
+password and/or SSH keys, DHCP or a static address, and the QEMU guest agent. The driver creates the VM and imports the
+image (providers/<driver>/modules.py zero_touch); user_data() and network_config() below are the seed it uses.
 """
-import asyncio
 import ipaddress
 import json
 import re
-import shlex
 from pathlib import Path as FsPath
 from typing import Literal
 
@@ -26,7 +21,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from . import platform_modules as pm, task_progress
 from .auth import require_user
 from .config import settings
-from .provisioning import BRIDGE_RE, FILENAME_RE, GUEST_TAG, STORAGE_RE
+from .provisioning import BRIDGE_RE, FILENAME_RE, STORAGE_RE
 from providers.registry import get_provider
 
 MODULE = "image_hub"
@@ -179,87 +174,13 @@ def network_config(b: ZeroTouchBody) -> str:
             f"    nameservers: {{addresses: [{', '.join(n.dns)}]}}\n")
 
 
-def proxmox_script(b: ZeroTouchBody) -> str:
-    net = f"virtio,bridge={b.bridge}" + (f",tag={b.vlan_tag}" if b.vlan_tag else "")
-    ip = "ip=dhcp" if b.network == "dhcp" else f"ip={b.network.cidr},gw={b.network.gateway}"
-    snippet = f"/var/lib/vz/snippets/{settings.system_prefix}-agent.yaml"
-    cmds = [
-        "set -e",
-        f"IMG=$(pvesm path {shlex.quote(b.image_volume)})",
-        f"qm create {b.vmid} --name {b.name} --cores {b.cores} --memory {b.memory} --cpu host --ostype l26 "
-        f"--net0 {net} --scsihw virtio-scsi-single --scsi0 {b.storage}:0,import-from=$IMG,discard=on "
-        f"--ide2 {b.storage}:cloudinit --boot order=scsi0 --serial0 socket --agent enabled=1 --tags {GUEST_TAG}",
-        "echo '@@stage zerotouch 2@@'",
-        f"qm resize {b.vmid} scsi0 {b.disk_gb}G",
-        f"qm set {b.vmid} --ciuser {b.admin_user} --ipconfig0 {ip}"
-        + (f" --nameserver '{' '.join(b.network.dns)}'" if b.network != "dhcp" else ""),
-    ]
-    if b.password:
-        cmds.append(f"qm set {b.vmid} --cipassword {shlex.quote(b.password)}")
-    if b.ssh_keys:
-        cmds.append(f"printf '%s\\n' {' '.join(shlex.quote(k) for k in b.ssh_keys)} > /tmp/sd-keys-{b.vmid} && "
-                    f"qm set {b.vmid} --sshkeys /tmp/sd-keys-{b.vmid}; rm -f /tmp/sd-keys-{b.vmid}")
-    if b.guest_agent:
-        cmds += [
-            # The guest agent is a package: install it from a vendor-data snippet (needs "snippets" on the local storage).
-            "c=$(pvesh get /storage/local --output-format json | python3 -c 'import json,sys;print(json.load(sys.stdin).get(\"content\",\"\"))')",
-            "case \",$c,\" in *,snippets,*) ;; *) pvesm set local --content \"$c,snippets\" ;; esac",
-            f"mkdir -p /var/lib/vz/snippets && printf '#cloud-config\\npackages: [qemu-guest-agent]\\nruncmd:\\n  - [systemctl, enable, --now, qemu-guest-agent]\\n' > {snippet}",
-            f"qm set {b.vmid} --cicustom vendor=local:snippets/{settings.system_prefix}-agent.yaml",
-        ]
-    return "\n".join(cmds) + "\n"
-
-
-async def _wait_task(p, task: str | None) -> None:
-    for _ in range(900):
-        if not task:
-            return
-        s = await p.get_task_status(task)
-        if not s["running"]:
-            if s.get("state") not in ("ok", "done", "completed") and s.get("exitstatus") not in ("OK", "ok", 0, None):
-                raise HTTPException(502, f"VM creation failed: {s.get('exitstatus')}")
-            return
-        await asyncio.sleep(2)
-
-
 async def _zero_touch(b: ZeroTouchBody, job: dict) -> dict:
-    from . import host_ssh
-    p, log = get_provider(), job["logs"].append
     job["stage"] = 1
-    if settings.hypervisor_driver == "proxmox":
-        def on_line(line: str) -> None:  # the script marks the cloud-init stage
-            if "@@stage" in line:
-                job["stage"] = 2
-            else:
-                log(line)
-        await host_ssh.run("bash -s", input=proxmox_script(b), timeout=1800, on_line=on_line)
-    else:
-        from providers.native_ubuntu import host as nhost
-        from providers.native_ubuntu.provider import _volume_file
-        image = _volume_file(b.image_volume)
-        task = await p.create_vm({"vmid": b.vmid, "name": b.name, "cores": b.cores, "memory": b.memory, "storage": b.storage,
-                                  "disk_gb": b.disk_gb, "bridge": b.bridge, "bios": "ovmf", "ostype": "l26",
-                                  "cloudinit": {"user": b.admin_user, "password": b.password, "ssh_keys": b.ssh_keys}})
-        await _wait_task(p, task.task)
-        job["stage"] = 2
-        disk = (await host_ssh.run(f"virsh domblklist {shlex.quote(b.name)} --details | awk '$2==\"disk\"{{print $4; exit}}'")).strip()
-        fmt = "raw" if disk.startswith("/dev/") else "qcow2"
-        log(f"Writing {image.name} onto {disk}")
-        await host_ssh.run(f"qemu-img convert -O {fmt} {shlex.quote(str(image))} {shlex.quote(disk)} && "
-                           + (f"qemu-img resize {shlex.quote(disk)} {b.disk_gb}G" if fmt == "qcow2" else "true"), timeout=3600)
-        seed = nhost.IMAGES / f"vm-{b.vmid}-cloudinit.iso"
-        d = f"/tmp/sd-zt-{b.vmid}"
-        await host_ssh.run(f"mkdir -p {d} && cat > {d}/user-data", input=user_data(b))
-        await host_ssh.run(f"cat > {d}/network-config", input=network_config(b))
-        await host_ssh.run(f"printf 'instance-id: sd-{b.vmid}\\nlocal-hostname: {b.name}\\n' > {d}/meta-data && "
-                           f"cloud-localds -N {d}/network-config {shlex.quote(str(seed))} {d}/user-data {d}/meta-data; rm -rf {d}")
-        if b.vlan_tag:
-            from . import network_switch as nsw
-            await nsw.update_guest_vnic(nsw.GuestVnicBody(bridge=b.bridge, vlan_tag=b.vlan_tag), "vm", b.vmid, "net0")
+    await pm.driver().zero_touch(b, job, user_data(b), network_config(b))
     job["stage"] = 3
     if b.start:
-        await p.guest_power_action("qemu", b.vmid, "start")
-        log("VM started; cloud-init finishes the setup on first boot (about a minute)")
+        await get_provider().guest_power_action("qemu", b.vmid, "start")
+        job["logs"].append("VM started; cloud-init finishes the setup on first boot (about a minute)")
     return {"vmid": b.vmid, "name": b.name}
 
 
@@ -296,15 +217,13 @@ class CloneBody(BaseModel):
 
 @router.get("/api/compute/templates")
 async def list_templates():
-    return {"module": pm.profile(MODULE), "templates": load_templates(), "clone_supported": settings.hypervisor_driver == "proxmox"}
+    return {"module": pm.profile(MODULE), "templates": load_templates(), "clone_supported": pm.driver().CLONE_TEMPLATES}
 
 
 @router.post("/api/compute/templates", dependencies=gated)
 async def create_template(body: TemplateBody):
-    """Turn a configured, shut-down VM into a golden template (on Proxmox VE this is `qm template`, a one-way step)."""
-    from . import host_ssh
-    if settings.hypervisor_driver == "proxmox":
-        await host_ssh.run(f"qm template {body.vmid}", timeout=300)
+    """Turn a configured, shut-down VM into a golden template (on some hypervisors a one-way step)."""
+    await pm.driver().make_template(body.vmid)
     items = [t for t in load_templates() if t["vmid"] != body.vmid] + [body.model_dump()]
     TEMPLATES.write_text(json.dumps(items, indent=1))
     return {"ok": True, "templates": items}
@@ -312,10 +231,7 @@ async def create_template(body: TemplateBody):
 
 @router.post("/api/compute/templates/{vmid}/clone", dependencies=gated)
 async def clone_template(body: CloneBody, vmid: int = Path(ge=100)):
-    from . import host_ssh
-    if settings.hypervisor_driver != "proxmox":
-        raise HTTPException(501, "Cloning templates is not available with this hypervisor driver yet; use Zero-Touch Create")
-    await host_ssh.run(f"qm clone {vmid} {body.new_vmid} --name {body.name}" + (" --full 1" if body.full else ""), timeout=3600)
+    await pm.driver().clone_template(vmid, body.new_vmid, body.name, body.full)
     return {"ok": True, "vmid": body.new_vmid}
 
 

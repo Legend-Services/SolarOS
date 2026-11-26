@@ -739,7 +739,144 @@ const detailed = (g) => {
   };
 };
 
+/* ---------------- Security-by-Design modules ---------------- */
+
+const HARDEN = { read_only_rootfs: true, drop_capabilities: true, non_root_user: true, auto_firewall_rules: true, audit_logging: true };
+const MOD_SPEC = {
+  reverse_proxy: ["container", ["container", "host_native"], "dmz", 40, "10.40.0.5"],
+  offsite_backup: ["container", ["container", "host_native"], "vlan", 30, "10.30.0.8"],
+  image_hub: ["host_native", ["host_native"], "management", null, null],
+  ups_power: ["host_native", ["host_native"], "management", null, null],
+  oob_bmc: ["host_native", ["host_native"], "management", null, null],
+  vlan_firewall: ["host_native", ["host_native"], "management", null, null],
+  storage_protocols: ["host_native", ["host_native"], "vlan", 20, null],
+  rbac_users: ["host_native", ["host_native"], "management", null, null],
+};
+const moduleProfile = (id) => {
+  const [rec, modes, net, vid, ip] = MOD_SPEC[id];
+  return { module_id: id, enabled: true, runtime_mode: rec, recommended_runtime_mode: rec, supported_runtime_modes: modes, network_isolation_mode: net,
+    bound_bridge: "br0", bound_vlan_id: vid, service_ip: ip, security_hardening: HARDEN, worker_vmid: null };
+};
+const certOf = (id, name, source, domains, issuer, days) => ({ id, name, source, domains, issuer, expires: T0 + days * 86400, created: T0 - 86400 * 20, chain: "", has_key: true });
+const ROOT_CA = { ...certOf("ca000001", "SolarDeck Private Root CA", "root_ca", ["SolarDeck Private Root CA"], "SolarDeck", 3650), key_type: "ecdsa-p384" };
+const PROXY_CERTS = [
+  certOf("c0ffee01", "*.home.lan", "self_signed", ["*.home.lan", "home.lan"], "SolarDeck", 380),
+  certOf("c0ffee02", "media.example.net", "acme", ["media.example.net"], "Let's Encrypt", 61),
+  certOf("c0ffee03", "files.example.net", "upload", ["files.example.net"], "Example Trust CA", 22),
+];
+const PROXY_HOSTS = [
+  { id: "a1000001", domain_names: ["ai.home.lan"], upstream_scheme: "http", upstream_host: "10.20.0.55", upstream_port: 3000, websocket_support: true, http2_enabled: true, force_ssl: true, hsts_enabled: true, client_max_body_size: "512m", rate_limit_rpm: 600, solardeck_sso_auth: true, access_list_id: null, certificate_id: "c0ffee01", custom_nginx_config: "", enabled: true },
+  { id: "a1000002", domain_names: ["media.example.net"], upstream_scheme: "http", upstream_host: "10.20.0.50", upstream_port: 8096, websocket_support: true, http2_enabled: true, force_ssl: true, hsts_enabled: false, client_max_body_size: "10g", rate_limit_rpm: null, solardeck_sso_auth: false, access_list_id: null, certificate_id: "c0ffee02", custom_nginx_config: "", enabled: true },
+  { id: "a1000003", domain_names: ["home.home.lan", "ha.home.lan"], upstream_scheme: "http", upstream_host: "10.20.0.51", upstream_port: 8123, websocket_support: true, http2_enabled: true, force_ssl: true, hsts_enabled: false, client_max_body_size: "64m", rate_limit_rpm: null, solardeck_sso_auth: false, access_list_id: "ac000001", certificate_id: "c0ffee01", custom_nginx_config: "", enabled: true },
+];
+const PROXY_STREAMS = [
+  { id: "s0000001", protocol: "both", listen_port: 25565, upstream_host: "10.20.0.52", upstream_port: 25565, comment: "Game server", enabled: true },
+  { id: "s0000002", protocol: "tcp", listen_port: 2222, upstream_host: "10.20.0.53", upstream_port: 22, comment: "Dev SSH", enabled: true },
+  { id: "s0000003", protocol: "tcp", listen_port: 1883, upstream_host: "10.20.0.51", upstream_port: 1883, comment: "MQTT", enabled: true },
+];
+const PROXY_ACLS = [{ id: "ac000001", name: "Home network only", allow: ["10.20.0.0/24", "10.8.0.0/24"], deny: [], satisfy: "any", basic_auth_users: ["family"] }];
+const DR_SNAPS = [
+  { name: "20251124-031500-nightly.sddr", size: 18.2e6, created: T0 - 86400 },
+  { name: "20251117-031500-nightly.sddr", size: 17.9e6, created: T0 - 86400 * 8 },
+];
+const DR_TARGETS = [
+  { id: "t0000001", name: "Object storage (offsite)", type: "s3", endpoint: "https://s3.example.net", bucket: "solardeck/backups", region: "eu-west-1", access_key_id: "AKEXAMPLE", username: "", port: 22, include_hypervisor_backups: true, retention_days: 30, last_run: { at: T0 - 3600 * 5, ok: true }, secret_access_key_set: true, password_set: false },
+  { id: "t0000002", name: "Friend's server (SFTP)", type: "sftp", endpoint: "backup.example.org", bucket: "solardeck", region: "", access_key_id: "", username: "solardeck", port: 2222, include_hypervisor_backups: false, retention_days: 90, last_run: { at: T0 - 86400, ok: true }, secret_access_key_set: false, password_set: true },
+];
+const DR_VERIFY = [
+  { backup: "backup:backup/vzdump-qemu-100-2025_11_24-02_00_01.vma.zst", vmid: 9900, type: "qemu", started: T0 - 7200, finished: T0 - 7020, booted: true, heartbeat: true, ok: true, seconds_to_heartbeat: 41 },
+  { backup: "backup:backup/vzdump-lxc-101-2025_11_23-02_00_01.tar.zst", vmid: 9901, type: "lxc", started: T0 - 93600, finished: T0 - 93540, booted: true, heartbeat: true, ok: true, seconds_to_heartbeat: 6 },
+];
+const IMAGE_CATALOG = [
+  ["ubuntu-server-lts", "Ubuntu Server 24.04 LTS", "server", "installer", "Long-term support server release with five years of updates."],
+  ["debian-stable", "Debian 13 (netinst)", "server", "installer", "Small network installer of the current stable release."],
+  ["alma-9", "AlmaLinux 9 (minimal)", "server", "installer", "Enterprise-compatible server distribution."],
+  ["ubuntu-desktop-lts", "Ubuntu Desktop 24.04 LTS", "desktop", "installer", "Desktop release for Seat VMs and workstations."],
+  ["opnsense", "OPNsense firewall (DVD)", "firewall", "installer", "Open-source firewall and router appliance."],
+  ["virtio-drivers", "VirtIO guest drivers (stable)", "drivers", "installer", "Paravirtual disk, network, balloon and guest agent drivers."],
+  ["ubuntu-cloud-lts", "Ubuntu Server 24.04 LTS (cloud image)", "cloud", "cloud", "Ready-to-boot disk image for Zero-Touch provisioning with cloud-init."],
+  ["debian-cloud", "Debian 13 (generic cloud image)", "cloud", "cloud", "Ready-to-boot disk image for Zero-Touch provisioning with cloud-init."],
+].map(([id, name, category, kind, description]) => ({ id, name, category, kind, description, base_url: "https://example.org/", sums: "SHA256SUMS", algorithm: "sha256", pattern: ".*" }));
+const UPS_STATUS = { enabled: true, online: true, status: "OL", on_battery: false, low_battery: false, charge_percent: 100, load_percent: 23, input_voltage: 231.4, runtime_seconds: 2460, model: "Smart UPS 1500", manufacturer: "", at: T0, shutting_down: false };
+const FW_STATE = {
+  zones: [
+    { id: "lan", name: "Management", kind: "management", interfaces: ["br0"], color: "#38bdf8" },
+    { id: "dmz", name: "DMZ", kind: "dmz", interfaces: ["br0.40"], color: "#f97316" },
+    { id: "iot", name: "IoT", kind: "vlan", interfaces: ["br0.30"], color: "#a3e635" },
+    { id: "lab", name: "Lab", kind: "isolated_lab", interfaces: ["sdlab0"], color: "#f59e0b" },
+  ],
+  rules: [
+    { id: "r1", source_zone: "dmz", dest_zone: "lan", protocol: "tcp", port_range: "53", action: "accept", log: false, enabled: true, comment: "DNS for the DMZ" },
+    { id: "r2", source_zone: "dmz", dest_zone: "lan", protocol: "any", port_range: "", action: "drop", log: true, enabled: true, comment: "No lateral movement" },
+    { id: "r3", source_zone: "iot", dest_zone: "lan", protocol: "any", port_range: "", action: "reject", log: false, enabled: true, comment: "" },
+    { id: "r4", source_zone: "lan", dest_zone: "iot", protocol: "tcp", port_range: "80-443", action: "accept", log: false, enabled: true, comment: "Manage devices" },
+  ],
+  ids: { jails: ["sshd", "recidive"], bantime: 3600, findtime: 600, maxretry: 5, ignoreip: ["10.20.0.0/24"] },
+};
+const FW_JAILS = { sshd: "SSH sign-ins", recidive: "Repeat offenders (bans again for a week)", "nginx-http-auth": "Web password prompts", "nginx-limit-req": "Web rate-limit violations" };
+const RBAC_USERS = [
+  { username: "alex", role: "operator", display_name: "Alex", allowed_vm_ids: [], allowed_seat_ids: [], allowed_shares: [], enabled: true, created: T0 - 86400 * 30 },
+  { username: "sam", role: "seat_user", display_name: "Sam (gaming seat)", allowed_vm_ids: [102], allowed_seat_ids: ["seat-1"], allowed_shares: ["media"], enabled: true, created: T0 - 86400 * 12 },
+  { username: "guest", role: "viewer", display_name: "Read-only", allowed_vm_ids: [], allowed_seat_ids: [], allowed_shares: [], enabled: false, created: T0 - 86400 * 3 },
+];
+const MODULE_FIXTURES = {
+  "/platform/modules": () => ({ modules: Object.keys(MOD_SPEC).map(moduleProfile) }),
+  "/proxy": () => ({ module: moduleProfile("reverse_proxy"), settings: { solardeck_url: "", acme_email: "admin@example.net" }, gate_url: `https://${HOST}`, applied: T0 - 600, counts: { hosts: 3, streams: 3, access_lists: 1, certificates: 3 }, root_ca: ROOT_CA }),
+  "/proxy/hosts": () => PROXY_HOSTS,
+  "/proxy/streams": () => PROXY_STREAMS,
+  "/proxy/access-lists": () => PROXY_ACLS,
+  "/proxy/certificates": () => ({ certificates: PROXY_CERTS, root_ca: ROOT_CA, acme_job: null }),
+  "/proxy/upstreams": () => [
+    { kind: "app", name: "Local AI Studio", host: "10.20.0.55", port: null, guest_id: 105 },
+    ...GUESTS.map((g) => ({ kind: g.type === "qemu" ? "vm" : "container", name: g.name, host: null, port: null, guest_id: g.vmid })),
+  ],
+  "/dr/status": () => ({ module: moduleProfile("offsite_backup"), local_snapshots: 2, latest_snapshot: DR_SNAPS[0], offsite_targets: 2, offsite_ok: 2, verifications: DR_VERIFY }),
+  "/dr/host-snapshots": () => ({ module: moduleProfile("offsite_backup"), snapshots: DR_SNAPS, folder: "/mnt/storage/backups/solardeck-dr" }),
+  "/dr/offsite-targets": () => ({ module: moduleProfile("offsite_backup"), targets: DR_TARGETS }),
+  "/dr/verifications": () => DR_VERIFY,
+  "/images/catalog": () => ({ module: moduleProfile("image_hub"), images: IMAGE_CATALOG }),
+  "/compute/templates": () => ({ module: moduleProfile("image_hub"), templates: [{ vmid: 9000, name: "Server base (24.04)", notes: "Hardened, guest agent, monitoring" }], clone_supported: true }),
+  "/ups/status": () => UPS_STATUS,
+  "/ups/config": () => ({ mode: "usb", driver: "usbhid-ups", port: "auto", remote: "", username: "solardeck", shutdown_charge_percent: 25, shutdown_runtime_seconds: 300, shutdown_order: [102, 100], guest_timeout_seconds: 120, profile: "balanced", eco_pause_vmids: [102], schedule: [{ at: "23:00", days: ["mon", "tue", "wed", "thu", "fri"], profile: "eco" }, { at: "07:00", days: ["mon", "tue", "wed", "thu", "fri"], profile: "balanced" }], password_set: true, available_governors: ["performance", "schedutil", "powersave"], module: moduleProfile("ups_power") }),
+  "/ups/drivers": () => ({ found: [{ driver: "usbhid-ups", port: "auto", vendorid: "051D", productid: "0002" }] }),
+  "/oob/hosts": () => ({ module: moduleProfile("oob_bmc"), hosts: [
+    { id: "b0000001", name: "standby-host", protocol: "ipmi", address: "10.20.0.201", username: "admin", mac: "3c:ec:ef:12:34:56", wol_broadcast: "10.20.0.255", password_set: true },
+    { id: "b0000002", name: "backup-host", protocol: "redfish", address: "10.20.0.202", username: "root", mac: "", wol_broadcast: "255.255.255.255", password_set: true },
+    { id: "b0000003", name: "lab-mini-pc", protocol: "wol_only", address: "", username: "", mac: "1c:69:7a:aa:bb:cc", wol_broadcast: "10.20.0.255", password_set: false },
+  ] }),
+  "/firewall": () => ({ ...FW_STATE, module: moduleProfile("vlan_firewall"), ruleset: "table inet solardeck_zones {\n  …\n}", jail_catalog: FW_JAILS }),
+  "/firewall/ids": () => ({ installed: true, settings: FW_STATE.ids, catalog: FW_JAILS, jails: { sshd: { failed: 3, banned_total: 17, banned: ["203.0.113.24", "198.51.100.7"] }, recidive: { failed: 0, banned_total: 2, banned: ["203.0.113.24"] } } }),
+  "/storage/nfs": () => ({ module: moduleProfile("storage_protocols"), shares: [{ name: "media", path: "/tank/media", clients: [{ network: "10.20.0.0/24", read_only: true, root_squash: true }] }, { name: "backups", path: "/tank/backups", clients: [{ network: "10.20.0.60", read_only: false, root_squash: true }] }], active: "/tank/media\t10.20.0.0/24(ro,sync,root_squash)\n/tank/backups\t10.20.0.60(rw,sync,root_squash)" }),
+  "/storage/webdav": () => ({ module: moduleProfile("storage_protocols"), port: 8090, shares: [{ name: "photos", path: "/tank/photos", read_only: true, users: ["family"] }, { name: "drop", path: "/tank/drop", read_only: false, users: ["alex"] }] }),
+  "/storage/snapshots/datasets": () => [
+    { dataset: "tank/media", snapshots: [{ name: "auto-2025-11-24", created: T0 - 86400, used: 1.2 * GiB }, { name: "auto-2025-11-17", created: T0 - 86400 * 8, used: 3.4 * GiB }] },
+    { dataset: "tank/documents", snapshots: [{ name: "auto-2025-11-24", created: T0 - 86400, used: 0.1 * GiB }] },
+  ],
+  "/storage/snapshots/browse": (s) => ({ dataset: s.get("dataset") || "tank/media", snapshot: s.get("snapshot") || "auto-2025-11-24", path: s.get("path") || "", entries: [
+    { name: "Movies", type: "dir", size: 4096, mtime: T0 - 86400 * 40 }, { name: "Music", type: "dir", size: 4096, mtime: T0 - 86400 * 90 },
+    { name: "Photos 2025", type: "dir", size: 4096, mtime: T0 - 86400 * 2 }, { name: "family-video.mp4", type: "file", size: 2.4 * GiB, mtime: T0 - 86400 * 5 },
+    { name: "playlist.m3u", type: "file", size: 18400, mtime: T0 - 86400 * 12 },
+  ] }),
+  "/storage/usb": () => ({ module: moduleProfile("storage_protocols"), drives: [
+    { device: "/dev/disk/by-id/usb-Portable_SSD_1234-0:0", name: "sdc", size: "1.8T", fstype: null, label: null, model: "Portable SSD", mountpoint: null, type: "disk" },
+    { device: "/dev/disk/by-id/usb-Portable_SSD_1234-0:0-part1", name: "sdc1", size: "1.8T", fstype: "exfat", label: "BACKUP", model: "", mountpoint: "/mnt/usb/backup", type: "part" },
+  ] }),
+  "/rbac/users": () => ({ module: moduleProfile("rbac_users"), administrator: "admin", users: RBAC_USERS }),
+  "/rbac/roles": () => [
+    { id: "admin", description: "Full control, including users, security, updates and clustering" },
+    { id: "operator", description: "Manage guests, storage, network and apps; no user, security, update or cluster administration" },
+    { id: "seat_user", description: "Power, console and USB ports of the assigned Seat VMs only" },
+    { id: "viewer", description: "Read-only access" },
+  ],
+  "/rbac/me": () => ({ username: "admin", role: "admin", allowed_vm_ids: [], allowed_seat_ids: [], allowed_shares: [] }),
+};
+const MODULE_PATTERNS = [
+  [/^\/platform\/modules\/([a-z_]+)$/, (m) => MOD_SPEC[m[1]] && moduleProfile(m[1])],
+  [/^\/oob\/hosts\/[0-9a-f]{8}\/sensors$/, () => ({ power: "on", sensors: [{ name: "CPU Temp", status: "ok", reading: "44 degrees C" }, { name: "System Fan 1", status: "ok", reading: "4800 RPM" }, { name: "PSU1 Input", status: "ok", reading: "230 Volts" }] })],
+];
+
 const EXACT = {
+  ...MODULE_FIXTURES,
   "/architecture/overview": () => ARCH_OVERVIEW,
   "/virtual-hardware/catalog": () => VHW_CATALOG,
   "/virtual-hardware/labs/sandbox": () => ({ labs: [LAB] }),
@@ -842,6 +979,7 @@ const EXACT = {
 };
 
 const PATTERNS = [
+  ...MODULE_PATTERNS,
   [/^\/v1\/guests\/(qemu|lxc)\/(\d+)\/config$/, (m) => { const g = GUESTS.find((x) => x.vmid === +m[2]); return g && guestConfig(g); }],
   [/^\/v1\/storage\/([^/]+)\/content$/, (m, s) => { if (m[1] !== "local" && m[1] !== "backup") return []; const c = s.get("content"); return c === "iso" ? ISOS : c === "vztmpl" ? TEMPLATES : c === "backup" ? BACKUPS.archives : [...ISOS, ...TEMPLATES]; }],
   [/^\/v1\/pools\/([^/]+)$/, (m) => POOLS_DC.find((p) => p.poolid === decodeURIComponent(m[1]))],
@@ -874,7 +1012,7 @@ export function fixture(method, path, search = new URLSearchParams()) {
 
 // Self-check: `node scripts/support-docs/fixtures.mjs` asserts the screens' key endpoints answer.
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const must = ["/auth/me", "/health", "/v1/overview", "/v1/storage", "/network/switch/state", "/help/bios", "/ai/status", "/files/list", "/v1/storage/local/content"];
+  const must = ["/auth/me", "/health", "/v1/overview", "/v1/storage", "/network/switch/state", "/help/bios", "/ai/status", "/files/list", "/v1/storage/local/content", "/proxy/hosts", "/platform/modules/reverse_proxy", "/ups/status"];
   for (const p of must) if (fixture("GET", p, new URLSearchParams("content=iso&path=/")) === undefined) throw new Error(`missing fixture ${p}`);
   console.log("fixtures ok");
 }

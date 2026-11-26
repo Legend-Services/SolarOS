@@ -279,8 +279,7 @@ def sources_for(t: dict, runtime: str) -> list[str]:
         src = [f"/mnt/storage/backups/{P}-dr"]
         return src + (["/mnt/storage/backups/dump"] if t["include_hypervisor_backups"] else [])
     src = [f"/var/lib/{P}/dr-outbox"]
-    dump = "/var/lib/vz/dump" if settings.hypervisor_driver == "proxmox" else f"{settings.storage_root}/backups/dump"
-    return src + ([dump] if t["include_hypervisor_backups"] else [])
+    return src + ([pm.driver().BACKUP_DIR] if t["include_hypervisor_backups"] else [])
 
 
 @router.get("/offsite-targets")
@@ -378,13 +377,7 @@ def load_results() -> list[dict]:
 
 
 async def _heartbeat(kind: str, vmid: int) -> bool:
-    if settings.hypervisor_driver == "proxmox":
-        cmd = f"qm agent {vmid} ping" if kind == "qemu" else f"pct exec {vmid} -- true"
-    else:
-        from providers.native_ubuntu import host as nhost
-        name = shlex.quote(nhost.name_of(vmid, kind))
-        cmd = f"virsh qemu-agent-command {name} '{{\"execute\":\"guest-ping\"}}'" if kind == "qemu" else f"incus exec {name} -- true"
-    ok, _, _ = await host_ssh.run_host_cmd(cmd, timeout=15)
+    ok, _, _ = await host_ssh.run_host_cmd(pm.driver().heartbeat_command(kind, vmid), timeout=15)
     return ok
 
 

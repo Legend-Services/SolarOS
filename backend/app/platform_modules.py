@@ -178,6 +178,15 @@ async def apply_isolation() -> str:
     return rules
 
 
+def driver():
+    """The active hypervisor driver's part of the core modules (providers/<driver>/modules.py)."""
+    from providers.registry import get_provider
+    d = get_provider().module_driver()
+    if d is None:
+        raise get_provider().not_available()
+    return d
+
+
 # ---------------------------------------------------------------- Runtime: host or isolated worker container
 
 

@@ -353,6 +353,10 @@ class ProxmoxProvider(HypervisorProvider):
         from . import cluster
         return cluster
 
+    def module_driver(self):
+        from . import modules
+        return modules
+
     def host_address(self) -> str:
         return api.pve_settings.hostname
 
