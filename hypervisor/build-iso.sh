@@ -1,21 +1,27 @@
 #!/usr/bin/env bash
-# Build a bootable SolarOS installer ISO from an Ubuntu Server LTS live ISO (run on Linux).
+# Build a bootable SolarOS installer ISO from an Ubuntu Server LTS live ISO (run on Linux, as root).
 #   hypervisor/build-iso.sh [--source-iso ubuntu-24.04.x-live-server-amd64.iso] [--output dist/SolarOS-vX-amd64.iso]
 #                           [--auto-disk /dev/sda] [--copy-to <dir>] [--ubuntu-release 24.04] [--hostname solaros]
-#                           [--password <console user password>]
+#                           [--password <console user password>] [--no-offline-repo]
 # Without --source-iso the latest official live-server ISO of --ubuntu-release is downloaded and SHA256-verified.
 # The default boot entry is an Ubuntu autoinstall that asks for the target disk (safe on bare metal); --auto-disk adds
-# a second, fully automatic entry that erases that disk (nested VM tests). The ISO embeds the SolarDeck source, the
-# built desktop (frontend/dist) and the backend's Python wheels; on first boot hypervisor/firstboot-setup.sh creates
-# br0, installs KVM/libvirt, Incus, OpenZFS, the tty1 console and SolarDeck (HYPERVISOR_DRIVER=native_ubuntu).
+# a second, fully automatic entry that erases that disk (nested VM tests).
+# The ISO installs with no network at all: <iso>/solardeck-repo/ is a signed APT repository with the complete .deb
+# closure of the kernel, the boot loaders and every package SolarOS uses (resolved inside the ISO's own minimal root
+# file system, so the build host may be any Linux), and <iso>/solardeck-bundle.tar.gz holds the SolarDeck source, the
+# built desktop (frontend/dist) and the backend's Python wheels. Both are copied to /opt/solardeck-offline on the
+# installed system; on first boot hypervisor/firstboot-setup.sh creates br0 and installs KVM/libvirt, Incus, OpenZFS,
+# the tty1 console and SolarDeck (HYPERVISOR_DRIVER=native_ubuntu) from them.
+# --no-offline-repo leaves the repository out (smaller ISO; the installer and first boot then need the internet).
 # --copy-to <dir> also copies the finished ISO into that folder (for example a hypervisor's ISO library).
 # The bundle is the SolarOS edition tree (deploy/make-edition-tree.sh): nothing of other editions is embedded.
-# Needs: xorriso, curl, openssl (or mkpasswd), gzip; npm (Node 22) and python3-pip to bundle the desktop and wheels.
+# Needs: xorriso, curl, gzip, openssl (or mkpasswd); unsquashfs (squashfs-tools), gpg, apt-ftparchive (apt-utils) for
+# the repository; npm (Node 22) and python3-pip to bundle the desktop and wheels. Building the repository needs internet.
 set -Eeuo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VERSION="$(sed -n 's/^  "version": "\(.*\)",$/\1/p' "${ROOT}/frontend/package.json" | head -n1)"
-SOURCE_ISO="" OUTPUT="" RELEASE="24.04" HOSTNAME_="solaros" PASSWORD="" AUTO_DISK="" COPY_TO=""
+SOURCE_ISO="" OUTPUT="" RELEASE="24.04" HOSTNAME_="solaros" PASSWORD="" AUTO_DISK="" COPY_TO="" NO_REPO=""
 CACHE="${ROOT}/hypervisor/.cache"
 
 die() { echo "build-iso: $*" >&2; exit 1; }
@@ -28,7 +34,8 @@ while (($#)); do
     --password) PASSWORD="${2:?}"; shift 2 ;;
     --auto-disk) AUTO_DISK="${2:?}"; shift 2 ;;
     --copy-to) COPY_TO="${2:?}"; shift 2 ;;
-    -h|--help) sed -n '2,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --no-offline-repo) NO_REPO=1; shift ;;
+    -h|--help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "unknown option $1" ;;
   esac
 done
@@ -39,6 +46,12 @@ done
 OUTPUT="${OUTPUT:-${PWD}/dist/SolarOS-v${VERSION}-amd64.iso}"
 mkdir -p "$(dirname "$OUTPUT")"
 for bin in xorriso curl gzip; do command -v "$bin" >/dev/null || die "missing $bin (apt install xorriso curl git)"; done
+if [[ -z "$NO_REPO" ]]; then
+  [[ $EUID -eq 0 ]] || die "run as root: the offline package repository is resolved in a chroot (or pass --no-offline-repo)"
+  for bin in unsquashfs gpg apt-ftparchive; do
+    command -v "$bin" >/dev/null || die "missing $bin (apt install squashfs-tools gpg apt-utils), or pass --no-offline-repo"
+  done
+fi
 
 # ---------------------------------------------------------------- Source ISO
 if [[ -z "$SOURCE_ISO" ]]; then
@@ -73,12 +86,90 @@ echo "==> Extracting $(basename "$SOURCE_ISO")"
 xorriso -osirrox on -indev "$SOURCE_ISO" -extract / "$WORK/iso" 2>/dev/null
 chmod -R u+w "$WORK/iso"
 [[ -f "$WORK/iso/boot/grub/grub.cfg" ]] || die "not an Ubuntu live-server ISO (no boot/grub/grub.cfg)"
-# Keep the ISO under GitHub's 2 GiB release-asset limit: drop the offline package pool (drivers, firmware, kernels;
-# APT fetches them from the mirror, and first boot needs the network anyway) and the HWE kernel with its menu entry.
+# Drop the stock package pool (2 GB of drivers, firmware and kernels for every variant) and the HWE kernel with its
+# menu entry: the SolarOS repository below carries exactly the packages this installation needs.
 rm -rf "$WORK/iso/pool" "$WORK/iso/casper/hwe-"* "$WORK/iso/casper/"*generic-hwe.*
 awk '/^menuentry .*HWE kernel/ {skip=1} skip && /^}/ {skip=0; next} !skip' "$WORK/iso/boot/grub/grub.cfg" >"$WORK/grub.cfg"
 mv "$WORK/grub.cfg" "$WORK/iso/boot/grub/grub.cfg"
 sed -i -E '\#\./(pool/|casper/hwe-|casper/.*generic-hwe\.)#d' "$WORK/iso/md5sum.txt" 2>/dev/null || true
+
+# ---------------------------------------------------------------- Offline package repository (signed)
+REPO_KEY="$WORK/solardeck-offline.asc"
+if [[ -z "$NO_REPO" ]]; then
+  SQUASH="$WORK/iso/casper/ubuntu-server-minimal.squashfs"
+  [[ -f "$SQUASH" ]] || die "no casper/ubuntu-server-minimal.squashfs in the source ISO"
+  echo "==> Resolving the offline package repository in the ISO's minimal root file system"
+  CH="$WORK/chroot"
+  unsquashfs -q -n -d "$CH" "$SQUASH" >/dev/null || die "cannot unpack ${SQUASH##*/}"
+  CODENAME="$(. "$CH/etc/os-release" && echo "$VERSION_CODENAME")"
+  [[ "$CODENAME" =~ ^[a-z]+$ ]] || die "cannot read the release codename of the source ISO"
+  # Device nodes for apt (no bind mounts: nothing of the host can be deleted with the work folder).
+  mkdir -p "$CH/dev"
+  for n in "null 1 3" "zero 1 5" "random 1 8" "urandom 1 9"; do
+    set -- $n; [[ -e "$CH/dev/$1" ]] || mknod -m 666 "$CH/dev/$1" c "$2" "$3"
+  done
+  rm -f "$CH/etc/resolv.conf" "$CH/etc/apt/sources.list" "$CH"/etc/apt/sources.list.d/*
+  cp -L /etc/resolv.conf "$CH/etc/resolv.conf"
+  cat >"$CH/etc/apt/sources.list.d/ubuntu.sources" <<EOF
+Types: deb
+URIs: http://archive.ubuntu.com/ubuntu
+Suites: ${CODENAME} ${CODENAME}-updates ${CODENAME}-security
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+EOF
+  inchroot() { chroot "$CH" /usr/bin/env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin LANG=C.UTF-8 DEBIAN_FRONTEND=noninteractive "$@"; }
+  APT_OPTS=(-q -y --download-only --no-install-recommends -o Dir::Cache::archives=/solardeck-debs -o APT::Sandbox::User=root)
+  mkdir -p "$CH/solardeck-debs/partial"
+  inchroot apt-get -q -o APT::Sandbox::User=root update >/dev/null || die "apt-get update failed in the chroot (internet needed)"
+  # The package list of install-hypervisor.sh (single source of truth) plus the installer's kernel and extras.
+  PKGS=()
+  eval "$(sed -n '/^PKGS=(/,/)$/p' "${ROOT}/hypervisor/install-hypervisor.sh")"
+  [[ ${#PKGS[@]} -gt 20 ]] || die "cannot read the package list of install-hypervisor.sh"
+  SETS=(
+    "${PKGS[*]} incus linux-generic openssh-server bolt v4l2loopback-dkms ffmpeg nodejs net-tools"
+    "grub-efi-amd64 grub-efi-amd64-signed shim-signed efibootmgr mokutil"  # UEFI boot loader
+    "grub-pc"                                                             # BIOS boot loader (conflicts with the EFI set)
+  )
+  for group in "${SETS[@]}"; do
+    # shellcheck disable=SC2086
+    inchroot apt-get "${APT_OPTS[@]}" install $group >"$WORK/apt.log" 2>&1 || { tail -n 20 "$WORK/apt.log" >&2; die "cannot resolve: ${group}"; }
+  done
+  R="$WORK/iso/solardeck-repo"
+  mkdir -p "$R/pool/main"
+  mv "$CH"/solardeck-debs/*.deb "$R/pool/main/"
+  rm -rf "$CH"
+  for p in linux-image- grub-efi-amd64-signed_ shim-signed_ grub-pc_ qemu-system-x86_ zfsutils-linux_ incus_; do
+    compgen -G "$R/pool/main/${p}*.deb" >/dev/null || die "the repository lacks ${p%_}"
+  done
+  # subiquity lists all four components of the primary mirror: everything is in main, the others are empty.
+  (
+    cd "$R"
+    for c in main restricted universe multiverse; do
+      d="dists/${CODENAME}/${c}/binary-amd64"
+      mkdir -p "$d"
+      if [[ "$c" == main ]]; then apt-ftparchive packages pool/main >"$d/Packages" 2>/dev/null; else : >"$d/Packages"; fi
+      gzip -9c "$d/Packages" >"$d/Packages.gz"
+    done
+    apt-ftparchive -o APT::FTPArchive::Release::Origin=SolarOS -o APT::FTPArchive::Release::Label="SolarOS Offline" \
+      -o APT::FTPArchive::Release::Suite="$CODENAME" -o APT::FTPArchive::Release::Codename="$CODENAME" \
+      -o APT::FTPArchive::Release::Architectures=amd64 \
+      -o APT::FTPArchive::Release::Components="main restricted universe multiverse" \
+      release "dists/${CODENAME}" >"$WORK/Release"
+    mv "$WORK/Release" "dists/${CODENAME}/Release"
+  )
+  # A one-time signing key per build: the private half is thrown away with the work folder.
+  export GNUPGHOME="$WORK/gnupg"
+  mkdir -m 700 "$GNUPGHOME"
+  gpg --batch --quiet --passphrase '' --quick-gen-key "SolarOS Offline Repository <offline@solaros.invalid>" ed25519 sign never
+  gpg --batch --quiet --yes --armor --detach-sign -o "$R/dists/${CODENAME}/Release.gpg" "$R/dists/${CODENAME}/Release"
+  gpg --batch --quiet --yes --clearsign -o "$R/dists/${CODENAME}/InRelease" "$R/dists/${CODENAME}/Release"
+  gpg --batch --armor --export >"$REPO_KEY"
+  cp "$REPO_KEY" "$R/solardeck-offline.asc"
+  gpg --batch --export >"$R/solardeck-offline.gpg"
+  gpgconf --kill all 2>/dev/null || true
+  unset GNUPGHOME
+  echo "    repository: $(ls "$R/pool/main" | wc -l) packages, $(du -sh "$R" | cut -f1) (${CODENAME}, signed)"
+fi
 
 # ---------------------------------------------------------------- autoinstall seeds
 for mode in manual ${AUTO_DISK:+auto}; do
@@ -86,13 +177,23 @@ for mode in manual ${AUTO_DISK:+auto}; do
   inter="interactive-sections: [storage]" match=""
   [[ "$mode" == auto ]] && inter="" match="match: {path: ${AUTO_DISK}}"
   sed -e "s|@@INTERACTIVE@@|${inter}|" -e "s|@@DISK_MATCH@@|${match}|" -e "s|@@HOSTNAME@@|${HOSTNAME_}|" -e "s|@@PASSWORD_HASH@@|${HASH}|" \
-    "${ROOT}/hypervisor/autoinstall/user-data.template" >"$WORK/iso/nocloud/$mode/user-data"
+    "${ROOT}/hypervisor/autoinstall/user-data.template" >"$WORK/user-data"
+  if [[ -n "$NO_REPO" ]]; then
+    sed -i '/@@OFFLINE_BEGIN@@/,/@@OFFLINE_END@@/d' "$WORK/user-data"
+  else
+    # Keep the offline blocks (minus their markers) and put the repository key into the primary mirror entry.
+    awk -v keyfile="$REPO_KEY" '/@@OFFLINE_(BEGIN|END)@@/ {next}
+      /@@REPO_KEY@@/ {ind = $0; sub(/@@REPO_KEY@@.*/, "", ind); while ((getline l < keyfile) > 0) print ind l; next} {print}' \
+      "$WORK/user-data" >"$WORK/user-data.new"
+    mv "$WORK/user-data.new" "$WORK/user-data"
+  fi
+  mv "$WORK/user-data" "$WORK/iso/nocloud/$mode/user-data"
   cp "${ROOT}/hypervisor/autoinstall/meta-data" "$WORK/iso/nocloud/$mode/meta-data"
   grep -qE '@@[A-Z_]+@@' "$WORK/iso/nocloud/$mode/user-data" && die "unfilled placeholder in user-data"
 done
 
 # ---------------------------------------------------------------- Embedded SolarDeck bundle (source + desktop + wheels)
-mkdir -p "$WORK/src" "$WORK/iso/solardeck"
+mkdir -p "$WORK/src"
 if git -C "$ROOT" rev-parse -q HEAD >/dev/null 2>&1; then
   echo "==> Embedding SolarDeck $(git -C "$ROOT" describe --tags --always 2>/dev/null) (committed HEAD)"
   git -C "$ROOT" archive --format=tar HEAD | tar -x -C "$WORK/src"
@@ -114,6 +215,7 @@ if [[ -d "$WORK/src/deploy/editions" ]]; then
   rm -rf "$WORK/src" && mv "$WORK/edition" "$WORK/src"
 fi
 # Each piece is optional: what is missing here is fetched on first boot instead (needs internet there).
+# shortcut: without Node.js 22 / pip on the build host the ISO is not fully offline; install both for release builds.
 if command -v npm >/dev/null && node -v 2>/dev/null | grep -Eq '^v(2[2-9]|[3-9][0-9])\.'; then
   echo "==> Building the desktop (frontend/dist)"
   (cd "$WORK/src/frontend" && npm ci --no-audit --no-fund --loglevel=error && VITE_EDITION=solaros npm run build >/dev/null) || die "desktop build failed"
@@ -132,8 +234,8 @@ if [[ -n "$PYV" ]] && python3 -m pip --version >/dev/null 2>&1; then
 else
   echo "    note: pip not found; Python packages are installed from PyPI on first boot"
 fi
-tar -czf "$WORK/iso/solardeck/solardeck-src.tar.gz" -C "$WORK/src" .
-echo "    bundle: $(du -h "$WORK/iso/solardeck/solardeck-src.tar.gz" | cut -f1)$([[ -d "$WORK/src/frontend/dist" ]] && echo ", desktop prebuilt")$([[ -d "$WORK/src/wheels" ]] && echo ", $(ls "$WORK/src/wheels" | wc -l) wheels")"
+tar -czf "$WORK/iso/solardeck-bundle.tar.gz" -C "$WORK/src" .
+echo "    bundle: $(du -h "$WORK/iso/solardeck-bundle.tar.gz" | cut -f1)$([[ -d "$WORK/src/frontend/dist" ]] && echo ", desktop prebuilt")$([[ -d "$WORK/src/wheels" ]] && echo ", $(ls "$WORK/src/wheels" | wc -l) wheels")"
 
 # ---------------------------------------------------------------- Boot menu
 CFG="$WORK/iso/boot/grub/grub.cfg"

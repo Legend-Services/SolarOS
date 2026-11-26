@@ -7,7 +7,8 @@
 #   --with-console-tui   show the SolarDeck console dashboard on tty1 (the server's own monitor)
 #   --src <dir>          install from a local source tree instead of cloning REPO_URL
 #   --bundle <dir>       install from a SolarDeck ISO bundle: source tree + prebuilt frontend/dist + wheels/ (offline
-#                        Python packages and no desktop build; APT packages still come from the Ubuntu mirrors)
+#                        Python packages and no desktop build; with the ISO's offline repository configured as an APT
+#                        source, see firstboot-setup.sh, nothing needs the internet)
 #   --bridge-nic <nic>   NIC to enslave to br0 (default: the NIC of the default route)
 #   --no-bridge          do not create br0 (guests then need an existing bridge named in DEFAULT_BRIDGE)
 # Re-running is safe: backend/.env, backend/data/ and backend/.ssh/ are kept; code, dependencies and the build refresh.
@@ -57,7 +58,7 @@ PKGS=(qemu-kvm qemu-utils libvirt-daemon-system libvirt-daemon-driver-qemu libvi
   zfsutils-linux zfs-zed bridge-utils smartmontools hdparm nvme-cli lm-sensors fio websockify samba
   samba-common-bin nginx python3-venv python3-pip git curl ca-certificates gnupg openssl rsync gdisk cloud-image-utils
   zstd acl pciutils usbutils dmidecode openssh-server jq iproute2 kmod less dnsmasq-base ipxe-qemu-256k-compat-efi-roms
-  qemu-block-extra parted netcat-openbsd libxml2-utils samba-vfs-modules cpu-checker ufw unattended-upgrades apparmor)
+  qemu-block-extra parted netcat-openbsd libxml2-utils samba-vfs-modules cpu-checker ufw unattended-upgrades apparmor bolt)
 # Incus from Zabbly (current upstream) when its repository serves this release; else the distribution's package.
 ZABBLY="$(dirname "$(readlink -f "${BASH_SOURCE[0]:-$0}")")/zabbly-incus.sh"
 if [[ -f "$ZABBLY" ]]; then read -ra INCUS_PKGS <<<"$(bash "$ZABBLY")"; else INCUS_PKGS=(incus); fi

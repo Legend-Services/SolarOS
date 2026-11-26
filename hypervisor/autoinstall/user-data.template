@@ -1,13 +1,18 @@
 #cloud-config
-# SolarOS unattended installation (Ubuntu autoinstall v1). build-iso.sh fills the @@...@@ fields.
-# Subiquity installs the OS; on first boot solardeck-firstboot.service runs hypervisor/firstboot-setup.sh from the
-# SolarDeck bundle copied off the ISO (source, prebuilt desktop and Python wheels; APT packages need the network).
+# SolarOS unattended installation (Ubuntu autoinstall v1). build-iso.sh fills the @@...@@ fields and keeps the blocks
+# between the OFFLINE markers only when the ISO carries its offline repository (/cdrom/solardeck-repo).
+# Offline ISO: subiquity installs the OS, the kernel and the boot loader from that signed repository and never contacts
+# an Ubuntu mirror, the snap store or online DNS; no network cable or DHCP server is needed. late-commands copy the
+# repository and the SolarDeck bundle (source, prebuilt desktop, Python wheels) to /opt/solardeck-offline, and on first
+# boot solardeck-firstboot.service runs hypervisor/firstboot-setup.sh from them.
 autoinstall:
   version: 1
   @@INTERACTIVE@@
   locale: en_US.UTF-8
   keyboard:
     layout: us
+  refresh-installer:
+    update: false
   network:
     version: 2
     ethernets:
@@ -15,13 +20,39 @@ autoinstall:
         match:
           name: "en*"
         dhcp4: true
+        optional: true
       all-eth:
         match:
           name: "eth*"
         dhcp4: true
+        optional: true
+  # @@OFFLINE_BEGIN@@
+  apt:
+    preserve_sources_list: false
+    geoip: false
+    disable_suites: [updates, backports, security]
+    primary:
+      - arches: [default]
+        uri: "file:///cdrom/solardeck-repo"
+        key: |
+          @@REPO_KEY@@
+    fallback: offline-install
+  kernel:
+    package: linux-generic
+  drivers:
+    install: false
+  codecs:
+    install: false
+  oem:
+    install: false
+  early-commands:
+    # The live installer trusts the repository too (its mirror check runs apt before curtin configures the target).
+    - mkdir -p /etc/apt/trusted.gpg.d && cp /cdrom/solardeck-repo/solardeck-offline.gpg /etc/apt/trusted.gpg.d/solardeck-offline.gpg
+  # @@OFFLINE_END@@
   # The minimal Ubuntu Server base: SolarOS installs exactly the packages it needs on first boot.
   source:
     id: ubuntu-server-minimal
+    search_drivers: false
   storage:
     # A hypervisor wants RAM for guests, not a 4 GiB swap file (the Ubuntu default): 1 GiB as a safety margin.
     swap:
@@ -40,7 +71,11 @@ autoinstall:
     allow-pw: true
   updates: security
   late-commands:
-    - mkdir -p /target/opt/solardeck-src
-    - tar -xzf /cdrom/solardeck/solardeck-src.tar.gz -C /target/opt/solardeck-src
+    - mkdir -p /target/opt/solardeck-src /target/opt/solardeck-offline
+    - cp /cdrom/solardeck-bundle.tar.gz /target/opt/solardeck-offline/
+    - tar -xzf /cdrom/solardeck-bundle.tar.gz -C /target/opt/solardeck-src
+    # @@OFFLINE_BEGIN@@
+    - cp -a /cdrom/solardeck-repo /target/opt/solardeck-offline/repo
+    # @@OFFLINE_END@@
     - cp /target/opt/solardeck-src/hypervisor/solardeck-firstboot.service /target/etc/systemd/system/
     - curtin in-target --target=/target -- systemctl enable solardeck-firstboot.service
