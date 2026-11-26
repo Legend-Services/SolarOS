@@ -93,6 +93,14 @@ async function capture(page, reg) {
     await page.getByRole("button", { name: /^net0 · / }).first().click();
     await settle(page, 500);
   });
+  await snap("compute-osi", async () => {
+    await show(page, { kind: "app", appId: "compute" });
+    await page.getByRole("button", { name: "media-server", exact: true }).first().click();
+    await page.getByRole("tab", { name: "OSI Architecture", exact: true }).click();
+    await settle(page, 600);
+    await page.getByRole("tab", { name: /^net0 · / }).first().click();
+    await settle(page, 500);
+  });
   await snap("compute-docker", async () => {
     await show(page, { kind: "app", appId: "compute" });
     await page.evaluate(async () => (await import("/src/lib/stores.ts")).useIntent.getState().go("compute", "docker"));

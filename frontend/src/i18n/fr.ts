@@ -8,6 +8,7 @@ import onboardingI18n from "./modules/onboarding";
 import dockerI18n from "./modules/docker";
 import groupsI18n from "./modules/groups";
 import sysinfoI18n from "./modules/sysinfo";
+import osiI18n from "./modules/osi";
 
 export const fr: Dict = {
   // Common
@@ -1574,4 +1575,5 @@ export const fr: Dict = {
   ...dockerI18n.fr,
   ...groupsI18n.fr,
   ...sysinfoI18n.fr,
+  ...osiI18n.fr,
 };

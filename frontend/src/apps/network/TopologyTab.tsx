@@ -1,4 +1,6 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
+import { OsiButton } from "../../components/osi/OsiArchitecturePanel";
+import { osiValues, type OsiKind } from "../../data/osiModelRegistry";
 import { ArrowRightLeft, Cable, Container, Globe, Layers, Merge, Monitor, Network, RefreshCw, Smartphone, SquareTerminal, Waypoints, Wrench } from "lucide-react";
 import { api } from "../../lib/api";
 import { ink } from "../../lib/format";
@@ -8,6 +10,18 @@ import { useTranslation } from "../../i18n";
 import { GlassBadge, GlassButton, Notice } from "../../components/ui/GlassKit";
 
 type NodeType = "internet" | "nic" | "bond" | "bridge" | "vlan" | "vm" | "lxc" | "wireguard" | "peer" | "forward";
+const OSI_KIND: Record<NodeType, OsiKind> = {
+  internet: "wan_uplink",
+  nic: "physical_nic",
+  bond: "physical_nic",
+  bridge: "vswitch",
+  vlan: "vlan",
+  vm: "vm_guest",
+  lxc: "container_guest",
+  wireguard: "wireguard_vpn",
+  peer: "wireguard_vpn",
+  forward: "vrouter",
+};
 interface TNode {
   id: string;
   type: NodeType;
@@ -256,7 +270,10 @@ export default function TopologyTab({ onTab }: { onTab: (tab: "router" | "wg") =
                     })}
                 </ul>
               </div>
-              <div className="flex flex-wrap gap-2">{actions(node)}</div>
+              <div className="flex flex-wrap gap-2">
+                {actions(node)}
+                <OsiButton strip kind={OSI_KIND[node.type]} name={node.label} values={osiValues({ link: node.status, mac: node.mac, vlan: typeof node.meta.vlan_id === "number" ? node.meta.vlan_id : null, ip: node.ip })} />
+              </div>
             </>
           )}
         </aside>
