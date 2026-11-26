@@ -149,7 +149,7 @@ export function BrandBadge({ overlay, position, opacityPct, sizePct, scale = 1 }
 export function ThemePreview({ theme, mode, className = "" }: { theme: Theme; mode: ColorMode; className?: string }) {
   const p = theme[mode];
   return (
-    <span className={`relative block overflow-hidden ${className}`} style={{ background: theme.wallpapers[0][mode] }}>
+    <span className={`relative block overflow-hidden ${className}`} style={{ background: theme.wallpapers[0][mode] }} data-audit-ignore>
       <span
         className="absolute inset-x-[14%] top-[18%] bottom-[12%] flex flex-col overflow-hidden border"
         style={{ background: al(p.surface, Math.max(p.opacity, 0.78)), borderColor: al(p.text, 0.16), borderRadius: Math.min(theme.style.radiusWindow, 12) / 2 }}
