@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.20.4 - One Docker Engine switch — 2026-11-26
+
+### Fixed
+- **Settings → System → Features & Services** no longer shows a second, full-width Docker Engine & Compose block under its card. Every domain is again a plain two-column grid of toggle cards.
+- Docker Engine & Compose now has one on/off switch: its card in Features & Services. The Security-by-Design options (Isolated Container or Host Native, and Network & DMZ Isolation) live in **Compute → Docker** and, while Docker is on, at the top of **Settings → System → System Services**. They no longer have a switch of their own that could disagree with the feature card. Switching Docker on from Compute → Docker also turns the feature on.
+- The Security-by-Design module icon uses the same soft sky-blue glass style as the surrounding cards instead of a bright violet tile.
+
 ## v2.20.3 - Isolated lab dialog visibility & layout — 2026-11-26
 
 ### Fixed
