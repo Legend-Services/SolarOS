@@ -473,3 +473,8 @@ class HypervisorProvider(ABC):
         """The driver's multiseat module for Multi-Seat Workstations (app.multiseat documents the contract): writes a
         seat's GPU, USB ports, USB controllers and CPU threads into its VM. None = not supported."""
         return None
+
+    def cluster_driver(self):
+        """The driver's cluster module for Multi-Host Clustering & HA (app.cluster documents the contract): cluster
+        create / join / leave, live migration, HA configuration and replication. None = not supported."""
+        return None

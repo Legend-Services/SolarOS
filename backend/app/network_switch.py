@@ -16,12 +16,13 @@ import ipaddress
 import json
 import re
 import shlex
+import time
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Path
 from pydantic import AfterValidator, BaseModel, Field, model_validator
 
-from . import host_ssh
+from . import cluster, host_ssh
 from .auth import require_user
 from .config import settings
 from .guest_hardware import MAC_RE, GuestType, NetBody
@@ -365,9 +366,122 @@ async def state():
     out = view(model, links, vlan_map, guests)
     for v in out["vlans"]:
         v["dhcp_active"] = facts["dhcp"].get(str(v["vlan_id"]), False)
+    cl = cluster.load()
+    sync = cl.get("last_switch_sync") or {}
+    synced = 1 + sum(1 for r in (sync.get("results") or {}).values() if r == "ok")
+    for b in out["bridges"]:
+        b["clustered"] = b["name"] in cl["shared"]["clustered_switches"]
+        b["synced_hosts"] = synced if b["clustered"] and b["name"] in sync.get("switches", []) else 0
     return {**out, "driver": settings.hypervisor_driver, "default_bridge": settings.default_bridge,
             "bridge_prefix": d.BRIDGE_PREFIX, "pending": pending, "rollback_seconds_left": facts["rollback"],
-            "dnsmasq_installed": facts["dnsmasq"], "nic_models": list(d.NIC_MODELS)}
+            "dnsmasq_installed": facts["dnsmasq"], "nic_models": list(d.NIC_MODELS),
+            "cluster": {"mode": cl["mode"], "hosts": len(cl["shared"]["hosts"])}}
+
+
+# ---------------------------------------------------------------- Clustered virtual switches
+
+
+class ClusteredBody(BaseModel):
+    clustered: bool
+
+
+async def cluster_payload(names: list[str]) -> dict:
+    """The parts of the clustered switches every host must share: switch definitions and their VLANs (no ports or
+    host addresses, which stay per host — except a NAT switch's gateway address, which guests need on every host)."""
+    model, _ = await current()
+    bridges = [{"name": n, "vlan_aware": model[n]["vlan_aware"], "mtu": model[n]["mtu"], "mode": model[n].get("mode") or
+                "bridged", "comment": model[n].get("comment") or "",
+                "address": model[n]["address"] if model[n].get("mode") == "nat" else None}
+               for n in names if model.get(n, {}).get("kind") == "bridge"]
+    vl = {vid: {k: v.get(k) for k in ("name", "color", "bridge", "description")}
+          for vid, v in (await vlans()).items() if v["bridge"] in names}
+    return {"bridges": bridges, "vlans": vl}
+
+
+def merge_cluster_switches(model: dict[str, dict], vlan_map: dict[str, dict], payload: dict, bridge_re: str) -> tuple[bool, bool]:
+    """Add missing clustered switches (and VLAN awareness) to `model` and their VLANs to `vlan_map`, in place.
+    Returns (model changed, VLANs changed). Pure (unit tested)."""
+    changed = vchanged = False
+    for b in payload.get("bridges", []):
+        if not re.fullmatch(bridge_re, b["name"]):
+            raise HTTPException(422, f"{b['name']} is not a valid virtual switch name on this host")
+        i = model.get(b["name"])
+        if i is None:
+            i = model[b["name"]] = blank(b["name"], "bridge")
+            i.update(vlan_aware=b["vlan_aware"], mtu=b["mtu"], mode=b["mode"], comment=b["comment"])
+            if b["mode"] == "nat" and b.get("address"):
+                i.update(address=b["address"], method="static")
+            changed = True
+        elif i["kind"] == "bridge" and b["vlan_aware"] and not i["vlan_aware"]:
+            i["vlan_aware"] = changed = True
+    for vid, meta in payload.get("vlans", {}).items():
+        cur = vlan_map.get(str(vid))
+        if cur is None:
+            vlan_map[str(vid)] = {**meta, "host_ipv4_cidr": None, "dhcp_config": None}
+            vchanged = True
+        elif any(cur.get(k) != meta.get(k) for k in ("name", "color", "description")):
+            cur.update({k: meta.get(k) for k in ("name", "color", "description")})
+            vchanged = True
+    return changed, vchanged
+
+
+async def apply_cluster_switches(payload: dict) -> dict:
+    """Peer side of a clustered switch sync: create what is missing here, apply and confirm right away (adding a
+    switch without ports or making one VLAN-aware cannot cut this host off)."""
+    model, pending = await current()
+    if pending:
+        raise HTTPException(409, "This host has unapplied network changes; apply or discard them first")
+    vlan_map = await vlans()
+    changed, vchanged = merge_cluster_switches(model, vlan_map, payload, driver().BRIDGE_RE)
+    if vchanged:
+        await save_vlans(vlan_map)
+    if changed:
+        await apply_model(model)
+        await confirm()
+    return {"ok": True, "changed": changed or vchanged, "host": settings.node_name}
+
+
+async def sync_cluster_switches() -> dict:
+    st = cluster.load()
+    if not cluster.in_cluster(st):
+        raise HTTPException(409, "Clustered switches need a cluster")
+    names = st["shared"]["clustered_switches"]
+    payload = await cluster_payload(names)
+    results: dict[str, str] = {}
+
+    async def one(n: str):
+        try:
+            await cluster.peer_call(st, n, "/switch-sync", payload, timeout=150)
+            results[n] = "ok"
+        except HTTPException as e:
+            results[n] = str(e.detail)[:200]
+    await asyncio.gather(*(one(n) for n in st["shared"]["hosts"] if n != st["self"]))
+    st = cluster.load()
+    st["last_switch_sync"] = {"at": int(time.time()), "switches": names, "results": results}
+    cluster.save(st)
+    return {"ok": all(r == "ok" for r in results.values()), "results": results,
+            "synced_hosts": 1 + sum(1 for r in results.values() if r == "ok")}
+
+
+@router.post("/sync-cluster")
+async def sync_cluster():
+    return await sync_cluster_switches()
+
+
+@router.put("/bridges/{name}/clustered")
+async def set_clustered(body: ClusteredBody, name: str = Path(pattern=IFACE_RE)):
+    model, _ = await current()
+    if model.get(name, {}).get("kind") != "bridge":
+        raise HTTPException(404, f"Virtual switch {name} does not exist")
+    async with cluster._lock:
+        st = cluster.load()
+        if not cluster.in_cluster(st):
+            raise HTTPException(409, "Clustered switches need a cluster")
+        names = [n for n in st["shared"]["clustered_switches"] if n != name] + ([name] if body.clustered else [])
+        st["shared"]["clustered_switches"] = sorted(names)
+        cluster.bump(st)
+        cluster.save(st)
+    return await sync_cluster_switches() if body.clustered else {"ok": True}
 
 
 # ---------------------------------------------------------------- Virtual switches & interface IP config
