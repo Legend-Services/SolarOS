@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.21.2 - Responsive sub-windows, inspector drawer layout & unified theme tokens — 2026-11-26
+
+### Fixed
+- **Hardware Device Inspector & Editor** (Compute → edit a VM or container → Wireframe Architecture): the inspector no longer floats over the blueprint and hides the host placement and switch nodes. On wide screens it sits beside the canvas; on narrower screens it opens below it. It has its own scrolling body, and **Save & Apply** stays pinned at the bottom, so Switch, VLAN tag, the hardware IDs and the action buttons are never cut off. The canvas scales to the space it has.
+- **Change Network Endpoint** opens fully inside the canvas, whatever the canvas size and wherever the network line is.
+- **Network Architect → network view → Other Devices**: the Discovered Devices Explorer sits beside the canvas (below it on narrow screens) instead of covering its nodes, and the canvas refits itself when the explorer opens or the window is resized. Refitting never drops you back to the Overview; only zooming out yourself does.
+- The "2 Networks / 3 Groups" list on a machine card opens toward whichever side has room, so it no longer runs off the window edge.
+- **Create / Edit Group**: the network pills of a machine (e.g. *VLAN 20 · Smart Home*) were hard to read in Light Mode; their text colour is now darkened to meet WCAG AA, as on the blueprints.
+
+### Changed
+- One set of semantic theme tokens for every surface: `--sd-surface-window`, `--sd-surface-panel`, `--sd-surface-card`, `--sd-surface-input`, `--sd-surface-canvas`, `--sd-border-hairline`, `--sd-text-primary|secondary|muted` and `--sd-accent|-soft|-border`, derived from the active theme and colour mode. Windows, dialogs, drawers, cards, inputs, the inspector and the device explorer read them.
+- `scripts/audit-dual-theme.mjs` is now `scripts/audit-scaling-and-themes.mjs`. It audits every screen at **1440×900 and 1024×768**, each in Light and Dark Mode. Besides the colour and contrast checks it now fails on windows, dialogs or scroll bodies that overflow sideways, footer and primary buttons that are cut off or pushed out of view, and drawers that cover a blueprint canvas. It also opens the nested screens: Change Network Endpoint, Add Virtual Device and Create Group. Current result: 0 findings.
+
 ## v2.21.1 - Light & Dark Mode uniformity across every window and blueprint canvas — 2026-11-26
 
 ### Fixed
