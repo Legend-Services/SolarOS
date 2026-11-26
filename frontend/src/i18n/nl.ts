@@ -6,6 +6,7 @@ import infraI18n from "./modules/infra";
 import netstoreI18n from "./modules/netstore";
 import onboardingI18n from "./modules/onboarding";
 import dockerI18n from "./modules/docker";
+import groupsI18n from "./modules/groups";
 
 export const nl: Dict = {
   // Common
@@ -1549,4 +1550,5 @@ export const nl: Dict = {
   ...netstoreI18n.nl,
   ...onboardingI18n.nl,
   ...dockerI18n.nl,
+  ...groupsI18n.nl,
 };

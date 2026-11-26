@@ -6,6 +6,7 @@ import infraI18n from "./modules/infra";
 import netstoreI18n from "./modules/netstore";
 import onboardingI18n from "./modules/onboarding";
 import dockerI18n from "./modules/docker";
+import groupsI18n from "./modules/groups";
 
 export const fr: Dict = {
   // Common
@@ -1549,4 +1550,5 @@ export const fr: Dict = {
   ...netstoreI18n.fr,
   ...onboardingI18n.fr,
   ...dockerI18n.fr,
+  ...groupsI18n.fr,
 };
