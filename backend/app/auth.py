@@ -225,6 +225,9 @@ def login(body: LoginBody, request: Request, response: Response):
         raise HTTPException(500, "Server is not configured (JWT_SECRET missing)")
     ip = _throttle(request)
     if not accounts.verify_admin(body.username, body.password):
+        from . import rbac  # lazy: rbac imports this module
+        if rbac.verify(body.username, body.password):  # an extra account (Users & Roles); 2FA is the administrator's
+            return _set_session(request, response, body.username)
         _fail(ip, "login.failure", body.username, "Invalid username or password")
     _note_password_strength(body.username, body.password)
     sec = load_security()
@@ -311,9 +314,10 @@ class StepUpBody(BaseModel):
 def step_up(body: StepUpBody, request: Request, user: str = Depends(require_user)):
     """Confirm the password (or a 2FA code) again; the token unlocks destructive actions for 5 minutes."""
     ip = _throttle(request)
+    from . import rbac
     sec = load_security()
-    ok = (bool(body.password) and accounts.verify_admin(user, body.password)) or \
-         (bool(body.code) and sec.get("totp_enabled") and second_factor(sec, body.code) is not None)
+    ok = (bool(body.password) and (accounts.verify_admin(user, body.password) or rbac.verify(user, body.password))) or \
+         (bool(body.code) and user == settings.admin_username and sec.get("totp_enabled") and second_factor(sec, body.code) is not None)
     if not ok:
         _fail(ip, "stepup.failure", user, "Password or code is incorrect", 403)
     sessions.succeeded(ip)
