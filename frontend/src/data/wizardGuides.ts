@@ -153,9 +153,10 @@ export const APP_GUIDES: Record<AppId, Guide> = {
       "Press Start, then Console to see the machine's screen.",
       "Click a machine's name or Edit to change its hardware, snapshots or passthrough devices.",
       "Use the Grid | List switch to see machines as cards or as a detailed table.",
+      "Use Grouped | Flat List to sort machines by network, VLAN, lab and your own groups, or see one plain list.",
     ],
     action: { label: "Create a Virtual Machine", app: "compute", intent: "vm" },
-    related: ["compute-vm-vs-ct", "compute-create", "compute-passthrough", "compute-wireframe"],
+    related: ["compute-vm-vs-ct", "compute-create", "compute-groups", "compute-passthrough", "compute-wireframe"],
   }),
   storage: guide({
     id: "storage",
@@ -435,12 +436,13 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     ],
     how: [
       "Open Network Architect from the App Gallery or Settings → Network & Services → Network Topology.",
-      "Drag to pan and scroll (or use the + and − buttons) to zoom the blueprint.",
-      "Click a switch, VLAN or lab to open its network view, then click Scan Network Now.",
+      "Start on the Overview: every network, VLAN, lab and custom group is one card. Drag to pan, scroll or use − and + to zoom, and Fit to Screen to see everything again.",
+      "Zoom in over a card, or click it, to open its network view, then click Scan Network Now.",
       "Click Other Devices (+N) or Show Devices to search and filter what was found; click the port pills of a device to see what each open port is for.",
     ],
     tip: "A network can only be scanned when the host has an address on it: give the switch or VLAN a host address in Network & Virtual Switch first.",
     action: { label: "Open Network Architect", app: "architect" },
+    related: ["architect-semantic-zoom"],
   }),
   console: guide({
     id: "console",
@@ -460,6 +462,48 @@ export const APP_GUIDES: Record<AppId, Guide> = {
 
 /** Sub-wizards for key workflows (linked from app guides, empty states and creation dialogs). */
 const SUB_GUIDES: Guide[] = [
+  guide({
+    id: "compute-groups",
+    app: "compute",
+    title: "Smart Compute Groups",
+    blurb: "Sort machines by network, VLAN, lab or your own groups and power a whole group at once.",
+    what: "In the Grouped view, every virtual switch, VLAN and isolated lab becomes a group holding the machines plugged into it. You can add Custom Groups of any machines you like. Machines on no named network land in Ungrouped, so none are hidden.",
+    cards: [
+      { title: "Network Groups", body: "Made for you from your switches, VLANs and labs. They show the subnet and whether DHCP is on, and update by themselves when you move a network card." },
+      { title: "Custom Groups", body: "Any machines you pick, for example everything that makes up one app. Link one to a network to show that network's adapters on it." },
+      { title: "Multi-homed machines", body: "A machine on two networks shows up in both groups, each time with the network card and IP address it uses there, plus a 2 Networks badge listing all its groups." },
+    ],
+    when: ["You run many machines and want to see them per network.", "Starting or stopping everything that belongs to one app or lab.", "Finding which machines can reach a VLAN."],
+    how: [
+      "Open Compute Manager and pick Grouped in the toolbar.",
+      "Press + Create Group and tick the machines; a machine on a named VLAN or lab fills in the name and color for you.",
+      "Use Assign to Group… on any machine to add it to or remove it from custom groups.",
+      "Press Start Group or Stop Group on a group to power all its members.",
+    ],
+    tip: "Network groups follow your network cards, so they cannot be edited; make a custom group linked to the network instead.",
+    action: { label: "Open Compute Manager", app: "compute" },
+  }),
+  guide({
+    id: "architect-semantic-zoom",
+    app: "architect",
+    title: "Semantic Zoom in Network Architect",
+    blurb: "Go from the whole environment to one network to one device by zooming.",
+    what: "Network Architect draws less detail when you zoom out and more when you zoom in, so a big setup stays readable.",
+    cards: [
+      { title: "1 · Overview", body: "Hosts, network ports, virtual switches and one card per network, VLAN, lab and custom group with its subnet, DHCP and DNS badges, node count and discovered device count." },
+      { title: "2 · Network or group", body: "Zoom in past 75 % over a card or click it: the router, DHCP and DNS servers, this host and every member, each with the network card it uses there." },
+      { title: "3 · Machine or device", body: "Click a VM or container for its hardware and console drawer, or Other Devices (+N) for the searchable device explorer with open ports explained." },
+    ],
+    when: ["Getting the big picture of a large network.", "Checking one VLAN without the rest in the way.", "Looking up a single device's address and open ports."],
+    how: [
+      "Open Network Architect; it starts on the Overview.",
+      "Scroll in over a card or click it to open that network or group.",
+      "Click a machine or the Other Devices hub to inspect it.",
+      "Click Overview in the floating bar, or zoom back out, to return; Fit to Screen shows everything again.",
+    ],
+    tip: "The same groups appear as pills in Settings → Network & Services → Virtual Switch & VLANs; click one to jump straight into it here.",
+    action: { label: "Open Network Architect", app: "architect" },
+  }),
   guide({
     id: "compute-wireframe",
     app: "compute",

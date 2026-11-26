@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent as RPointerEvent, type ReactNode } from "react";
-import { ArrowLeft, Boxes, Cable, Cctv, CircleHelp, Container, Cpu, FlaskConical, Globe, HardDrive, Layers, Maximize2, Monitor, Network, Printer, Radar, RefreshCw, Router, Search, Server, Smartphone, Tv, Wifi, ZoomIn, ZoomOut } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as RPointerEvent, type ReactNode } from "react";
+import { Boxes, ChevronRight, Cable, Cctv, CircleHelp, Container, Cpu, FlaskConical, Globe, HardDrive, Layers, Maximize2, Monitor, Network, Printer, Radar, RefreshCw, Router, Search, Server, Smartphone, Tag, Tv, Wifi, ZoomIn, ZoomOut } from "lucide-react";
 import { api } from "../lib/api";
 import { useTranslation, type TKey } from "../i18n";
 import { GlassBadge, GlassButton, GlassInput, GlassSelect, Notice, Segmented } from "../components/ui/GlassKit";
+import { useIntentFor } from "../lib/stores";
+import type { Guest } from "../lib/types";
+import GuestDrawer from "./GuestDrawer";
 
 /* Shapes of /api/architecture (backend/app/architecture.py). */
 interface NetworkInfo {
@@ -32,6 +35,24 @@ interface GuestRow {
   lab_id: string | null;
   interfaces: { net_id: string; bridge: string; vlan_tag: number | null; ip_address: string | null; mac_address: string | null; link_up: boolean }[];
 }
+/** A network / VLAN / lab or custom compute group (backend/app/compute_groups.py via the overview). */
+interface SemanticGroup {
+  group_id: string;
+  source: "network" | "custom" | "ungrouped";
+  kind: "switch" | "vlan" | "lab" | "custom" | "ungrouped";
+  name: string;
+  color: string;
+  linked_network_id: string | null;
+  vlan_id: number | null;
+  bridge: string | null;
+  subnet_cidr: string | null;
+  dhcp_active: boolean;
+  dns_servers: string[];
+  device_count: number;
+  total_guests: number;
+  running_guests: number;
+  members: { guest_type: "vm" | "lxc"; guest_id: number; group_count: number; interfaces: { iface: string; ip: string | null }[] }[];
+}
 interface Overview {
   mode: "standalone" | "cluster";
   cluster_name: string | null;
@@ -47,6 +68,7 @@ interface Overview {
   labs: (NetworkInfo & { lab_id: string; members: { guest_type: string; guest_id: number; net_id: string }[] })[];
   networks: NetworkInfo[];
   guests: GuestRow[];
+  semantic_groups: SemanticGroup[];
   node: string;
 }
 export interface ScannedDevice {
@@ -105,42 +127,86 @@ export function useRoleText() {
 
 /* ---------------- Pan / zoom ---------------- */
 
-function usePanZoom() {
+type ZoomEvent = { k: number; prev: number; at: { x: number; y: number } | null };
+type Crumb = { label: string; onClick?: () => void };
+/** Zoom at which the overview opens the group under the pointer (and below which a drill-down returns). */
+export const DRILL_ZOOM = 0.75;
+const clampK = (k: number) => Math.min(3, Math.max(0.2, k));
+
+function usePanZoom(onZoom?: (e: ZoomEvent) => void) {
   const ref = useRef<HTMLDivElement>(null);
   const [v, setV] = useState({ x: 0, y: 0, k: 1 });
+  const [smooth, setSmooth] = useState(false);
+  const cur = useRef(v);
+  const cb = useRef(onZoom);
+  cb.current = onZoom;
   const drag = useRef<{ x: number; y: number } | null>(null);
+  const set = useCallback((n: { x: number; y: number; k: number }, animate: boolean, at: ZoomEvent["at"] = null) => {
+    const prev = cur.current.k;
+    cur.current = n;
+    setV(n);
+    setSmooth(animate);
+    if (n.k !== prev) cb.current?.({ k: n.k, prev, at });
+  }, []);
+  /** Zoom by `f` around a screen point (the canvas center by default); `at` is that point in drawing coordinates. */
+  const zoomAt = useCallback((f: number, mx?: number, my?: number, animate = true) => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const p = cur.current;
+    const x0 = mx ?? r.width / 2;
+    const y0 = my ?? r.height / 2;
+    const k = clampK(p.k * f);
+    set({ k, x: x0 - ((x0 - p.x) * k) / p.k, y: y0 - ((y0 - p.y) * k) / p.k }, animate, { x: (x0 - p.x) / p.k, y: (y0 - p.y) / p.k });
+  }, [set]);
+  /** Fit a width × height drawing below the floating bar, never zooming in past `cap`. */
+  const fit = useCallback((w: number, h: number, cap: number, animate = true) => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const k = clampK(Math.min(cap, (r.width - 32) / w, (r.height - 72) / h));
+    set({ k, x: (r.width - w * k) / 2, y: 56 + Math.max(0, (r.height - 72 - h * k) / 2) }, animate);
+  }, [set]);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const wheel = (e: WheelEvent) => {
       e.preventDefault();
       const r = el.getBoundingClientRect();
-      const mx = e.clientX - r.left;
-      const my = e.clientY - r.top;
-      setV((p) => {
-        const k = Math.min(3, Math.max(0.3, p.k * (e.deltaY < 0 ? 1.1 : 0.9)));
-        return { k, x: mx - ((mx - p.x) * k) / p.k, y: my - ((my - p.y) * k) / p.k };
-      });
+      zoomAt(e.deltaY < 0 ? 1.1 : 1 / 1.1, e.clientX - r.left, e.clientY - r.top, false);
     };
     el.addEventListener("wheel", wheel, { passive: false });
     return () => el.removeEventListener("wheel", wheel);
-  }, []);
+  }, [zoomAt]);
   const handlers = {
     onPointerDown: (e: RPointerEvent) => {
       if ((e.target as Element).closest("[data-node]")) return;
-      drag.current = { x: e.clientX - v.x, y: e.clientY - v.y };
+      drag.current = { x: e.clientX - cur.current.x, y: e.clientY - cur.current.y };
       (e.currentTarget as Element).setPointerCapture(e.pointerId);
     },
-    onPointerMove: (e: RPointerEvent) => drag.current && setV((p) => ({ ...p, x: e.clientX - drag.current!.x, y: e.clientY - drag.current!.y })),
+    onPointerMove: (e: RPointerEvent) => drag.current && set({ ...cur.current, x: e.clientX - drag.current.x, y: e.clientY - drag.current.y }, false),
     onPointerUp: () => (drag.current = null),
   };
-  const zoom = (f: number) => setV((p) => ({ ...p, k: Math.min(3, Math.max(0.3, p.k * f)) }));
-  return { ref, v, handlers, zoom, reset: () => setV({ x: 0, y: 0, k: 1 }) };
+  return { ref, v, smooth, handlers, zoomAt, fit };
 }
 
-function Canvas({ width, height, children, label }: { width: number; height: number; children: ReactNode; label: string }) {
+/** Pan / zoom canvas with the floating semantic zoom & breadcrumb bar (crumbs · − zoom % + · Fit to Screen). */
+function Canvas({ width, height, children, label, crumbs = [], hint, onZoom, fitCap = 1 }: {
+  width: number;
+  height: number;
+  children: ReactNode;
+  label: string;
+  crumbs?: Crumb[];
+  hint?: string;
+  onZoom?: (e: ZoomEvent) => void;
+  fitCap?: number;
+}) {
   const { t } = useTranslation();
-  const pz = usePanZoom();
+  const pz = usePanZoom(onZoom);
+  useEffect(() => {
+    const r = requestAnimationFrame(() => pz.fit(width, height, fitCap, false));
+    return () => cancelAnimationFrame(r);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- fit once on open; "Fit to Screen" refits
   return (
     <div ref={pz.ref} className="relative h-full min-h-[420px] overflow-hidden rounded-xl border border-sky-400/20 bg-[#06142b] touch-none" {...pz.handlers}>
       <svg width="100%" height="100%" className="absolute inset-0 cursor-grab select-none active:cursor-grabbing" role="img" aria-label={label}>
@@ -150,23 +216,47 @@ function Canvas({ width, height, children, label }: { width: number; height: num
           </pattern>
         </defs>
         <style>{`@keyframes archdash{to{stroke-dashoffset:-24}}.arch-flow{stroke-dasharray:6 6;animation:archdash 1.4s linear infinite}
-          @media (prefers-reduced-motion:reduce){.arch-flow{animation:none}}[data-node]{cursor:pointer}[data-node]:focus{outline:none}[data-node]:focus-visible>rect,[data-node]:focus-visible>circle{stroke:#fde047}`}</style>
+          @media (prefers-reduced-motion:reduce){.arch-flow{animation:none}.arch-stage{transition:none!important}}[data-node]{cursor:pointer}[data-node]:focus{outline:none}[data-node]:focus-visible>rect,[data-node]:focus-visible>circle{stroke:#fde047}`}</style>
         <rect width="100%" height="100%" fill="url(#arch-grid)" />
-        <g transform={`translate(${pz.v.x} ${pz.v.y}) scale(${pz.v.k})`}>
+        <g className="arch-stage" style={{ transform: `translate(${pz.v.x}px, ${pz.v.y}px) scale(${pz.v.k})`, transformOrigin: "0 0", transition: pz.smooth ? "transform .35s cubic-bezier(.22,1,.36,1)" : undefined }}>
           <rect width={width} height={height} fill="none" />
           {children}
         </g>
       </svg>
-      <div className="absolute bottom-3 right-3 flex gap-1">
-        <GlassButton size="xs" onClick={() => pz.zoom(1.2)} aria-label={t("arch.zoomIn")}>
-          <ZoomIn size={14} />
-        </GlassButton>
-        <GlassButton size="xs" onClick={() => pz.zoom(1 / 1.2)} aria-label={t("arch.zoomOut")}>
-          <ZoomOut size={14} />
-        </GlassButton>
-        <GlassButton size="xs" onClick={pz.reset} aria-label={t("arch.resetView")}>
-          <Maximize2 size={14} />
-        </GlassButton>
+      <div className="pointer-events-none absolute inset-x-3 top-3 flex flex-wrap items-center gap-2">
+        {crumbs.length > 0 && (
+          <nav data-node="" className="pointer-events-auto flex items-center gap-1 rounded-xl border border-sky-400/20 bg-slate-950/85 px-2 py-1 text-[11px] backdrop-blur" aria-label={t("sz.overview")}>
+            {crumbs.map((c, i) => (
+              <span key={i} className="flex items-center gap-1">
+                {i > 0 && <ChevronRight size={12} className="text-slate-500" />}
+                {c.onClick ? (
+                  <button className="rounded px-1 text-sky-300 hover:text-white hover:underline" onClick={c.onClick}>
+                    {c.label}
+                  </button>
+                ) : (
+                  <span className="px-1 font-semibold text-white" aria-current="page">
+                    {c.label}
+                  </span>
+                )}
+              </span>
+            ))}
+            {hint && <span className="ml-2 hidden text-slate-400 md:inline">{hint}</span>}
+          </nav>
+        )}
+        <div data-node="" className="pointer-events-auto ml-auto flex items-center gap-1 rounded-xl border border-sky-400/20 bg-slate-950/85 px-1.5 py-1 backdrop-blur">
+          <GlassButton size="xs" onClick={() => pz.zoomAt(1 / 1.2)} aria-label={t("arch.zoomOut")}>
+            <ZoomOut size={14} />
+          </GlassButton>
+          <span className="w-11 text-center text-[11px] text-sky-100 tabular-nums" aria-live="polite" aria-label={t("sz.zoomPct", { pct: Math.round(pz.v.k * 100) })}>
+            {Math.round(pz.v.k * 100)}%
+          </span>
+          <GlassButton size="xs" onClick={() => pz.zoomAt(1.2)} aria-label={t("arch.zoomIn")}>
+            <ZoomIn size={14} />
+          </GlassButton>
+          <GlassButton size="xs" onClick={() => pz.fit(width, height, fitCap)} aria-label={t("sz.fit")}>
+            <Maximize2 size={14} /> <span className="hidden sm:inline">{t("sz.fit")}</span>
+          </GlassButton>
+        </div>
       </div>
     </div>
   );
@@ -219,6 +309,45 @@ function NodeBox({ x, y, w = 190, h = 58, icon, title, sub, color = "#7dd3fc", b
 const COL = [40, 280, 520, 780, 1040];
 const NODE_W = 200;
 
+/** The standalone host or cluster band across the top of the blueprint and the overview. */
+function HostBand({ o }: { o: Overview }) {
+  const { t } = useTranslation();
+  const hostW = Math.max(260, Math.min(1240 / Math.max(o.hosts.length, 1) - 16, 300));
+  return (
+    <>
+      <rect x={20} y={14} width={1240} height={140} rx={14} fill="#1e1b4b" fillOpacity=".4" stroke="#a78bfa" strokeDasharray={o.mode === "cluster" ? undefined : "5 4"} />
+      <text x={36} y={38} fill="#ede9fe" fontSize={13} fontWeight={700}>
+        {o.mode === "cluster" ? t("arch.clusterTitle", { name: o.cluster_name ?? "" }) : t("arch.standaloneTitle")}
+      </text>
+      {o.quorum_status && (
+        <text x={36} y={56} fill={o.quorum_status === "healthy" ? "#86efac" : "#fca5a5"} fontSize={10.5}>
+          {o.quorum_status === "healthy" ? t("arch.quorumHealthy") : t("arch.quorumLost")}
+        </text>
+      )}
+      {o.floating_vips.length > 0 && (
+        <text x={1244} y={38} fill="#c4b5fd" fontSize={10.5} textAnchor="end">
+          {`${t("arch.floatingVips")}: ${o.floating_vips.map((v) => v.address).join(" · ")}`}
+        </text>
+      )}
+      {o.hosts.map((h, i) => (
+        <NodeBox
+          key={h.host_id}
+          x={36 + i * (hostW + 12)}
+          y={68}
+          w={hostW}
+          h={74}
+          color={h.status === "online" ? "#a78bfa" : h.status === "maintenance" ? "#f59e0b" : "#f87171"}
+          icon={<Server size={14} />}
+          title={`${h.hostname} · ${t(`arch.hostRole.${h.role}` as TKey)}`}
+          sub={`${h.ip_addresses.join(", ") || "—"} · CPU ${h.cpu_pct ?? "—"}% · RAM ${h.ram_pct ?? "—"}%`}
+          badges={[{ text: t(`arch.hostStatus.${h.status}` as TKey), on: h.status === "online" }]}
+        />
+      ))}
+
+    </>
+  );
+}
+
 function Blueprint({ o, onDrill }: { o: Overview; onDrill: (id: string) => void }) {
   const { t } = useTranslation();
   const net = (id: string) => o.networks.find((n) => n.network_id === id);
@@ -256,39 +385,10 @@ function Blueprint({ o, onDrill }: { o: Overview; onDrill: (id: string) => void 
     }),
   );
   const heads = [t("arch.colGateways"), t("arch.colUplinks"), t("arch.colSwitches"), t("arch.colVlans"), t("arch.colGuests")];
-  const hostW = Math.max(260, Math.min(1240 / Math.max(o.hosts.length, 1) - 16, 300));
 
   return (
-    <Canvas width={1260} height={height} label={t("arch.blueprintLabel")}>
-      {/* Standalone host / cluster band */}
-      <rect x={20} y={14} width={1240} height={140} rx={14} fill="#1e1b4b" fillOpacity=".4" stroke="#a78bfa" strokeDasharray={o.mode === "cluster" ? undefined : "5 4"} />
-      <text x={36} y={38} fill="#ede9fe" fontSize={13} fontWeight={700}>
-        {o.mode === "cluster" ? t("arch.clusterTitle", { name: o.cluster_name ?? "" }) : t("arch.standaloneTitle")}
-      </text>
-      {o.quorum_status && (
-        <text x={36} y={56} fill={o.quorum_status === "healthy" ? "#86efac" : "#fca5a5"} fontSize={10.5}>
-          {o.quorum_status === "healthy" ? t("arch.quorumHealthy") : t("arch.quorumLost")}
-        </text>
-      )}
-      {o.floating_vips.length > 0 && (
-        <text x={1244} y={38} fill="#c4b5fd" fontSize={10.5} textAnchor="end">
-          {`${t("arch.floatingVips")}: ${o.floating_vips.map((v) => v.address).join(" · ")}`}
-        </text>
-      )}
-      {o.hosts.map((h, i) => (
-        <NodeBox
-          key={h.host_id}
-          x={36 + i * (hostW + 12)}
-          y={68}
-          w={hostW}
-          h={74}
-          color={h.status === "online" ? "#a78bfa" : h.status === "maintenance" ? "#f59e0b" : "#f87171"}
-          icon={<Server size={14} />}
-          title={`${h.hostname} · ${t(`arch.hostRole.${h.role}` as TKey)}`}
-          sub={`${h.ip_addresses.join(", ") || "—"} · CPU ${h.cpu_pct ?? "—"}% · RAM ${h.ram_pct ?? "—"}%`}
-          badges={[{ text: t(`arch.hostStatus.${h.status}` as TKey), on: h.status === "online" }]}
-        />
-      ))}
+    <Canvas width={1260} height={height} label={t("arch.blueprintLabel")} crumbs={[{ label: t("arch.viewBlueprint") }]}>
+      <HostBand o={o} />
 
       {heads.map((hd, i) => (
         <text key={hd} x={COL[i]} y={TOP - 14} fill="#7dd3fc" fillOpacity=".7" fontSize={10} fontWeight={700} letterSpacing={1.2}>
@@ -351,7 +451,130 @@ function Blueprint({ o, onDrill }: { o: Overview; onDrill: (id: string) => void 
   );
 }
 
-/* ---------------- View 2: network drill-down ---------------- */
+
+/* ---------------- Zoom level 1: semantic overview ---------------- */
+
+const CARD_W = 250;
+const CARD_H = 116;
+const CARD_GAP = 22;
+const CARD_X = 600;
+const CARD_COLS = 3;
+const KIND_ORDER = { switch: 0, vlan: 1, lab: 2, custom: 3, ungrouped: 4 };
+const SOURCE_ORDER = { network: 0, custom: 1, ungrouped: 2 };
+
+/** Small rounded label for SVG cards (DHCP / DNS service badges). */
+function Pill({ x, y, text, on }: { x: number; y: number; text: string; on: boolean }) {
+  const w = text.length * 5.6 + 14;
+  return (
+    <g>
+      <rect x={x} y={y} width={w} height={15} rx={7.5} fill={on ? "#166534" : "#1e293b"} stroke={on ? "#4ade80" : "#475569"} strokeWidth={0.8} />
+      <text x={x + w / 2} y={y + 10.5} fill={on ? "#bbf7d0" : "#94a3b8"} fontSize={9} textAnchor="middle" fontWeight={600}>
+        {text}
+      </text>
+    </g>
+  );
+}
+
+const groupIcon = (kind: SemanticGroup["kind"], s: number) =>
+  kind === "lab" ? <FlaskConical size={s} /> : kind === "vlan" ? <Layers size={s} /> : kind === "switch" ? <Network size={s} /> : <Tag size={s} />;
+
+/** Hosts, uplinks and virtual switches, with every network / VLAN / lab and custom group collapsed into one clickable card. */
+function SemanticOverview({ o, onOpen }: { o: Overview; onOpen: (groupId: string) => void }) {
+  const { t } = useTranslation();
+  const labBridges = new Set(o.labs.map((l) => l.bridge));
+  const switches = o.switches.filter((s) => !labBridges.has(s.name));
+  // Cards follow the switch column order (then labs), so the switch → card lines cross as little as possible.
+  const swIndex = (g: SemanticGroup) => {
+    const i = switches.findIndex((s) => s.name === g.bridge);
+    return i < 0 ? switches.length : i;
+  };
+  const groups = o.semantic_groups
+    .filter((g) => g.source !== "ungrouped" || g.total_guests > 0)
+    .sort((a, b) => SOURCE_ORDER[a.source] - SOURCE_ORDER[b.source] || swIndex(a) - swIndex(b) || KIND_ORDER[a.kind] - KIND_ORDER[b.kind] || (a.vlan_id ?? 0) - (b.vlan_id ?? 0) || a.name.localeCompare(b.name));
+  const TOP = 190;
+  const ups = o.uplinks.map((u, i) => ({ u, y: TOP + i * 76 }));
+  const sws = switches.map((sw, i) => ({ sw, y: TOP + i * 86 }));
+  const cards = groups.map((g, i) => ({ g, x: CARD_X + (i % CARD_COLS) * (CARD_W + CARD_GAP), y: TOP + Math.floor(i / CARD_COLS) * (CARD_H + CARD_GAP) }));
+  const width = CARD_X + CARD_COLS * (CARD_W + CARD_GAP) + 20;
+  const height = Math.max(TOP + Math.ceil(cards.length / CARD_COLS) * (CARD_H + CARD_GAP), TOP + sws.length * 86, TOP + ups.length * 76, TOP + 100) + 40;
+  const swY = Object.fromEntries(sws.map((x) => [x.sw.name, x.y]));
+  const bridgeOf = (g: SemanticGroup) => g.bridge ?? o.networks.find((n) => n.network_id === g.linked_network_id)?.bridge;
+  const origin = (g: SemanticGroup) =>
+    g.source === "custom" ? t("grp.customGroup") : g.source === "ungrouped" ? "" : t("grp.networkGroup", { label: t(`grp.kind.${g.kind}` as TKey, { id: g.vlan_id ?? "" }) });
+  const name = (g: SemanticGroup) => (g.source === "ungrouped" ? t("grp.ungrouped") : g.name);
+
+  // Zooming in past DRILL_ZOOM opens the card under the pointer (or the one nearest to the zoom point).
+  const onZoom = ({ k, prev, at }: ZoomEvent) => {
+    if (!at || prev >= DRILL_ZOOM || k < DRILL_ZOOM || !cards.length) return;
+    const d = (c: (typeof cards)[number]) => Math.hypot(c.x + CARD_W / 2 - at.x, c.y + CARD_H / 2 - at.y);
+    const near = cards.reduce((a, b) => (d(b) < d(a) ? b : a));
+    if (d(near) < CARD_W * 1.2) onOpen(near.g.group_id);
+  };
+
+  return (
+    <Canvas width={width} height={height} label={t("arch.blueprintLabel")} crumbs={[{ label: t("sz.overview") }]} hint={t("sz.hint")} onZoom={onZoom} fitCap={DRILL_ZOOM - 0.04}>
+      <HostBand o={o} />
+      {[t("arch.colUplinks"), t("arch.colSwitches"), t("sz.colGroups")].map((hd, i) => (
+        <text key={hd} x={[40, 300, CARD_X][i]} y={TOP - 14} fill="#7dd3fc" fillOpacity=".7" fontSize={10} fontWeight={700} letterSpacing={1.2}>
+          {hd.toUpperCase()}
+        </text>
+      ))}
+      {ups.map(({ u, y }) =>
+        u.bridge && swY[u.bridge] !== undefined ? <path key={`e${u.name}`} d={curve(240, y + 29, 300, swY[u.bridge] + 29)} fill="none" stroke={u.link_up ? "#38bdf8" : "#475569"} strokeWidth={1.6} className={u.link_up ? "arch-flow" : ""} /> : null,
+      )}
+      {cards.map(({ g, x, y }) => {
+        const b = bridgeOf(g);
+        return b && swY[b] !== undefined ? <path key={`e${g.group_id}`} d={curve(500, swY[b] + 33, x, y + CARD_H / 2)} fill="none" stroke={g.color} strokeOpacity=".6" strokeWidth={1.4} /> : null;
+      })}
+      {ups.map(({ u, y }) => (
+        <NodeBox key={u.name} x={40} y={y} w={200} icon={<Cable size={14} />} title={u.name} sub={`${u.speed_mbps ? `${u.speed_mbps} Mb/s` : t("arch.noLink")} · ${u.mac}`} color={u.link_up ? "#38bdf8" : "#475569"} />
+      ))}
+      {sws.map(({ sw, y }) => (
+        <NodeBox key={sw.name} x={300} y={y} w={200} h={66} icon={<Network size={14} />} title={`${sw.name}${sw.clustered ? " ⧉" : ""}`} sub={sw.ipv4_cidr ?? t("arch.noHostAddress")} color="#a78bfa" onClick={() => onOpen(`net-${sw.name}`)} label={t("sz.zoomInto", { name: sw.name })} />
+      ))}
+      {cards.map(({ g, x, y }) => (
+        <g
+          key={g.group_id}
+          data-node=""
+          role="button"
+          tabIndex={0}
+          aria-label={t("sz.zoomInto", { name: name(g) })}
+          onClick={() => onOpen(g.group_id)}
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onOpen(g.group_id))}
+        >
+          <rect x={x} y={y} width={CARD_W} height={CARD_H} rx={14} fill="#0b2244" fillOpacity=".9" stroke={g.color} strokeWidth={1.5} strokeDasharray={g.source === "network" && g.kind !== "lab" ? undefined : "5 4"} />
+          <rect x={x} y={y + 14} width={5} height={CARD_H - 28} rx={2.5} fill={g.color} />
+          <g transform={`translate(${x + 16} ${y + 14})`} color={g.color}>
+            {groupIcon(g.kind, 16)}
+          </g>
+          <text x={x + 40} y={y + 27} fill="#f0f9ff" fontSize={13} fontWeight={700}>
+            {clip(name(g), 26)}
+          </text>
+          <text x={x + 16} y={y + 48} fill="#bae6fd" fillOpacity=".75" fontSize={10}>
+            {clip(origin(g), 40)}
+          </text>
+          <text x={x + 16} y={y + 66} fill="#e0f2fe" fontSize={10.5} fontFamily="ui-monospace,monospace">
+            {g.subnet_cidr ?? (g.source === "network" ? t("arch.noSubnet") : "")}
+          </text>
+          {g.source === "network" && (
+            <>
+              <Pill x={x + 16} y={y + CARD_H - 28} text="DHCP" on={g.dhcp_active} />
+              <Pill x={x + 62} y={y + CARD_H - 28} text="DNS" on={g.dns_servers.length > 0} />
+            </>
+          )}
+          <text x={x + CARD_W - 14} y={y + CARD_H - 30} fill="#86efac" fontSize={10.5} fontWeight={600} textAnchor="end">
+            {t("grp.nodes", { n: g.total_guests })}
+          </text>
+          <text x={x + CARD_W - 14} y={y + CARD_H - 16} fill="#fcd34d" fontSize={10} textAnchor="end">
+            {t("grp.devices", { n: g.device_count })}
+          </text>
+        </g>
+      ))}
+    </Canvas>
+  );
+}
+
+/* ---------------- Zoom level 2: network / group drill-down (level 3: guest drawer and device explorer) ---------------- */
 
 function DeviceCard({ d }: { d: ScannedDevice }) {
   const { t } = useTranslation();
@@ -448,83 +671,107 @@ function DevicesDrawer({ devices, onClose }: { devices: ScannedDevice[]; onClose
   );
 }
 
-function DrillDown({ o, id, onBack }: { o: Overview; id: string; onBack: () => void }) {
+function DrillDown({ o, group, root, onBack }: { o: Overview; group: SemanticGroup; root: string; onBack: () => void }) {
   const { t } = useTranslation();
-  const n = o.networks.find((x) => x.network_id === id);
+  const id = group.linked_network_id;
+  const n = id ? o.networks.find((x) => x.network_id === id) : undefined;
+  const title = group.source === "ungrouped" ? t("grp.ungrouped") : group.name;
   const [scan, setScan] = useState<Scan>({ status: "idle", devices: [] });
   const [drawer, setDrawer] = useState(false);
+  const [guest, setGuest] = useState<Guest | null>(null);
   const [error, setError] = useState("");
-  const load = useCallback(() => api<Scan>(`/architecture/networks/${encodeURIComponent(id)}/devices`).then(setScan, (e) => setError(e.message)), [id]);
+  const load = useCallback(() => (n ? api<Scan>(`/architecture/networks/${encodeURIComponent(n.network_id)}/devices`).then(setScan, (e) => setError(e.message)) : Promise.resolve()), [n]);
   useEffect(() => void load(), [load]);
   useEffect(() => {
     if (scan.status !== "running") return;
     const h = setInterval(load, 1500);
     return () => clearInterval(h);
   }, [scan.status, load]);
-  const start = () => api(`/architecture/networks/${encodeURIComponent(id)}/scan`, { method: "POST" }).then(() => (setError(""), load()), (e) => setError(e.message));
+  const start = () => n && api(`/architecture/networks/${encodeURIComponent(n.network_id)}/scan`, { method: "POST" }).then(() => (setError(""), load()), (e) => setError(e.message));
+  // Level 3: the guest's hardware & console drawer (guests of other cluster hosts are managed from Compute Manager).
+  const openGuest = (gt: string, vmid: number) =>
+    api<Guest[]>("/v1/guests").then((list) => setGuest(list.find((g) => g.vmid === vmid && (g.type === "qemu") === (gt === "vm")) ?? null), (e) => setError(e.message));
 
-  const onNet = useMemo(
-    () =>
-      o.guests.filter((g) =>
-        g.interfaces.some((i) => (n?.kind === "vlan" ? i.bridge === n.bridge && i.vlan_tag === n.vlan_id : n?.kind === "lab" ? i.bridge === n.bridge : i.bridge === n?.bridge && !i.vlan_tag)),
-      ),
-    [o.guests, n],
-  );
-  if (!n) return <Notice error={t("arch.unknownNetwork")} />;
-  const hostIp = n.host_cidr?.split("/")[0] ?? null;
-  const gwIp = n.gateway_ip ?? scan.gateway_ip ?? null;
+  const byKey = new Map(o.guests.map((g) => [`${g.guest_type}:${g.guest_id}`, g]));
+  const members = group.members.flatMap((m) => {
+    const g = byKey.get(`${m.guest_type}:${m.guest_id}`);
+    return g ? [{ m, g }] : [];
+  });
+  const hostIp = n?.host_cidr?.split("/")[0] ?? null;
+  const gwIp = n ? (n.gateway_ip ?? scan.gateway_ip ?? null) : null;
   const devs = scan.devices;
   const gwDev = devs.find((d) => d.ip_address === gwIp);
   const dhcpDev = devs.find((d) => d.roles.includes("dhcp"));
-  const dnsIp = n.dns_servers[0] ?? devs.find((d) => d.roles.includes("dns"))?.ip_address ?? (gwDev?.roles.includes("dns") ? gwIp : null) ?? (n.kind === "switch" && o.gateways.some((g) => g.dev === n.bridge) ? o.host_dns_servers[0] : null);
+  const dnsIp = !n
+    ? null
+    : (n.dns_servers[0] ??
+      devs.find((d) => d.roles.includes("dns"))?.ip_address ??
+      (gwDev?.roles.includes("dns") ? gwIp : null) ??
+      (n.kind === "switch" && o.gateways.some((g) => g.dev === n.bridge) ? o.host_dns_servers[0] : null));
   const others = devs.filter((d) => !d.is_managed_guest && !d.is_solardeck_host && d.ip_address !== gwIp);
   const grouped = others.length > DENSITY_THRESHOLD;
 
-  // Star layout around the network hub.
+  // Star layout around the network / group hub.
   const CXc = 560;
   const CYc = 330;
   const R = 250;
-  type Spoke = { key: string; icon: ReactNode; title: string; sub: string; color: string; onClick?: () => void; dashed?: boolean };
+  type Spoke = { key: string; icon: ReactNode; title: string; sub: string; color: string; onClick?: () => void; dashed?: boolean; badges?: { text: string; on: boolean }[] };
+  const services: Spoke[] = n
+    ? [
+        { key: "gw", icon: <Router size={14} />, title: t("arch.routerGateway"), sub: gwIp ? `${gwIp}${gwDev?.mac_vendor ? ` · ${gwDev.mac_vendor}` : ""}` : t("arch.notDetected"), color: "#38bdf8" },
+        { key: "dhcp", icon: <Radar size={14} />, title: t("arch.dhcpServer"), sub: n.dhcp_active ? t("arch.solardeckDhcp", { range: n.dhcp_range ?? "" }) : dhcpDev ? dhcpDev.ip_address : t("arch.notDetected"), color: n.dhcp_active || dhcpDev ? "#4ade80" : "#64748b" },
+        { key: "dns", icon: <Globe size={14} />, title: t("arch.dnsServer"), sub: dnsIp ?? t("arch.notDetected"), color: dnsIp ? "#4ade80" : "#64748b" },
+        { key: "host", icon: <Server size={14} />, title: t("arch.solardeckHost", { name: o.node }), sub: hostIp ?? t("arch.noHostAddress"), color: "#a78bfa" },
+      ]
+    : [];
   const spokes: Spoke[] = [
-    { key: "gw", icon: <Router size={14} />, title: t("arch.routerGateway"), sub: gwIp ? `${gwIp}${gwDev?.mac_vendor ? ` · ${gwDev.mac_vendor}` : ""}` : t("arch.notDetected"), color: "#38bdf8" },
-    { key: "dhcp", icon: <Radar size={14} />, title: t("arch.dhcpServer"), sub: n.dhcp_active ? t("arch.solardeckDhcp", { range: n.dhcp_range ?? "" }) : dhcpDev ? dhcpDev.ip_address : t("arch.notDetected"), color: n.dhcp_active || dhcpDev ? "#4ade80" : "#64748b" },
-    { key: "dns", icon: <Globe size={14} />, title: t("arch.dnsServer"), sub: dnsIp ?? t("arch.notDetected"), color: dnsIp ? "#4ade80" : "#64748b" },
-    { key: "host", icon: <Server size={14} />, title: t("arch.solardeckHost", { name: o.node }), sub: hostIp ?? t("arch.noHostAddress"), color: "#a78bfa" },
-    ...onNet.map((g) => ({
-      key: `g${g.guest_type}${g.guest_id}`,
-      icon: g.guest_type === "vm" ? <Monitor size={14} /> : <Container size={14} />,
-      title: g.name,
-      sub: g.interfaces.find((i) => i.bridge === n.bridge)?.ip_address ?? g.status,
-      color: g.status === "running" ? "#34d399" : "#64748b",
-    })),
+    ...services,
+    ...members.map(({ m, g }) => {
+      const nic = m.interfaces[0];
+      return {
+        key: `g${g.guest_type}${g.guest_id}`,
+        icon: g.guest_type === "vm" ? <Monitor size={14} /> : <Container size={14} />,
+        title: g.name,
+        sub: nic ? `${nic.iface} · ${nic.ip ?? g.status}` : g.status,
+        color: g.status === "running" ? "#34d399" : "#64748b",
+        onClick: () => openGuest(g.guest_type, g.guest_id),
+        badges: m.group_count > 1 ? [{ text: t("sz.multiHomed", { n: m.group_count }), on: true }] : [],
+      };
+    }),
     ...(grouped
       ? [{ key: "others", icon: <Boxes size={14} />, title: t("arch.otherDevices", { n: others.length }), sub: t("arch.openExplorer"), color: "#fbbf24", onClick: () => setDrawer(true), dashed: true }]
       : others.map((d) => ({ key: d.ip_address, icon: CATEGORY_ICON[d.device_category](14), title: d.display_name, sub: d.ip_address, color: "#fbbf24", onClick: () => setDrawer(true) }))),
   ];
   const pos = spokes.map((_, i) => {
-    const a = -Math.PI / 2 + (2 * Math.PI * i) / spokes.length;
+    const a = -Math.PI / 2 + (2 * Math.PI * i) / Math.max(spokes.length, 1);
     return { x: CXc + R * Math.cos(a) * 1.35 - 95, y: CYc + R * Math.sin(a) - 29 };
   });
+  // Zooming well back out returns to the overview (hysteresis below DRILL_ZOOM so a drill-in does not bounce back).
+  const BACK = DRILL_ZOOM - 0.25;
+  const onZoom = ({ k, prev }: ZoomEvent) => prev >= BACK && k < BACK && onBack();
 
   return (
     <div className="flex h-full flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2">
-        <GlassButton size="xs" onClick={onBack}>
-          <ArrowLeft size={13} /> {t("arch.backToBlueprint")}
-        </GlassButton>
-        <h3 className="text-sm font-semibold text-white">{n.name}</h3>
-        <span className="font-mono text-[11px] text-slate-400">{n.subnet_cidr ?? t("arch.noSubnet")}</span>
-        <GlassBadge tone={n.dhcp_active ? "success" : "neutral"}>DHCP</GlassBadge>
-        <GlassBadge tone={dnsIp ? "success" : "neutral"}>DNS</GlassBadge>
+        <span className="h-2.5 w-2.5 rounded-full" style={{ background: group.color }} />
+        <h3 className="text-sm font-semibold text-white">{title}</h3>
+        {n && <span className="font-mono text-[11px] text-slate-400">{n.subnet_cidr ?? t("arch.noSubnet")}</span>}
+        {n && <GlassBadge tone={n.dhcp_active ? "success" : "neutral"}>DHCP</GlassBadge>}
+        {n && <GlassBadge tone={dnsIp ? "success" : "neutral"}>DNS</GlassBadge>}
+        <GlassBadge tone="info">{t("grp.nodes", { n: members.length })}</GlassBadge>
         <span className="ml-auto text-[11px] text-slate-400">
           {scan.status === "done" && scan.finished_at ? t("arch.lastScan", { time: new Date(scan.finished_at * 1000).toLocaleString() }) : scan.status === "failed" ? t("arch.scanFailed") : ""}
         </span>
-        <GlassButton size="xs" onClick={() => setDrawer(true)} disabled={!devs.length}>
-          {t("arch.showDevices", { n: devs.length })}
-        </GlassButton>
-        <GlassButton size="xs" variant="primary" onClick={start} disabled={scan.status === "running" || !n.host_cidr}>
-          <Radar size={13} /> {t("arch.scanNow")}
-        </GlassButton>
+        {n && (
+          <>
+            <GlassButton size="xs" onClick={() => setDrawer(true)} disabled={!devs.length}>
+              {t("arch.showDevices", { n: devs.length })}
+            </GlassButton>
+            <GlassButton size="xs" variant="primary" onClick={start} disabled={scan.status === "running" || !n.host_cidr}>
+              <Radar size={13} /> {t("arch.scanNow")}
+            </GlassButton>
+          </>
+        )}
       </div>
       {scan.status === "running" && (
         <div className="space-y-1" role="status">
@@ -534,30 +781,31 @@ function DrillDown({ o, id, onBack }: { o: Overview; id: string; onBack: () => v
           </div>
         </div>
       )}
-      <Notice error={error || (scan.status === "failed" ? scan.error : "") || (!n.host_cidr ? t("arch.needHostAddress") : "")} />
+      <Notice error={error || (scan.status === "failed" ? scan.error : "") || (n && !n.host_cidr ? t("arch.needHostAddress") : "")} notice={n ? "" : t("sz.noNetwork")} />
       <div className="relative min-h-0 flex-1">
-        <Canvas width={1120} height={680} label={t("arch.drillLabel", { name: n.name })}>
+        <Canvas width={1120} height={680} label={t("arch.drillLabel", { name: title })} crumbs={[{ label: root, onClick: onBack }, { label: title }]} onZoom={onZoom}>
           {pos.map((p, i) => (
             <path key={spokes[i].key} d={`M${CXc} ${CYc} L${p.x + 95} ${p.y + 29}`} stroke={spokes[i].color} strokeOpacity=".7" strokeWidth={1.4} className={spokes[i].key === "others" ? "" : "arch-flow"} fill="none" />
           ))}
           <g data-node="">
-            <circle cx={CXc} cy={CYc} r={62} fill="#0b2244" stroke={n.color || "#a78bfa"} strokeWidth={2} />
-            <g transform={`translate(${CXc - 9} ${CYc - 36})`} color={n.color || "#c4b5fd"}>
-              {n.kind === "lab" ? <FlaskConical size={18} /> : n.kind === "vlan" ? <Layers size={18} /> : <Network size={18} />}
+            <circle cx={CXc} cy={CYc} r={62} fill="#0b2244" stroke={group.color} strokeWidth={2} />
+            <g transform={`translate(${CXc - 9} ${CYc - 36})`} color={group.color}>
+              {groupIcon(group.kind, 18)}
             </g>
             <text x={CXc} y={CYc + 2} fill="#f0f9ff" fontSize={12} fontWeight={700} textAnchor="middle">
-              {clip(n.kind === "vlan" ? `VLAN ${n.vlan_id}` : n.bridge, 16)}
+              {clip(n ? (n.kind === "vlan" ? `VLAN ${n.vlan_id}` : n.bridge) : title, 16)}
             </text>
             <text x={CXc} y={CYc + 18} fill="#bae6fd" fontSize={9.5} textAnchor="middle" fontFamily="ui-monospace,monospace">
-              {n.subnet_cidr ?? ""}
+              {n?.subnet_cidr ?? ""}
             </text>
           </g>
           {spokes.map((s, i) => (
-            <NodeBox key={s.key} x={pos[i].x} y={pos[i].y} icon={s.icon} title={s.title} sub={s.sub} color={s.color} dashed={s.dashed} onClick={s.onClick} />
+            <NodeBox key={s.key} x={pos[i].x} y={pos[i].y} icon={s.icon} title={s.title} sub={s.sub} color={s.color} dashed={s.dashed} onClick={s.onClick} badges={s.badges} />
           ))}
         </Canvas>
         {drawer && <DevicesDrawer devices={devs} onClose={() => setDrawer(false)} />}
       </div>
+      <GuestDrawer guest={guest} onClose={() => setGuest(null)} onSaved={() => {}} />
     </div>
   );
 }
@@ -568,18 +816,23 @@ export default function ArchitectureExplorerApp() {
   const { t } = useTranslation();
   const [o, setO] = useState<Overview | null>(null);
   const [error, setError] = useState("");
-  const [view, setView] = useState<"blueprint" | "networks">("blueprint");
+  const [view, setView] = useState<"overview" | "blueprint" | "networks">("overview");
   const [drill, setDrill] = useState<string | null>(null);
   const load = useCallback(() => api<Overview>("/architecture/overview").then((r) => (setO(r), setError("")), (e) => setError(e.message)), []);
   useEffect(() => void load(), [load]);
+  useIntentFor("architect", (groupId) => setDrill(groupId));
+  const group = drill ? o?.semantic_groups.find((g) => g.group_id === drill) : undefined;
+  const root = view === "blueprint" ? t("arch.viewBlueprint") : view === "networks" ? t("arch.viewNetworks") : t("sz.overview");
 
   return (
     <div className="flex h-full flex-col gap-3 p-4">
+      <style>{`@keyframes sz-in{from{opacity:0;transform:scale(.96)}}.sz-enter{animation:sz-in .35s cubic-bezier(.22,1,.36,1)}@media (prefers-reduced-motion:reduce){.sz-enter{animation:none}}`}</style>
       <div className="flex flex-wrap items-center gap-2">
         <Segmented
-          value={drill ? "networks" : view}
+          value={view}
           onChange={(v) => (setView(v), setDrill(null))}
           options={[
+            { id: "overview", label: t("sz.viewOverview") },
             { id: "blueprint", label: t("arch.viewBlueprint") },
             { id: "networks", label: t("arch.viewNetworks") },
           ]}
@@ -596,28 +849,38 @@ export default function ArchitectureExplorerApp() {
       <Notice error={error} />
       {!o ? (
         !error && <p className="text-sm text-slate-400">{t("common.loading")}</p>
-      ) : drill ? (
-        <DrillDown key={drill} o={o} id={drill} onBack={() => setDrill(null)} />
+      ) : drill && group ? (
+        <div key={drill} className="sz-enter min-h-0 flex-1">
+          <DrillDown o={o} group={group} root={root} onBack={() => setDrill(null)} />
+        </div>
+      ) : view === "overview" ? (
+        <div key="overview" className="sz-enter min-h-0 flex-1">
+          <SemanticOverview o={o} onOpen={setDrill} />
+        </div>
       ) : view === "blueprint" ? (
         <div className="min-h-0 flex-1">
-          <Blueprint o={o} onDrill={setDrill} />
+          <Blueprint o={o} onDrill={(id) => setDrill(`net-${id}`)} />
         </div>
       ) : (
         <ul className="grid gap-2 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
-          {o.networks.map((n) => (
-            <li key={n.network_id}>
-              <button className="glass-soft w-full rounded-xl p-3 text-left transition hover:bg-white/10" onClick={() => setDrill(n.network_id)}>
-                <div className="flex items-center gap-2">
-                  <span style={{ color: n.color ?? "#a78bfa" }}>{n.kind === "lab" ? <FlaskConical size={15} /> : n.kind === "vlan" ? <Layers size={15} /> : <Network size={15} />}</span>
-                  <span className="flex-1 truncate text-sm font-semibold text-white">{n.kind === "vlan" ? `VLAN ${n.vlan_id} · ${n.name}` : n.name}</span>
-                  <GlassBadge tone={n.dhcp_active ? "success" : "neutral"}>DHCP</GlassBadge>
-                  <GlassBadge tone={n.dns_servers.length ? "success" : "neutral"}>DNS</GlassBadge>
-                </div>
-                <div className="mt-1 font-mono text-[11px] text-slate-400">{n.subnet_cidr ?? t("arch.noSubnet")}</div>
-                <div className="text-[11px] text-slate-400">{t(`arch.kind.${n.kind}` as TKey)}</div>
-              </button>
-            </li>
-          ))}
+          {o.semantic_groups
+            .filter((g) => g.source !== "ungrouped" || g.total_guests > 0)
+            .map((g) => (
+              <li key={g.group_id}>
+                <button className="glass-soft w-full rounded-xl p-3 text-left transition hover:bg-white/10" onClick={() => setDrill(g.group_id)}>
+                  <div className="flex items-center gap-2">
+                    <span style={{ color: g.color }}>{groupIcon(g.kind, 15)}</span>
+                    <span className="flex-1 truncate text-sm font-semibold text-white">{g.source === "ungrouped" ? t("grp.ungrouped") : g.name}</span>
+                    {g.source === "network" && <GlassBadge tone={g.dhcp_active ? "success" : "neutral"}>DHCP</GlassBadge>}
+                    {g.source === "network" && <GlassBadge tone={g.dns_servers.length ? "success" : "neutral"}>DNS</GlassBadge>}
+                  </div>
+                  <div className="mt-1 font-mono text-[11px] text-slate-400">{g.subnet_cidr ?? (g.source === "network" ? t("arch.noSubnet") : "")}</div>
+                  <div className="text-[11px] text-slate-400">
+                    {g.source === "network" ? t(`arch.kind.${g.kind}` as TKey) : g.source === "custom" ? t("grp.customGroup") : t("grp.ungroupedHint")} · {t("grp.nodes", { n: g.total_guests })} · {t("grp.devices", { n: g.device_count })}
+                  </div>
+                </button>
+              </li>
+            ))}
         </ul>
       )}
     </div>

@@ -37,7 +37,7 @@ Air-gapped lab networks in one click: a switch without physical ports, a lab VLA
 
 ### Visual Switch
 
-Every virtual switch as a rack faceplate with its ports, IP address and VLAN-aware badge.
+Every virtual switch as a rack faceplate with its ports, IP address and VLAN-aware badge. Network groups pills above the faceplates show the same groups as Compute Manager; click one to open Network Architect zoomed into it.
 
 1. Click a port to open the Port Inspector.
 2. Press Edit IP / Switch to change addresses.

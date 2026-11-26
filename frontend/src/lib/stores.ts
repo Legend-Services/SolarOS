@@ -158,6 +158,7 @@ export function activateApp(id: AppId) {
 export interface Intents {
   files?: string; // File Station path
   compute?: "vm" | "lxc" | "iso" | "docker"; // open a wizard, the ISO tab or the Docker tab
+  architect?: string; // Network Architect: zoom into this compute / network group id
   storage?: "pool" | "dataset" | "pools" | "disks" | "benchmark" | "snapshots"; // a dialog or a tab
   controlpanel?: "security" | "network" | "appearance" | "automation" | "hardware" | "power";
   help?: "ask" | "fix" | "bios" | "tutorials" | "faq" | "manual" | Omit<Extract<NavTarget, { kind: "help" }>, "kind">;
@@ -178,7 +179,7 @@ export function navigate(t: NavTarget) {
 }
 
 /** Apps that read an intent; the others are just opened. */
-export const INTENT_APPS: AppId[] = ["files", "compute", "storage", "controlpanel", "help", "netservices", "backup", "shares", "settings"];
+export const INTENT_APPS: AppId[] = ["files", "compute", "architect", "storage", "controlpanel", "help", "netservices", "backup", "shares", "settings"];
 
 /** Open an app, deep-linking into a tab or dialog when it supports one. */
 export function openLink(app: AppId, intent?: Intents[keyof Intents]) {

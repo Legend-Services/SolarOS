@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowRightLeft, Container, FlaskConical, Monitor, MonitorPlay, Play, Plus, Power, RotateCw, Search, Server, ShieldCheck, SlidersHorizontal, Square, SquareTerminal, Wand2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { ArrowRightLeft, Container, FlaskConical, Monitor, MonitorPlay, Play, Plus, Power, RotateCw, Search, Server, ShieldCheck, SlidersHorizontal, Square, SquareTerminal, Tag, Wand2 } from "lucide-react";
 import { api } from "../lib/api";
 import type { Guest } from "../lib/types";
 import { bytes, percent, uptime } from "../lib/format";
@@ -23,6 +23,7 @@ import GuestWizard, { type GuestKind } from "./GuestWizard";
 import IsoLibrary from "./IsoLibrary";
 import GuestDrawer from "./GuestDrawer";
 import { Bar } from "../components/charts";
+import { AssignGroupModal, ComputeGroupSection, GroupMemberInfo, GroupModal, guestKey, useComputeGroups, type ComputeGroup } from "../components/compute/ComputeGroupSection";
 
 type Filter = "all" | "qemu" | "lxc" | "seats";
 type Action = "start" | "shutdown" | "stop" | "reboot";
@@ -53,6 +54,13 @@ export default function ComputeManager() {
   const [haFor, setHaFor] = useState<Workload | null>(null);
   const { t } = useTranslation();
   const [layout] = useAppView("compute");
+  const [mode, setMode] = useState<"grouped" | "flat">(() => (localStorage.getItem("solardeck-compute-mode") === "flat" ? "flat" : "grouped"));
+  useEffect(() => localStorage.setItem("solardeck-compute-mode", mode), [mode]);
+  const [groupFilter, setGroupFilter] = useState<"all" | "network" | "custom">("all");
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const [groupModal, setGroupModal] = useState<ComputeGroup | "new" | null>(null);
+  const [assignFor, setAssignFor] = useState<Guest | null>(null);
+  const { groups, reload: reloadGroups } = useComputeGroups();
   const intent = useIntent((s) => s.compute);
   const takeIntent = useIntent((s) => s.take);
   useEffect(() => {
@@ -96,6 +104,15 @@ export default function ComputeManager() {
         (!q || g.name.toLowerCase().includes(q) || String(g.vmid).includes(q)),
     );
   }, [all, filter, query, hostFilter]);
+
+  // Grouped view: every group that has a member left after the type / host / search filters (empty network groups are hidden).
+  const visibleGroups = useMemo(() => {
+    const byKey = new Map(shown.map((g) => [guestKey(g.type, g.vmid), g]));
+    return (groups ?? [])
+      .filter((g) => groupFilter === "all" || g.source === groupFilter)
+      .map((group) => ({ group, list: group.members.map((m) => byKey.get(guestKey(m.guest_type, m.guest_id))).filter((g): g is Workload => !!g) }))
+      .filter(({ group, list }) => list.length > 0 || (group.source === "custom" && !query.trim() && filter === "all"));
+  }, [groups, shown, groupFilter, query, filter]);
 
   const run = async (g: Guest, action: Action) => {
     if (action === "stop" && !window.confirm(`Force stop ${g.name} (${g.vmid})? Unsaved data in the guest may be lost.`)) return;
@@ -155,10 +172,135 @@ export default function ComputeManager() {
         <button className="btn text-rose-300" disabled={b || !running} onClick={() => run(g, "stop")} title="Force stop">
           <Square size={12} /> Force Stop
         </button>
+        <button className="btn" onClick={() => setAssignFor(g)} title={t("grp.assign")}>
+          <Tag size={12} /> {t("grp.assign")}
+        </button>
         {clusterActions(g)}
       </>
     );
   };
+
+  const renderGuests = (list: Workload[], info?: (g: Workload) => ReactNode) => (
+    <>
+        {layout === "grid" ? (
+          <div className="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-3">
+            {guests === null && <p className="text-sm text-slate-400">Loading…</p>}
+            {guests && list.length === 0 && <p className="text-sm text-slate-400">No guests match.</p>}
+            {list.map((g) => {
+              const running = g.status === "running";
+              const cpu = g.cpu * 100;
+              return (
+                <article key={`${g.host}-${g.type}-${g.vmid}`} className="glass-soft flex flex-col gap-3 rounded-2xl p-4">
+                  <div className="flex items-start gap-3">
+                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ring-white/10 ${g.type === "qemu" ? "bg-sky-400/15 text-sky-300" : "bg-violet-400/15 text-violet-300"}`}>
+                      {g.type === "qemu" ? <Monitor size={18} /> : <Container size={18} />}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <button className="block max-w-full truncate text-sm font-semibold text-slate-100 hover:text-sky-200 hover:underline" onClick={() => (clustered && g.host !== cluster?.self ? setHaFor(g) : setEditing(g))} title="Open guest details">
+                        {g.name}
+                      </button>
+                      <div className="text-[11px] text-slate-500">
+                        {g.vmid} · {g.type === "qemu" ? "Virtual machine" : "Container"} · {running ? `up ${uptime(g.uptime)}` : "not running"}
+                      </div>
+                      {clustered && <HostBadge host={g.host} ha={g.ha} />}
+                      {info?.(g)}
+                    </div>
+                    <GlassBadge tone={running ? "success" : "neutral"}>{g.status.toUpperCase()}</GlassBadge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-[11px] text-slate-400 tabular-nums">
+                    <div>
+                      <Bar value={cpu} />
+                      <div className="mt-1">CPU {cpu.toFixed(1)}% · {g.maxcpu} vCPU</div>
+                    </div>
+                    <div>
+                      <Bar value={percent(g.mem, g.maxmem)} className="bg-violet-400" />
+                      <div className="mt-1">
+                        {bytes(g.mem)} / {bytes(g.maxmem)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1">{actions(g)}</div>
+                </article>
+              );
+            })}
+          </div>
+        ) : (
+        <table className="w-full min-w-[900px] text-left text-xs">
+          <thead className="sticky top-0 bg-slate-900/90 text-slate-400 backdrop-blur">
+            <tr>
+              <th className="px-4 py-2 font-medium">Guest</th>
+              <th className="px-2 py-2 font-medium">Status</th>
+              <th className="w-36 px-2 py-2 font-medium">CPU</th>
+              <th className="w-40 px-2 py-2 font-medium">Memory</th>
+              <th className="px-2 py-2 font-medium">Uptime</th>
+              <th className="px-4 py-2 text-right font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {guests === null && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                  Loading…
+                </td>
+              </tr>
+            )}
+            {guests && list.length === 0 && (
+              <tr>
+                <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                  No guests match.
+                </td>
+              </tr>
+            )}
+            {list.map((g) => {
+              const running = g.status === "running";
+              const cpu = g.cpu * 100;
+              return (
+                <tr key={`${g.host}-${g.type}-${g.vmid}`} className="border-t border-white/5 hover:bg-white/5">
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-2">
+                      {g.type === "qemu" ? <Monitor size={15} className="text-sky-300" /> : <Container size={15} className="text-violet-300" />}
+                      <div>
+                        <button className="font-medium text-slate-100 hover:text-sky-200 hover:underline" onClick={() => (clustered && g.host !== cluster?.self ? setHaFor(g) : setEditing(g))} title="Open guest details">
+                          {g.name}
+                        </button>
+                        <div className="text-[11px] text-slate-500">
+                          {g.vmid} · {g.type === "qemu" ? "VM" : "LXC"}
+                        </div>
+                        {clustered && <HostBadge host={g.host} ha={g.ha} />}
+                      {info?.(g)}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-2">
+                    <span className={`inline-flex items-center gap-1.5 ${running ? "text-emerald-300" : "text-slate-400"}`}>
+                      <span className={`h-1.5 w-1.5 rounded-full ${running ? "bg-emerald-400" : "bg-slate-500"}`} />
+                      {g.status}
+                    </span>
+                  </td>
+                  <td className="px-2">
+                    <Bar value={cpu} />
+                    <div className="mt-1 text-[11px] text-slate-400 tabular-nums">
+                      {cpu.toFixed(1)}% of {g.maxcpu} vCPU
+                    </div>
+                  </td>
+                  <td className="px-2">
+                    <Bar value={percent(g.mem, g.maxmem)} className="bg-violet-400" />
+                    <div className="mt-1 text-[11px] text-slate-400 tabular-nums">
+                      {bytes(g.mem)} / {bytes(g.maxmem)}
+                    </div>
+                  </td>
+                  <td className="px-2 text-slate-300 tabular-nums">{running ? uptime(g.uptime) : "—"}</td>
+                  <td className="px-4">
+                    <div className="flex justify-end gap-1">{actions(g)}</div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        )}
+    </>
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -226,6 +368,25 @@ export default function ComputeManager() {
         </div>
         {filter !== "seats" && (
           <>
+        <Segmented value={mode} onChange={setMode} options={[{ id: "grouped", label: t("grp.viewGrouped") }, { id: "flat", label: t("grp.viewFlat") }]} />
+        {mode === "grouped" && (
+          <div className="flex items-center gap-1" role="tablist" aria-label={t("grp.filterAll")}>
+            {(["all", "network", "custom"] as const).map((f) => (
+              <button
+                key={f}
+                role="tab"
+                aria-selected={groupFilter === f}
+                onClick={() => setGroupFilter(f)}
+                className={`rounded-full px-3 py-0.5 text-[11px] ring-1 ring-inset ${groupFilter === f ? "bg-sky-400/20 text-white ring-sky-300/40" : "text-slate-400 ring-white/10 hover:text-slate-200"}`}
+              >
+                {t(f === "all" ? "grp.filterAll" : f === "network" ? "grp.filterNetworks" : "grp.filterCustom")}
+              </button>
+            ))}
+          </div>
+        )}
+        <GlassButton size="xs" onClick={() => setGroupModal("new")}>
+          <Plus size={12} /> {t("grp.create")}
+        </GlassButton>
         <span className="ml-auto">
           <ViewToggle app="compute" />
         </span>
@@ -266,120 +427,28 @@ export default function ComputeManager() {
         </div>
       )}
       <div className="min-h-0 flex-1 overflow-auto">
-        {layout === "grid" ? (
-          <div className="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-3">
-            {guests === null && <p className="text-sm text-slate-400">Loading…</p>}
-            {guests && shown.length === 0 && <p className="text-sm text-slate-400">No guests match.</p>}
-            {shown.map((g) => {
-              const running = g.status === "running";
-              const cpu = g.cpu * 100;
-              return (
-                <article key={`${g.host}-${g.type}-${g.vmid}`} className="glass-soft flex flex-col gap-3 rounded-2xl p-4">
-                  <div className="flex items-start gap-3">
-                    <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ring-white/10 ${g.type === "qemu" ? "bg-sky-400/15 text-sky-300" : "bg-violet-400/15 text-violet-300"}`}>
-                      {g.type === "qemu" ? <Monitor size={18} /> : <Container size={18} />}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <button className="block max-w-full truncate text-sm font-semibold text-slate-100 hover:text-sky-200 hover:underline" onClick={() => (clustered && g.host !== cluster?.self ? setHaFor(g) : setEditing(g))} title="Open guest details">
-                        {g.name}
-                      </button>
-                      <div className="text-[11px] text-slate-500">
-                        {g.vmid} · {g.type === "qemu" ? "Virtual machine" : "Container"} · {running ? `up ${uptime(g.uptime)}` : "not running"}
-                      </div>
-                      {clustered && <HostBadge host={g.host} ha={g.ha} />}
-                    </div>
-                    <GlassBadge tone={running ? "success" : "neutral"}>{g.status.toUpperCase()}</GlassBadge>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 text-[11px] text-slate-400 tabular-nums">
-                    <div>
-                      <Bar value={cpu} />
-                      <div className="mt-1">CPU {cpu.toFixed(1)}% · {g.maxcpu} vCPU</div>
-                    </div>
-                    <div>
-                      <Bar value={percent(g.mem, g.maxmem)} className="bg-violet-400" />
-                      <div className="mt-1">
-                        {bytes(g.mem)} / {bytes(g.maxmem)}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-1">{actions(g)}</div>
-                </article>
-              );
-            })}
-          </div>
+        {mode === "flat" ? (
+          renderGuests(shown)
         ) : (
-        <table className="w-full min-w-[900px] text-left text-xs">
-          <thead className="sticky top-0 bg-slate-900/90 text-slate-400 backdrop-blur">
-            <tr>
-              <th className="px-4 py-2 font-medium">Guest</th>
-              <th className="px-2 py-2 font-medium">Status</th>
-              <th className="w-36 px-2 py-2 font-medium">CPU</th>
-              <th className="w-40 px-2 py-2 font-medium">Memory</th>
-              <th className="px-2 py-2 font-medium">Uptime</th>
-              <th className="px-4 py-2 text-right font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {guests === null && (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
-                  Loading…
-                </td>
-              </tr>
-            )}
-            {guests && shown.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
-                  No guests match.
-                </td>
-              </tr>
-            )}
-            {shown.map((g) => {
-              const running = g.status === "running";
-              const cpu = g.cpu * 100;
-              return (
-                <tr key={`${g.host}-${g.type}-${g.vmid}`} className="border-t border-white/5 hover:bg-white/5">
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center gap-2">
-                      {g.type === "qemu" ? <Monitor size={15} className="text-sky-300" /> : <Container size={15} className="text-violet-300" />}
-                      <div>
-                        <button className="font-medium text-slate-100 hover:text-sky-200 hover:underline" onClick={() => (clustered && g.host !== cluster?.self ? setHaFor(g) : setEditing(g))} title="Open guest details">
-                          {g.name}
-                        </button>
-                        <div className="text-[11px] text-slate-500">
-                          {g.vmid} · {g.type === "qemu" ? "VM" : "LXC"}
-                        </div>
-                        {clustered && <HostBadge host={g.host} ha={g.ha} />}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-2">
-                    <span className={`inline-flex items-center gap-1.5 ${running ? "text-emerald-300" : "text-slate-400"}`}>
-                      <span className={`h-1.5 w-1.5 rounded-full ${running ? "bg-emerald-400" : "bg-slate-500"}`} />
-                      {g.status}
-                    </span>
-                  </td>
-                  <td className="px-2">
-                    <Bar value={cpu} />
-                    <div className="mt-1 text-[11px] text-slate-400 tabular-nums">
-                      {cpu.toFixed(1)}% of {g.maxcpu} vCPU
-                    </div>
-                  </td>
-                  <td className="px-2">
-                    <Bar value={percent(g.mem, g.maxmem)} className="bg-violet-400" />
-                    <div className="mt-1 text-[11px] text-slate-400 tabular-nums">
-                      {bytes(g.mem)} / {bytes(g.maxmem)}
-                    </div>
-                  </td>
-                  <td className="px-2 text-slate-300 tabular-nums">{running ? uptime(g.uptime) : "—"}</td>
-                  <td className="px-4">
-                    <div className="flex justify-end gap-1">{actions(g)}</div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+          <div className="space-y-3 p-3">
+            {groups === null && <p className="text-sm text-slate-400">{t("common.loading")}</p>}
+            {groups && visibleGroups.length === 0 && <p className="text-sm text-slate-400">{t("grp.noGroups")}</p>}
+            {visibleGroups.map(({ group, list }) => (
+              <ComputeGroupSection
+                key={group.group_id}
+                group={group}
+                open={!collapsed.has(group.group_id)}
+                onToggle={() => setCollapsed((c) => (c.has(group.group_id) ? new Set([...c].filter((x) => x !== group.group_id)) : new Set([...c, group.group_id])))}
+                onEdit={group.source === "custom" ? () => setGroupModal(group) : undefined}
+                onChanged={reloadGroups}
+              >
+                {renderGuests(list, (g) => {
+                  const m = group.members.find((x) => guestKey(x.guest_type, x.guest_id) === guestKey(g.type, g.vmid));
+                  return m && <GroupMemberInfo member={m} groups={groups ?? []} />;
+                })}
+              </ComputeGroupSection>
+            ))}
+          </div>
         )}
       </div>
         </>
@@ -389,6 +458,8 @@ export default function ComputeManager() {
       <GuestDrawer guest={editing} onClose={() => setEditing(null)} onSaved={load} clustered={clustered} />
       <MigrateModal guest={migrating} onClose={() => (setMigrating(null), load(), loadCluster())} />
       <HaModal guest={haFor} onClose={() => (setHaFor(null), loadCluster())} />
+      <GroupModal open={!!groupModal} group={groupModal === "new" ? null : groupModal} guests={all} groups={groups ?? []} onClose={() => setGroupModal(null)} onSaved={reloadGroups} />
+      <AssignGroupModal guest={assignFor} groups={groups ?? []} onClose={() => setAssignFor(null)} onSaved={reloadGroups} onCreate={() => (setAssignFor(null), setGroupModal("new"))} />
       <GuestWizard kind={wizard} open={!!wizard} onClose={() => setWizard(null)} onCreated={load} />
       <ZeroTouchWizard open={zeroTouch} onClose={() => setZeroTouch(false)} onCreated={load} />
       <GlassModal open={labs} onClose={() => (setLabs(false), load())} width="max-w-3xl" title={t("lab.title")}>

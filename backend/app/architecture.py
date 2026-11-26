@@ -177,7 +177,18 @@ async def overview():
                 for m in next(x for x in labs if x["id"] == n["network_id"][4:])["members"]]}
                 for n in nets if n["kind"] == "lab"],
             "networks": nets, "guests": guests, "scans": {k: _brief(v) for k, v in _all_scans().items()},
+            "semantic_groups": _semantic(state, rows, host),
             "driver": settings.hypervisor_driver, "node": settings.node_name}
+
+
+def _semantic(state: dict, rows: list[dict], host: dict) -> list[dict]:
+    """Network / VLAN / lab and custom compute groups for the semantic zoom levels (members as ids + the NIC used there)."""
+    from . import compute_groups  # lazy: compute_groups imports this module
+    keep = ("group_id", "source", "kind", "name", "color", "linked_network_id", "vlan_id", "bridge", "subnet_cidr",
+            "gateway_ip", "dhcp_active", "dns_servers", "device_count", "total_guests", "running_guests")
+    return [{**{k: g[k] for k in keep}, "members": [{"guest_type": m["guest_type"], "guest_id": m["guest_id"],
+             "interfaces": m["matched_interfaces"], "group_count": len(m["all_group_ids"])} for m in g["members"]]}
+            for g in compute_groups.from_sources(state, rows, host)]
 
 
 async def _vendors(macs: list[str]) -> dict[str, str]:
