@@ -1,6 +1,6 @@
 import {
   Activity, ArchiveRestore, BatteryCharging, BrainCircuit, Boxes, Cable, Container, Cpu, Database, FolderSync, HardDrive, Image, KeyRound, Layers, MonitorCog,
-  MonitorSmartphone, Network, Package, Plug, Route, Server, Share2, ShieldAlert, Users, Waypoints, Workflow, type LucideIcon,
+  MonitorSmartphone, Network, Package, Plug, Route, Server, Share2, ShieldAlert, Ship, Users, Waypoints, Workflow, type LucideIcon,
 } from "lucide-react";
 import type { AppId } from "../apps/registry";
 import type { ModuleId } from "../apps/settings/modules";
@@ -24,6 +24,7 @@ export const FEATURES = {
   network_architect: { domain: "network", icon: Share2 },
   compute_vms: { domain: "compute", icon: Server },
   compute_containers: { domain: "compute", icon: Container },
+  docker_engine: { domain: "compute", icon: Ship },
   virtual_hardware: { domain: "compute", icon: MonitorCog },
   multiseat: { domain: "compute", icon: MonitorSmartphone },
   clustering: { domain: "compute", icon: Boxes },
@@ -100,7 +101,7 @@ export const APP_FEATURES: Partial<Record<AppId, FeatureKey[]>> = {
   appcenter: ["app_center"],
   architect: ["network_architect"],
   "local-ai": ["local_ai"],
-  compute: ["compute_vms", "compute_containers"],
+  compute: ["compute_vms", "compute_containers", "docker_engine"],
 };
 
 const any = (e: Enabled, ks?: FeatureKey[]) => !ks || ks.some((k) => on(e, k));
@@ -113,7 +114,7 @@ export const only = (keep: readonly FeatureKey[]): Record<FeatureKey, boolean> =
 
 export const PRESETS = {
   minimal: ["compute_vms", "compute_containers", "zfs_storage", "backups_snapshots", "live_telemetry"],
-  home: ["compute_containers", "zfs_storage", "smb_shares", "nfs_webdav", "backups_snapshots", "live_telemetry", "app_center", "wireguard_server", "reverse_proxy", "ups_power", "automation", "image_hub"],
+  home: ["compute_containers", "zfs_storage", "smb_shares", "nfs_webdav", "backups_snapshots", "live_telemetry", "app_center", "wireguard_server", "reverse_proxy", "ups_power", "automation", "image_hub", "docker_engine"],
   lab: FEATURE_KEYS.filter((k) => k !== "multiseat" && k !== "oob_bmc"),
   all: FEATURE_KEYS,
 } satisfies Record<string, readonly FeatureKey[]>;
@@ -124,7 +125,7 @@ export type PresetId = keyof typeof PRESETS;
 export type RoleId = "storage" | "virtualization" | "multiseat" | "cluster" | "gateway" | "ai" | "other";
 export const ROLES: { id: RoleId; features: FeatureKey[]; apps: string[] }[] = [
   { id: "storage", features: ["zfs_storage", "smb_shares", "nfs_webdav", "backups_snapshots", "offsite_dr", "compute_containers", "app_center", "live_telemetry"], apps: ["jellyfin"] },
-  { id: "virtualization", features: ["compute_vms", "compute_containers", "image_hub", "virtual_switch", "vlan_dhcp", "backups_snapshots", "zfs_storage", "live_telemetry", "virtual_hardware", "network_architect"], apps: [] },
+  { id: "virtualization", features: ["compute_vms", "compute_containers", "image_hub", "virtual_switch", "vlan_dhcp", "backups_snapshots", "zfs_storage", "live_telemetry", "virtual_hardware", "network_architect", "docker_engine"], apps: [] },
   { id: "multiseat", features: ["compute_vms", "multiseat", "gpu_management", "virtual_hardware", "live_telemetry"], apps: [] },
   { id: "cluster", features: ["clustering", "compute_vms", "compute_containers", "backups_snapshots", "zfs_storage", "oob_bmc", "live_telemetry"], apps: [] },
   { id: "gateway", features: ["virtual_switch", "vlan_dhcp", "wireguard_server", "wireguard_client", "reverse_proxy", "vlan_firewall", "network_architect"], apps: ["adguard-home"] },
@@ -132,7 +133,7 @@ export const ROLES: { id: RoleId; features: FeatureKey[]; apps: string[] }[] = [
   { id: "other", features: [], apps: [] },
 ];
 /** Apps the wizard offers (App Center catalog ids). */
-export const WIZARD_APPS = ["local-ai", "jellyfin", "immich", "docker-portainer", "adguard-home", "nginx-proxy-manager", "samba"];
+export const WIZARD_APPS = ["local-ai", "jellyfin", "immich", "adguard-home", "portainer"];
 /** Features every role keeps (live status of the host). */
 export const BASE_FEATURES: FeatureKey[] = ["live_telemetry", "automation"];
 

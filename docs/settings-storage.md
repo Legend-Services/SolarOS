@@ -146,14 +146,15 @@ Share folders with every computer and phone on your network over SMB, with per-u
 
 1. Open Settings › Storage & Data › Shared Folders & SMB (or press “Open This Setting / App →” above).
 2. Press New shared folder, choose a path and a name.
-3. Add share users under Users and give them read or write access.
-4. Connect from another computer with the address shown on the share card.
+3. Or use a Quick preset: Public guest share creates a read-only 'public' share anyone on the network can open without a password; Storage share creates a read/write 'storage' share of the whole storage root for SMB users, with a recycle bin.
+4. Add share users under Users and give them read or write access.
+5. Connect from another computer with the address shown on the share card.
 
 ### SMB Shared Folders
 
-SMB shared folders visible to every computer and phone on the network.
+SMB shared folders visible to every computer and phone on the network, with one-click presets for a read-only guest share and an authenticated storage share.
 
-1. Press New shared folder and choose a path.
+1. Press New shared folder and choose a path, or press a Quick preset.
 2. Copy the address on the card to connect from another computer.
 
 ### Share Users

@@ -147,6 +147,10 @@ export interface AppInstance {
   status: "running" | "stopped" | "installing" | string;
   cores: number;
   memory_mb: number;
+  /** Set on instances of an app that became a built-in feature (installed on an older version). */
+  legacy?: boolean;
+  native_feature?: "smb_shares" | "reverse_proxy" | "docker_engine";
+  badge?: string;
 }
 
 /* ---------------- Local AI Studio ---------------- */

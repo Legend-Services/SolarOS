@@ -157,7 +157,7 @@ export function activateApp(id: AppId) {
 /** One-shot deep links: the target app reads its entry on mount / change and clears it with `take`. */
 export interface Intents {
   files?: string; // File Station path
-  compute?: "vm" | "lxc" | "iso"; // open a wizard or the ISO tab
+  compute?: "vm" | "lxc" | "iso" | "docker"; // open a wizard, the ISO tab or the Docker tab
   storage?: "pool" | "dataset" | "pools" | "disks" | "benchmark" | "snapshots"; // a dialog or a tab
   controlpanel?: "security" | "network" | "appearance" | "automation" | "hardware" | "power";
   help?: "ask" | "fix" | "bios" | "tutorials" | "faq" | "manual" | Omit<Extract<NavTarget, { kind: "help" }>, "kind">;

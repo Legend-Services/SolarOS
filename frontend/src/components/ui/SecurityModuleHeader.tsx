@@ -6,7 +6,7 @@ import { useTranslation, type TKey } from "../../i18n";
 import { GlassBadge, GlassButton, GlassSelect, GlassSwitch, Notice, Segmented } from "./GlassKit";
 import { OperationProgressCard, useJobProgress } from "./OperationProgressCard";
 
-export type ModuleKey = "reverse_proxy" | "offsite_backup" | "image_hub" | "ups_power" | "oob_bmc" | "vlan_firewall" | "storage_protocols" | "rbac_users";
+export type ModuleKey = "reverse_proxy" | "offsite_backup" | "image_hub" | "ups_power" | "oob_bmc" | "vlan_firewall" | "storage_protocols" | "rbac_users" | "docker_engine";
 type Runtime = "container" | "host_native";
 type Isolation = "management" | "vlan" | "dmz" | "isolated_lab";
 const HARDENING = ["read_only_rootfs", "drop_capabilities", "non_root_user", "auto_firewall_rules", "audit_logging"] as const;
@@ -213,7 +213,7 @@ function DeployProgress({ job, onDone, onDismiss }: { job: string; onDone: (ok: 
 /** Settings > Privilege & Security > Security-by-Design Modules: every module's header in one list. */
 export function PlatformModulesOverview() {
   const { t } = useTranslation();
-  const all: ModuleKey[] = ["reverse_proxy", "offsite_backup", "image_hub", "ups_power", "oob_bmc", "vlan_firewall", "storage_protocols", "rbac_users"];
+  const all: ModuleKey[] = ["reverse_proxy", "offsite_backup", "image_hub", "ups_power", "oob_bmc", "vlan_firewall", "storage_protocols", "rbac_users", "docker_engine"];
   return (
     <div className="space-y-3">
       <p className="text-xs text-slate-400">{t("sdm.overviewIntro")}</p>

@@ -5,6 +5,7 @@ import recoveryI18n from "./modules/recovery";
 import infraI18n from "./modules/infra";
 import netstoreI18n from "./modules/netstore";
 import onboardingI18n from "./modules/onboarding";
+import dockerI18n from "./modules/docker";
 
 export const de: Dict = {
   // Common
@@ -1543,4 +1544,5 @@ export const de: Dict = {
   ...infraI18n.de,
   ...netstoreI18n.de,
   ...onboardingI18n.de,
+  ...dockerI18n.de,
 };

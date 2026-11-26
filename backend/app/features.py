@@ -34,6 +34,7 @@ CATALOG: list[tuple[str, str, str | None]] = [
     ("network_architect", "network", None),
     ("compute_vms", "compute", None),
     ("compute_containers", "compute", None),
+    ("docker_engine", "compute", None),
     ("virtual_hardware", "compute", None),
     ("multiseat", "compute", None),
     ("clustering", "compute", None),

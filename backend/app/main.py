@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager, suppress
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from . import (apps, architecture, audit_log, auth, automation, branding, bug_report, capabilities, cluster, console, disaster_recovery, disk_benchmark, domains, features, files, hardware_admin, help_center, host_services, host_ssh, hypervisor, image_hub, local_ai, multiseat, net_services, network_switch, notifications, onboarding,
+from . import (apps, architecture, audit_log, auth, automation, branding, bug_report, capabilities, cluster, console, disaster_recovery, disk_benchmark, docker_runtime, domains, features, files, hardware_admin, help_center, host_services, host_ssh, hypervisor, image_hub, local_ai, multiseat, net_services, network_switch, notifications, onboarding,
                oob_control, platform_modules, provisioning, rbac, reverse_proxy, schedules, security, shares, storage_admin, storage_extensions, system, system_extra, task_progress,
                telemetry, themes, ups_power, updater, virtual_hardware, vlan_firewall)
 from .config import settings
@@ -50,7 +50,7 @@ app.include_router(task_progress.router)
 for module in (host_ssh, net_services, hardware_admin, help_center, disk_benchmark, updater, bug_report, local_ai, domains,
                themes, branding, automation, security, host_services, network_switch, virtual_hardware, multiseat, cluster, architecture,
                platform_modules, reverse_proxy, disaster_recovery, image_hub, ups_power, oob_control, vlan_firewall,
-               storage_extensions, rbac, features, onboarding):
+               storage_extensions, rbac, features, onboarding, docker_runtime):
     app.include_router(module.router)
 app.include_router(themes.public)
 app.include_router(virtual_hardware.public)

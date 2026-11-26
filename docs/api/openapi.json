@@ -6139,6 +6139,60 @@
     }
    }
   },
+  "/api/shares/presets/{preset}": {
+   "post": {
+    "tags": [
+     "shares"
+    ],
+    "summary": "Create Preset",
+    "description": "Create (or reset) a preset share; `users` limits the storage share to those SMB users.",
+    "operationId": "create_preset_api_shares_presets__preset__post",
+    "parameters": [
+     {
+      "name": "preset",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "enum": [
+        "public",
+        "storage"
+       ],
+       "type": "string",
+       "title": "Preset"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_create_preset_api_shares_presets__preset__post"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/shares/{name}": {
    "delete": {
     "tags": [
@@ -13253,7 +13307,8 @@
         "oob_bmc",
         "vlan_firewall",
         "storage_protocols",
-        "rbac_users"
+        "rbac_users",
+        "docker_engine"
        ],
        "type": "string",
        "title": "Module Id"
@@ -13301,7 +13356,8 @@
         "oob_bmc",
         "vlan_firewall",
         "storage_protocols",
-        "rbac_users"
+        "rbac_users",
+        "docker_engine"
        ],
        "type": "string",
        "title": "Module Id"
@@ -13362,7 +13418,8 @@
         "oob_bmc",
         "vlan_firewall",
         "storage_protocols",
-        "rbac_users"
+        "rbac_users",
+        "docker_engine"
        ],
        "type": "string",
        "title": "Module Id"
@@ -13412,7 +13469,8 @@
         "oob_bmc",
         "vlan_firewall",
         "storage_protocols",
-        "rbac_users"
+        "rbac_users",
+        "docker_engine"
        ],
        "type": "string",
        "title": "Module Id"
@@ -16382,6 +16440,168 @@
     }
    }
   },
+  "/api/docker/status": {
+   "get": {
+    "tags": [
+     "docker"
+    ],
+    "summary": "Status",
+    "operationId": "status_api_docker_status_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/docker/enable": {
+   "post": {
+    "tags": [
+     "docker"
+    ],
+    "summary": "Enable",
+    "description": "Switch the module on and install Docker Engine & Compose where it runs. Returns the job to follow.",
+    "operationId": "enable_api_docker_enable_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "anyOf": [
+         {
+          "$ref": "#/components/schemas/EnableBody"
+         },
+         {
+          "type": "null"
+         }
+        ],
+        "title": "Body"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/docker/containers": {
+   "get": {
+    "tags": [
+     "docker"
+    ],
+    "summary": "Containers",
+    "operationId": "containers_api_docker_containers_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/docker/containers/{container_id}/{action}": {
+   "post": {
+    "tags": [
+     "docker"
+    ],
+    "summary": "Container Action",
+    "operationId": "container_action_api_docker_containers__container_id___action__post",
+    "parameters": [
+     {
+      "name": "action",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "enum": [
+        "start",
+        "stop",
+        "restart",
+        "pause",
+        "unpause",
+        "remove"
+       ],
+       "type": "string",
+       "title": "Action"
+      }
+     },
+     {
+      "name": "container_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$",
+       "title": "Container Id"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/docker/stacks": {
+   "get": {
+    "tags": [
+     "docker"
+    ],
+    "summary": "Stacks",
+    "operationId": "stacks_api_docker_stacks_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/system/themes/wallpapers/{filename}": {
    "get": {
     "tags": [
@@ -17392,6 +17612,22 @@
      "name"
     ],
     "title": "BmcBody"
+   },
+   "Body_create_preset_api_shares_presets__preset__post": {
+    "properties": {
+     "users": {
+      "items": {
+       "type": "string",
+       "pattern": "^[a-z_][a-z0-9_-]{0,31}$"
+      },
+      "type": "array",
+      "maxItems": 50,
+      "title": "Users",
+      "default": []
+     }
+    },
+    "type": "object",
+    "title": "Body_create_preset_api_shares_presets__preset__post"
    },
    "Body_upload_api_files_upload_post": {
     "properties": {
@@ -18832,6 +19068,27 @@
     ],
     "title": "EgpuBody"
    },
+   "EnableBody": {
+    "properties": {
+     "runtime_mode": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "container",
+         "host_native"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Runtime Mode"
+     }
+    },
+    "type": "object",
+    "title": "EnableBody"
+   },
    "FeaturesBody": {
     "properties": {
      "enabled": {
@@ -18839,7 +19096,7 @@
        "type": "boolean"
       },
       "type": "object",
-      "maxProperties": 28,
+      "maxProperties": 29,
       "title": "Enabled"
      }
     },
@@ -24221,7 +24478,7 @@
        "type": "boolean"
       },
       "type": "object",
-      "maxProperties": 28,
+      "maxProperties": 29,
       "title": "Enabled Features",
       "default": {}
      },
@@ -24230,7 +24487,7 @@
        "type": "string"
       },
       "type": "array",
-      "maxItems": 7,
+      "maxItems": 5,
       "title": "Selected App Ids",
       "default": []
      },
