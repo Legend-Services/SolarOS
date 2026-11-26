@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as RPointerEvent, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as RPointerEvent, type ReactNode } from "react";
 import { Boxes, ChevronRight, Cable, Cctv, CircleHelp, Container, Cpu, FlaskConical, Globe, HardDrive, Layers, Maximize2, Monitor, Network, Printer, Radar, RefreshCw, Router, Search, Server, Smartphone, Tag, Tv, Wifi, ZoomIn, ZoomOut } from "lucide-react";
 import { api } from "../lib/api";
 import { ink } from "../lib/format";
@@ -6,6 +6,11 @@ import { useTranslation, type TKey } from "../i18n";
 import { GlassBadge, GlassButton, GlassInput, GlassSelect, Notice, Segmented } from "../components/ui/GlassKit";
 import { useIntentFor } from "../lib/stores";
 import type { Guest } from "../lib/types";
+import { OsiButton, OsiModal, type OsiTarget } from "../components/osi/OsiArchitecturePanel";
+import { osiValues } from "../data/osiModelRegistry";
+
+/** Set while the OSI Architecture toggle is on: node clicks open that node's OSI breakdown instead of navigating. */
+const OsiPick = createContext<((t: OsiTarget) => void) | null>(null);
 import GuestDrawer from "./GuestDrawer";
 
 /* Shapes of /api/architecture (backend/app/architecture.py). */
@@ -266,7 +271,7 @@ function Canvas({ width, height, children, label, crumbs = [], hint, onZoom, fit
 }
 
 /** One schematic box: icon, title, subtitle and optional badges; clickable when `onClick` is given. */
-function NodeBox({ x, y, w = 190, h = 58, icon, title, sub, color = "#7dd3fc", badges = [], dashed, onClick, label }: {
+function NodeBox({ x, y, w = 190, h = 58, icon, title, sub, color = "#7dd3fc", badges = [], dashed, onClick: navigate, label, osi }: {
   x: number;
   y: number;
   w?: number;
@@ -279,7 +284,10 @@ function NodeBox({ x, y, w = 190, h = 58, icon, title, sub, color = "#7dd3fc", b
   dashed?: boolean;
   onClick?: () => void;
   label?: string;
+  osi?: OsiTarget;
 }) {
+  const pick = useContext(OsiPick);
+  const onClick = pick && osi ? () => pick(osi) : navigate;
   const act = onClick ? { "data-node": "", role: "button", tabIndex: 0, "aria-label": label ?? title, onClick, onKeyDown: (e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onClick()) } : { "data-node": "" };
   return (
     <g {...act}>
@@ -390,13 +398,13 @@ function TopTiers({ o, W, L, swAt }: { o: Overview; W: number; L: ReturnType<typ
   return (
     <>
       <Edges edges={edges} />
-      <NodeBox x={L.wan.x} y={L.wan.y} w={NODE_W} icon={<Globe size={14} />} title={t("topo.type.internet")} sub={o.gateways.map((g) => g.ip).join(", ")} color="#38bdf8" />
+      <NodeBox x={L.wan.x} y={L.wan.y} w={NODE_W} icon={<Globe size={14} />} title={t("topo.type.internet")} sub={o.gateways.map((g) => g.ip).join(", ")} color="#38bdf8" osi={{ kind: "wan_uplink", name: t("topo.type.internet"), values: osiValues({ ip: o.gateways.map((g) => `GW ${g.ip}`) }) }} />
       {L.tops.length > 0 && <TierHead y={L.gw[0].y} text={t("arch.colGateways")} />}
       {L.tops.map((it, i) =>
         it.kind === "gw" ? (
-          <NodeBox key={`gw${it.g.ip}`} x={L.gw[i].x} y={L.gw[i].y} w={NODE_W} icon={<Router size={14} />} title={t("arch.gateway", { ip: it.g.ip })} sub={`${it.g.mac ?? ""}${it.g.mac_vendor ? ` · ${it.g.mac_vendor}` : ""}` || it.g.dev} color="#38bdf8" />
+          <NodeBox key={`gw${it.g.ip}`} x={L.gw[i].x} y={L.gw[i].y} w={NODE_W} icon={<Router size={14} />} title={t("arch.gateway", { ip: it.g.ip })} sub={`${it.g.mac ?? ""}${it.g.mac_vendor ? ` · ${it.g.mac_vendor}` : ""}` || it.g.dev} color="#38bdf8" osi={{ kind: "vrouter", name: t("arch.gateway", { ip: it.g.ip }), values: osiValues({ mac: it.g.mac, model: it.g.mac_vendor, ip: it.g.ip, link: it.g.dev }) }} />
         ) : (
-          <NodeBox key={`l${it.l.local_port}`} x={L.gw[i].x} y={L.gw[i].y} w={NODE_W} icon={<Wifi size={14} />} title={it.l.neighbor || t("arch.physicalSwitch")} sub={`${it.l.protocol ?? "LLDP"} · ${it.l.neighbor_port ?? ""}`} color="#94a3b8" />
+          <NodeBox key={`l${it.l.local_port}`} x={L.gw[i].x} y={L.gw[i].y} w={NODE_W} icon={<Wifi size={14} />} title={it.l.neighbor || t("arch.physicalSwitch")} sub={`${it.l.protocol ?? "LLDP"} · ${it.l.neighbor_port ?? ""}`} color="#94a3b8" osi={{ kind: "discovered_device", name: it.l.neighbor || t("arch.physicalSwitch"), values: osiValues({ link: `${it.l.local_port} → ${it.l.neighbor_port ?? "?"}`, model: it.l.protocol ?? "LLDP" }) }} />
         ),
       )}
       <rect x={20} y={L.boxY} width={W - 40} height={L.bottom - L.boxY} rx={14} fill="var(--bp-node-violet)" stroke={ink("#a78bfa")} strokeDasharray={o.mode === "cluster" ? undefined : "5 4"} />
@@ -425,6 +433,7 @@ function TopTiers({ o, W, L, swAt }: { o: Overview; W: number; L: ReturnType<typ
           title={`${h.hostname} · ${t(`arch.hostRole.${h.role}` as TKey)}`}
           sub={`${h.ip_addresses.join(", ") || "—"} · CPU ${h.cpu_pct ?? "—"}% · RAM ${h.ram_pct ?? "—"}%`}
           badges={[{ text: t(`arch.hostStatus.${h.status}` as TKey), on: h.status === "online" }]}
+          osi={{ kind: "host_node", name: h.hostname, values: osiValues({ link: h.status, ip: h.ip_addresses, ports: ["TCP 443"], tls: "HTTPS", app: "SolarDeck" }) }}
         />
       ))}
       {o.uplinks.length > 0 && (
@@ -433,7 +442,7 @@ function TopTiers({ o, W, L, swAt }: { o: Overview; W: number; L: ReturnType<typ
         </text>
       )}
       {o.uplinks.map((u) => (
-        <NodeBox key={u.name} x={L.up[u.name].x} y={L.up[u.name].y} w={NODE_W} icon={<Cable size={14} />} title={u.name} sub={`${u.speed_mbps ? `${u.speed_mbps} Mb/s` : t("arch.noLink")} · ${u.mac}`} color={u.link_up ? "#38bdf8" : "#475569"} />
+        <NodeBox key={u.name} x={L.up[u.name].x} y={L.up[u.name].y} w={NODE_W} icon={<Cable size={14} />} title={u.name} sub={`${u.speed_mbps ? `${u.speed_mbps} Mb/s` : t("arch.noLink")} · ${u.mac}`} color={u.link_up ? "#38bdf8" : "#475569"} osi={{ kind: "physical_nic", name: u.name, values: osiValues({ link: u.speed_mbps ? `${u.speed_mbps} Mb/s` : t("arch.noLink"), mac: u.mac, model: u.bridge }) }} />
       ))}
     </>
   );
@@ -519,13 +528,14 @@ function Blueprint({ o, onDrill }: { o: Overview; onDrill: (id: string) => void 
             badges={switchBadges(o, it)}
             onClick={() => onDrill(it.name)}
             label={t("arch.drillInto", { name: it.name })}
+            osi={{ kind: "vswitch", name: it.name, values: osiValues({ link: it.member_ports.join(", "), vlan: it.vlan_aware ? "802.1Q" : null, ip: it.ipv4_cidr }) }}
           />
       ))}
       {segs.map((it, i) =>
         it.kind === "vlan" ? (
-          <NodeBox key={it.v.network_id} x={sg.pos[i].x} y={sg.pos[i].y} w={NODE_W} h={66} icon={<Layers size={14} />} title={`VLAN ${it.v.vlan_id} · ${it.v.name}`} sub={it.v.subnet_cidr ?? t("arch.noSubnet")} color={it.v.color || "#c084fc"} badges={[{ text: "DHCP", on: it.v.dhcp_active }, { text: "DNS", on: it.v.dns_servers.length > 0 }]} onClick={() => onDrill(it.v.network_id)} label={t("arch.drillInto", { name: it.v.name })} />
+          <NodeBox key={it.v.network_id} x={sg.pos[i].x} y={sg.pos[i].y} w={NODE_W} h={66} icon={<Layers size={14} />} osi={{ kind: "vlan", name: `VLAN ${it.v.vlan_id} · ${it.v.name}`, values: osiValues({ vlan: it.v.vlan_id, model: it.v.bridge, ip: [it.v.subnet_cidr, it.v.gateway_ip && `GW ${it.v.gateway_ip}`] }) }} title={`VLAN ${it.v.vlan_id} · ${it.v.name}`} sub={it.v.subnet_cidr ?? t("arch.noSubnet")} color={it.v.color || "#c084fc"} badges={[{ text: "DHCP", on: it.v.dhcp_active }, { text: "DNS", on: it.v.dns_servers.length > 0 }]} onClick={() => onDrill(it.v.network_id)} label={t("arch.drillInto", { name: it.v.name })} />
         ) : (
-          <NodeBox key={it.l.network_id} x={sg.pos[i].x} y={sg.pos[i].y} w={NODE_W} h={66} dashed icon={<FlaskConical size={14} />} title={`${t("arch.lab")} · ${it.l.name}`} sub={it.l.subnet_cidr ?? ""} color="#f59e0b" badges={[{ text: "DHCP", on: it.l.dhcp_active }]} onClick={() => onDrill(it.l.network_id)} label={t("arch.drillInto", { name: it.l.name })} />
+          <NodeBox key={it.l.network_id} x={sg.pos[i].x} y={sg.pos[i].y} w={NODE_W} h={66} dashed icon={<FlaskConical size={14} />} osi={{ kind: "vswitch", name: `${t("arch.lab")} · ${it.l.name}`, values: osiValues({ model: it.l.bridge, ip: it.l.subnet_cidr }) }} title={`${t("arch.lab")} · ${it.l.name}`} sub={it.l.subnet_cidr ?? ""} color="#f59e0b" badges={[{ text: "DHCP", on: it.l.dhcp_active }]} onClick={() => onDrill(it.l.network_id)} label={t("arch.drillInto", { name: it.l.name })} />
         ),
       )}
       {guests.map((it, i) => (
@@ -539,6 +549,7 @@ function Blueprint({ o, onDrill }: { o: Overview; onDrill: (id: string) => void 
           title={`${it.name}${it.ha ? " · HA" : ""}`}
           sub={`${it.interfaces.map((i) => i.ip_address).filter(Boolean).join(", ") || it.status}${o.mode === "cluster" ? ` · ${it.host}` : ""}`}
           color={it.status === "running" ? "#34d399" : "#64748b"}
+          osi={{ kind: it.guest_type === "vm" ? "vm_guest" : "container_guest", name: it.name, values: osiValues({ link: it.status, mac: it.interfaces[0]?.mac_address, vlan: it.interfaces[0]?.vlan_tag, ip: it.interfaces.map((i) => i.ip_address) }) }}
         />
       ))}
     </Canvas>
@@ -569,8 +580,15 @@ const groupIcon = (kind: SemanticGroup["kind"], s: number) =>
   kind === "lab" ? <FlaskConical size={s} /> : kind === "vlan" ? <Layers size={s} /> : kind === "switch" ? <Network size={s} /> : <Tag size={s} />;
 
 /** Hosts, uplinks and virtual switches, with every network / VLAN / lab and custom group collapsed into one clickable card. */
-function SemanticOverview({ o, onOpen }: { o: Overview; onOpen: (groupId: string) => void }) {
+function SemanticOverview({ o, onOpen: open }: { o: Overview; onOpen: (groupId: string) => void }) {
   const { t } = useTranslation();
+  const pick = useContext(OsiPick);
+  // In OSI mode a network card shows its OSI breakdown instead of zooming in.
+  const onOpen = (id: string) => {
+    const g = o.semantic_groups.find((x) => x.group_id === id);
+    if (!pick || !g || g.source !== "network") return open(id);
+    pick({ kind: g.kind === "vlan" ? "vlan" : "vswitch", name: g.name, values: osiValues({ vlan: g.vlan_id, model: g.bridge, ip: g.subnet_cidr, app: [g.dhcp_active ? "DHCP" : null, g.dns_servers.length ? "DNS" : null] }) });
+  };
   const switches = switchesOf(o);
   // Cards follow the switch order (then labs), so the switch → card links cross as little as possible.
   const swIndex = (g: SemanticGroup) => {
@@ -613,7 +631,7 @@ function SemanticOverview({ o, onOpen }: { o: Overview; onOpen: (groupId: string
       {switches.length > 0 && <TierHead y={sw.pos[0].y} text={t("arch.colSwitches")} />}
       {cards.length > 0 && <TierHead y={cards[0].y} text={t("sz.colGroups")} />}
       {switches.map((it, i) => (
-        <NodeBox key={it.name} x={sw.pos[i].x} y={sw.pos[i].y} w={NODE_W} h={66} icon={<Network size={14} />} title={`${it.name}${it.clustered ? " ⧉" : ""}`} sub={it.ipv4_cidr ?? t("arch.noHostAddress")} color="#a78bfa" badges={switchBadges(o, it)} onClick={() => onOpen(`net-${it.name}`)} label={t("sz.zoomInto", { name: it.name })} />
+        <NodeBox key={it.name} x={sw.pos[i].x} y={sw.pos[i].y} w={NODE_W} h={66} icon={<Network size={14} />} title={`${it.name}${it.clustered ? " ⧉" : ""}`} sub={it.ipv4_cidr ?? t("arch.noHostAddress")} color="#a78bfa" badges={switchBadges(o, it)} onClick={() => onOpen(`net-${it.name}`)} label={t("sz.zoomInto", { name: it.name })} osi={{ kind: "vswitch", name: it.name, values: osiValues({ link: it.member_ports.join(", "), vlan: it.vlan_aware ? "802.1Q" : null, ip: it.ipv4_cidr }) }} />
       ))}
       {cards.map(({ g, x, y }) => (
         <g
@@ -659,6 +677,12 @@ function SemanticOverview({ o, onOpen }: { o: Overview; onOpen: (groupId: string
 
 /* ---------------- Zoom level 2: network / group drill-down (level 3: guest drawer and device explorer) ---------------- */
 
+const deviceOsi = (d: ScannedDevice): OsiTarget => ({
+  kind: d.is_managed_guest ? (d.guest?.guest_type === "vm" ? "vm_guest" : "container_guest") : d.is_solardeck_host ? "host_node" : "discovered_device",
+  name: d.display_name,
+  values: osiValues({ mac: d.mac_address, model: d.mac_vendor, ip: d.ip_address, ports: d.open_ports.map((p) => `${p.protocol.toUpperCase()} ${p.port}`), app: d.open_ports.map((p) => p.service_name) }),
+});
+
 function DeviceCard({ d }: { d: ScannedDevice }) {
   const { t } = useTranslation();
   const roleText = useRoleText();
@@ -680,8 +704,9 @@ function DeviceCard({ d }: { d: ScannedDevice }) {
             {t(`arch.cat.${d.device_category}` as TKey)}
             {d.mac_vendor ? ` · ${d.mac_vendor}` : ""}
           </div>
-          <div className="mt-1">
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <GlassBadge tone="info">{roleText(d)}</GlassBadge>
+            <OsiButton strip {...deviceOsi(d)} />
           </div>
         </div>
       </div>
@@ -801,13 +826,13 @@ function DrillDown({ o, group, root, onBack }: { o: Overview; group: SemanticGro
   const CXc = 560;
   const CYc = 330;
   const R = 250;
-  type Spoke = { key: string; icon: ReactNode; title: string; sub: string; color: string; onClick?: () => void; dashed?: boolean; badges?: { text: string; on: boolean }[] };
+  type Spoke = { key: string; icon: ReactNode; title: string; sub: string; color: string; onClick?: () => void; dashed?: boolean; badges?: { text: string; on: boolean }[]; osi?: OsiTarget };
   const services: Spoke[] = n
     ? [
-        { key: "gw", icon: <Router size={14} />, title: t("arch.routerGateway"), sub: gwIp ? `${gwIp}${gwDev?.mac_vendor ? ` · ${gwDev.mac_vendor}` : ""}` : t("arch.notDetected"), color: "#38bdf8" },
-        { key: "dhcp", icon: <Radar size={14} />, title: t("arch.dhcpServer"), sub: n.dhcp_active ? t("arch.solardeckDhcp", { range: n.dhcp_range ?? "" }) : dhcpDev ? dhcpDev.ip_address : t("arch.notDetected"), color: n.dhcp_active || dhcpDev ? "#4ade80" : "#64748b" },
-        { key: "dns", icon: <Globe size={14} />, title: t("arch.dnsServer"), sub: dnsIp ?? t("arch.notDetected"), color: dnsIp ? "#4ade80" : "#64748b" },
-        { key: "host", icon: <Server size={14} />, title: t("arch.solardeckHost", { name: o.node }), sub: hostIp ?? t("arch.noHostAddress"), color: "#a78bfa" },
+        { key: "gw", icon: <Router size={14} />, title: t("arch.routerGateway"), sub: gwIp ? `${gwIp}${gwDev?.mac_vendor ? ` · ${gwDev.mac_vendor}` : ""}` : t("arch.notDetected"), color: "#38bdf8", osi: { kind: "vrouter", name: t("arch.routerGateway"), values: osiValues({ ip: gwIp, mac: gwDev?.mac_address, model: gwDev?.mac_vendor }) } },
+        { key: "dhcp", icon: <Radar size={14} />, title: t("arch.dhcpServer"), sub: n.dhcp_active ? t("arch.solardeckDhcp", { range: n.dhcp_range ?? "" }) : dhcpDev ? dhcpDev.ip_address : t("arch.notDetected"), color: n.dhcp_active || dhcpDev ? "#4ade80" : "#64748b", osi: { kind: "dhcp_server", name: t("arch.dhcpServer"), values: osiValues({ vlan: n.vlan_id, ip: [dhcpDev?.ip_address, n.dhcp_range], ports: ["UDP 67/68"] }) } },
+        { key: "dns", icon: <Globe size={14} />, title: t("arch.dnsServer"), sub: dnsIp ?? t("arch.notDetected"), color: dnsIp ? "#4ade80" : "#64748b", osi: { kind: "dns_server", name: t("arch.dnsServer"), values: osiValues({ ip: dnsIp, ports: ["UDP 53", "TCP 53"] }) } },
+        { key: "host", icon: <Server size={14} />, title: t("arch.solardeckHost", { name: o.node }), sub: hostIp ?? t("arch.noHostAddress"), color: "#a78bfa", osi: { kind: "host_node", name: o.node, values: osiValues({ ip: n.host_cidr, model: n.bridge, ports: ["TCP 443"], tls: "HTTPS", app: "SolarDeck" }) } },
       ]
     : [];
   const spokes: Spoke[] = [
@@ -822,11 +847,12 @@ function DrillDown({ o, group, root, onBack }: { o: Overview; group: SemanticGro
         color: g.status === "running" ? "#34d399" : "#64748b",
         onClick: () => openGuest(g.guest_type, g.guest_id),
         badges: m.group_count > 1 ? [{ text: t("sz.multiHomed", { n: m.group_count }), on: true }] : [],
+        osi: { kind: g.guest_type === "vm" ? "vm_guest" : "container_guest", name: g.name, values: osiValues({ link: g.status, mac: g.interfaces[0]?.mac_address, vlan: g.interfaces[0]?.vlan_tag, ip: g.interfaces.map((i) => i.ip_address) }) } as OsiTarget,
       };
     }),
     ...(grouped
       ? [{ key: "others", icon: <Boxes size={14} />, title: t("arch.otherDevices", { n: others.length }), sub: t("arch.openExplorer"), color: "#fbbf24", onClick: () => setDrawer(true), dashed: true }]
-      : others.map((d) => ({ key: d.ip_address, icon: CATEGORY_ICON[d.device_category](14), title: d.display_name, sub: d.ip_address, color: "#fbbf24", onClick: () => setDrawer(true) }))),
+      : others.map((d) => ({ key: d.ip_address, icon: CATEGORY_ICON[d.device_category](14), title: d.display_name, sub: d.ip_address, color: "#fbbf24", onClick: () => setDrawer(true), osi: deviceOsi(d) }))),
   ];
   const pos = spokes.map((_, i) => {
     const a = -Math.PI / 2 + (2 * Math.PI * i) / Math.max(spokes.length, 1);
@@ -908,6 +934,8 @@ export default function ArchitectureExplorerApp() {
   const [error, setError] = useState("");
   const [view, setView] = useState<"overview" | "blueprint" | "networks">("overview");
   const [drill, setDrill] = useState<string | null>(null);
+  const [osiMode, setOsiMode] = useState(false);
+  const [osi, setOsi] = useState<OsiTarget | null>(null);
   const load = useCallback(() => api<Overview>("/architecture/overview").then((r) => (setO(r), setError("")), (e) => setError(e.message)), []);
   useEffect(() => void load(), [load]);
   useIntentFor("architect", (groupId) => setDrill(groupId));
@@ -932,11 +960,17 @@ export default function ArchitectureExplorerApp() {
             {o.mode === "cluster" ? t("arch.clusterTitle", { name: o.cluster_name ?? "" }) : t("arch.standaloneTitle")}
           </GlassBadge>
         )}
-        <GlassButton size="xs" className="ml-auto" onClick={load} aria-label={t("common.refresh")}>
+        <GlassButton size="xs" variant={osiMode ? "primary" : undefined} className="ml-auto" aria-pressed={osiMode} onClick={() => setOsiMode(!osiMode)}>
+          <Layers size={13} /> {t("osi.archToggle")}
+        </GlassButton>
+        <GlassButton size="xs" onClick={load} aria-label={t("common.refresh")}>
           <RefreshCw size={13} /> {t("common.refresh")}
         </GlassButton>
       </div>
       <Notice error={error} />
+      {osiMode && <p className="text-[11px] text-[var(--sd-text-secondary)]">{t("osi.archHint")}</p>}
+      <OsiModal target={osi} onClose={() => setOsi(null)} />
+      <OsiPick.Provider value={osiMode ? setOsi : null}>
       {!o ? (
         !error && <p className="text-sm text-slate-400">{t("common.loading")}</p>
       ) : drill && group ? (
@@ -973,6 +1007,7 @@ export default function ArchitectureExplorerApp() {
             ))}
         </ul>
       )}
+      </OsiPick.Provider>
     </div>
   );
 }

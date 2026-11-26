@@ -6,6 +6,7 @@ import { useTranslation, type TKey } from "../../i18n";
 import { Card } from "../ControlPanelApp";
 import { Field, GlassBadge, GlassButton, GlassCheckbox, GlassInput, GlassModal, GlassSelect, GlassSwitch, Notice } from "../../components/ui/GlassKit";
 import { swapped, withItem } from "./netstore/lists";
+import { OsiDisclosure } from "../../components/osi/OsiArchitecturePanel";
 
 type Kind = "management" | "vlan" | "dmz" | "isolated_lab" | "wan";
 type Proto = "any" | "tcp" | "udp" | "icmp";
@@ -59,7 +60,13 @@ const NEW_RULE: Rule = { source_zone: "", dest_zone: "", protocol: "any", port_r
 
 /** Settings > Network & Services > Firewall & IDS: inter-zone firewall (zones view) and intrusion prevention (ids view). */
 export default function FirewallIdsPanel({ view }: { view: "zones" | "ids" }) {
-  return view === "zones" ? <ZonesView /> : <IdsView />;
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-3">
+      <OsiDisclosure kind="firewall_ids" name={t("osi.k.firewall_ids.name")} />
+      {view === "zones" ? <ZonesView /> : <IdsView />}
+    </div>
+  );
 }
 
 function ZoneDot({ zone }: { zone?: Zone }) {

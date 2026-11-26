@@ -8,6 +8,8 @@ import { api, ApiError } from "../../lib/api";
 import type { Guest } from "../../lib/types";
 import { useTranslation, type TKey } from "../../i18n";
 import { Field, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, Notice, Segmented } from "../ui/GlassKit";
+import { OsiDisclosure } from "../osi/OsiArchitecturePanel";
+import { osiValues } from "../../data/osiModelRegistry";
 
 /* Visual Virtual Switch studio: every virtual switch as a rack faceplate with draggable port jacks, color-coded VLAN
    drop lanes joined by patch cables, a port inspector and a per-VLAN DHCP panel. Host network edits are staged and
@@ -536,6 +538,17 @@ function PortInspector({ port, state, busy, onClose, onAssign, onTrunk, onIp, ru
   return (
     <GlassModal open onClose={onClose} title={port.label} side width="max-w-md">
       <div className="space-y-4 text-xs text-slate-300">
+        <OsiDisclosure
+          kind={port.kind === "physical" ? "physical_nic" : "vnic"}
+          name={port.label}
+          values={osiValues({
+            link: port.up ? `${t("vsw.linkUp")} ${speedLabel(port.speed)}` : t("vsw.linkDown"),
+            mac: port.physical?.mac ?? g?.mac,
+            vlan: port.mode === "unassigned" ? null : port.mode === "trunk" ? `${port.access ?? 1} + ${port.tagged.join(",")}` : port.access,
+            model: port.physical?.driver ?? g?.model ?? port.host?.type,
+            ip: port.physical?.ipv4_cidr ?? port.host?.ipv4_cidr ?? g?.ip_address,
+          })}
+        />
         <div className="grid grid-cols-2 gap-2">
           <Info k={t("vsw.mode")} v={t(`vsw.mode.${port.mode}` as TKey)} />
           <Info k={t("vsw.switch")} v={port.bridge ?? "—"} />
@@ -716,6 +729,7 @@ function BridgeModal({ bridge, state, busy, onClose, run }: { bridge: Bridge | n
       }
     >
       <div className="space-y-3 text-xs">
+        {bridge && <OsiDisclosure kind={bridge.mode === "nat" ? "vrouter" : "vswitch"} name={bridge.name} values={osiValues({ link: bridge.member_ports.join(", "), vlan: bridge.vlan_aware ? "802.1Q" : null, ip: bridge.ipv4_cidr })} />}
         <div className="grid grid-cols-2 gap-2">
           <Field label={t("vsw.name")}><GlassInput className="w-full font-mono" value={f.name} disabled={!!bridge} onChange={(e) => set({ name: e.target.value })} /></Field>
           <Field label={t("vsw.comment")}><GlassInput className="w-full" value={f.comment} maxLength={60} onChange={(e) => set({ comment: e.target.value })} /></Field>
@@ -860,6 +874,7 @@ function VlanModal({ vlan, state, busy, onClose, run }: { vlan: Vlan | null; sta
       }
     >
       <div className="space-y-3 text-xs">
+        {vlan && <OsiDisclosure kind="vlan" name={`VLAN ${vlan.vlan_id} · ${vlan.name}`} values={osiValues({ vlan: vlan.vlan_id, model: vlan.bridge, ip: vlan.host_ipv4_cidr })} />}
         {!vlan && (
           <div>
             <div className="mb-1.5 text-[11px] text-slate-400">{t("vsw.presets")}</div>
@@ -973,6 +988,11 @@ function DhcpModal({ vlan, state, busy, onClose, run }: { vlan: Vlan; state: Swi
       footer={<><GlassButton onClick={onClose}>{t("common.close")}</GlassButton><GlassButton variant="primary" disabled={busy || (f.enabled && !!err)} onClick={() => save().then((ok) => ok && onClose())}>{t("common.save")}</GlassButton></>}
     >
       <div className="space-y-4 text-xs">
+        <OsiDisclosure
+          kind="dhcp_server"
+          name={t("vsw.dhcpTitle", { id: vlan.vlan_id, name: vlan.name })}
+          values={osiValues({ vlan: vlan.vlan_id, ip: [vlan.dhcp_config?.gateway_ip ? `GW ${vlan.dhcp_config.gateway_ip}` : null, vlan.dhcp_config ? `${vlan.dhcp_config.range_start} – ${vlan.dhcp_config.range_end}` : null], ports: ["UDP 67/68"], app: vlan.dhcp_config ? [`Lease ${vlan.dhcp_config.lease_time}`, ...vlan.dhcp_config.dns_servers.map((d) => `DNS ${d}`)] : null })}
+        />
         {missing && (
           <div className="flex items-center gap-3 rounded-xl bg-amber-400/10 px-3 py-2 text-amber-100 ring-1 ring-amber-300/30 ring-inset">
             <span className="flex-1">{t("vsw.dhcpMissing")}</span>

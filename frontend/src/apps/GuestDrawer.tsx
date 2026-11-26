@@ -848,7 +848,7 @@ function DeleteCard({ guest, onDeleted }: { guest: Guest; onDeleted: () => void 
 export default function GuestDrawer({ guest, onClose, onSaved, clustered = false }: { guest: Guest | null; onClose: () => void; onSaved: () => void; clustered?: boolean }) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>("resources");
-  const [mode, setMode] = useState<"form" | "wireframe">("form");
+  const [mode, setMode] = useState<"form" | "wireframe" | "osi">("form");
   const [hw, setHw] = useState<Hardware | null>(null);
   const [error, setError] = useState("");
   const load = useCallback(() => {
@@ -876,7 +876,7 @@ export default function GuestDrawer({ guest, onClose, onSaved, clustered = false
   ];
 
   return (
-    <GlassModal open={!!guest} onClose={onClose} side width={mode === "wireframe" ? "max-w-6xl" : "max-w-3xl"} title={guest ? `${guest.name} (${guest.vmid}) · ${qemu ? "VM" : "Container"}` : ""}>
+    <GlassModal open={!!guest} onClose={onClose} side width={mode === "form" ? "max-w-3xl" : "max-w-6xl"} title={guest ? `${guest.name} (${guest.vmid}) · ${qemu ? "VM" : "Container"}` : ""}>
       {guest && (
         <div className="space-y-4">
           <Segmented
@@ -885,10 +885,11 @@ export default function GuestDrawer({ guest, onClose, onSaved, clustered = false
             options={[
               { id: "form", label: t("wf.formView") },
               { id: "wireframe", label: t("wf.wireframeView") },
+              { id: "osi", label: t("osi.title") },
             ]}
           />
-          {mode === "wireframe" ? (
-            <WireframeNodeArchitect key={`${guest.type}${guest.vmid}`} guest={guest} onChanged={reload} />
+          {mode !== "form" ? (
+            <WireframeNodeArchitect key={`${guest.type}${guest.vmid}`} guest={guest} onChanged={reload} osi={mode === "osi"} onOsi={() => setMode("osi")} />
           ) : (
           <>
           <div className="flex flex-wrap items-center gap-2">
