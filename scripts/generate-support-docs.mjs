@@ -153,6 +153,12 @@ async function capture(page, reg) {
   for (const c of reg.controls.filter((x) => x.shot))
     await snap(c.slug, () => show(page, { kind: "settings", module: c.moduleId, tab: c.tabId, anchor: c.anchorId }).then(() => page.waitForTimeout(300)).then(deep[c.id]));
   await snap("help-manual", () => show(page, { kind: "help", article: "settings-network-switch", section: "per-vlan-dhcp", term: "dhcp" }));
+  // Last: the sign-in screen (the root README shows it); signing out would disturb every later shot.
+  await snap("login", async () => {
+    await reset(page);
+    await page.evaluate(async () => (await import("/src/lib/stores.ts")).useAuth.setState({ status: "locked", username: null }));
+    await settle(page, 800);
+  });
   return shots;
 }
 
@@ -238,10 +244,10 @@ try {
       assert.ok(statSync(src).size > 10_000, `${slug}.png is empty`);
       copyFileSync(src, join(DOC_SHOTS, `${slug}.png`));
     }
-    // Drop pictures of screens that no longer exist (the hand-picked README shots are numbered and kept).
+    // Drop pictures of screens that no longer exist (the root README uses these generated pictures too, so it never goes stale).
     if (!only) {
       const keep = new Set(shots.map((s) => `${s}.png`));
-      for (const dir of [PUBLIC_SHOTS, DOC_SHOTS]) for (const f of readdirSync(dir)) if (!/^\d\d-/.test(f) && !keep.has(f)) rmSync(join(dir, f));
+      for (const dir of [PUBLIC_SHOTS, DOC_SHOTS]) for (const f of readdirSync(dir)) if (!keep.has(f)) rmSync(join(dir, f));
     }
   }
   writeDocs(reg);

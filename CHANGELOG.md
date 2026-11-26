@@ -1,5 +1,11 @@
 # Changelog
 
+## v2.25.2 - Current screenshots in the README — 2026-11-26
+
+### Changed
+- **The README screenshots show the current interface**: the desktop, the sign-in screen, the five-category Settings home, Compute Manager with Smart Compute Groups, Storage & ZFS Pools, the top-down Network Topology and Network Architect. They replace six hand-picked pictures from an early version.
+- The README now uses the pictures `scripts/generate-support-docs.mjs` takes on every run (plus a new sign-in screen shot), so it stays current with the Manual. The old numbered pictures are gone.
+
 ## v2.25.1 - Support guides, manuals, API reference & screenshots synced — 2026-11-26
 
 ### Added

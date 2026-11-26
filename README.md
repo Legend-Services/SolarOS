@@ -19,7 +19,7 @@ No config files, no command-line gymnastics.
 
 <br>
 
-![SolarDeck desktop](docs/screenshots/02-desktop-overview.png)
+![SolarDeck desktop](docs/screenshots/desktop.png)
 
 </div>
 
@@ -144,11 +144,13 @@ Press **⌘K / Ctrl+K** at any time to search every app, setting and help articl
 
 ## Screenshots
 
-| Sign in | Storage & ZFS |
+| Sign in | Settings |
 |---|---|
-| ![Login screen](docs/screenshots/01-login-screen.png) | ![Storage & ZFS](docs/screenshots/03-storage-zfs.png) |
-| **Virtual machines & containers** | **Network & Services** |
-| ![Compute Manager](docs/screenshots/04-compute-manager.png) | ![Network & Services](docs/screenshots/05-network-services.png) |
+| ![Sign-in screen](docs/screenshots/login.png) | ![Settings home with the five categories](docs/screenshots/settings-hub.png) |
+| **Virtual machines & containers** | **Storage & ZFS Pools** |
+| ![Compute Manager with Smart Compute Groups](docs/screenshots/app-compute.png) | ![Storage & ZFS Pools](docs/screenshots/settings-storage-zfs.png) |
+| **Network Topology** | **Network Architect** |
+| ![Top-down Network Topology](docs/screenshots/settings-network-topology--topology-map.png) | ![Network Architect blueprint](docs/screenshots/app-architect.png) |
 
 ## Documentation
 
