@@ -16,6 +16,7 @@ import asyncio
 import ipaddress
 import json
 import shlex
+from contextlib import suppress
 from pathlib import Path as FsPath
 from typing import Literal
 
@@ -231,6 +232,10 @@ async def run(module_id: str, script: str, timeout: float = 300, log=None) -> st
     return await host_ssh.run("bash -s", input=script, timeout=timeout, on_line=log)
 
 
+RENEW_DHCP = ("if command -v ifup >/dev/null; then ifdown --force eth0 >/dev/null 2>&1; ifup eth0; "
+              "else networkctl reconfigure eth0 2>/dev/null || systemctl restart systemd-networkd; fi")
+
+
 async def place_worker(module_id: str) -> dict:
     """Move the worker container's first NIC onto the module's bridge / VLAN and record its address."""
     from . import network_switch as nsw
@@ -245,6 +250,9 @@ async def place_worker(module_id: str) -> dict:
     except HTTPException as e:
         if e.status_code not in (404, 501):
             raise
+    # Changing the NIC recreates the veth and the container keeps no address: renew its DHCP lease.
+    with suppress(Exception):
+        await get_provider().container_exec(vmid, RENEW_DHCP, timeout=60)
     for _ in range(10):  # the container takes a new DHCP lease on its new network
         if ip := await get_provider().container_ip(vmid):
             with_ip = {"service_ip": ip}
