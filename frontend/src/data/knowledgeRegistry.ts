@@ -98,9 +98,10 @@ export const APP_DOCS: Partial<Record<AppId, Doc>> = {
       "Press Console (VMs) or Shell (containers) to see the screen or get a root prompt.",
       "The drawer's Virtual Hardware & Lab tab adds emulated devices (HD audio + microphone, retro sound, virtual webcam, SAS/RAID HBA, NVMe, 56k modem, 10 Mbps NIC, TPM 2.0, smartcard reader, watchdog, entropy) and throttles CPU speed and network links (10 Mbps, 56k modem, 4G, custom latency and packet loss).",
       "Press Isolated Lab Sandbox to launch an air-gapped lab network with its own switch, VLAN and DHCP server in one click.",
+      "The Multi-Seat & Ports tab turns one machine into several workstations: give each seat VM its own GPU with its monitors, physical USB ports (Plug to Assign) and CPU cores, then press Start All Seats.",
     ],
     tips: ["Install media lives in the ISO & Template Library; download an ISO there before creating a VM.", "Legacy PCI and ISA devices need a power cycle (shut down, then start) before a running VM sees them."],
-    keywords: "vm virtual machine container lxc guest create start stop console snapshot compute virtual hardware audio microphone webcam capture modem 56k nvme sas raid hba tpm smartcard watchdog rng throttle cpu limit bandwidth latency packet loss retro lab sandbox air gap isolated",
+    keywords: "vm virtual machine container lxc guest create start stop console snapshot compute virtual hardware audio microphone webcam capture modem 56k nvme sas raid hba tpm smartcard watchdog rng throttle cpu limit bandwidth latency packet loss retro lab sandbox air gap isolated multi seat multiseat workstation station gpu monitor usb port keyboard mouse plug assign cpu pinning",
   },
   files: {
     intro: "File Station browses the folders on your storage: upload, download, rename, move and delete files from the browser.",
@@ -145,7 +146,7 @@ export const MODULE_DOCS: Record<ModuleId, Doc> = {
   "hardware-gpu": {
     intro: "See the CPU, memory, GPUs, PCIe and IOMMU groups and network adapters of the host, and switch the GPU driver mode.",
     steps: ["Read the CPU and memory cards for model, cores, temperature and usage.", "In GPU & Drivers, choose between host use and passthrough to a VM."],
-    keywords: "hardware gpu cpu memory pcie iommu passthrough driver graphics card nic",
+    keywords: "hardware gpu cpu memory pcie iommu passthrough driver graphics card nic multi seat usb port pinning",
   },
   "bios-firmware": {
     intro: "Check whether a newer BIOS exists for your motherboard, read the recommended BIOS settings for virtualization and take the guide along on your phone.",
@@ -286,6 +287,7 @@ export const CONTROLS: Control[] = [
     { id: "cpu-memory", titleKey: "kb.cpu-memory", headings: ["CPU", "Memory"], description: "Processor model, cores, temperature and memory modules of the host.", keywords: "cpu processor cores threads temperature memory ram modules", steps: ["Read the CPU and Memory cards at the top of Hardware & GPU."] },
     { id: "gpu-drivers", titleKey: "kb.gpu-drivers", headings: ["GPU & Drivers"], shot: true, description: "Every GPU with its IOMMU group, and the driver mode: used by the host or passed through to a VM.", keywords: "gpu graphics card driver passthrough iommu vfio host mode", steps: ["Find your GPU in the GPU & Drivers card.", "Choose Passthrough to give it to a VM, or Host to use it on the server.", "Reboot when asked."], tips: ["IOMMU must be enabled in the BIOS; see BIOS & Firmware."] },
     { id: "motherboard", titleKey: "kb.motherboard", headings: ["System & Motherboard"], description: "Motherboard model, BIOS version and system details.", keywords: "motherboard board system vendor model bios version", steps: ["Read the System & Motherboard card."] },
+    { id: "multiseat", titleKey: "set.view.multiseat", tabId: "multiseat", headingKey: "seat.title", description: "Several people work or play on one machine at the same time: every seat is a VM with its own GPU and monitors, its own physical USB ports and dedicated CPU cores.", keywords: "multi seat multiseat workstation station gpu monitor hdmi displayport usb port hub keyboard mouse controller plug assign cpu core pinning smt hyper threading egpu thunderbolt usb4 boot gpu", steps: ["Press + Create Seat and pick the seat's VM (or Create New Seat VM).", "Choose the GPU whose monitors the seat uses; its HDMI/DP audio comes along.", "Press Plug to Assign and plug the seat's keyboard, mouse or USB hub into a free port on the server within 30 seconds.", "Press Auto-Balance Cores Across Seats, then Start All Seats."], tips: ["USB ports are bound by their physical position, so two identical mice on different ports go to different seats.", "When the seat uses the GPU the server boots on, the server's own console screen switches off while that seat runs.", "IOMMU must be enabled in the BIOS; see BIOS & Firmware."] },
     { id: "network-adapters", titleKey: "kb.network-adapters", headings: ["Network interfaces"], description: "Physical network adapters with link speed and driver.", keywords: "nic network adapter ethernet link speed driver", steps: ["Read the Network interfaces card at the bottom."] },
   ]),
   ...c("bios-firmware", [

@@ -468,3 +468,8 @@ class HypervisorProvider(ABC):
         """The driver's virtual_hardware module for the Virtual Hardware & Lab Forge (app.virtual_hardware documents
         the contract): emulated peripherals, CPU limits and guest interface names. None = not supported."""
         return None
+
+    def seat_driver(self):
+        """The driver's multiseat module for Multi-Seat Workstations (app.multiseat documents the contract): writes a
+        seat's GPU, USB ports, USB controllers and CPU threads into its VM. None = not supported."""
+        return None

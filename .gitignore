@@ -4,6 +4,7 @@ backend/data/local_ai.json
 backend/data/installed_apps.json
 backend/data/virtual_hardware.json
 backend/data/isolated_labs.json
+backend/data/multiseat.json
 backend/data/ai_chats.json
 backend/data/themes/
 backend/data/native_guests.json

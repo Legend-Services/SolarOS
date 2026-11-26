@@ -6,6 +6,7 @@ import { bytes, percent, uptime } from "../lib/format";
 import { usePoll } from "../lib/hooks";
 import { GlassBadge, GlassButton, GlassModal, Segmented } from "../components/ui/GlassKit";
 import LabSandboxPanel from "../components/compute/LabSandbox";
+import MultiSeatStudio from "../components/compute/MultiSeatStudio";
 import { useTranslation } from "../i18n";
 import { useCapabilities } from "../store/capabilitiesStore";
 import { ViewToggle } from "../components/ViewOptions";
@@ -17,13 +18,14 @@ import IsoLibrary from "./IsoLibrary";
 import GuestDrawer from "./GuestDrawer";
 import { Bar } from "../components/charts";
 
-type Filter = "all" | "qemu" | "lxc";
+type Filter = "all" | "qemu" | "lxc" | "seats";
 type Action = "start" | "shutdown" | "stop" | "reboot";
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: "all", label: "All" },
   { id: "qemu", label: "VMs" },
   { id: "lxc", label: "Containers" },
+  { id: "seats", label: "" }, // label: t("seat.tab")
 ];
 
 export default function ComputeManager() {
@@ -151,7 +153,7 @@ export default function ComputeManager() {
         <>
       <div className="flex flex-wrap items-center gap-2 border-b border-white/10 p-3">
         <div className="flex rounded-lg bg-black/30 p-0.5" role="tablist">
-          {FILTERS.filter((f) => (f.id !== "qemu" || caps.supports_qemu) && (f.id !== "lxc" || caps.supports_lxc)).map((f) => (
+          {FILTERS.filter((f) => (f.id === "lxc" ? caps.supports_lxc : f.id === "all" || caps.supports_qemu)).map((f) => (
             <button
               key={f.id}
               role="tab"
@@ -159,10 +161,12 @@ export default function ComputeManager() {
               onClick={() => setFilter(f.id)}
               className={`rounded-md px-3 py-1 text-xs ${filter === f.id ? "bg-white/15 text-white" : "text-slate-400 hover:text-slate-200"}`}
             >
-              {f.label}
+              {f.id === "seats" ? t("seat.tab") : f.label}
             </button>
           ))}
         </div>
+        {filter !== "seats" && (
+          <>
         <span className="ml-auto">
           <ViewToggle app="compute" />
         </span>
@@ -170,7 +174,15 @@ export default function ComputeManager() {
           <Search size={14} className="absolute top-1/2 left-2.5 -translate-y-1/2 text-slate-500" />
           <input className="input w-56 py-1.5 pl-8 text-xs" placeholder="Search name or ID" value={query} onChange={(e) => setQuery(e.target.value)} aria-label="Search guests" />
         </label>
+          </>
+        )}
       </div>
+      {filter === "seats" ? (
+        <div className="min-h-0 flex-1 overflow-auto p-3">
+          <MultiSeatStudio />
+        </div>
+      ) : (
+        <>
       {error && <div className="bg-rose-500/10 px-4 py-2 text-xs text-rose-300">{error}</div>}
 
       {guests?.length === 0 && (
@@ -293,6 +305,8 @@ export default function ComputeManager() {
         </table>
         )}
       </div>
+        </>
+      )}
         </>
       )}
       <GuestDrawer guest={editing} onClose={() => setEditing(null)} onSaved={load} />
