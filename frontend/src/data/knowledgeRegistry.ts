@@ -310,6 +310,29 @@ export const MODULE_DOCS: Record<ModuleId, Doc> = {
     steps: ["Check that the readiness list is green.", "Press Create New Cluster on the first host and copy the join token.", "On every other host press Join Existing Cluster and paste the token.", "Protect workloads under HA & Active/Passive Workloads."],
     keywords: "cluster multi host node join token high availability ha failover failback live migration standby replication quorum witness qdevice maintenance drain floating vip vrrp",
   },
+  "reverse-proxy": {
+    intro: "Publish VMs, containers and apps under your own domain names with HTTPS: proxy hosts with WebSocket, HTTP/2, HSTS, upload limits and rate limiting, a private root CA with one-click certificates, Let's Encrypt, your own certificates, IP access lists, the SolarDeck 2FA sign-in gate and raw TCP / UDP stream forwarding.",
+    steps: ["Turn the module on and pick Isolated Container (recommended) or Host Native, and optionally pin it to a DMZ VLAN.", "Under SSL Certificates, create the private root CA or request a Let's Encrypt certificate.", "Under Proxy Hosts, add a domain, pick the VM, container or app it points to, and choose the certificate.", "Install the downloaded root CA certificate on your devices so they trust the private certificates."],
+    keywords: "reverse proxy nginx domain subdomain https ssl tls certificate letsencrypt acme root ca self signed wildcard websocket http2 hsts rate limit access list basic auth 2fa sso gate tcp udp stream port forward dmz",
+    tips: ["A proxy host with the SolarDeck 2FA gate only lets visitors through who are signed in to SolarDeck.", "Every change is checked before it is applied; a rejected configuration leaves the previous one running."],
+  },
+  "firewall-ids": {
+    intro: "Group switches and VLANs into zones (management, DMZ, labs, guests) and decide with ordered rules which traffic may pass between them; intrusion prevention bans addresses that keep failing to sign in.",
+    steps: ["Create zones and add the switches or VLAN interfaces that belong to each.", "Add rules from top to bottom: source zone, destination zone, protocol, ports and Accept, Drop or Reject.", "In Intrusion Prevention, choose the jails, ban time and retries, and ban or unban addresses by hand."],
+    keywords: "firewall zone vlan dmz inter vlan rules accept drop reject log nftables intrusion prevention ids ips fail2ban ban unban jail brute force",
+    tips: ["Traffic no rule matches keeps flowing as before, so turning the module on never cuts a network by itself."],
+  },
+  "power-ups": {
+    intro: "Protect the server with a UPS: live battery charge, load, input voltage and runtime, an ordered shutdown of every guest when the battery runs low, and eco power profiles that switch on a schedule.",
+    steps: ["Connect the UPS by USB (or enter the UPS another machine serves) and press Save.", "Set the battery percentage or runtime at which the server shuts down, and the order of the guests.", "Pick a power profile, and add schedule entries to switch profiles automatically."],
+    keywords: "ups battery power outage runtime shutdown nut eco profile cpu governor performance balanced schedule",
+    tips: ["The battery level also appears in the top bar while the module is on."],
+  },
+  "platform-modules": {
+    intro: "One overview of every optional module: switch it on or off, run it in an isolated container or on the host, and pin it to the management network, a VLAN, the DMZ or an isolated lab with least-privilege firewall rules.",
+    steps: ["Turn a module on with its switch.", "Choose Isolated Container or Host Native where the module supports both.", "Pick the network it lives on and press Apply."],
+    keywords: "security by design modules isolation container host native vlan dmz lab least privilege hardening toggle",
+  },
 };
 
 type C = Omit<Control, "categoryId" | "moduleId" | "anchorId"> & { anchorId?: string };

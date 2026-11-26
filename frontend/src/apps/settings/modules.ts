@@ -1,6 +1,6 @@
 import {
-  Activity, ArchiveRestore, Award, BellRing, Boxes, BrainCircuit, Cog, Cpu, Database, Disc3, FileClock, Flame, Globe, HardDrive, KeyRound, Layers, MonitorCog, Network,
-  Package, Palette, Power, Server, Share2, ShieldCheck, Users, Waypoints, Workflow, type LucideIcon,
+  Activity, ArchiveRestore, Award, BatteryCharging, BellRing, Boxes, BrainCircuit, Cog, Cpu, Database, Disc3, FileClock, Flame, Globe, HardDrive, KeyRound, Layers, LayoutGrid,
+  MonitorCog, Network, Package, Palette, Power, Route, Server, Share2, ShieldAlert, ShieldCheck, Users, Waypoints, Workflow, type LucideIcon,
 } from "lucide-react";
 import type { AppId } from "../registry";
 
@@ -27,6 +27,7 @@ export const MODULES = {
   "system-services": { cat: "system", icon: Workflow, tint: "from-slate-300 to-zinc-600", guide: "system" },
   "automation-alerts": { cat: "system", icon: BellRing, tint: "from-fuchsia-400 to-purple-600", guide: "controlpanel" },
   "host-power": { cat: "system", icon: Power, tint: "from-amber-300 to-orange-600", guide: "controlpanel" },
+  "power-ups": { cat: "system", icon: BatteryCharging, tint: "from-lime-300 to-emerald-600", guide: "controlpanel" },
   "storage-zfs": { cat: "storage", icon: HardDrive, tint: "from-amber-300 to-orange-600", guide: "storage" },
   "backup-restore": { cat: "storage", icon: ArchiveRestore, tint: "from-violet-400 to-fuchsia-600", guide: "backup" },
   "shared-folders": { cat: "storage", icon: Share2, tint: "from-sky-400 to-indigo-600", guide: "shares" },
@@ -35,11 +36,14 @@ export const MODULES = {
   "security-2fa": { cat: "security", icon: KeyRound, tint: "from-indigo-400 to-violet-600", guide: "controlpanel" },
   "security-posture": { cat: "security", icon: ShieldCheck, tint: "from-emerald-400 to-green-700", guide: "controlpanel" },
   "audit-logs": { cat: "security", icon: FileClock, tint: "from-slate-300 to-slate-600", guide: "datacenter" },
+  "platform-modules": { cat: "security", icon: LayoutGrid, tint: "from-violet-400 to-indigo-700", guide: "controlpanel" },
   "network-switch": { cat: "network", icon: Network, tint: "from-sky-400 to-cyan-600", guide: "controlpanel" },
   "network-topology": { cat: "network", icon: Share2, tint: "from-cyan-300 to-sky-600", guide: "netservices" },
   "dns-dhcp": { cat: "network", icon: Globe, tint: "from-blue-400 to-sky-600", guide: "netservices" },
   "domains-certs": { cat: "network", icon: Award, tint: "from-yellow-300 to-amber-600", guide: "netservices" },
+  "reverse-proxy": { cat: "network", icon: Route, tint: "from-teal-300 to-sky-600", guide: "netservices" },
   "firewall-forwarding": { cat: "network", icon: Flame, tint: "from-orange-400 to-red-600", guide: "netservices" },
+  "firewall-ids": { cat: "network", icon: ShieldAlert, tint: "from-rose-400 to-red-700", guide: "netservices" },
   "wireguard-vpn": { cat: "network", icon: Waypoints, tint: "from-green-400 to-emerald-700", guide: "netservices" },
   "hypervisor-defaults": { cat: "hypervisor", icon: Server, tint: "from-emerald-400 to-teal-600", guide: "compute" },
   "installed-apps": { cat: "hypervisor", icon: Package, tint: "from-sky-400 to-blue-600", guide: "appcenter" },

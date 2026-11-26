@@ -1,3 +1,8 @@
+import platformI18n from "./modules/platform";
+import proxyI18n from "./modules/proxy";
+import recoveryI18n from "./modules/recovery";
+import infraI18n from "./modules/infra";
+import netstoreI18n from "./modules/netstore";
 /** English source dictionary. Every other language must define exactly these keys (checked by TypeScript). */
 export const en = {
   // Common
@@ -1529,6 +1534,11 @@ export const en = {
   "port.11434": "Local AI model server",
   "port.32400": "Personal media streaming server",
   "port.51820": "WireGuard VPN tunnel endpoint",
+  ...platformI18n.en,
+  ...proxyI18n.en,
+  ...recoveryI18n.en,
+  ...infraI18n.en,
+  ...netstoreI18n.en,
 } as const;
 
 export type TKey = keyof typeof en;
