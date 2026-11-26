@@ -6,9 +6,10 @@
 # Without --source-iso the latest official live-server ISO of --ubuntu-release is downloaded and SHA256-verified.
 # The default boot entry is an Ubuntu autoinstall that asks for the target disk (safe on bare metal); --auto-disk adds
 # a second, fully automatic entry that erases that disk (nested VM tests).
-# The ISO installs with no network at all: <iso>/solardeck-repo/ is a signed APT repository with the complete .deb
-# closure of the kernel, the boot loaders and every package SolarOS uses (resolved inside the ISO's own minimal root
-# file system, so the build host may be any Linux), and <iso>/solardeck-bundle.tar.gz holds the SolarDeck source, the
+# The ISO installs with no network at all: its own package archive (<iso>/dists + <iso>/pool, the archive the Ubuntu
+# installer always uses) is replaced by a signed APT repository with the complete .deb closure of the kernel, the boot
+# loaders and every package SolarOS uses (resolved inside the ISO's own minimal root file system, so the build host may
+# be any Linux), and <iso>/solardeck-bundle.tar.gz holds the SolarDeck source, the
 # built desktop (frontend/dist) and the backend's Python wheels. Both are copied to /opt/solardeck-offline on the
 # installed system; on first boot hypervisor/firstboot-setup.sh creates br0 and installs KVM/libvirt, Incus, OpenZFS,
 # the tty1 console and SolarDeck (HYPERVISOR_DRIVER=native_ubuntu) from them.
@@ -81,7 +82,7 @@ fi
 HASH="$(openssl passwd -6 "$PASSWORD" 2>/dev/null || mkpasswd -m sha-512 "$PASSWORD")" || die "need openssl 1.1.1+ or mkpasswd"
 
 WORK="$(mktemp -d)"
-trap 'umount -l "$WORK/chroot/dev" 2>/dev/null; rm -rf "$WORK"' EXIT
+trap 'umount -l "$WORK/chroot/dev" 2>/dev/null || true; rm -rf "$WORK"' EXIT
 echo "==> Extracting $(basename "$SOURCE_ISO")"
 xorriso -osirrox on -indev "$SOURCE_ISO" -extract / "$WORK/iso" 2>/dev/null
 chmod -R u+w "$WORK/iso"
@@ -136,7 +137,11 @@ EOF
     # shellcheck disable=SC2086
     inchroot apt-get "${APT_OPTS[@]}" install $group >"$WORK/apt.log" 2>&1 || { tail -n 20 "$WORK/apt.log" >&2; die "cannot resolve: ${group}"; }
   done
-  R="$WORK/iso/solardeck-repo"
+  # The installer always adds the ISO's own archive (file:///cdrom) as a package source: our repository takes its place,
+  # so no stale index can point at the stock packages removed above.
+  R="$WORK/iso"
+  rm -rf "$R/dists" "$R/pool"
+  sed -i -E '\#\./dists/#d' "$R/md5sum.txt" 2>/dev/null || true
   mkdir -p "$R/pool/main"
   mv "$CH"/solardeck-debs/*.deb "$R/pool/main/"
   umount "$CH/dev" && rm -rf "$CH"
@@ -166,11 +171,11 @@ EOF
   gpg --batch --quiet --yes --armor --detach-sign -o "$R/dists/${CODENAME}/Release.gpg" "$R/dists/${CODENAME}/Release"
   gpg --batch --quiet --yes --clearsign -o "$R/dists/${CODENAME}/InRelease" "$R/dists/${CODENAME}/Release"
   gpg --batch --armor --export >"$REPO_KEY"
-  cp "$REPO_KEY" "$R/solardeck-offline.asc"
+  cp "$REPO_KEY" "$R/solardeck-offline.asc"  # next to dists/ and pool/: late-commands copy all three
   gpg --batch --export >"$R/solardeck-offline.gpg"
   gpgconf --kill all 2>/dev/null || true
   unset GNUPGHOME
-  echo "    repository: $(ls "$R/pool/main" | wc -l) packages, $(du -sh "$R" | cut -f1) (${CODENAME}, signed)"
+  echo "    repository: $(ls "$R/pool/main" | wc -l) packages, $(du -sh "$R/pool" | cut -f1) (${CODENAME}, signed)"
 fi
 
 # ---------------------------------------------------------------- autoinstall seeds

@@ -1,6 +1,7 @@
 #cloud-config
 # SolarOS unattended installation (Ubuntu autoinstall v1). build-iso.sh fills the @@...@@ fields and keeps the blocks
-# between the OFFLINE markers only when the ISO carries its offline repository (/cdrom/solardeck-repo).
+# between the OFFLINE markers only when the ISO carries its offline repository (/cdrom/dists + /cdrom/pool, signed by
+# /cdrom/solardeck-offline.gpg).
 # Offline ISO: subiquity installs the OS, the kernel and the boot loader from that signed repository and never contacts
 # an Ubuntu mirror, the snap store or online DNS; no network cable or DHCP server is needed. late-commands copy the
 # repository and the SolarDeck bundle (source, prebuilt desktop, Python wheels) to /opt/solardeck-offline, and on first
@@ -33,7 +34,7 @@ autoinstall:
     disable_suites: [updates, backports, security]
     primary:
       - arches: [default]
-        uri: "file:///cdrom/solardeck-repo"
+        uri: "file:///cdrom"
         key: |
           @@REPO_KEY@@
     fallback: offline-install
@@ -47,7 +48,7 @@ autoinstall:
     install: false
   early-commands:
     # The live installer trusts the repository too (its mirror check runs apt before curtin configures the target).
-    - mkdir -p /etc/apt/trusted.gpg.d && cp /cdrom/solardeck-repo/solardeck-offline.gpg /etc/apt/trusted.gpg.d/solardeck-offline.gpg
+    - mkdir -p /etc/apt/trusted.gpg.d && cp /cdrom/solardeck-offline.gpg /etc/apt/trusted.gpg.d/solardeck-offline.gpg
   # @@OFFLINE_END@@
   # The minimal Ubuntu Server base: SolarOS installs exactly the packages it needs on first boot.
   source:
@@ -75,7 +76,8 @@ autoinstall:
     - cp /cdrom/solardeck-bundle.tar.gz /target/opt/solardeck-offline/
     - tar -xzf /cdrom/solardeck-bundle.tar.gz -C /target/opt/solardeck-src
     # @@OFFLINE_BEGIN@@
-    - cp -a /cdrom/solardeck-repo /target/opt/solardeck-offline/repo
+    - mkdir -p /target/opt/solardeck-offline/repo
+    - cp -a /cdrom/dists /cdrom/pool /cdrom/solardeck-offline.gpg /cdrom/solardeck-offline.asc /target/opt/solardeck-offline/repo/
     # @@OFFLINE_END@@
     - cp /target/opt/solardeck-src/hypervisor/solardeck-firstboot.service /target/etc/systemd/system/
     - curtin in-target --target=/target -- systemctl enable solardeck-firstboot.service
