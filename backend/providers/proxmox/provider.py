@@ -341,6 +341,10 @@ class ProxmoxProvider(HypervisorProvider):
         from . import network_switch
         return network_switch
 
+    def vhw_driver(self):
+        from . import virtual_hardware
+        return virtual_hardware
+
     def host_address(self) -> str:
         return api.pve_settings.hostname
 

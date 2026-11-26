@@ -96,9 +96,11 @@ export const APP_DOCS: Partial<Record<AppId, Doc>> = {
       "Use the play, stop and restart buttons on a row to control a guest.",
       "Click a guest's name to open its settings drawer: CPU, memory, disks, network cards, snapshots and passthrough devices.",
       "Press Console (VMs) or Shell (containers) to see the screen or get a root prompt.",
+      "The drawer's Virtual Hardware & Lab tab adds emulated devices (HD audio + microphone, retro sound, virtual webcam, SAS/RAID HBA, NVMe, 56k modem, 10 Mbps NIC, TPM 2.0, smartcard reader, watchdog, entropy) and throttles CPU speed and network links (10 Mbps, 56k modem, 4G, custom latency and packet loss).",
+      "Press Isolated Lab Sandbox to launch an air-gapped lab network with its own switch, VLAN and DHCP server in one click.",
     ],
-    tips: ["Install media lives in the ISO & Template Library; download an ISO there before creating a VM."],
-    keywords: "vm virtual machine container lxc guest create start stop console snapshot compute",
+    tips: ["Install media lives in the ISO & Template Library; download an ISO there before creating a VM.", "Legacy PCI and ISA devices need a power cycle (shut down, then start) before a running VM sees them."],
+    keywords: "vm virtual machine container lxc guest create start stop console snapshot compute virtual hardware audio microphone webcam capture modem 56k nvme sas raid hba tpm smartcard watchdog rng throttle cpu limit bandwidth latency packet loss retro lab sandbox air gap isolated",
   },
   files: {
     intro: "File Station browses the folders on your storage: upload, download, rename, move and delete files from the browser.",
@@ -352,6 +354,7 @@ export const CONTROLS: Control[] = [
     { id: "host-logs", titleKey: "set.view.hostLogs", tabId: "hostLogs", description: "The host's system journal.", keywords: "host logs journal syslog system", steps: ["Pick a time range and filter the journal."] },
   ]),
   ...c("network-switch", [
+    { id: "isolated-labs", titleKey: "set.view.labs", tabId: "labs", headingKey: "lab.title", description: "Air-gapped lab networks in one click: a switch without physical ports, a lab VLAN with its own DHCP server and the chosen VMs and containers moved onto it; one click tears it down again.", keywords: "isolated lab sandbox air gap airgapped test network vlan dhcp retro gaming firewall router malware", steps: ["Press New Lab and give the lab a name.", "Pick the subnet, the DHCP range and the guests to isolate.", "Press Launch lab; Tear down returns the guests to their previous network."], tips: ["Lab guests reach only each other and the lab's DHCP server: nothing is routed to your LAN or the internet."] },
     { id: "visual-switch", titleKey: "set.view.vswitch", tabId: "vswitch", shot: true, description: "Every virtual switch as a rack faceplate with its ports, IP address and VLAN-aware badge.", keywords: "visual switch bridge faceplate ports link speed", steps: ["Click a port to open the Port Inspector.", "Press Edit IP / Switch to change addresses."] },
     { id: "vlan-patch-panel", anchorId: "vlan-lanes", titleKey: "kb.vlan-patch-panel", tabId: "vswitch", headingKey: "vsw.lanes", shot: true, description: "Color-coded VLAN cards; drag a port onto a card to make it an access port, or onto the trunk zone to carry several VLANs.", keywords: "vlan patch panel drag drop trunk access port tagged untagged cables", steps: ["Press + VLAN to add a VLAN card.", "Drag a port onto the card.", "Press Apply safely and confirm with Keep Settings."] },
     { id: "per-vlan-dhcp", anchorId: "vlan-lanes", titleKey: "kb.per-vlan-dhcp", tabId: "vswitch", headingKey: "vsw.lanes", description: "An isolated DHCP server per VLAN with gateway, range, DNS, lease time and static reservations.", keywords: "dhcp vlan server range gateway leases reservation static ip", steps: ["Open a VLAN card's DHCP & IP button.", "Set the gateway, range and DNS servers and switch DHCP on.", "Pin a live lease to make it a static reservation."] },

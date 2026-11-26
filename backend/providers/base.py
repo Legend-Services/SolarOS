@@ -463,3 +463,8 @@ class HypervisorProvider(ABC):
         """The driver's network_switch module for the Visual Virtual Switch (app.network_switch documents the
         contract): host network config read/render, reload command and guest NIC handlers. None = not supported."""
         return None
+
+    def vhw_driver(self):
+        """The driver's virtual_hardware module for the Virtual Hardware & Lab Forge (app.virtual_hardware documents
+        the contract): emulated peripherals, CPU limits and guest interface names. None = not supported."""
+        return None

@@ -15,7 +15,7 @@ VMID = Annotated[int, Path(ge=100, le=999_999_999)]
 SNAP_RE = r"^[A-Za-z][A-Za-z0-9_-]{1,39}$"
 MAC_RE = r"^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$"
 IPV4_RE = r"^\d{1,3}(\.\d{1,3}){3}$"
-QEMU_MODELS = ("virtio", "e1000", "e1000e", "rtl8139", "vmxnet3")
+QEMU_MODELS = ("virtio", "e1000", "e1000e", "rtl8139", "vmxnet3", "ne2k_pci", "pcnet")  # the last two: legacy guests
 DEV_KEY_RE = re.compile(r"^(hostpci|usb|net)(\d+)$")
 CI_KEYS = ("ciuser", "nameserver", "searchdomain", "citype", "ciupgrade")
 QEMU_OPTS = ("name", "onboot", "startup", "protection", "boot", "agent", "ostype", "machine", "bios", "cpu", "numa",
@@ -98,7 +98,7 @@ class NetBody(BaseModel):
     firewall: bool = True
     rate: float | None = Field(None, gt=0, le=100_000)  # MB/s
     macaddr: str | None = Field(None, pattern=MAC_RE)
-    model: Literal["virtio", "e1000", "e1000e", "rtl8139", "vmxnet3"] = "virtio"  # QEMU
+    model: Literal[QEMU_MODELS] = "virtio"  # QEMU
     name: str | None = Field(None, pattern=r"^eth\d{1,2}$")  # LXC
     ip: str | None = Field(None, pattern=r"^(dhcp|manual|\d{1,3}(\.\d{1,3}){3}/\d{1,2})$")
     gw: str | None = Field(None, pattern=IPV4_RE)
