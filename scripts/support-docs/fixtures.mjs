@@ -558,7 +558,35 @@ const STORAGE_CFG = [
 
 /* ---------------- Router ---------------- */
 
+/* ---------------- Multi-seat ---------------- */
+
+const SEAT_CORES = Array.from({ length: 8 }, (_, c) => ({ socket: 0, core: c, threads: [c, c + 8] }));
+const MULTISEAT_TOPOLOGY = {
+  gpus: [
+    { slot: "0000:00:02.0", id: "00:02.0", name: "Integrated Graphics", vendor: "intel", driver: "i915", iommu_group: 0, iommu_shared_with: [], warnings: [], boot_vga: true, external: false, audio_function: null, functions: ["0000:00:02.0"], connectors: [{ name: "HDMI-A-1", status: "connected" }], passthrough_ready: true, seat_id: null },
+    { slot: "0000:01:00.0", id: "01:00.0", name: "Discrete GPU A", vendor: "nvidia", driver: "vfio-pci", iommu_group: 12, iommu_shared_with: [], warnings: [], boot_vga: false, external: false, audio_function: "0000:01:00.1", functions: ["0000:01:00.0", "0000:01:00.1"], connectors: [{ name: "DP-1", status: "connected" }, { name: "HDMI-A-2", status: "disconnected" }], passthrough_ready: true, seat_id: "a1b2c3d4" },
+    { slot: "0000:02:00.0", id: "02:00.0", name: "Discrete GPU B", vendor: "amd", driver: "amdgpu", iommu_group: 14, iommu_shared_with: [], warnings: [], boot_vga: false, external: false, audio_function: "0000:02:00.1", functions: ["0000:02:00.0", "0000:02:00.1"], connectors: [{ name: "HDMI-A-3", status: "connected" }], passthrough_ready: true, seat_id: "e5f6a7b8" },
+  ],
+  usb_controllers: [{ slot: "0000:00:14.0", id: "00:14.0", name: "USB 3.2 xHCI Host Controller", vendor: "intel", driver: "xhci_hcd", iommu_group: 5, iommu_shared_with: [], warnings: [], buses: [1, 2], seat_id: null }],
+  usb_devices: [
+    { port: "1-4", bus: 1, vendor_id: "046d", product_id: "c08b", product: "Gaming Mouse", manufacturer: "", speed: "12", hub: false, controller: "0000:00:14.0", name: "Gaming Mouse", seat_id: "a1b2c3d4" },
+    { port: "1-5", bus: 1, vendor_id: "04d9", product_id: "0169", product: "Mechanical Keyboard", manufacturer: "", speed: "12", hub: false, controller: "0000:00:14.0", name: "Mechanical Keyboard", seat_id: "a1b2c3d4" },
+    { port: "1-6", bus: 1, vendor_id: "046d", product_id: "c08b", product: "Gaming Mouse", manufacturer: "", speed: "12", hub: false, controller: "0000:00:14.0", name: "Gaming Mouse", seat_id: "e5f6a7b8" },
+    { port: "1-9", bus: 1, vendor_id: "045e", product_id: "028e", product: "Game Controller", manufacturer: "", speed: "12", hub: false, controller: "0000:00:14.0", name: "Game Controller", seat_id: null },
+  ],
+  thunderbolt: [],
+  boltctl: false,
+  iommu_enabled: true,
+  cpu: { cores: SEAT_CORES, threads: 16, reserved: [0, 8] },
+};
+const SEATS = [
+  { seat_id: "a1b2c3d4", name: "Seat 1 · Primary Desk", vm_id: 100, vm_name: "media-server", enabled: true, status: "running", gpu_pci_slot: "0000:01:00.0", gpu_audio_pci_slot: "0000:01:00.1", extra_pci_slots: [], usb_ports: ["1-4", "1-5"], usb_names: { "1-4": "Gaming Mouse", "1-5": "Mechanical Keyboard" }, usb_controller_pci_slots: [], cpu_cores: [1, 2, 3, 4, 9, 10, 11, 12] },
+  { seat_id: "e5f6a7b8", name: "Seat 2 · Lounge Station", vm_id: 102, vm_name: "dev-workstation", enabled: true, status: "stopped", gpu_pci_slot: "0000:02:00.0", gpu_audio_pci_slot: "0000:02:00.1", extra_pci_slots: [], usb_ports: ["1-6"], usb_names: { "1-6": "Gaming Mouse" }, usb_controller_pci_slots: [], cpu_cores: [5, 6, 7, 13, 14, 15] },
+];
+
 const EXACT = {
+  "/multiseat/topology": () => MULTISEAT_TOPOLOGY,
+  "/multiseat/seats": () => ({ seats: SEATS }),
   "/health": () => ({ status: "ok", node: NODE }),
   "/auth/setup": () => ({ required: false }),
   "/auth/me": () => ({ username: SESSION.username }),

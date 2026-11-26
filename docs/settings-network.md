@@ -25,6 +25,16 @@ A visual virtual switch: VLANs as color-coded cards, drag-and-drop patching of p
 
 > **Tip:** Without confirmation the previous network configuration comes back by itself, so a wrong address cannot lock you out.
 
+### Isolated Labs
+
+Air-gapped lab networks in one click: a switch without physical ports, a lab VLAN with its own DHCP server and the chosen VMs and containers moved onto it; one click tears it down again.
+
+1. Press New Lab and give the lab a name.
+2. Pick the subnet, the DHCP range and the guests to isolate.
+3. Press Launch lab; Tear down returns the guests to their previous network.
+
+> **Tip:** Lab guests reach only each other and the lab's DHCP server: nothing is routed to your LAN or the internet.
+
 ### Visual Switch
 
 Every virtual switch as a rack faceplate with its ports, IP address and VLAN-aware badge.

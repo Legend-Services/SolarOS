@@ -1264,6 +1264,10 @@ class NativeUbuntuProvider(HypervisorProvider):
         from . import virtual_hardware
         return virtual_hardware
 
+    def seat_driver(self):
+        from . import multiseat
+        return multiseat
+
     async def backup_scheduler_loop(self) -> None:
         """Runs due backup jobs (started from app.main lifespan on this driver)."""
         while True:

@@ -13,7 +13,7 @@ QEMU/KVM virtual machines (libvirt), Linux containers (Incus), OpenZFS storage, 
 | `solardeck-backend.service` | Backend unit (`/opt/solardeck/backend`, runs as root on the host) |
 | `solardeck-console.service` | Runs the dashboard on tty1 instead of the login prompt |
 | `solardeck-firstboot.service`, `firstboot-setup.sh` | ISO installs only: first-boot appliance setup (br0, installer in bundle mode, Incus profile), then disables itself |
-| `build-iso.sh`, `autoinstall/` | Builds a bootable installer ISO (Ubuntu autoinstall + SolarDeck source, prebuilt desktop and Python wheels) |
+| `build-iso.sh`, `autoinstall/` | Builds a bootable, fully offline installer ISO (Ubuntu autoinstall, a signed APT repository with every package, SolarDeck source, prebuilt desktop and Python wheels) |
 
 ## Install on an existing Ubuntu Server
 
@@ -63,18 +63,22 @@ Anyone at the physical console can use these, like on other appliance consoles. 
 
 ## Bootable installer ISO
 
-On a Linux machine with `xorriso`, `curl` and `openssl` (plus Node.js 22 and `python3-pip` to bundle the desktop
-and the Python wheels):
+On a Linux machine, as root, with `xorriso`, `curl`, `openssl`, `squashfs-tools`, `gpg` and `apt-utils` (plus Node.js 22
+and `python3-pip` to bundle the desktop and the Python wheels):
 
 ```bash
 sudo bash hypervisor/build-iso.sh                 # -> ./dist/SolarOS-v2.2.1-amd64.iso
 # options: --source-iso ubuntu-24.04.3-live-server-amd64.iso  --output <path>  --auto-disk /dev/sda  --copy-to <dir>
-#          --ubuntu-release 26.04  --hostname hv1  --password <console user password>
+#          --ubuntu-release 26.04  --hostname hv1  --password <console user password>  --no-offline-repo
 ```
 
 Without `--source-iso` the latest official live-server ISO of the release is downloaded and checked against
-`SHA256SUMS`. To stay under GitHub's 2 GiB release-asset limit, the ISO leaves out Ubuntu's offline package
-pool and the HWE kernel, so the installer needs internet access (first boot needs it anyway). The default boot entry, **Install SolarOS (Interactive Disk Selection)**, asks for the
+`SHA256SUMS`. The ISO installs with no network at all: Ubuntu's own package archive on the ISO (`dists/` + `pool/`) and
+the HWE kernel are replaced by a signed APT repository with the complete `.deb` closure of the kernel, both boot
+loaders (UEFI and BIOS) and every package SolarOS uses. It is resolved inside the ISO's own minimal root file system, so any Linux build
+host works, and signed with a one-time key whose public half goes into the autoinstall seed. The installer uses it as
+its only mirror (no Ubuntu mirror, snap store or online DNS; Ethernet is optional), and `late-commands` copy it with the
+SolarDeck bundle to `/opt/solardeck-offline`. `--no-offline-repo` builds the smaller online ISO instead. The default boot entry, **Install SolarOS (Interactive Disk Selection)**, asks for the
 target disk, so it is safe on servers with data disks. `--auto-disk <device>` adds **SolarOS - Automated
 VM Test Install**, which erases that disk without asking. `--copy-to <dir>` also copies the finished ISO into a
 folder, for example a hypervisor's ISO library.
@@ -86,8 +90,10 @@ boot `solardeck-firstboot.service` runs `firstboot-setup.sh`. It:
 
 1. bridges the primary Ethernet port into `br0` with DHCP (`/etc/netplan/60-solardeck-bridge.yaml`; the installer's
    Netplan files are parked in `/etc/solardeck/netplan-installer/` and restored if the bridge gets no address),
-2. runs `install-hypervisor.sh --bundle /opt/solardeck-src --with-console-tui`: KVM/libvirt, Incus, OpenZFS, Samba and
-   nginx from the Ubuntu mirrors, and SolarDeck from the bundled wheels and desktop, with no Node.js build,
+2. points APT at `/opt/solardeck-offline/repo` (`/etc/apt/sources.list.d/solardeck-offline.list`); the Ubuntu mirrors
+   in `ubuntu.sources` are enabled only when they can be reached, otherwise they stay listed with `Enabled: no`,
+3. runs `install-hypervisor.sh --bundle /opt/solardeck-src --with-console-tui`: KVM/libvirt, Incus, OpenZFS, Samba and
+   nginx from that repository, and SolarDeck from the bundled wheels and desktop, with no Node.js build,
 3. puts the Incus `default` profile on `br0`, enables libvirtd, ZFS, smbd, nginx, `solardeck-backend` and
    `solardeck-console`, then disables itself.
 

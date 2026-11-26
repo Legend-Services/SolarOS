@@ -8,16 +8,18 @@ nested VM on any Proxmox VE host. Run as root on the Proxmox host:
 ```bash
 # 1. Build the ISO with an extra unattended entry for the test VM's first disk and copy it to local:iso
 git clone https://github.com/Legend-Services/SolarOS.git && cd SolarOS
-apt install -y xorriso                  # + Node.js 22 and python3-pip to bundle the desktop and Python wheels
+apt install -y xorriso squashfs-tools apt-utils   # + Node.js 22 and python3-pip to bundle the desktop and wheels
 bash hypervisor/build-iso.sh --auto-disk /dev/sda --copy-to /var/lib/vz/template/iso
 
 # 2. Create and start the test VM (q35, OVMF, host CPU, 4 cores, 8 GiB, 32 GB OS disk + two 32 GB data disks)
-bash hypervisor/test-in-proxmox-vm.sh   # --vmid 950 --storage local-zfs --bridge vmbr0 --enable-nested --dry-run
+bash hypervisor/test-in-proxmox-vm.sh   # --vmid 950 --storage local-zfs --bridge vmbr0 --enable-nested --offline --dry-run
 ```
 
 `test-in-proxmox-vm.sh` checks nested virtualization (`/sys/module/kvm_intel/parameters/nested` or `kvm_amd`) and
 prints the `modprobe` command to turn it on (or does it with `--enable-nested` when no VM is running). It picks the
 next free VMID from 900, `local-zfs` or `local-lvm` and `vmbr0` unless you pass them, and never touches an existing VM.
+`--offline` creates `net0` with `link_down=1`, so the installer and the first boot run without any network: the proof
+that the ISO is self-contained. Plug the cable back in afterwards with the `qm set ... link_down=0` line it prints.
 
 Then open **Datacenter → your node → the VM → Console** (noVNC):
 

@@ -345,6 +345,10 @@ class ProxmoxProvider(HypervisorProvider):
         from . import virtual_hardware
         return virtual_hardware
 
+    def seat_driver(self):
+        from . import multiseat
+        return multiseat
+
     def host_address(self) -> str:
         return api.pve_settings.hostname
 
