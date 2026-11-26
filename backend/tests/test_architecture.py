@@ -93,7 +93,8 @@ assert sc.classify({9100, 631, 80})[0] == "printer_scanner" and sc.summary(*reve
 assert sc.classify({554, 80})[0] == "camera_nvr"
 assert sc.classify({32400})[0] == "media_tv"
 assert sc.classify({445, 5000, 443})[0] == "nas_storage" and sc.classify({2049})[0] == "nas_storage"
-assert sc.classify({3389, 445})[0] == "workstation_pc"
+assert sc.classify({3389, 445})[0] == "workstation_pc" and sc.classify({139, 445})[0] == "workstation_pc"
+assert sc.classify({22, 80, 139, 443, 445})[0] == "server_hypervisor"  # a Linux server with Samba, not a PC
 assert sc.classify({1883})[0] == "iot_device" and sc.classify({80})[0] == "iot_device"
 assert sc.classify(set(), "", "DA:A1:19:00:00:01")[0] == "mobile_tablet"
 assert sc.classify({22, 8006}, is_host=True)[0] == "server_hypervisor" and sc.classify({22})[0] == "server_hypervisor"

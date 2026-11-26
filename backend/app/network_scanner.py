@@ -173,7 +173,7 @@ def classify(ports: set[int], hostname: str = "", mac: str = "", *, gateway: boo
         cat = "switch_ap"
     elif hint("phone", "tablet", "mobile", "watch") or (locally_administered(mac) and not ports and not managed):
         cat = "mobile_tablet"
-    elif ports & {139, 445} or hint("desktop", "laptop", "pc-", "workstation"):
+    elif (ports & {139, 445} and 22 not in ports and not managed) or hint("desktop", "laptop", "pc-", "workstation"):
         cat = "workstation_pc"
     elif managed or ports & {22, 25, 88, 389, 3306, 5432, 6379, 11434}:
         cat = "server_hypervisor"
