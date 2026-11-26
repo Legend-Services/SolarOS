@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Cable, Cpu, CreditCard, Dices, FlaskConical, HardDrive, MemoryStick, Mic, Monitor, Music, Network, Phone, RefreshCw, Server, ShieldCheck, Shuffle, Timer, Usb, Webcam, X } from "lucide-react";
 import { api } from "../../lib/api";
+import { ink } from "../../lib/format";
 import { useRunner } from "../../lib/hooks";
 import type { Guest } from "../../lib/types";
 import { useTranslation, type TKey } from "../../i18n";
@@ -509,11 +510,11 @@ export default function WireframeNodeArchitect({ guest, onChanged }: { guest: Gu
         </GlassButton>
       </div>
       <Notice notice={notice} />
-      <div className="relative overflow-auto rounded-xl border border-sky-400/20 bg-[#06142b]">
+      <div className="relative overflow-auto rounded-xl border border-[var(--bp-border)] bg-[var(--bp-canvas)]">
         <svg width={W} height={layout.height} viewBox={`0 0 ${W} ${layout.height}`} className="block select-none" role="img" aria-label={t("wf.canvasLabel", { name: d.name })}>
           <defs>
             <pattern id="wf-grid" width="20" height="20" patternUnits="userSpaceOnUse">
-              <path d="M20 0H0V20" fill="none" stroke="#38bdf8" strokeOpacity=".07" />
+              <path d="M20 0H0V20" fill="none" stroke="var(--bp-grid)" />
             </pattern>
           </defs>
           <style>{`@keyframes wfdash{to{stroke-dashoffset:-24}}.wf-flow{stroke-dasharray:6 6;animation:wfdash 1.2s linear infinite}
@@ -521,22 +522,22 @@ export default function WireframeNodeArchitect({ guest, onChanged }: { guest: Gu
           <rect width={W} height={layout.height} fill="url(#wf-grid)" />
 
           {/* Chassis */}
-          <rect x={CX} y={20} width={CW} height={layout.chassisH} rx={14} fill="#0b2244" fillOpacity=".55" stroke="#7dd3fc" strokeWidth={1.5} />
-          <rect x={CX + 8} y={28} width={CW - 16} height={68} rx={8} fill="none" stroke="#7dd3fc" strokeOpacity=".45" strokeDasharray="3 3" />
-          <circle cx={CX + 26} cy={48} r={5} fill={d.running ? "#4ade80" : "#64748b"}>
+          <rect x={CX} y={20} width={CW} height={layout.chassisH} rx={14} fill="var(--bp-node)" fillOpacity=".55" stroke={ink("#7dd3fc")} strokeWidth={1.5} />
+          <rect x={CX + 8} y={28} width={CW - 16} height={68} rx={8} fill="none" stroke={ink("#7dd3fc")} strokeOpacity=".45" strokeDasharray="3 3" />
+          <circle cx={CX + 26} cy={48} r={5} fill={ink(d.running ? "#4ade80" : "#64748b")}>
             {d.running && <animate attributeName="opacity" values="1;.35;1" dur="2s" repeatCount="indefinite" />}
           </circle>
-          <text x={CX + 40} y={53} fill="#e0f2fe" fontSize={15} fontWeight={600}>
+          <text x={CX + 40} y={53} fill="var(--bp-text)" fontSize={15} fontWeight={600}>
             {clip(d.name, 28)}
           </text>
-          <text x={CX + 20} y={78} fill="#7dd3fc" fontSize={11} fontFamily="ui-monospace,monospace">
+          <text x={CX + 20} y={78} fill="var(--bp-label)" fontSize={11} fontFamily="ui-monospace,monospace">
             {`${vcpu} vCPU · ${memGb} RAM · ${d.os_profile ? (d.os_profile.startsWith("l2") ? "Linux" : d.os_profile) : gt === "lxc" ? t("wf.container") : "—"} · ${d.running ? t("wf.running") : t("wf.stopped")}`}
           </text>
-          <text x={CX + CW - 18} y={53} fill="#7dd3fc" fillOpacity=".6" fontSize={10} textAnchor="end">
+          <text x={CX + CW - 18} y={53} fill="var(--bp-label)" fontSize={10} textAnchor="end">
             {gt === "vm" ? "VM" : "CT"} {guest.vmid}
           </text>
           {layout.heads.map((h) => (
-            <text key={h.section} x={CX + 16} y={h.y + 15} fill="#7dd3fc" fillOpacity=".75" fontSize={10} fontWeight={600} letterSpacing={1.2}>
+            <text key={h.section} x={CX + 16} y={h.y + 15} fill="var(--bp-label)" fontSize={10} fontWeight={600} letterSpacing={1.2}>
               {t(`wf.section.${h.section}` as TKey).toUpperCase()}
             </text>
           ))}
@@ -545,46 +546,46 @@ export default function WireframeNodeArchitect({ guest, onChanged }: { guest: Gu
             const on = isSel(s.sel);
             return (
               <g key={`${s.sel.kind}:${s.sel.id}`} className="wf-hit" role="button" tabIndex={0} aria-pressed={on} aria-label={`${s.label} — ${t("wf.inspect")}`} onClick={() => pick(s.sel)} onKeyDown={keyAct(() => pick(s.sel))}>
-                <rect x={CX + 16} y={y} width={CW - 32} height={SLOT_H} rx={6} fill={on ? "#0e7490" : "#0b2244"} fillOpacity={on ? 0.45 : 0.8} stroke={on ? "#22d3ee" : "#7dd3fc"} strokeOpacity={on ? 1 : 0.5} strokeWidth={on ? 2 : 1} style={on ? { filter: "drop-shadow(0 0 6px #22d3ee)" } : undefined} />
-                <g transform={`translate(${CX + 24} ${y + 8})`} color="#bae6fd">
+                <rect x={CX + 16} y={y} width={CW - 32} height={SLOT_H} rx={6} fill={on ? "var(--bp-slot-on)" : "var(--bp-node)"} fillOpacity={on ? 1 : 0.8} stroke={ink(on ? "#22d3ee" : "#7dd3fc")} strokeOpacity={on ? 1 : 0.5} strokeWidth={on ? 2 : 1} style={on ? { filter: "drop-shadow(0 0 6px #22d3ee)" } : undefined} />
+                <g transform={`translate(${CX + 24} ${y + 8})`} color="var(--bp-text-2)">
                   {s.icon}
                 </g>
-                <text x={CX + 46} y={y + 13} fill="#e0f2fe" fontSize={11} fontWeight={500}>
+                <text x={CX + 46} y={y + 13} fill="var(--bp-text)" fontSize={11} fontWeight={500}>
                   {clip(s.label, 34)}
                 </text>
-                <text x={CX + 46} y={y + 25} fill="#7dd3fc" fillOpacity=".7" fontSize={9} fontFamily="ui-monospace,monospace">
+                <text x={CX + 46} y={y + 25} fill="var(--bp-label)" fontSize={9} fontFamily="ui-monospace,monospace">
                   {clip(s.sub, 48)}
                 </text>
-                {s.sel.kind === "nic" && <circle cx={CX + CW} cy={y + SLOT_H / 2} r={4} fill="#06142b" stroke="#22d3ee" strokeWidth={2} />}
+                {s.sel.kind === "nic" && <circle cx={CX + CW} cy={y + SLOT_H / 2} r={4} fill="var(--bp-node)" stroke={ink("#22d3ee")} strokeWidth={2} />}
               </g>
             );
           })}
 
           {/* Host & cluster placement */}
-          <path d={curve(CX + CW, 62, RX, 20 + layout.ph / 2)} fill="none" stroke="#a78bfa" strokeWidth={1.5} className="wf-flow" />
+          <path d={curve(CX + CW, 62, RX, 20 + layout.ph / 2)} fill="none" stroke={ink("#a78bfa")} strokeWidth={1.5} className="wf-flow" />
           <g aria-label={t("wf.placement")}>
-            <rect x={RX} y={20} width={RW} height={layout.ph} rx={10} fill="#1e1b4b" fillOpacity=".55" stroke="#a78bfa" strokeWidth={1.5} />
-            <g transform={`translate(${RX + 12} 32)`} color="#c4b5fd">
+            <rect x={RX} y={20} width={RW} height={layout.ph} rx={10} fill="var(--bp-node-violet)" stroke={ink("#a78bfa")} strokeWidth={1.5} />
+            <g transform={`translate(${RX + 12} 32)`} color="var(--bp-violet-text)">
               <Server size={14} />
             </g>
-            <text x={RX + 32} y={44} fill="#ede9fe" fontSize={12} fontWeight={600}>
+            <text x={RX + 32} y={44} fill="var(--bp-violet-text)" fontSize={12} fontWeight={600}>
               {p.mode === "cluster" ? t("wf.clusterMode", { name: p.cluster_name ?? "" }) : t("wf.standaloneMode")}
             </text>
-            <text x={RX + 14} y={64} fill="#c4b5fd" fontSize={10} fontFamily="ui-monospace,monospace">
+            <text x={RX + 14} y={64} fill="var(--bp-violet-text)" fontSize={10} fontFamily="ui-monospace,monospace">
               {`${p.host ?? "—"}${p.host_ip ? ` · ${p.host_ip}` : ""}`}
             </text>
             {p.mode === "cluster" && (
               <>
-                <text x={RX + 14} y={82} fill="#ddd6fe" fontSize={10}>
+                <text x={RX + 14} y={82} fill="var(--bp-violet-text)" fontSize={10}>
                   {`${t("wf.preferredActive")}: ${p.preferred_active_host ?? "—"}${p.ha_enabled ? "" : ` (${t("wf.noHa")})`}`}
                 </text>
-                <text x={RX + 14} y={98} fill="#ddd6fe" fontSize={10}>
+                <text x={RX + 14} y={98} fill="var(--bp-violet-text)" fontSize={10}>
                   {`${t("wf.standbyHosts")}: ${p.passive_standby_hosts?.join(", ") || "—"}`}
                 </text>
-                <text x={RX + 14} y={114} fill="#ddd6fe" fontSize={10}>
+                <text x={RX + 14} y={114} fill="var(--bp-violet-text)" fontSize={10}>
                   {`${t("wf.zfsSync")}: ${p.replication_interval_minutes ? t("wf.everyMin", { n: p.replication_interval_minutes }) : "—"}`}
                 </text>
-                <text x={RX + 14} y={130} fill="#ddd6fe" fontSize={10}>
+                <text x={RX + 14} y={130} fill="var(--bp-violet-text)" fontSize={10}>
                   {`${t("wf.floatingVip")}: ${clip(p.floating_vips?.map((v) => v.address).join(", ") || "—", 36)}`}
                 </text>
               </>
@@ -601,29 +602,29 @@ export default function WireframeNodeArchitect({ guest, onChanged }: { guest: Gu
             return (
               <g key={n.net_id}>
                 <path d={curve(CX + CW, y1, RX, ey + 36)} fill="none" stroke="transparent" strokeWidth={14} className="wf-hit" onClick={open} />
-                <path d={curve(CX + CW, y1, RX, ey + 36)} fill="none" stroke={color} strokeWidth={n.link_up ? 2 : 1} strokeOpacity={n.link_up ? 1 : 0.4} className={n.link_up ? "wf-flow" : ""} pointerEvents="none" />
+                <path d={curve(CX + CW, y1, RX, ey + 36)} fill="none" stroke={ink(color)} strokeWidth={n.link_up ? 2 : 1} strokeOpacity={n.link_up ? 1 : 0.4} className={n.link_up ? "wf-flow" : ""} pointerEvents="none" />
                 <g className="wf-hit" role="button" tabIndex={0} aria-label={`${lab ? lab.name : n.bridge} — ${lab ? t("wf.switchLab") : t("wf.changeEndpoint")}`} onClick={open} onKeyDown={keyAct(open)}>
-                  <rect x={RX} y={ey} width={RW} height={72} rx={10} fill={lab ? "#451a03" : "#082f49"} fillOpacity=".6" stroke={color} strokeWidth={1.5} />
-                  <g transform={`translate(${RX + 12} ${ey + 11})`} color={color}>
+                  <rect x={RX} y={ey} width={RW} height={72} rx={10} fill={lab ? "var(--bp-node-amber)" : "var(--bp-node-sky)"} stroke={ink(color)} strokeWidth={1.5} />
+                  <g transform={`translate(${RX + 12} ${ey + 11})`} color={ink(color)}>
                     {lab ? <FlaskConical size={14} /> : <Cable size={14} />}
                   </g>
-                  <text x={RX + 32} y={ey + 23} fill="#f0f9ff" fontSize={12} fontWeight={600}>
+                  <text x={RX + 32} y={ey + 23} fill="var(--bp-text)" fontSize={12} fontWeight={600}>
                     {clip(lab ? `${t("wf.isolatedLab")}: ${lab.name}` : n.bridge || t("wf.unconnected"), 30)}
                   </text>
                   {n.vlan && !lab && (
                     <g>
-                      <rect x={RX + RW - 92} y={ey + 10} width={80} height={17} rx={8.5} fill={color} fillOpacity=".25" stroke={color} />
-                      <text x={RX + RW - 52} y={ey + 22} fill="#f0f9ff" fontSize={9.5} textAnchor="middle">
+                      <rect x={RX + RW - 92} y={ey + 10} width={80} height={17} rx={8.5} fill={ink(color)} fillOpacity=".25" stroke={ink(color)} />
+                      <text x={RX + RW - 52} y={ey + 22} fill="var(--bp-text)" fontSize={9.5} textAnchor="middle">
                         {clip(`VLAN ${n.vlan.vlan_id}`, 12)}
                       </text>
                     </g>
                   )}
                   {lab && (
-                    <text x={RX + RW - 12} y={ey + 22} fill="#fcd34d" fontSize={9.5} textAnchor="end">
+                    <text x={RX + RW - 12} y={ey + 22} fill="var(--bp-warn-text)" fontSize={9.5} textAnchor="end">
                       {t("wf.labBadge")}
                     </text>
                   )}
-                  <text x={RX + 14} y={ey + 42} fill="#bae6fd" fontSize={10} fontFamily="ui-monospace,monospace">
+                  <text x={RX + 14} y={ey + 42} fill="var(--bp-text-2)" fontSize={10} fontFamily="ui-monospace,monospace">
                     {clip(`${n.net_id} · ${n.ipv4_addresses[0] ?? t("wf.noIp")}${n.vlan_tag && !n.vlan ? ` · tag ${n.vlan_tag}` : ""}${n.trunks.length ? ` · trunk ${n.trunks.join(",")}` : ""}`, 46)}
                   </text>
                   {(() => {
@@ -631,9 +632,9 @@ export default function WireframeNodeArchitect({ guest, onChanged }: { guest: Gu
                     const dns = lab ? false : !!n.vlan?.dns_servers.length;
                     return (
                       <text x={RX + 14} y={ey + 60} fontSize={9.5}>
-                        <tspan fill={dhcp ? "#4ade80" : "#64748b"}>● DHCP</tspan>
-                        <tspan dx={10} fill={dns ? "#4ade80" : "#64748b"}>● DNS</tspan>
-                        <tspan dx={10} fill="#7dd3fc" fillOpacity=".7">
+                        <tspan fill={dhcp ? ink("#4ade80") : "var(--bp-pill-off-text)"}>● DHCP</tspan>
+                        <tspan dx={10} fill={dns ? ink("#4ade80") : "var(--bp-pill-off-text)"}>● DNS</tspan>
+                        <tspan dx={10} fill="var(--bp-label)">
                           {clip(lab?.subnet_cidr ?? n.vlan?.subnet_cidr ?? "", 20)}
                         </tspan>
                       </text>
@@ -644,7 +645,7 @@ export default function WireframeNodeArchitect({ guest, onChanged }: { guest: Gu
             );
           })}
           {!d.nics.length && (
-            <text x={RX} y={20 + layout.ph + 44} fill="#7dd3fc" fontSize={11}>
+            <text x={RX} y={20 + layout.ph + 44} fill="var(--bp-label)" fontSize={11}>
               {t("wf.noNics")}
             </text>
           )}

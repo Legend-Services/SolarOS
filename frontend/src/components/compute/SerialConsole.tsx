@@ -82,7 +82,7 @@ export default function SerialConsole({ guestType, guestId }: { guestType: "qemu
         </GlassButton>
       </div>
       <Notice error={error} notice={notice && (restart ? t("serial.restartNeeded") : notice)} />
-      <div ref={el} className="h-80 overflow-hidden rounded-xl bg-[#05070d] p-1" />
+      <div ref={el} data-audit-ignore className="h-80 overflow-hidden rounded-xl bg-[#05070d] p-1" />
     </div>
   );
 }

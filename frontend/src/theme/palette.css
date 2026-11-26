@@ -5,8 +5,9 @@
 :root {
   --sd-tint: white; /* the end of a scale that faces the text */
   --sd-shade: black;
-  --sd-text-secondary: color-mix(in oklab, var(--sd-text-primary) 72%, var(--sd-bg-base));
-  --sd-text-muted: color-mix(in oklab, var(--sd-text-primary) 50%, var(--sd-bg-base));
+  /* Secondary, slate-400 and muted text stay at WCAG AA (4.5:1) on every surface of both modes (audit-dual-theme). */
+  --sd-text-secondary: color-mix(in oklab, var(--sd-text-primary) 82%, var(--sd-bg-base));
+  --sd-text-muted: color-mix(in oklab, var(--sd-text-primary) 68%, var(--sd-bg-base));
   --sd-border-glass: color-mix(in oklab, var(--sd-text-primary) 12%, transparent);
   --sd-border-subtle: color-mix(in oklab, var(--sd-text-primary) 7%, transparent);
   --sd-specular-highlight: rgba(255, 255, 255, 0.1);
@@ -21,7 +22,7 @@
   --color-slate-100: color-mix(in oklab, var(--sd-text-primary) 96%, var(--sd-bg-base));
   --color-slate-200: color-mix(in oklab, var(--sd-text-primary) 88%, var(--sd-bg-base));
   --color-slate-300: var(--sd-text-secondary);
-  --color-slate-400: color-mix(in oklab, var(--sd-text-primary) 60%, var(--sd-bg-base));
+  --color-slate-400: color-mix(in oklab, var(--sd-text-primary) 74%, var(--sd-bg-base));
   --color-slate-500: var(--sd-text-muted);
   --color-slate-600: color-mix(in oklab, var(--sd-text-primary) 34%, var(--sd-bg-base));
   --color-slate-700: color-mix(in oklab, var(--sd-text-primary) 22%, var(--sd-bg-base));
@@ -61,6 +62,31 @@
   --color-indigo-500: var(--color-violet-500);
   --color-indigo-600: var(--color-violet-600);
 
+  /* Blueprint canvases (Network Architect, Wireframe Architecture, Network Topology): SVG fills can't use Tailwind's
+     mirrored scales, so they read these. Accent strokes go through ink() in lib/format.ts, which darkens by --bp-ink. */
+  --bp-canvas: #06142b;
+  --bp-grid: rgba(56, 189, 248, 0.07);
+  --bp-border: rgba(56, 189, 248, 0.2);
+  --bp-node: #0b2244;
+  --bp-node-violet: rgba(30, 27, 75, 0.55);
+  --bp-node-amber: rgba(69, 26, 3, 0.6);
+  --bp-node-sky: rgba(8, 47, 73, 0.6);
+  --bp-slot-on: rgba(14, 116, 144, 0.45);
+  --bp-text: #f0f9ff;
+  --bp-text-2: #bae6fd;
+  --bp-label: #7dd3fc;
+  --bp-violet-text: #ddd6fe;
+  --bp-ok-text: #86efac;
+  --bp-bad-text: #fca5a5;
+  --bp-warn-text: #fcd34d;
+  --bp-pill-on: #166534;
+  --bp-pill-on-stroke: #4ade80;
+  --bp-pill-on-text: #bbf7d0;
+  --bp-pill-off: #1e293b;
+  --bp-pill-off-stroke: #475569;
+  --bp-pill-off-text: #94a3b8;
+  --bp-ink: 0%;
+
   /* Shape and type tokens. */
   --radius-lg: var(--sd-radius-button);
   --radius-xl: var(--sd-radius-card);
@@ -82,6 +108,28 @@
   --sd-hairline: rgba(15, 23, 42, 0.1);
   --color-slate-900: #f8fafc;
   --color-slate-950: #f8fafc;
+  --bp-canvas: rgba(248, 250, 252, 0.95);
+  --bp-grid: rgba(15, 23, 42, 0.05);
+  --bp-border: rgba(226, 232, 240, 0.9);
+  --bp-node: #ffffff;
+  --bp-node-violet: #f5f3ff;
+  --bp-node-amber: #fffbeb;
+  --bp-node-sky: #f0f9ff;
+  --bp-slot-on: #ecfeff;
+  --bp-text: #0f172a;
+  --bp-text-2: #475569;
+  --bp-label: #0369a1;
+  --bp-violet-text: #4338ca;
+  --bp-ok-text: #047857;
+  --bp-bad-text: #b91c1c;
+  --bp-warn-text: #b45309;
+  --bp-pill-on: #dcfce7;
+  --bp-pill-on-stroke: #16a34a;
+  --bp-pill-on-text: #166534;
+  --bp-pill-off: #f1f5f9;
+  --bp-pill-off-stroke: #94a3b8;
+  --bp-pill-off-text: #475569;
+  --bp-ink: 38%;
   --color-red-50: oklch(25.8% 0.092 26.042);
   --color-red-100: oklch(39.6% 0.141 25.723);
   --color-red-200: oklch(44.4% 0.177 26.899);
@@ -96,8 +144,8 @@
   --color-orange-50: oklch(26.6% 0.079 36.259);
   --color-orange-100: oklch(40.8% 0.123 38.172);
   --color-orange-200: oklch(47% 0.157 37.304);
-  --color-orange-300: oklch(55.3% 0.195 38.402);
-  --color-orange-400: oklch(64.6% 0.222 41.116);
+  --color-orange-300: var(--color-orange-200);
+  --color-orange-400: var(--color-orange-300); /* AA text on white */
   --color-orange-500: oklch(70.5% 0.213 47.604);
   --color-orange-600: oklch(75% 0.183 55.934);
   --color-orange-700: oklch(83.7% 0.128 66.29);
@@ -107,8 +155,8 @@
   --color-amber-50: oklch(27.9% 0.077 45.635);
   --color-amber-100: oklch(41.4% 0.112 45.904);
   --color-amber-200: oklch(47.3% 0.137 46.201);
-  --color-amber-300: oklch(55.5% 0.163 48.998);
-  --color-amber-400: oklch(66.6% 0.179 58.318);
+  --color-amber-300: var(--color-amber-200);
+  --color-amber-400: var(--color-amber-300); /* AA text on white */
   --color-amber-500: oklch(76.9% 0.188 70.08);
   --color-amber-600: oklch(82.8% 0.189 84.429);
   --color-amber-700: oklch(87.9% 0.169 91.605);
@@ -118,8 +166,8 @@
   --color-yellow-50: oklch(28.6% 0.066 53.813);
   --color-yellow-100: oklch(42.1% 0.095 57.708);
   --color-yellow-200: oklch(47.6% 0.114 61.907);
-  --color-yellow-300: oklch(55.4% 0.135 66.442);
-  --color-yellow-400: oklch(68.1% 0.162 75.834);
+  --color-yellow-300: var(--color-yellow-200);
+  --color-yellow-400: var(--color-yellow-300); /* AA text on white */
   --color-yellow-500: oklch(79.5% 0.184 86.047);
   --color-yellow-600: oklch(85.2% 0.199 91.936);
   --color-yellow-700: oklch(90.5% 0.182 98.111);
@@ -129,8 +177,8 @@
   --color-lime-50: oklch(27.4% 0.072 132.109);
   --color-lime-100: oklch(40.5% 0.101 131.063);
   --color-lime-200: oklch(45.3% 0.124 130.933);
-  --color-lime-300: oklch(53.2% 0.157 131.589);
-  --color-lime-400: oklch(64.8% 0.2 131.684);
+  --color-lime-300: var(--color-lime-200);
+  --color-lime-400: var(--color-lime-300); /* AA text on white */
   --color-lime-500: oklch(76.8% 0.233 130.85);
   --color-lime-600: oklch(84.1% 0.238 128.85);
   --color-lime-700: oklch(89.7% 0.196 126.665);
@@ -140,8 +188,8 @@
   --color-green-50: oklch(26.6% 0.065 152.934);
   --color-green-100: oklch(39.3% 0.095 152.535);
   --color-green-200: oklch(44.8% 0.119 151.328);
-  --color-green-300: oklch(52.7% 0.154 150.069);
-  --color-green-400: oklch(62.7% 0.194 149.214);
+  --color-green-300: var(--color-green-200);
+  --color-green-400: var(--color-green-300); /* AA text on white */
   --color-green-500: oklch(72.3% 0.219 149.579);
   --color-green-600: oklch(79.2% 0.209 151.711);
   --color-green-700: oklch(87.1% 0.15 154.449);
@@ -151,8 +199,8 @@
   --color-emerald-50: oklch(26.2% 0.051 172.552);
   --color-emerald-100: oklch(37.8% 0.077 168.94);
   --color-emerald-200: oklch(43.2% 0.095 166.913);
-  --color-emerald-300: oklch(50.8% 0.118 165.612);
-  --color-emerald-400: oklch(59.6% 0.145 163.225);
+  --color-emerald-300: var(--color-emerald-200);
+  --color-emerald-400: var(--color-emerald-300); /* AA text on white */
   --color-emerald-500: oklch(69.6% 0.17 162.48);
   --color-emerald-600: oklch(76.5% 0.177 163.223);
   --color-emerald-700: oklch(84.5% 0.143 164.978);
@@ -162,8 +210,8 @@
   --color-teal-50: oklch(27.7% 0.046 192.524);
   --color-teal-100: oklch(38.6% 0.063 188.416);
   --color-teal-200: oklch(43.7% 0.078 188.216);
-  --color-teal-300: oklch(51.1% 0.096 186.391);
-  --color-teal-400: oklch(60% 0.118 184.704);
+  --color-teal-300: var(--color-teal-200);
+  --color-teal-400: var(--color-teal-300); /* AA text on white */
   --color-teal-500: oklch(70.4% 0.14 182.503);
   --color-teal-600: oklch(77.7% 0.152 181.912);
   --color-teal-700: oklch(85.5% 0.138 181.071);
@@ -173,8 +221,8 @@
   --color-cyan-50: oklch(30.2% 0.056 229.695);
   --color-cyan-100: oklch(39.8% 0.07 227.392);
   --color-cyan-200: oklch(45% 0.085 224.283);
-  --color-cyan-300: oklch(52% 0.105 223.128);
-  --color-cyan-400: oklch(60.9% 0.126 221.723);
+  --color-cyan-300: var(--color-cyan-200);
+  --color-cyan-400: var(--color-cyan-300); /* AA text on white */
   --color-cyan-500: oklch(71.5% 0.143 215.221);
   --color-cyan-600: oklch(78.9% 0.154 211.53);
   --color-cyan-700: oklch(86.5% 0.127 207.078);

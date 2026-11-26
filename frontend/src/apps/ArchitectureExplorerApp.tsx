@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type PointerEvent as RPointerEvent, type ReactNode } from "react";
 import { Boxes, ChevronRight, Cable, Cctv, CircleHelp, Container, Cpu, FlaskConical, Globe, HardDrive, Layers, Maximize2, Monitor, Network, Printer, Radar, RefreshCw, Router, Search, Server, Smartphone, Tag, Tv, Wifi, ZoomIn, ZoomOut } from "lucide-react";
 import { api } from "../lib/api";
+import { ink } from "../lib/format";
 import { useTranslation, type TKey } from "../i18n";
 import { GlassBadge, GlassButton, GlassInput, GlassSelect, Notice, Segmented } from "../components/ui/GlassKit";
 import { useIntentFor } from "../lib/stores";
@@ -208,11 +209,11 @@ function Canvas({ width, height, children, label, crumbs = [], hint, onZoom, fit
     return () => cancelAnimationFrame(r);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps -- fit once on open; "Fit to Screen" refits
   return (
-    <div ref={pz.ref} className="relative h-full min-h-[420px] overflow-hidden rounded-xl border border-sky-400/20 bg-[#06142b] touch-none" {...pz.handlers}>
+    <div ref={pz.ref} className="relative h-full min-h-[420px] overflow-hidden rounded-xl border border-[var(--bp-border)] bg-[var(--bp-canvas)] touch-none" {...pz.handlers}>
       <svg width="100%" height="100%" className="absolute inset-0 cursor-grab select-none active:cursor-grabbing" role="img" aria-label={label}>
         <defs>
           <pattern id="arch-grid" width="24" height="24" patternUnits="userSpaceOnUse" patternTransform={`translate(${pz.v.x} ${pz.v.y}) scale(${pz.v.k})`}>
-            <path d="M24 0H0V24" fill="none" stroke="#38bdf8" strokeOpacity=".07" />
+            <path d="M24 0H0V24" fill="none" stroke="var(--bp-grid)" />
           </pattern>
         </defs>
         <style>{`@keyframes archdash{to{stroke-dashoffset:-24}}.arch-flow{stroke-dasharray:6 6;animation:archdash 1.4s linear infinite}
@@ -280,22 +281,22 @@ function NodeBox({ x, y, w = 190, h = 58, icon, title, sub, color = "#7dd3fc", b
   const act = onClick ? { "data-node": "", role: "button", tabIndex: 0, "aria-label": label ?? title, onClick, onKeyDown: (e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onClick()) } : { "data-node": "" };
   return (
     <g {...act}>
-      <rect x={x} y={y} width={w} height={h} rx={10} fill="#0b2244" fillOpacity=".85" stroke={color} strokeWidth={1.5} strokeDasharray={dashed ? "5 4" : undefined} />
-      <g transform={`translate(${x + 10} ${y + 10})`} color={color}>
+      <rect x={x} y={y} width={w} height={h} rx={10} fill="var(--bp-node)" fillOpacity=".85" stroke={ink(color)} strokeWidth={1.5} strokeDasharray={dashed ? "5 4" : undefined} />
+      <g transform={`translate(${x + 10} ${y + 10})`} color={ink(color)}>
         {icon}
       </g>
-      <text x={x + 32} y={y + 22} fill="#f0f9ff" fontSize={12} fontWeight={600}>
+      <text x={x + 32} y={y + 22} fill="var(--bp-text)" fontSize={12} fontWeight={600}>
         {clip(title, Math.floor((w - 40) / 7))}
       </text>
       {sub && (
-        <text x={x + 10} y={y + 40} fill="#bae6fd" fillOpacity=".8" fontSize={10} fontFamily="ui-monospace,monospace">
+        <text x={x + 10} y={y + 40} fill="var(--bp-text-2)" fontSize={10} fontFamily="ui-monospace,monospace">
           {clip(sub, Math.floor((w - 16) / 6))}
         </text>
       )}
       {badges.map((b, i) => (
         <g key={b.text}>
-          <rect x={x + w - 48 * (badges.length - i) - 4} y={y + h - 16} width={44} height={13} rx={6.5} fill={b.on ? "#166534" : "#1e293b"} stroke={b.on ? "#4ade80" : "#475569"} strokeWidth={0.8} />
-          <text x={x + w - 48 * (badges.length - i) + 18} y={y + h - 6.5} fill={b.on ? "#bbf7d0" : "#94a3b8"} fontSize={8.5} textAnchor="middle" fontWeight={600}>
+          <rect x={x + w - 48 * (badges.length - i) - 4} y={y + h - 16} width={44} height={13} rx={6.5} fill={b.on ? "var(--bp-pill-on)" : "var(--bp-pill-off)"} stroke={b.on ? "var(--bp-pill-on-stroke)" : "var(--bp-pill-off-stroke)"} strokeWidth={0.8} />
+          <text x={x + w - 48 * (badges.length - i) + 18} y={y + h - 6.5} fill={b.on ? "var(--bp-pill-on-text)" : "var(--bp-pill-off-text)"} fontSize={8.5} textAnchor="middle" fontWeight={600}>
             {b.text}
           </text>
         </g>
@@ -315,17 +316,17 @@ function HostBand({ o }: { o: Overview }) {
   const hostW = Math.max(260, Math.min(1240 / Math.max(o.hosts.length, 1) - 16, 300));
   return (
     <>
-      <rect x={20} y={14} width={1240} height={140} rx={14} fill="#1e1b4b" fillOpacity=".4" stroke="#a78bfa" strokeDasharray={o.mode === "cluster" ? undefined : "5 4"} />
-      <text x={36} y={38} fill="#ede9fe" fontSize={13} fontWeight={700}>
+      <rect x={20} y={14} width={1240} height={140} rx={14} fill="var(--bp-node-violet)" stroke={ink("#a78bfa")} strokeDasharray={o.mode === "cluster" ? undefined : "5 4"} />
+      <text x={36} y={38} fill="var(--bp-violet-text)" fontSize={13} fontWeight={700}>
         {o.mode === "cluster" ? t("arch.clusterTitle", { name: o.cluster_name ?? "" }) : t("arch.standaloneTitle")}
       </text>
       {o.quorum_status && (
-        <text x={36} y={56} fill={o.quorum_status === "healthy" ? "#86efac" : "#fca5a5"} fontSize={10.5}>
+        <text x={36} y={56} fill={o.quorum_status === "healthy" ? "var(--bp-ok-text)" : "var(--bp-bad-text)"} fontSize={10.5}>
           {o.quorum_status === "healthy" ? t("arch.quorumHealthy") : t("arch.quorumLost")}
         </text>
       )}
       {o.floating_vips.length > 0 && (
-        <text x={1244} y={38} fill="#c4b5fd" fontSize={10.5} textAnchor="end">
+        <text x={1244} y={38} fill="var(--bp-violet-text)" fontSize={10.5} textAnchor="end">
           {`${t("arch.floatingVips")}: ${o.floating_vips.map((v) => v.address).join(" · ")}`}
         </text>
       )}
@@ -391,12 +392,12 @@ function Blueprint({ o, onDrill }: { o: Overview; onDrill: (id: string) => void 
       <HostBand o={o} />
 
       {heads.map((hd, i) => (
-        <text key={hd} x={COL[i]} y={TOP - 14} fill="#7dd3fc" fillOpacity=".7" fontSize={10} fontWeight={700} letterSpacing={1.2}>
+        <text key={hd} x={COL[i]} y={TOP - 14} fill="var(--bp-label)" fontSize={10} fontWeight={700} letterSpacing={1.2}>
           {hd.toUpperCase()}
         </text>
       ))}
       {edges.map((e, i) => (
-        <path key={i} d={e.d} fill="none" stroke={e.color} strokeWidth={1.6} strokeOpacity=".85" className={e.flow ? "arch-flow" : ""} />
+        <path key={i} d={e.d} fill="none" stroke={ink(e.color)} strokeWidth={1.6} strokeOpacity=".85" className={e.flow ? "arch-flow" : ""} />
       ))}
       {gws.map(({ it, y }) =>
         it.kind === "gw" ? (
@@ -467,8 +468,8 @@ function Pill({ x, y, text, on }: { x: number; y: number; text: string; on: bool
   const w = text.length * 5.6 + 14;
   return (
     <g>
-      <rect x={x} y={y} width={w} height={15} rx={7.5} fill={on ? "#166534" : "#1e293b"} stroke={on ? "#4ade80" : "#475569"} strokeWidth={0.8} />
-      <text x={x + w / 2} y={y + 10.5} fill={on ? "#bbf7d0" : "#94a3b8"} fontSize={9} textAnchor="middle" fontWeight={600}>
+      <rect x={x} y={y} width={w} height={15} rx={7.5} fill={on ? "var(--bp-pill-on)" : "var(--bp-pill-off)"} stroke={on ? "var(--bp-pill-on-stroke)" : "var(--bp-pill-off-stroke)"} strokeWidth={0.8} />
+      <text x={x + w / 2} y={y + 10.5} fill={on ? "var(--bp-pill-on-text)" : "var(--bp-pill-off-text)"} fontSize={9} textAnchor="middle" fontWeight={600}>
         {text}
       </text>
     </g>
@@ -515,16 +516,16 @@ function SemanticOverview({ o, onOpen }: { o: Overview; onOpen: (groupId: string
     <Canvas width={width} height={height} label={t("arch.blueprintLabel")} crumbs={[{ label: t("sz.overview") }]} hint={t("sz.hint")} onZoom={onZoom} fitCap={DRILL_ZOOM - 0.04}>
       <HostBand o={o} />
       {[t("arch.colUplinks"), t("arch.colSwitches"), t("sz.colGroups")].map((hd, i) => (
-        <text key={hd} x={[40, 300, CARD_X][i]} y={TOP - 14} fill="#7dd3fc" fillOpacity=".7" fontSize={10} fontWeight={700} letterSpacing={1.2}>
+        <text key={hd} x={[40, 300, CARD_X][i]} y={TOP - 14} fill="var(--bp-label)" fontSize={10} fontWeight={700} letterSpacing={1.2}>
           {hd.toUpperCase()}
         </text>
       ))}
       {ups.map(({ u, y }) =>
-        u.bridge && swY[u.bridge] !== undefined ? <path key={`e${u.name}`} d={curve(240, y + 29, 300, swY[u.bridge] + 29)} fill="none" stroke={u.link_up ? "#38bdf8" : "#475569"} strokeWidth={1.6} className={u.link_up ? "arch-flow" : ""} /> : null,
+        u.bridge && swY[u.bridge] !== undefined ? <path key={`e${u.name}`} d={curve(240, y + 29, 300, swY[u.bridge] + 29)} fill="none" stroke={ink(u.link_up ? "#38bdf8" : "#475569")} strokeWidth={1.6} className={u.link_up ? "arch-flow" : ""} /> : null,
       )}
       {cards.map(({ g, x, y }) => {
         const b = bridgeOf(g);
-        return b && swY[b] !== undefined ? <path key={`e${g.group_id}`} d={curve(500, swY[b] + 33, x, y + CARD_H / 2)} fill="none" stroke={g.color} strokeOpacity=".6" strokeWidth={1.4} /> : null;
+        return b && swY[b] !== undefined ? <path key={`e${g.group_id}`} d={curve(500, swY[b] + 33, x, y + CARD_H / 2)} fill="none" stroke={ink(g.color)} strokeOpacity=".6" strokeWidth={1.4} /> : null;
       })}
       {ups.map(({ u, y }) => (
         <NodeBox key={u.name} x={40} y={y} w={200} icon={<Cable size={14} />} title={u.name} sub={`${u.speed_mbps ? `${u.speed_mbps} Mb/s` : t("arch.noLink")} · ${u.mac}`} color={u.link_up ? "#38bdf8" : "#475569"} />
@@ -542,18 +543,18 @@ function SemanticOverview({ o, onOpen }: { o: Overview; onOpen: (groupId: string
           onClick={() => onOpen(g.group_id)}
           onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onOpen(g.group_id))}
         >
-          <rect x={x} y={y} width={CARD_W} height={CARD_H} rx={14} fill="#0b2244" fillOpacity=".9" stroke={g.color} strokeWidth={1.5} strokeDasharray={g.source === "network" && g.kind !== "lab" ? undefined : "5 4"} />
-          <rect x={x} y={y + 14} width={5} height={CARD_H - 28} rx={2.5} fill={g.color} />
-          <g transform={`translate(${x + 16} ${y + 14})`} color={g.color}>
+          <rect x={x} y={y} width={CARD_W} height={CARD_H} rx={14} fill="var(--bp-node)" fillOpacity=".9" stroke={ink(g.color)} strokeWidth={1.5} strokeDasharray={g.source === "network" && g.kind !== "lab" ? undefined : "5 4"} />
+          <rect x={x} y={y + 14} width={5} height={CARD_H - 28} rx={2.5} fill={ink(g.color)} />
+          <g transform={`translate(${x + 16} ${y + 14})`} color={ink(g.color)}>
             {groupIcon(g.kind, 16)}
           </g>
-          <text x={x + 40} y={y + 27} fill="#f0f9ff" fontSize={13} fontWeight={700}>
+          <text x={x + 40} y={y + 27} fill="var(--bp-text)" fontSize={13} fontWeight={700}>
             {clip(name(g), 26)}
           </text>
-          <text x={x + 16} y={y + 48} fill="#bae6fd" fillOpacity=".75" fontSize={10}>
+          <text x={x + 16} y={y + 48} fill="var(--bp-text-2)" fontSize={10}>
             {clip(origin(g), 40)}
           </text>
-          <text x={x + 16} y={y + 66} fill="#e0f2fe" fontSize={10.5} fontFamily="ui-monospace,monospace">
+          <text x={x + 16} y={y + 66} fill="var(--bp-text)" fontSize={10.5} fontFamily="ui-monospace,monospace">
             {g.subnet_cidr ?? (g.source === "network" ? t("arch.noSubnet") : "")}
           </text>
           {g.source === "network" && (
@@ -562,10 +563,10 @@ function SemanticOverview({ o, onOpen }: { o: Overview; onOpen: (groupId: string
               <Pill x={x + 62} y={y + CARD_H - 28} text="DNS" on={g.dns_servers.length > 0} />
             </>
           )}
-          <text x={x + CARD_W - 14} y={y + CARD_H - 30} fill="#86efac" fontSize={10.5} fontWeight={600} textAnchor="end">
+          <text x={x + CARD_W - 14} y={y + CARD_H - 30} fill="var(--bp-ok-text)" fontSize={10.5} fontWeight={600} textAnchor="end">
             {t("grp.nodes", { n: g.total_guests })}
           </text>
-          <text x={x + CARD_W - 14} y={y + CARD_H - 16} fill="#fcd34d" fontSize={10} textAnchor="end">
+          <text x={x + CARD_W - 14} y={y + CARD_H - 16} fill="var(--bp-warn-text)" fontSize={10} textAnchor="end">
             {t("grp.devices", { n: g.device_count })}
           </text>
         </g>
@@ -785,17 +786,17 @@ function DrillDown({ o, group, root, onBack }: { o: Overview; group: SemanticGro
       <div className="relative min-h-0 flex-1">
         <Canvas width={1120} height={680} label={t("arch.drillLabel", { name: title })} crumbs={[{ label: root, onClick: onBack }, { label: title }]} onZoom={onZoom}>
           {pos.map((p, i) => (
-            <path key={spokes[i].key} d={`M${CXc} ${CYc} L${p.x + 95} ${p.y + 29}`} stroke={spokes[i].color} strokeOpacity=".7" strokeWidth={1.4} className={spokes[i].key === "others" ? "" : "arch-flow"} fill="none" />
+            <path key={spokes[i].key} d={`M${CXc} ${CYc} L${p.x + 95} ${p.y + 29}`} stroke={ink(spokes[i].color)} strokeOpacity=".7" strokeWidth={1.4} className={spokes[i].key === "others" ? "" : "arch-flow"} fill="none" />
           ))}
           <g data-node="">
-            <circle cx={CXc} cy={CYc} r={62} fill="#0b2244" stroke={group.color} strokeWidth={2} />
-            <g transform={`translate(${CXc - 9} ${CYc - 36})`} color={group.color}>
+            <circle cx={CXc} cy={CYc} r={62} fill="var(--bp-node)" stroke={ink(group.color)} strokeWidth={2} />
+            <g transform={`translate(${CXc - 9} ${CYc - 36})`} color={ink(group.color)}>
               {groupIcon(group.kind, 18)}
             </g>
-            <text x={CXc} y={CYc + 2} fill="#f0f9ff" fontSize={12} fontWeight={700} textAnchor="middle">
+            <text x={CXc} y={CYc + 2} fill="var(--bp-text)" fontSize={12} fontWeight={700} textAnchor="middle">
               {clip(n ? (n.kind === "vlan" ? `VLAN ${n.vlan_id}` : n.bridge) : title, 16)}
             </text>
-            <text x={CXc} y={CYc + 18} fill="#bae6fd" fontSize={9.5} textAnchor="middle" fontFamily="ui-monospace,monospace">
+            <text x={CXc} y={CYc + 18} fill="var(--bp-text-2)" fontSize={9.5} textAnchor="middle" fontFamily="ui-monospace,monospace">
               {n?.subnet_cidr ?? ""}
             </text>
           </g>

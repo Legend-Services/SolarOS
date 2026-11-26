@@ -138,7 +138,9 @@ downgrades and re-installs keep `HYPERVISOR_DRIVER` like every other `.env` valu
 
 Every surface reads CSS variables (`--sd-bg-base`, `--sd-surface-glass`, `--sd-text-primary`, `--sd-accent-primary`, `--sd-radius-window`, …) that `frontend/src/store/themeStore.ts` sets on `<html>` with `data-color-mode="dark|light"` and `data-window-chrome="standard|traffic-dots|angular-hud"`. `frontend/src/theme/palette.css` maps Tailwind's palette onto those variables, so every app follows the theme without per-app styles: neutrals are derived from the theme's text and background colors, sky/blue follow the primary accent and violet/indigo the secondary one, and the other color scales are mirrored in Light Mode.
 
-In Light Mode every structural zone (window bars, breadcrumbs, tab bars, sidebars, canvases, cards, drawers, dialogs) uses the same bright surface and is set apart by 1px hairlines (`--sd-hairline`) instead of gray fills: `index.css` repaints the `bg-white/N` tints (white is the text color here) and `bg-black/N` wells as white, with active tabs and selected items as a crisp white pill. `node scripts/audit-light-mode.mjs` opens every app, Settings sub-module, inner tab, drawer and dialog in Light Mode in headless Chromium and fails on any dark bar or gray block it measures.
+In Light Mode every structural zone (window bars, breadcrumbs, tab bars, sidebars, canvases, cards, drawers, dialogs) uses the same bright surface and is set apart by 1px hairlines (`--sd-hairline`) instead of gray fills: `index.css` repaints the `bg-white/N` tints (white is the text color here) and `bg-black/N` wells as white, with active tabs and selected items as a crisp white pill. `node scripts/audit-dual-theme.mjs` opens every app, Settings sub-module, inner tab, drawer, dialog and schematic canvas in headless Chromium, once in Light Mode and once in Dark Mode. It fails on a dark bar or gray block in Light Mode, a bright block in Dark Mode, or text below WCAG AA contrast (4.5:1, 3:1 for large text) in either mode; `--mode light|dark` runs one pass.
+
+The schematic canvases (Network Architect, Wireframe Architecture, Network Topology) draw with SVG, which cannot use the mirrored Tailwind scales, so they read `--bp-*` variables from `palette.css`: a navy blueprint with luminous text in Dark Mode, a bright `slate-50` blueprint with white node cards and dark text in Light Mode. Accent strokes and icons, including user-picked VLAN colors, pass through `ink()` in `lib/format.ts`, which darkens them by `--bp-ink` (0% dark, 38% light) so they stay vivid on white. Muted text (`slate-400`/`slate-500`) and the `-300`/`-400` shades of the low-luminance hues are tuned to stay at AA contrast on both modes.
 
 | Theme | Character |
 |---|---|
@@ -251,7 +253,7 @@ for t in tests/test_*.py; do .venv/bin/python -m tests.$(basename $t .py); done
 
 # Frontend (proxies /api to :8000)
 cd frontend && npm ci && npm run dev
-node scripts/audit-light-mode.mjs           # Light Mode dark-bar / gray-block audit of every window
+node scripts/audit-dual-theme.mjs           # Light + Dark Mode surface and contrast audit of every window
 ```
 
 ## Known limits

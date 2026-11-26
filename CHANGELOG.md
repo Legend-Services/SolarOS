@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.21.1 - Light & Dark Mode uniformity across every window and blueprint canvas — 2026-11-26
+
+### Fixed
+- **Blueprint canvases follow the theme**: Network Architect (Overview, Infrastructure Blueprint and every network view), the Wireframe Architecture of VMs and containers, and Settings → Network & Services → **Network Topology** no longer draw a dark navy canvas in Light Mode. Light Mode shows a bright blueprint with a faint grid and hairline border, white node cards, dark text and vivid sky, indigo, emerald and amber accents (your own VLAN colours are darkened to stay readable); Dark Mode keeps the deep navy blueprint with luminous text.
+- **Network Topology**: nodes (Internet / WAN, ports, switches, guests) were murky gray pills in Light Mode; they are now crisp white cards with coloured icons and readable subtitles, and dark cards in Dark Mode. The *Click any node to highlight its connections* caption no longer clips at the right edge.
+- **Light Mode sidebars** in Settings, Files, the Manual and Local AI Studio use the same bright surface as the breadcrumb bar and content, separated only by a 1px hairline.
+- **Readable text in both modes**: secondary and muted text, green and amber status text, badge labels, keyboard hints, the Help badge counter and the *Upload ISO* button now meet WCAG AA contrast (4.5:1) in Light and Dark Mode. Disabled widgets in Widget Studio keep readable descriptions; the *Edit Widgets* pill is no longer faded.
+- Desktop **Edit Widgets** opens the Widget Studio drawer instead of Settings.
+- The *Upload ISO from this computer* button and its hint are translated in all five languages.
+
+### Changed
+- `scripts/audit-light-mode.mjs` is now `scripts/audit-dual-theme.mjs`: it opens every app, Settings sub-module, inner tab, drawer, dialog and schematic canvas (including both Wireframe views, the zoomed-in Blueprint and the network view) in Light **and** Dark Mode — 462 screens — and fails on dark or gray blocks in Light Mode, bright blocks in Dark Mode, SVG node cards that don't fit the mode, or text below WCAG AA. Current result: 0 findings in both modes.
+- Manual screenshots refreshed.
+
 ## v2.21.0 - Smart Compute Groups & 3-tier semantic zoom — 2026-11-26
 
 ### Added
