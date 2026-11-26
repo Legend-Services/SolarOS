@@ -1297,7 +1297,7 @@ export const nl: Dict = {
   "cl.haShort": "HA",
   "cl.haTitle": "Hoge beschikbaarheid · {name}",
   "cl.haIntro": "De workload draait op de voorkeurshost zolang die gezond is. Standby-hosts houden een verse replica bij en nemen over als de actieve host uitvalt.",
-  "cl.haNeedsCluster": "Hoge beschikbaarheid vereist een cluster. Maak of sluit aan bij een cluster onder Instellingen → Cluster & hoge beschikbaarheid.",
+  "cl.haNeedsCluster": "Hoge beschikbaarheid vereist een cluster. Maak of sluit aan bij een cluster onder Instellingen → Hypervisor & runtime → Cluster & hoge beschikbaarheid.",
   "cl.preferredHost": "Voorkeurs-actieve host",
   "cl.preferredHint": "Waar de workload draait zolang deze host gezond is.",
   "cl.standbyHosts": "Passieve standby-hosts",

@@ -8,7 +8,7 @@ import { useTranslation } from "../../i18n";
 import { Field, GlassBadge, GlassButton, GlassInput, GlassSelect, Notice } from "../../components/ui/GlassKit";
 import { Card } from "../ControlPanelApp";
 
-/* Settings → Security & 2FA: posture score, 2FA enrollment, signed-in sessions and the audit log. */
+/* Settings → Privilege & Security → Security & 2FA: posture score, 2FA enrollment, signed-in sessions and the audit log. */
 
 function download(name: string, text: string, type: string) {
   const a = document.createElement("a");

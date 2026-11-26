@@ -425,7 +425,7 @@ function RulesTab({ t, language }: { t: T; language: string }) {
   );
 }
 
-/** Settings → Automation & Alerts. */
+/** Settings → System → Automation & Alerts. */
 export default function AutomationPanel() {
   const { t, language } = useTranslation();
   const [tab, setTab] = useState<"channels" | "rules">("rules");

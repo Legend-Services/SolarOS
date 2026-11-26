@@ -1295,7 +1295,7 @@ export const en = {
   "cl.haShort": "HA",
   "cl.haTitle": "High availability · {name}",
   "cl.haIntro": "The workload runs on its preferred host whenever that host is healthy. Standby hosts keep a fresh replica and take over when the active host fails.",
-  "cl.haNeedsCluster": "High availability needs a cluster. Create or join one under Settings → Cluster & High Availability.",
+  "cl.haNeedsCluster": "High availability needs a cluster. Create or join one under Settings → Hypervisor & Runtime → Cluster & High Availability.",
   "cl.preferredHost": "Preferred active host",
   "cl.preferredHint": "Where the workload runs whenever this host is healthy.",
   "cl.standbyHosts": "Passive standby hosts",

@@ -1297,7 +1297,7 @@ export const fr: Dict = {
   "cl.haShort": "HA",
   "cl.haTitle": "Haute disponibilité · {name}",
   "cl.haIntro": "La charge tourne sur son hôte préféré tant qu'il est sain. Les hôtes de secours gardent un réplica récent et prennent le relais si l'hôte actif tombe.",
-  "cl.haNeedsCluster": "La haute disponibilité nécessite un cluster. Créez-en un ou rejoignez-en un dans Réglages → Cluster et haute disponibilité.",
+  "cl.haNeedsCluster": "La haute disponibilité nécessite un cluster. Créez-en un ou rejoignez-en un dans Réglages → Hyperviseur et exécution → Cluster et haute disponibilité.",
   "cl.preferredHost": "Hôte actif préféré",
   "cl.preferredHint": "Où la charge tourne tant que cet hôte est sain.",
   "cl.standbyHosts": "Hôtes passifs de secours",
