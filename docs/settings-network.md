@@ -94,7 +94,7 @@ Mark a virtual switch as clustered and it, its VLAN awareness and its VLANs are 
 An interactive live map of the host, its switches, guests and VPN connections.
 
 1. Open Settings › Network & Services › Network Topology (or press “Open This Setting / App →” above).
-2. Scroll the map to see every column; nodes run from the internet uplink through ports and switches to guests and VPN peers.
+2. The map runs top to bottom: the internet uplink, then ports and switches, with guests and VPN peers in rows below the switch they connect to; scroll to see every row.
 3. Click a node to highlight its connections, see its details and open the screen that owns it.
 4. Press Open Network Architect for the full infrastructure blueprint with per-network device and port discovery.
 

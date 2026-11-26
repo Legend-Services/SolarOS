@@ -129,13 +129,14 @@ const QEMU_MODELS = ["virtio", "e1000", "e1000e", "rtl8139", "vmxnet3", "ne2k_pc
 const SECTIONS: Section[] = ["net", "pcie", "peripheral", "storage"];
 
 /* Blueprint geometry (SVG user units = px; the canvas scrolls rather than scales, so popovers line up). */
-const W = 900;
+const W = 1100;
 const CX = 20; // chassis
 const CW = 380;
-const RX = 560; // right-hand topology nodes
 const RW = 320;
-/** Inspector footer: stays at the bottom of the scrolling inspector body so Save & Apply is never clipped. */
-const STICKY_FOOTER = "sticky bottom-0 -mx-4 -mb-4 space-y-2 border-t border-[var(--sd-border-hairline)] bg-[var(--sd-surface-panel)] px-4 py-3";
+const RX = W - 20 - RW; // right-hand topology nodes
+/** Inspector body: every field visible at a glance under the full-width canvas. */
+const GRID = "grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3";
+const FOOTER = "flex flex-wrap items-center justify-end gap-3 border-t border-[var(--sd-border-hairline)] pt-4";
 const SLOT_H = 30;
 const SLOT_STEP = 36;
 
@@ -212,7 +213,8 @@ function NicEditor({ gt, vmid, nic, bridges, onSaved }: { gt: "vm" | "lxc"; vmid
       onSaved(t("wf.saved", { name: nic.net_id }));
     });
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      <div className={GRID}>
       <Field label={gt === "lxc" ? t("wf.ifaceName") : t("wf.ifaceLabel")} hint={gt === "lxc" ? "eth0 … eth99" : t("wf.ifaceLabelHint")}>
         <GlassInput className="w-full" value={f.interface_name} onChange={(e) => setF({ ...f, interface_name: e.target.value })} maxLength={31} />
       </Field>
@@ -235,7 +237,6 @@ function NicEditor({ gt, vmid, nic, bridges, onSaved }: { gt: "vm" | "lxc"; vmid
           </GlassSelect>
         </Field>
       )}
-      <div className="grid grid-cols-2 gap-2">
         <Field label={t("wf.switch")}>
           <GlassSelect className="w-full" value={f.bridge} onChange={(e) => setF({ ...f, bridge: e.target.value })}>
             {!bridges.some((b) => b.name === f.bridge) && <option value={f.bridge}>{f.bridge}</option>}
@@ -255,23 +256,17 @@ function NicEditor({ gt, vmid, nic, bridges, onSaved }: { gt: "vm" | "lxc"; vmid
         <Field label={t("wf.rate")}>
           <GlassInput className="w-full" type="number" min={1} placeholder={t("wf.unlimited")} value={f.rate_mbps} onChange={(e) => setF({ ...f, rate_mbps: e.target.value })} />
         </Field>
+        <div className="flex items-end pb-1">
+          <GlassSwitch checked={f.link_up} onChange={(v) => setF({ ...f, link_up: v })} label={t("wf.linkUp")} />
+        </div>
       </div>
-      <GlassSwitch checked={f.link_up} onChange={(v) => setF({ ...f, link_up: v })} label={t("wf.linkUp")} />
-      <dl className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-lg bg-white/5 p-2 text-[11px]">
-        <dt className="text-slate-400">{t("wf.pciSlot")}</dt>
-        <dd className="font-mono text-slate-200">{nic.pci_slot ?? t("wf.auto")}</dd>
-        <dt className="text-slate-400">{t("wf.vidPid")}</dt>
-        <dd className="font-mono text-slate-200">{nic.vendor_id ? `${nic.vendor_id}:${nic.device_id}` : t("wf.vethPair")}</dd>
-        <dt className="text-slate-400">IPv4</dt>
-        <dd className="font-mono text-slate-200">{nic.ipv4_addresses.join(", ") || "—"}</dd>
+      <dl className={GRID}>
+        <Meta k={t("wf.pciSlot")} v={nic.pci_slot ?? t("wf.auto")} />
+        <Meta k={t("wf.vidPid")} v={nic.vendor_id ? `${nic.vendor_id}:${nic.device_id}` : t("wf.vethPair")} />
+        <Meta k="IPv4" v={nic.ipv4_addresses.join(", ") || "—"} />
       </dl>
       <p className="text-[11px] text-slate-400">{t("wf.nicIdsHint")}</p>
-      <div className={STICKY_FOOTER}>
-        <Notice error={error} />
-        <GlassButton variant="primary" className="w-full" disabled={busy} onClick={save}>
-          {t("wf.saveApply")}
-        </GlassButton>
-      </div>
+      <Footer error={error} busy={busy} onSave={save} />
     </div>
   );
 }
@@ -309,21 +304,22 @@ function DeviceEditor({ gt, vmid, dev, spec, onSaved }: { gt: "vm" | "lxc"; vmid
     </Field>
   );
   return (
-    <div className="space-y-3">
-      {field("device_name", t("wf.displayName"), { placeholder: t(`vhw.dev.${dev.type}` as TKey), maxLength: 31, pattern: "[A-Za-z0-9][A-Za-z0-9 ._()+\\-]{0,30}" })}
-      <div className="grid grid-cols-2 gap-2">
+    <div className="space-y-4">
+      <div className={GRID}>
+        {field("device_name", t("wf.displayName"), { placeholder: t(`vhw.dev.${dev.type}` as TKey), maxLength: 31, pattern: "[A-Za-z0-9][A-Za-z0-9 ._()+\\-]{0,30}" })}
         {field("vendor_id", t("wf.vendorId"), { placeholder: dev.identity.native_vendor_id ?? "0x0000", className: "w-full font-mono", pattern: "(0x)?[0-9A-Fa-f]{4}" })}
         {field("device_id", t("wf.deviceId"), { placeholder: dev.identity.native_device_id ?? "0x0000", className: "w-full font-mono", pattern: "(0x)?[0-9A-Fa-f]{4}" })}
+        {field("serial_number", t("wf.serial"), { maxLength: 20, pattern: "[A-Za-z0-9\\-]{0,20}", className: "w-full font-mono" })}
+        {field("pci_or_usb_address", t("wf.address"), { className: "w-full font-mono" })}
       </div>
-      {field("serial_number", t("wf.serial"), { maxLength: 20, pattern: "[A-Za-z0-9\\-]{0,20}", className: "w-full font-mono" })}
-      {field("pci_or_usb_address", t("wf.address"), { className: "w-full font-mono" })}
       <p className="text-[11px] text-slate-400">
         {dev.identity.guest_visible.length ? t("wf.identityPartial") : t("wf.identityLabelOnly")}
         {dev.identity.native_vendor_id && ` ${t("wf.nativeIds", { ids: `${dev.identity.native_vendor_id}:${dev.identity.native_device_id}` })}`}
       </p>
       {spec.filter((o) => shown(o, opts)).length > 0 && (
-        <div className="space-y-2 rounded-lg bg-white/5 p-2">
+        <div className="space-y-3 rounded-xl border border-[var(--sd-border-hairline)] bg-[var(--sd-surface-card)] p-3">
           <div className="text-[11px] font-semibold text-slate-300">{t("wf.deviceSettings")}</div>
+          <div className={GRID}>
           {spec
             .filter((o) => shown(o, opts))
             .map((o) => (
@@ -348,14 +344,35 @@ function DeviceEditor({ gt, vmid, dev, spec, onSaved }: { gt: "vm" | "lxc"; vmid
                 )}
               </Field>
             ))}
+          </div>
         </div>
       )}
-      <div className={STICKY_FOOTER}>
+      <Footer error={error} busy={busy} onSave={save} />
+    </div>
+  );
+}
+
+/** Inspector footer row: the save error beside a right-aligned Save & Apply. */
+function Footer({ error, busy, onSave }: { error: string; busy: boolean; onSave: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <div className={FOOTER}>
+      <div className="min-w-0 flex-1">
         <Notice error={error} />
-        <GlassButton variant="primary" className="w-full" disabled={busy} onClick={save}>
-          {t("wf.saveApply")}
-        </GlassButton>
       </div>
+      <GlassButton variant="primary" disabled={busy} onClick={onSave}>
+        {t("wf.saveApply")}
+      </GlassButton>
+    </div>
+  );
+}
+
+/** One read-only metadata cell (bus, PCI slot, IDs, IPv4). */
+function Meta({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="min-w-0 rounded-lg border border-[var(--sd-border-hairline)] bg-[var(--sd-surface-card)] px-3 py-2 text-[11px]">
+      <dt className="text-slate-400">{k}</dt>
+      <dd className="font-mono break-all text-slate-200">{v}</dd>
     </div>
   );
 }
@@ -475,6 +492,11 @@ export default function WireframeNodeArchitect({ guest, onChanged }: { guest: Gu
   const [pop, setPop] = useState<{ net: string; x: number; y: number; labsOnly: boolean } | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const inspector = useRef<HTMLElement>(null);
+  // The inspector opens below the canvas: bring it into view when a device is picked.
+  useEffect(() => {
+    inspector.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [sel]);
   const load = useCallback(() => {
     api<Detailed>(`/virtual-hardware/${gt}/${guest.vmid}/detailed`).then((r) => (setD(r), setError("")), (e) => setError(e.message));
     api<SwitchState>("/network/switch/state").then(setSw, () => setSw(null));
@@ -519,6 +541,7 @@ export default function WireframeNodeArchitect({ guest, onChanged }: { guest: Gu
   const keyAct = (fn: () => void) => (e: KeyboardEvent) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), fn());
   const selNic = sel?.kind === "nic" ? d.nics.find((n) => n.net_id === sel.id) : undefined;
   const selDev = sel?.kind === "vdev" ? d.devices.find((v) => v.id === sel.id) : undefined;
+  const selSlot = sel ? slots.find((s) => isSel(s.sel)) : undefined;
   const p = d.placement;
   const memGb = d.memory_mb ? `${(d.memory_mb / 1024).toFixed(d.memory_mb % 1024 ? 1 : 0)} GB` : "—";
   const vcpu = (d.cores ?? 1) * (d.sockets ?? 1);
@@ -533,8 +556,9 @@ export default function WireframeNodeArchitect({ guest, onChanged }: { guest: Gu
         </GlassButton>
       </div>
       <Notice notice={notice} />
-      <div className="flex min-h-0 flex-col gap-2 lg:flex-row lg:items-start">
-        <div className="relative min-w-0 flex-1 rounded-xl border border-[var(--bp-border)] bg-[var(--sd-surface-canvas)]">
+      {/* Canvas full width on top; the device inspector stacks below it (never beside it), for VMs and containers alike. */}
+      <div className="flex flex-col gap-4">
+        <div className="relative w-full rounded-xl border border-[var(--bp-border)] bg-[var(--sd-surface-canvas)]">
           <svg viewBox={`0 0 ${W} ${layout.height}`} className="block h-auto w-full select-none" role="img" aria-label={t("wf.canvasLabel", { name: d.name })}>
             <defs>
               <pattern id="wf-grid" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -682,32 +706,30 @@ export default function WireframeNodeArchitect({ guest, onChanged }: { guest: Gu
         </div>
 
         {sel && (
-          <aside
-            className="flex max-h-[70vh] w-full shrink-0 flex-col overflow-hidden rounded-xl border border-[var(--sd-border-hairline)] bg-[var(--sd-surface-panel)] lg:sticky lg:top-0 lg:max-h-[calc(100vh-8rem)] lg:w-[360px] xl:w-[400px]"
-            aria-label={t("wf.inspectorTitle")}
-          >
-            <div className="flex shrink-0 items-center gap-2 border-b border-[var(--sd-border-hairline)] px-4 py-3">
-              <MemoryStick size={14} className="text-sky-300" />
-              <h4 className="flex-1 text-sm font-semibold text-white">{t("wf.inspectorTitle")}</h4>
-              <button className="text-slate-400 hover:text-white" onClick={() => setSel(null)} aria-label={t("common.close")}>
-                <X size={16} />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-              {selNic ? (
-                <>
-                  <GlassButton className="w-full" onClick={() => openPop(selNic, false)}>
-                    <Cable size={14} /> {t("wf.changeEndpoint")}
-                  </GlassButton>
-                  <NicEditor gt={gt} vmid={guest.vmid} nic={selNic} bridges={(sw?.bridges ?? []).filter((b) => !labs.some((l) => l.bridge === b.name))} onSaved={done} />
-                </>
-              ) : selDev ? (
-                <DeviceEditor gt={gt} vmid={guest.vmid} dev={selDev} spec={spec[selDev.type] ?? []} onSaved={done} />
-              ) : (
-                <ReadOnly d={d} sel={sel} />
+          <section ref={inspector} className="w-full rounded-2xl border border-[var(--sd-border-hairline)] bg-[var(--sd-surface-panel)] p-5" aria-label={t("wf.inspectorTitle")}>
+            <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-[var(--sd-border-hairline)] pb-3">
+              <span className="text-[var(--sd-accent)]">{selSlot?.icon ?? <MemoryStick size={14} />}</span>
+              <h4 className="min-w-0 flex-1 truncate text-sm font-semibold text-white">
+                {t("wf.inspectorTitle")}
+                {selSlot && <span className="font-normal text-slate-300"> · {selSlot.label}</span>}
+              </h4>
+              {selNic && (
+                <GlassButton onClick={() => openPop(selNic, false)}>
+                  <Cable size={14} /> {t("wf.changeEndpoint")}
+                </GlassButton>
               )}
+              <GlassButton onClick={() => setSel(null)} aria-label={t("common.close")}>
+                <X size={14} /> {t("common.close")}
+              </GlassButton>
             </div>
-          </aside>
+            {selNic ? (
+              <NicEditor gt={gt} vmid={guest.vmid} nic={selNic} bridges={(sw?.bridges ?? []).filter((b) => !labs.some((l) => l.bridge === b.name))} onSaved={done} />
+            ) : selDev ? (
+              <DeviceEditor gt={gt} vmid={guest.vmid} dev={selDev} spec={spec[selDev.type] ?? []} onSaved={done} />
+            ) : (
+              <ReadOnly d={d} sel={sel} />
+            )}
+          </section>
         )}
       </div>
     </div>
@@ -728,12 +750,9 @@ function ReadOnly({ d, sel }: { d: Detailed; sel: Sel }) {
         {sel.kind === "disk" ? <HardDrive size={14} /> : sel.kind === "usb" ? <Usb size={14} /> : <Monitor size={14} />}
         {sel.id}
       </div>
-      <dl className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-1 rounded-lg bg-white/5 p-2 text-[11px]">
+      <dl className={GRID}>
         {Object.entries(row ?? {}).map(([k, v]) => (
-          <div key={k} className="contents">
-            <dt className="text-slate-400">{k}</dt>
-            <dd className="break-all font-mono text-slate-200">{String(v ?? "—")}</dd>
-          </div>
+          <Meta key={k} k={k} v={String(v ?? "—")} />
         ))}
       </dl>
       <p className="text-[11px] text-slate-400">{t("wf.managedInForm")}</p>

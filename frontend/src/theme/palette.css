@@ -75,17 +75,18 @@
 
   /* Blueprint canvases (Network Architect, Wireframe Architecture, Network Topology): SVG fills can't use Tailwind's
      mirrored scales, so they read these. Accent strokes go through ink() in lib/format.ts, which darkens by --bp-ink. */
-  --bp-canvas: #06142b;
-  --bp-grid: rgba(56, 189, 248, 0.07);
-  --bp-border: rgba(56, 189, 248, 0.2);
-  --bp-node: #0b2244;
+  /* Surfaces and text follow the active theme preset; the status colors below stay fixed so they keep AA contrast. */
+  --bp-canvas: color-mix(in oklab, var(--sd-accent-primary) 9%, var(--sd-bg-base));
+  --bp-grid: color-mix(in oklab, var(--sd-accent-primary) 9%, transparent);
+  --bp-border: var(--sd-accent-border);
+  --bp-node: color-mix(in oklab, var(--sd-accent-primary) 16%, var(--sd-bg-base));
   --bp-node-violet: rgba(30, 27, 75, 0.55);
   --bp-node-amber: rgba(69, 26, 3, 0.6);
   --bp-node-sky: rgba(8, 47, 73, 0.6);
   --bp-slot-on: rgba(14, 116, 144, 0.45);
-  --bp-text: #f0f9ff;
-  --bp-text-2: #bae6fd;
-  --bp-label: #7dd3fc;
+  --bp-text: var(--sd-text-primary);
+  --bp-text-2: var(--sd-text-secondary);
+  --bp-label: color-mix(in oklab, var(--sd-accent-primary) 55%, var(--sd-text-primary));
   --bp-violet-text: #ddd6fe;
   --bp-ok-text: #86efac;
   --bp-bad-text: #fca5a5;
@@ -121,17 +122,17 @@
   --sd-surface-card: rgba(255, 255, 255, 0.55);
   --color-slate-900: #f8fafc;
   --color-slate-950: #f8fafc;
-  --bp-canvas: rgba(248, 250, 252, 0.95);
-  --bp-grid: rgba(15, 23, 42, 0.05);
-  --bp-border: rgba(226, 232, 240, 0.9);
+  --bp-canvas: color-mix(in oklab, var(--sd-accent-primary) 4%, white);
+  --bp-grid: color-mix(in oklab, var(--sd-text-primary) 5%, transparent);
+  --bp-border: var(--sd-border-hairline);
   --bp-node: #ffffff;
   --bp-node-violet: #f5f3ff;
   --bp-node-amber: #fffbeb;
   --bp-node-sky: #f0f9ff;
   --bp-slot-on: #ecfeff;
-  --bp-text: #0f172a;
-  --bp-text-2: #475569;
-  --bp-label: #0369a1;
+  --bp-text: var(--sd-text-primary);
+  --bp-text-2: var(--sd-text-secondary);
+  --bp-label: color-mix(in oklab, var(--sd-accent-primary) 45%, var(--sd-text-primary));
   --bp-violet-text: #4338ca;
   --bp-ok-text: #047857;
   --bp-bad-text: #b91c1c;
