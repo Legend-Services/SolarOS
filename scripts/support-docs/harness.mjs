@@ -93,6 +93,7 @@ export async function reset(page) {
     s.useDock.setState({ gallery: false });
     s.useSpotlight.setState({ open: false });
     (await import("/src/store/widgetStore.ts")).useWidgets.getState().setEditing(false);
+    (await import("/src/store/onboardingStore.ts")).useOnboarding.setState({ wizard: false, tour: false });
   });
   await page.mouse.move(page.viewportSize().width / 2, page.viewportSize().height / 2);
 }

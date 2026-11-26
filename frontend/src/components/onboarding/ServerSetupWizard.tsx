@@ -128,7 +128,7 @@ const toggle = <T,>(list: T[], v: T) => (list.includes(v) ? list.filter((x) => x
 type Topology = "standalone" | "create_cluster" | "join_cluster";
 const STEPS = ["roles", "services", "apps", "summary", "setup"] as const;
 
-/** Full-screen Server Setup Wizard: first boot, or Settings › Features & Services › Re-run Setup Wizard. */
+/** Full-screen Server Setup Wizard: first boot, or Settings › System › Features & Services › Re-run Setup Wizard. */
 export default function ServerSetupWizard() {
   const { t } = useTranslation();
   const product = useProduct();

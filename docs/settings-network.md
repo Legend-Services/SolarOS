@@ -8,7 +8,7 @@ Virtual switches & VLANs, network topology, DHCP, DNS & ad-blocking, WireGuard V
 
 ![Network & Services](screenshots/settings-network.png)
 
-**Sub-modules:** [Network & Virtual Switch](#network-virtual-switch) · [Network Topology](#network-topology) · [DNS, AdBlock & DHCP](#dns-adblock-dhcp) · [Domains & Certificates](#domains-certificates) · [Reverse Proxy & SSL](#reverse-proxy-ssl) · [Firewall & Port Forwarding](#firewall-port-forwarding) · [Firewall & IDS](#firewall-ids) · [WireGuard VPN](#wireguard-vpn)
+**Sub-modules:** [Network & Virtual Switch](#network--virtual-switch) · [Network Topology](#network-topology) · [DNS, AdBlock & DHCP](#dns-adblock--dhcp) · [Domains & Certificates](#domains--certificates) · [Reverse Proxy & SSL](#reverse-proxy--ssl) · [Firewall & Port Forwarding](#firewall--port-forwarding) · [Firewall & IDS](#firewall--ids) · [WireGuard VPN](#wireguard-vpn)
 
 ## Network & Virtual Switch
 

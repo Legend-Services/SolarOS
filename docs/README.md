@@ -30,7 +30,8 @@ Opening a setting jumps straight to its tab and briefly highlights the card; ope
 - [Settings › Privilege & Security](settings-security.md): Users & Roles, Security & 2FA, Security Posture & Hardening, Audit & System Logs, Security-by-Design Modules
 - [Settings › Network & Services](settings-network.md): Network & Virtual Switch, Network Topology, DNS, AdBlock & DHCP, Domains & Certificates, Reverse Proxy & SSL, Firewall & Port Forwarding, Firewall & IDS, WireGuard VPN
 - [Settings › Hypervisor & Runtime](settings-hypervisor.md): Hypervisor Defaults, Local AI Runtime, Cluster & High Availability
-- [REST API reference](api/README.md): every endpoint by area (regenerate with `node scripts/generate-api-docs.mjs`)
+- [Feature deep dives](features.md): virtual switch, virtual hardware & labs, multi-seat, clustering & HA, security internals
+- [REST API reference](api/README.md): every endpoint and WebSocket by area (regenerate with `node scripts/generate-api-docs.mjs`)
 
 ## The App Gallery
 

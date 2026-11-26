@@ -1297,7 +1297,7 @@ export const de: Dict = {
   "cl.haShort": "HA",
   "cl.haTitle": "Hochverfügbarkeit · {name}",
   "cl.haIntro": "Der Workload läuft auf seinem bevorzugten Host, solange dieser gesund ist. Standby-Hosts halten ein aktuelles Replikat bereit und übernehmen, wenn der aktive Host ausfällt.",
-  "cl.haNeedsCluster": "Hochverfügbarkeit erfordert einen Cluster. Erstellen Sie einen oder treten Sie einem bei unter Einstellungen → Cluster & Hochverfügbarkeit.",
+  "cl.haNeedsCluster": "Hochverfügbarkeit erfordert einen Cluster. Erstellen Sie einen oder treten Sie einem bei unter Einstellungen → Hypervisor & Laufzeit → Cluster & Hochverfügbarkeit.",
   "cl.preferredHost": "Bevorzugter aktiver Host",
   "cl.preferredHint": "Wo der Workload läuft, solange dieser Host gesund ist.",
   "cl.standbyHosts": "Passive Standby-Hosts",

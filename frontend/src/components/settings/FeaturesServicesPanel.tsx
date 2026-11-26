@@ -6,7 +6,7 @@ import { useOnboarding } from "../../store/onboardingStore";
 import { FEATURES, FEATURE_DOMAINS, FEATURE_KEYS, PRESETS, isFeature, on, only, parentOf, type FeatureKey, type PresetId } from "../../data/features";
 import { GlassBadge, GlassButton, GlassInput, GlassSwitch, Notice } from "../ui/GlassKit";
 
-/** Settings › Features & Services: show or hide every optional feature, with presets and the Setup Wizard. */
+/** Settings › System › Features & Services: show or hide every optional feature, with presets and the Setup Wizard. */
 export default function FeaturesServicesPanel() {
   const { t } = useTranslation();
   const { enabled, save } = useFeatures();

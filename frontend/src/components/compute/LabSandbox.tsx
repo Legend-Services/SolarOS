@@ -179,7 +179,7 @@ function LabWizard({ open, onClose, onCreated }: { open: boolean; onClose: () =>
   );
 }
 
-/** Lab list with the 1-click wizard and teardown (Compute and Settings → Network & Virtual Switch). */
+/** Lab list with the 1-click wizard and teardown (Compute and Settings → Network & Services → Network & Virtual Switch). */
 export default function LabSandboxPanel() {
   const { t } = useTranslation();
   const [labs, setLabs] = useState<Lab[] | null>(null);

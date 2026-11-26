@@ -8,7 +8,7 @@ ZFS storage pools, disk SMART health, backups & disaster recovery, snapshots, sh
 
 ![Storage & Data](screenshots/settings-storage.png)
 
-**Sub-modules:** [Storage & ZFS Pools](#storage-zfs-pools) · [Backup & Restore](#backup-restore) · [Shared Folders & SMB](#shared-folders-smb) · [ISO & Template Library](#iso-template-library)
+**Sub-modules:** [Storage & ZFS Pools](#storage--zfs-pools) · [Backup & Restore](#backup--restore) · [Shared Folders & SMB](#shared-folders--smb) · [ISO & Template Library](#iso--template-library)
 
 ## Storage & ZFS Pools
 

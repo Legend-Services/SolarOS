@@ -11,7 +11,7 @@ import { useTranslation } from "../i18n";
 import { ConfirmModal, Field, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSlider, Notice, Segmented } from "../components/ui/GlassKit";
 import { Card } from "./ControlPanelApp";
 
-/* Settings → General & Appearance: theme gallery, per-theme wallpaper, theme creator, import and export. */
+/* Settings → System → General & Appearance: theme gallery, per-theme wallpaper, theme creator, import and export. */
 
 const WALLPAPER_MAX = 15 * 1024 * 1024;
 const THEME_FILE_MAX = 2 * 1024 * 1024;

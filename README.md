@@ -15,7 +15,7 @@ No config files, no command-line gymnastics.
 [![Ubuntu Server](https://img.shields.io/badge/SolarOS-Ubuntu%2024.04%20%7C%2026.04-e95420)](#solaros-a-complete-server-os)
 [![License](https://img.shields.io/badge/license-AGPLv3%20%2B%20Commercial-8b5cf6)](#license)
 
-[**Install on Proxmox VE**](#solardeck-for-proxmox-ve) · [**Download SolarOS**](#solaros-a-complete-server-os) · [Screenshots](#screenshots) · [Features](#what-you-get) · [**📖 Manual**](docs/README.md)
+[**Install on Proxmox VE**](#solardeck-for-proxmox-ve) · [**Download SolarOS**](#solaros-a-complete-server-os) · [Quick start](#5-minute-quick-start) · [Features](#what-you-get) · [Docs](#documentation) · [**📖 Manual**](docs/README.md)
 
 <br>
 
@@ -49,7 +49,7 @@ Both editions are the same desktop, built from the same code, and update with on
    ```
 
 3. After 2–3 minutes you get a box with the **web address**, the username **`admin`** and a **password**.
-   Open the address, sign in, and the Welcome Tour shows you around.
+   Open the address and sign in: the Server Setup Wizard and the Desktop Tour show you around.
 
 The installer finds everything by itself (free container ID, storage, IP address) and creates one new container
 named `proxmox-os`. Your existing VMs and containers are not touched.
@@ -110,97 +110,37 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/
 
 | | |
 |---|---|
-| 🖥️ **A real desktop** | Movable windows with snapping, a dock or taskbar, live widgets, Spotlight search (Ctrl+K) and a Welcome Tour. |
-| ⚙️ **One Settings hub** | Every system, storage, security, network and hypervisor setting in one app: 5 category cards, each with its own sidebar, a live filter across every sub-module and deep links from the top bar. The App Gallery stays focused on Settings, Compute, Files, App Center, Terminal and the apps you install. |
-| 📦 **Virtual machines & containers** | Create them with step-by-step wizards, open their screen or shell in the browser, pass through GPUs, PCI and USB devices. Desktop guest operating systems are ready out of the box. Switch any guest to the **Wireframe Architecture** view to inspect and edit every device and re-patch its network cards. |
-| 💽 **ZFS storage made easy** | Build mirrors and RAIDZ pools, datasets, snapshots and schedules, check SMART health and benchmark your disks. |
-| 🗂️ **Files, shares & backups** | A file browser, SMB shares for your network, and a Backup Center to back up and restore guests. |
-| 🛒 **App Center** | One click for Jellyfin, Immich, AdGuard Home, Portainer CE and Local AI Studio. Docker Engine & Compose, SMB shares and the reverse proxy are built in. |
+## 5-minute quick start
+
+1. **Sign in** at the address the installer showed. On a new installation the **Server Setup Wizard** opens: tick
+   the roles this server plays (storage & media, virtualization host, gateway & VPN, AI compute, …), pick the apps
+   to install and press **Setup My Server**. The **Desktop Tour** then points out the search bar, tray, widgets and Dock.
+2. **Check the server** in **Settings → System → Info**: release, kernel, uptime, *Check for Updates*, and a hardware
+   summary of CPU, memory, GPUs, disks and pools.
+3. **Hide what you don't use** in **Settings → System → Features & Services** (presets such as *Minimal Core* or
+   *Home & Media Server*, or single switches like *WireGuard VPN Server* vs. *Client*).
+4. **Create storage** in **Settings → Storage & Data → Storage & ZFS Pools**: turn empty disks into a mirror or RAIDZ pool.
+5. **Create your first VM or container** in **Compute → Create**, or install an app from **App Center**.
+
+Press **⌘K / Ctrl+K** at any time to search every app, setting and help article.
+
+## What you get
+
+| | |
+|---|---|
+| 🖥️ **A real desktop** | Movable windows with snapping, a dock or taskbar, live widgets, Spotlight search (⌘K / Ctrl+K), a guided Server Setup Wizard and a speech-balloon Desktop Tour. |
+| ⚙️ **One Settings hub** | Five categories (System, Storage & Data, Privilege & Security, Network & Services, Hypervisor & Runtime), each with its own sidebar. **System → Info** shows the OS, updates, power buttons and a hardware summary; **Features & Services** switches every optional feature and sub-feature on or off. |
+| 📦 **Virtual machines & containers** | Step-by-step wizards, browser consoles and GPU, PCI and USB passthrough. **Smart Compute Groups** group machines by network or by your own groups (Grouped or Flat List), with multi-homed badges and group power actions. Every guest has a **Wireframe Architecture** view with the Hardware Device Inspector & Editor below it, and an **OSI Architecture** view. |
+| 💽 **ZFS storage made easy** | Mirrors and RAIDZ pools, datasets, snapshots and schedules, SMART health and disk benchmarks. |
+| 🗂️ **Files, shares & backups** | A file browser, built-in SMB shares, and a Backup Center to back up and restore guests. |
+| 🛒 **App Center** | One click for Portainer CE, Local AI Studio, Jellyfin Media Server, AdGuard Home and Immich, as many labelled instances as you like. Docker Engine & Compose, SMB shares and the reverse proxy with SSL are built in. |
 | 🧠 **Local AI** | Ollama + Open WebUI on your own GPU (NVIDIA, Intel, AMD) or CPU, with a model library that tells you what fits. |
-| 🧪 **Virtual hardware & labs** | Give any VM or container emulated peripherals (HD audio + microphone, retro sound, virtual webcam, SAS/RAID HBA, NVMe, 56k modem, 10 Mbps NIC, TPM 2.0, smartcard reader, watchdog, entropy), slow down its CPU and network (10 Mbps, 56k, 4G or your own latency and packet loss) and launch air-gapped lab networks in one click. |
-| 🪑 **Multi-seat workstations** | One machine, several desks: give each seat VM its own GPU with its monitors, its own physical USB ports (plug a keyboard in and it is assigned), USB controllers and dedicated CPU cores, then start every seat with one click. |
-| 🔌 **Visual virtual switch** | Every virtual switch as a rack faceplate: drag ports onto color-coded VLANs, add virtual network cards in two clicks, set host IPs safely and run a DHCP server per VLAN. |
-| 🌐 **Network & VPN** | A live network map, the **Network Architect** blueprint with per-network device and port discovery, DNS with ad blocking, DHCP, WireGuard VPN with QR codes, port forwarding and Let's Encrypt. |
-| 🔔 **Alerts & automation** | "When the GPU gets hot, tell me on Telegram" style rules, without writing code. |
-| 🎨 **Make it yours** | 11 themes in dark and light with 4 generative wallpapers each, custom wallpapers, a theme creator and a **Wallpaper Studio** that puts the logo and your server or node name on the desktop as a glass watermark. |
-| 🌍 **Five languages** | English, Nederlands, Deutsch, Español and Français. |
-| 🛟 **Help built in** | Guided wizards, health checks with "Fix it for me", BIOS guides and a bug reporter. |
+| 🌐 **Network & VPN** | A visual virtual switch with drag-and-drop VLANs and VLAN templates (including **60 · DMZ**), a top-down **Network Topology**, the **Network Architect** Overview and Infrastructure Blueprint with 3-level semantic zoom, DNS with ad blocking, DHCP per VLAN, WireGuard VPN server and client, port forwarding and Let's Encrypt. |
+| 🎓 **Learn as you go** | The **7-Layer OSI Architecture Explorer** in Compute, Network and App Center shows which layer each device, network and app works on, with plain-language learning cards. |
+| 🧪 **Labs, virtual hardware & multi-seat** | Emulated peripherals, CPU and network throttling, air-gapped lab networks, and multi-seat workstations with their own GPU, USB ports and CPU cores. |
+| 🏢 **Cluster & high availability** | Create or join a cluster, live-migrate guests, active/passive HA with ZFS replication, floating VIPs and clustered switches. |
 | 🔐 **Secure by design** | Two-factor sign-in, confirmation before destructive actions, encrypted secrets, a tamper-evident audit log and a security score with 1-click host hardening. |
-
-## Visual Virtual Switch, VLANs & Per-VLAN DHCP
-
-Open **Settings → Network & Services → Network & Virtual Switch**:
-
-- **Switch faceplates.** Each virtual switch shows its physical ports (link LED, speed badge) and the virtual ports of its VMs, containers and host NICs. A port's colored ring is its VLAN; a striped ring is a trunk.
-- **Drag and drop VLANs.** Drag a port onto a VLAN card to make it an access port on that VLAN, onto **Trunk Port** to tick the VLANs it carries, or onto **Unplug**. Animated patch cables show which port sits on which VLAN. Click a port for a plain-English inspector with the same actions. Switches become VLAN-aware by themselves when a VLAN needs it.
-- **Virtual NICs.** Add a network card to any VM or container (switch, VLAN, adapter model, MAC), or a host VLAN interface / dummy NIC; edit bandwidth limits and plug or unplug the virtual cable.
-- **IP configurator.** Static or DHCP addresses, gateway, DNS, MTU and autostart for switches, ports and VLAN interfaces; bridged, NAT and isolated switches.
-- **Safe by default.** Host changes are staged first. **Apply safely** snapshots the network config, reloads it and starts a 60-second countdown on the host: confirm to keep the new settings, or they are restored by themselves, even when the change cut off the browser.
-- **DHCP per VLAN.** Flip one switch to run an isolated DHCP server on a VLAN, bound only to that VLAN's interface (created with the gateway IP when missing). See live leases and pin any device to a static address with one click.
-
-## Virtual Hardware, Retro Throttling & Isolated Labs
-
-Open a guest in **Compute** and pick the **Virtual Hardware & Lab** tab:
-
-- **Virtual devices.** Press **+ Add Virtual Device** and pick from *Audio & Voice* (HD Audio Card + Microphone, Retro Sound Card AC97 / SB16), *Video & Capture* (Virtual Webcam fed by a test pattern, an RTSP camera, a looping video file or another VM's screen; containers), *Storage Controllers* (SAS / RAID HBA, virtual NVMe drive), *Communication & Legacy* (Virtual 56k Modem with a built-in AT-command emulator that dials host:port over TCP/IP, Retro 10/100 Mbps Ethernet) and *Security & Reliability* (TPM 2.0, USB SmartCard Reader, Hardware Watchdog, Hardware Entropy). Every device works with the guest's universal inbox drivers; legacy PCI / ISA devices are marked when a running VM needs a power cycle.
-- **CPU Speed Limiter.** Limit a guest to 5–100 % of its vCPUs and pick a CPU architecture (*Modern Host*, *Standard 64-bit*, *Retro Pentium*, *Retro 486*) for speed-sensitive retro software.
-- **Network Link Speed & Latency Simulator.** Per network card: *Native*, *100 Mbps*, *10 Mbps*, *56k Modem* (~120 ms), *4G Mobile* (25 Mbps, 45 ms, 10 ms jitter) or *Custom* bandwidth, latency, jitter and packet loss. Shaping uses Linux traffic control on the guest's host-side interface, is non-destructive and comes back after every guest start.
-- **Isolated Lab Sandbox.** In **Compute** or **Settings → Network & Virtual Switch → Isolated Labs**, name a lab (e.g. *Retro Gaming LAN*), pick a private subnet and DHCP range and the guests to isolate, and press **Launch lab**: SolarDeck creates a virtual switch without physical ports, a lab VLAN with its own DHCP server, moves the guests' first network card onto it and blocks every route in or out (*Air-Gapped · Zero LAN Leak*). **Tear down** puts the guests back on their previous network.
-
-## Multi-Seat Workstations & Physical Ports
-
-Open **Compute → Multi-Seat & Ports** (or **Settings → System → Hardware, GPU & BIOS → Multi-Seat & Ports**):
-
-- **Seats.** Press **+ Create Seat** and pick the seat's VM, or press **Create New Seat VM**. Each seat card shows its power state with **Start Seat** / **Stop Seat**; **Start All Seats** starts every enabled seat, 3 seconds apart.
-- **Display & GPU output.** Choose the GPU whose monitors the seat uses: every GPU is listed with its PCIe slot, a *Boot GPU* badge for the card the server starts on, external Thunderbolt / USB4 GPUs (authorized from the studio), its HDMI / DisplayPort connectors (*HDMI-1: Connected*, *DP-1: Ready*) and *GPU Audio Included* for the card's own audio function. When a seat uses the boot GPU, SolarDeck releases it from the server's console before the seat starts, so every GPU in the machine can drive a desk.
-- **Physical USB ports & hubs.** Press **Plug to Assign** and plug a mouse, keyboard, game controller, audio DAC or USB hub into any port of the server within 30 seconds: the port is bound to the seat by its physical position (`1-4`, `3-2.1`), so two identical mice on different ports go to different seats. A whole USB controller can be passed through too, for hot-plug and full bandwidth.
-- **CPU core pinning.** Click core pairs (a physical core with its Hyper-Threading sibling) or press **Auto-Balance Cores Across Seats**. Seats never share a core, and the first core(s) stay reserved for the server itself.
-
-## Multi-Host Cluster, Live Migration & High Availability
-
-Open **Settings → Hypervisor & Runtime → Cluster & High Availability**:
-
-- **Standalone to cluster without downtime.** A fresh install is a standalone host with a readiness list (network address, clock sync, ZFS pool, SSH keys & certificates). **Create New Cluster** turns it into the coordinator and shows a single-use **join token** (copy it or scan the QR code); **Join Existing Cluster** on another host adds it with its running guests, storage pools and settings. With Proxmox VE this is a regular Corosync cluster (`pvecm`); with SolarOS it is the SolarOS Cluster Control Plane (its own certificate authority, signed peer calls and 3-second heartbeats).
-- **2-host clusters.** Add a **quorum witness** (a QDevice with Proxmox VE, any other SolarOS host with SolarOS) so the surviving host keeps quorum and can fail over without split-brain.
-- **Live migration.** In **Compute** press **Migrate to Host…** on any workload: VMs move while running (memory and disks), containers move with a short restart, followed live from 0 to 100 %. **Enter Maintenance (Drain)** on a host card live-migrates every running workload away first.
-- **Active/passive HA.** Per workload: a preferred active host, one or more passive standby hosts kept in sync with incremental ZFS replication every 1, 5, 15 or 60 minutes, a failover timeout (10–120 s) and optional **auto-failback**. When the active host goes down the first healthy standby starts the workload from its latest replica, the event goes to the audit log and to your Telegram / Discord / webhook / email alerts. **Switchover Now** swaps active and standby on purpose. A host that loses quorum stops its HA workloads itself.
-- **Clustered virtual switches & floating VIPs.** Turn on **Clustered Switch (Sync Across All Hosts)** in the Visual Switch and the switch and its VLANs exist on every host, so workloads migrate without network changes. **Floating VIPs** keep a service reachable at one IPv4/IPv6 address that follows the healthy host (VRRP).
-
-## Security by Design & Hardening
-
-The same security layer runs in both editions (SolarDeck for Proxmox VE and SolarOS). Open **Settings →
-Security & Hardening** to see it all in one place.
-
-- **Two-factor sign-in (TOTP).** Scan a QR code with any authenticator app. You also get 8 single-use recovery codes.
-  With 2FA on, the password step returns a short-lived challenge and the sign-in finishes only with a valid code.
-- **Sessions you can end.** Every sign-in is tracked (device, address, last seen). Revoke one device or all others; the
-  token stops working immediately. Changing the password signs out every other device.
-- **Brute-force protection.** After 5 failed sign-ins within 10 minutes an address is locked out for 1 minute, then 2,
-  4, 8 … (at most an hour), with a `Retry-After` header.
-- **Step-up confirmation.** Wiping a disk, destroying a pool or dataset, taking a mirror disk offline, deleting a VM or
-  container, switching a GPU to passthrough, editing firewall rules, applying host hardening and opening a root host
-  shell all ask for the password (or a 2FA code) again. The confirmation lasts 5 minutes and only for that sign-in.
-- **Encrypted secrets.** Alert tokens, webhook URLs, the SMTP password and the TOTP secret are stored encrypted
-  (Fernet) with a machine-local key in `backend/data/.vault.key` (`0600`). Older plaintext files keep working and are
-  encrypted on the next save.
-- **Tamper-evident audit log.** Sign-ins, 2FA changes, session revocations, step-up confirmations, guest and ZFS
-  changes, disk wipes, firewall edits, updates and host shells go to `backend/data/audit_log.jsonl`. Each entry stores
-  `sha256(previous hash + entry)`, so **Verify Hash Chain** spots any edited, removed or reordered line. Export as
-  JSON or CSV.
-- **Security score (0–100).** Eight weighted checks: strong admin password, 2FA, HTTPS, key-only SSH, default-deny
-  firewall, kernel hardening, automatic security updates and audit log integrity. Host fixes are one click.
-- **Host hardening** (`deploy/host-hardening.sh`, applied by the SolarOS installer and from the security score):
-  `/etc/sysctl.d/99-solardeck-hardening.conf` (ASLR, symlink/hardlink protection, `kptr_restrict`, `dmesg_restrict`,
-  SYN cookies, no ICMP redirects); SSH via `/etc/ssh/sshd_config.d/10-solardeck-hardening.conf` (key-only once a
-  person's key is authorized, so you are never locked out; root by key only); `ufw` default-deny incoming with
-  80/443 tcp, 51820 udp, rate-limited 22 tcp, shares and guest networks allowed; AppArmor; `unattended-upgrades`.
-  On Proxmox VE the platform's own firewall is checked instead of adding ufw.
-- **Web server and service.** nginx sends `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`,
-  `Permissions-Policy` and a Content-Security-Policy, and hides its version. The container edition's backend runs
-  with `NoNewPrivileges`, a private `/tmp` and read-only `/usr`, `/boot` and home directories; `.env` and the SSH key
-  are kept at `0600`.
-- **On the server's own screen** (SolarOS console): **[7] Security & SSH Lock-Down** blocks or allows SSH from the
-  network, shows the firewall and lists recent failed SSH and web sign-ins.
+| 🎨 **Make it yours** | 11 themes in dark and light, generative and custom wallpapers, a theme creator and five languages (English, Nederlands, Deutsch, Español, Français). |
 
 ## Screenshots
 
@@ -210,14 +150,24 @@ Security & Hardening** to see it all in one place.
 | **Virtual machines & containers** | **Network & Services** |
 | ![Compute Manager](docs/screenshots/04-compute-manager.png) | ![Network & Services](docs/screenshots/05-network-services.png) |
 
-The complete illustrated manual (every app, every Settings category, sub-module and screen, with step-by-step
-instructions) is in **[docs/README.md](docs/README.md)**. The same articles are built into the desktop under
-**Help & Support → Manual**, and the TopBar search (**⌘K / Ctrl+K**) finds apps, settings and help in one place.
+## Documentation
 
-The status icons in the top bar (or the taskbar tray) are yours to arrange: right-click the bar and choose
-**Customize Bar & Tray...** (or open **Settings → System → General & Appearance → Top Bar & Taskbar Tray**) to reorder
-them by dragging, hide the ones you do not need and choose how many stay on the bar; the rest wait behind a small
-chevron. Notifications and the Task Center share the bell icon.
+The same manual is built into the desktop under **Help & Support → Manual**.
+
+| Guide | What's in it |
+|---|---|
+| [Manual](docs/README.md) | Start page: Global Search, App Gallery, Settings and Help, with screenshots |
+| [Apps](docs/apps.md) | Compute (Smart Groups, Wireframe, OSI, Docker), Files, App Center, Local AI, Network Architect, Help and more |
+| [Settings › System](docs/settings-system.md) | Info, General & Appearance, Features & Services, Installed Apps & Instances, Hardware, GPU & BIOS, Services & Repositories |
+| [Settings › Storage & Data](docs/settings-storage.md) | ZFS pools, disks & SMART, backups, Shared Folders & SMB, ISO & template library |
+| [Settings › Privilege & Security](docs/settings-security.md) | Users & Roles, Security & 2FA, Security Posture & Hardening, audit logs |
+| [Settings › Network & Services](docs/settings-network.md) | Virtual switch & VLANs (DMZ template), Network Topology, DNS/DHCP, certificates, reverse proxy, firewall, WireGuard |
+| [Settings › Hypervisor & Runtime](docs/settings-hypervisor.md) | Hypervisor defaults, Local AI runtime, Cluster & High Availability |
+| [Feature deep dives](docs/features.md) | Virtual switch, virtual hardware & labs, multi-seat, clustering & HA, security internals |
+| [Technical notes](docs/TECHNICAL.md) | Architecture, both hypervisor drivers, running from source, testing the ISO, troubleshooting |
+| [REST API](docs/api/README.md) | Every REST endpoint and WebSocket, per driver ([OpenAPI schema](docs/api/openapi.json)) |
+| [SolarOS hypervisor](hypervisor/README.md) | The ISO, the installer and the server console |
+| [Changelog](CHANGELOG.md) | Every release |
 
 ## Updating
 
@@ -232,7 +182,7 @@ monthly at a time you choose.
 ## Good to know
 
 - The administrator controls the whole server. Keep SolarDeck on your home network, turn on **2FA** in
-  Settings → Security & 2FA, and give other people their own account with a limited role in
+  Settings → Privilege & Security → Security & 2FA, and give other people their own account with a limited role in
   **Settings → Privilege & Security → Users & Roles**.
 - Found a bug? Click **Report a Bug** in the **?** menu. It opens a pre-filled GitHub issue with anonymized details.
 - Want to know how it works, run it from source or see the known limits? Read [docs/TECHNICAL.md](docs/TECHNICAL.md),

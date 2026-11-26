@@ -1297,7 +1297,7 @@ export const es: Dict = {
   "cl.haShort": "HA",
   "cl.haTitle": "Alta disponibilidad · {name}",
   "cl.haIntro": "La carga se ejecuta en su host preferido mientras esté sano. Los hosts en espera guardan una réplica reciente y toman el relevo si falla el host activo.",
-  "cl.haNeedsCluster": "La alta disponibilidad necesita un clúster. Crea uno o únete en Ajustes → Clúster y alta disponibilidad.",
+  "cl.haNeedsCluster": "La alta disponibilidad necesita un clúster. Crea uno o únete en Ajustes → Hipervisor y entorno → Clúster y alta disponibilidad.",
   "cl.preferredHost": "Host activo preferido",
   "cl.preferredHint": "Dónde se ejecuta la carga mientras este host esté sano.",
   "cl.standbyHosts": "Hosts pasivos en espera",

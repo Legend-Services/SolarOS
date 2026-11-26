@@ -99,7 +99,7 @@ export function SecurityModuleHeader({ module, children, compact = false }: { mo
             <h3 className="truncate text-sm font-semibold text-white">{t(`sdm.m.${module}`)}</h3>
             <GlassBadge tone={saved.enabled ? tone : "neutral"}>{saved.enabled ? t(label) : t("sdm.disabled")}</GlassBadge>
           </div>
-          {/* Docker is switched on and off in Settings › Features & Services only, so it gets no second switch here. */}
+          {/* Docker is switched on and off in Settings › System › Features & Services only, so it gets no second switch here. */}
           {module !== "docker_engine" && <GlassSwitch checked={draft.enabled} label={t("sdm.enabled")} disabled={busy} onChange={(enabled) => (dirty ? set({ enabled }) : void save({ ...draft, enabled }))} />}
         </div>
         {!compact && (

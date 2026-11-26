@@ -68,7 +68,7 @@ The Create Group dialog lists every VM and container with the networks it sits o
 
 ### Built-In Docker Engine & Compose
 
-Docker Engine and Docker Compose are part of the platform; no app is needed. The Docker tab (shown while Docker Engine & Compose is on in Settings › Features & Services) starts with its Security-by-Design header: run the engine in an Isolated Container (recommended: its own runtime container, so the hypervisor host stays untouched) or Host Native, and pin it to the management network, a VLAN, the DMZ or an isolated lab with least-privilege firewall rules. Below it, every container shows its image, state, published ports and Compose stack, with start, stop, restart and remove, and every Compose stack shows its status and compose files. Prefer a web UI? Install Portainer CE from App Center (as many instances as you like) and add this engine to it through the Portainer Agent.
+Docker Engine and Docker Compose are part of the platform; no app is needed. The Docker tab (shown while Docker Engine & Compose is on in Settings › System › Features & Services) starts with its Security-by-Design header: run the engine in an Isolated Container (recommended: its own runtime container, so the hypervisor host stays untouched) or Host Native, and pin it to the management network, a VLAN, the DMZ or an isolated lab with least-privilege firewall rules. Below it, every container shows its image, state, published ports and Compose stack, with start, stop, restart and remove, and every Compose stack shows its status and compose files. Prefer a web UI? Install Portainer CE from App Center (as many instances as you like) and add this engine to it through the Portainer Agent.
 
 1. Open Compute and pick the Docker tab.
 2. Choose Isolated Container or Host Native and the network, then switch the module on.
@@ -173,7 +173,7 @@ Network Architect draws your whole environment at three zoom levels. The Overvie
 
 ### 3-Tier Semantic Zoom
 
-Large environments stay readable because Network Architect changes what it draws as you zoom. Below 75 % you see the Overview: hosts, network ports, virtual switches and one card per network, VLAN, isolated lab and custom group. Zooming in over a card past 75 %, or clicking it, opens that network or group; zooming well back out, or clicking Overview in the breadcrumb bar, returns. From the network view, a click on a machine opens its hardware and console drawer and a click on Other Devices (+N) opens the device explorer. The groups are the same ones Compute Manager shows, and Settings › Network & Services › Virtual Switch & VLANs lists them as pills that open Network Architect zoomed into that group.
+Large environments stay readable because Network Architect changes what it draws as you zoom. Below 75 % you see the Overview: hosts, network ports, virtual switches and one card per network, VLAN, isolated lab and custom group. Zooming in over a card past 75 %, or clicking it, opens that network or group; zooming well back out, or clicking Overview in the breadcrumb bar, returns. From the network view, a click on a machine opens its hardware and console drawer and a click on Other Devices (+N) opens the device explorer. The groups are the same ones Compute Manager shows, and Settings › Network & Services › Network & Virtual Switch › Visual Switch lists them as pills that open Network Architect zoomed into that group.
 
 ![3-Tier Semantic Zoom](screenshots/architect-group.png)
 
@@ -212,7 +212,7 @@ Help & Support holds this manual, an offline “Ask” search, one-click problem
 
 ### Interactive Desktop Tour
 
-Five Liquid Glass speech balloons point at the live desktop: the TopBar search (⌘K), the system tray and Task Center, the desktop widgets with Edit Widgets, the Dock or taskbar with your apps, and Settings › Features & Services. It starts by itself after the Server Setup Wizard unless you ticked Skip interactive get-started guide, and any time from Start tour on the Help & Support home page or the top bar's help menu.
+Five Liquid Glass speech balloons point at the live desktop: the TopBar search (⌘K), the system tray and Task Center, the desktop widgets with Edit Widgets, the Dock or taskbar with your apps, and Settings › System › Features & Services. It starts by itself after the Server Setup Wizard unless you ticked Skip interactive get-started guide, and any time from Start tour on the Help & Support home page or the top bar's help menu.
 
 1. Press Start tour.
 2. Use Next and Back, or press Skip Guide (×) or Escape to end it at any step.

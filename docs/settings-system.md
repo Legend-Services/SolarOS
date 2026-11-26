@@ -8,7 +8,7 @@ OS info, software updates, appearance themes, features toggle, installed apps, h
 
 ![System](screenshots/settings-system.png)
 
-**Sub-modules:** [Info](#info) · [General & Appearance](#general-appearance) · [Features & Services](#features-services) · [Installed Apps & Instances](#installed-apps-instances) · [Hardware, GPU & BIOS](#hardware-gpu-bios) · [Resource Monitor](#resource-monitor) · [System Services & Repositories](#system-services-repositories) · [Automation & Alerts](#automation-alerts) · [Power & UPS](#power-ups)
+**Sub-modules:** [Info](#info) · [General & Appearance](#general--appearance) · [Features & Services](#features--services) · [Installed Apps & Instances](#installed-apps--instances) · [Hardware, GPU & BIOS](#hardware-gpu--bios) · [Resource Monitor](#resource-monitor) · [System Services & Repositories](#system-services--repositories) · [Automation & Alerts](#automation--alerts) · [Power & UPS](#power--ups)
 
 ## Info
 
@@ -173,6 +173,8 @@ The Server Setup Wizard opens on the first sign-in of a new installation and any
 
 > **Tip:** Skip Setup & Use Defaults (first run only) keeps every feature on and skips the tour.
 
+![Server Setup](screenshots/settings-features-services--server-setup-wizard.png)
+
 ## Installed Apps & Instances
 
 ![Installed Apps & Instances](screenshots/settings-installed-apps.png)
@@ -314,7 +316,7 @@ The background services of the host and deployed apps with start, stop, restart 
 
 ### Docker Engine & Compose
 
-Docker Engine & Compose is a built-in platform feature, switched on and off with its card in Features & Services. While it is on, Compute › Docker and Settings › System Services & Repositories show its Security-by-Design options: Isolated Container (recommended) or Host Native, and the network it is pinned to (management, VLAN, DMZ or isolated lab). Containers and stacks are managed in Compute › Docker.
+Docker Engine & Compose is a built-in platform feature, switched on and off with its card in Features & Services. While it is on, Compute › Docker and Settings › System › System Services & Repositories show its Security-by-Design options: Isolated Container (recommended) or Host Native, and the network it is pinned to (management, VLAN, DMZ or isolated lab). Containers and stacks are managed in Compute › Docker.
 
 1. Switch on Docker Engine & Compose in Features & Services.
 2. Pick Isolated Container or Host Native and the network, then press Save.

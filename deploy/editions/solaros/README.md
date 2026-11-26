@@ -11,8 +11,8 @@ server's own monitor, on top of Ubuntu Server LTS.
   search (⌘K / Ctrl+K) finds apps, settings and help in one place.
 - Security by design: two-factor sign-in with recovery codes, confirmation before destructive actions, encrypted
   secrets, a tamper-evident audit log and a 0–100 security score with 1-click host hardening (sysctl, key-only SSH,
-  ufw default-deny, AppArmor, automatic security updates) in Control Panel → Security & Hardening; console option
+  ufw default-deny, AppArmor, automatic security updates) in Settings → Privilege & Security → Security Posture & Hardening; console option
   [7] Security & SSH Lock-Down.
-- Updates: Control Panel → System & Updates (the `solaros` release branch). Settings, users, data and shares are kept.
+- Updates: Settings → System → Info → Check for Updates (the `solaros` release branch). Settings, users, data and shares are kept.
 
 Licensed under the GNU AGPLv3 or a commercial license, see [COMMERCIAL_LICENSE.md](COMMERCIAL_LICENSE.md).
