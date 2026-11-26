@@ -83,6 +83,8 @@ def parse_host(out: str) -> dict:
     except ValueError:
         routes, neigh = [], []
     macs = {n.get("dst"): (n.get("lladdr") or "").upper() for n in neigh if n.get("lladdr")}
+    arp = {n["lladdr"].upper(): n["dst"] for n in neigh
+           if n.get("lladdr") and "." in n.get("dst", "") and "FAILED" not in (n.get("state") or [])}
     gws = [{"ip": r["gateway"], "dev": r.get("dev"), "mac": macs.get(r["gateway"]) or None}
            for r in routes if r.get("gateway")]
     lldp = []
@@ -102,7 +104,7 @@ def parse_host(out: str) -> dict:
     for x in parts[3].split():
         if x not in dns and not x.startswith("127."):
             dns.append(x)
-    return {"gateways": gws, "lldp": lldp, "dns": dns}
+    return {"gateways": gws, "lldp": lldp, "dns": dns, "arp": arp}
 
 
 def pct(used: float, total: float) -> float | None:
@@ -136,7 +138,8 @@ async def overview():
     nics: dict[tuple, list] = {}
     for g in state.get("guest_vnics", []):
         nics.setdefault((g["guest_type"], g["guest_id"]), []).append(
-            {"net_id": g["net_id"], "bridge": g["bridge"], "vlan_tag": g["vlan_tag"], "ip_address": g["ip_address"],
+            {"net_id": g["net_id"], "bridge": g["bridge"], "vlan_tag": g["vlan_tag"],
+             "ip_address": g["ip_address"] or host["arp"].get((g["mac"] or "").upper()),  # router-leased guests: from ARP
              "mac_address": g["mac"], "link_up": not g["link_disconnected"]})
     lab_of = {(m["guest_type"], int(m["guest_id"])): x["id"] for x in labs for m in x["members"]}
     guests = []
@@ -154,7 +157,8 @@ async def overview():
     hosts = [{"host_id": h["name"], "hostname": h["name"],
               "ip_addresses": [h["address"]] if h.get("address") else [i["address"] for i in st.get("interfaces", [])],
               "role": h["role"], "status": "maintenance" if h.get("maintenance") else "online" if h.get("online") else "offline",
-              "cpu_pct": round(min(h.get("cpu", 0), 1) * 100, 1) if h.get("maxcpu") or h.get("cpu") else None,
+              # shortcut: drivers report CPU as 0-1 or as percent; values <= 1 are read as a fraction (≤1 % load shows high).
+              "cpu_pct": (lambda c: round(c if c > 1 else c * 100, 1))(h.get("cpu") or 0) if "cpu" in h else None,
               "ram_pct": pct(h.get("mem", 0), h.get("maxmem", 0)), "local": bool(h.get("local")),
               "guests": h.get("guests"), "running": h.get("running")} for h in st.get("hosts", [])]
     return {"mode": st.get("mode", "standalone"), "cluster_name": (st.get("cluster") or {}).get("name"),

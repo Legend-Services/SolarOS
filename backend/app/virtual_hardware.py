@@ -723,10 +723,16 @@ async def remove_device(guest_type: GuestTypeT, guest_id: int = GUEST_ID, device
 
 
 async def _leases() -> dict[str, str]:
-    """Guest IPv4 addresses from the host's DHCP leases, by upper-case MAC."""
-    txt = await host_ssh.run("cat /var/lib/misc/dnsmasq.vlan-*.leases /var/lib/misc/dnsmasq.leases 2>/dev/null; true",
-                             check=False)
-    return {x["mac"]: x["ip"] for x in ns.parse_leases(txt, [])}
+    """Guest IPv4 addresses by upper-case MAC: the host's DHCP leases, else its ARP table (router-leased guests)."""
+    txt = await host_ssh.run("cat /var/lib/misc/dnsmasq.vlan-*.leases /var/lib/misc/dnsmasq.leases 2>/dev/null; "
+                             "echo @@; ip -j -4 neigh 2>/dev/null; true", check=False)
+    leases, _, neigh = txt.partition("@@\n")
+    try:
+        arp = {n["lladdr"].upper(): n["dst"] for n in json.loads(neigh or "[]")
+               if n.get("lladdr") and "FAILED" not in (n.get("state") or [])}
+    except ValueError:
+        arp = {}
+    return arp | {x["mac"]: x["ip"] for x in ns.parse_leases(leases, [])}
 
 
 def _lab_index() -> dict[tuple, dict]:

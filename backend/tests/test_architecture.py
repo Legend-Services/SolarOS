@@ -131,7 +131,8 @@ host = arch.parse_host(json.dumps([{"dst": "default", "gateway": "192.168.1.1", 
                        + "127.0.0.53\n1.1.1.1\n1.1.1.1\n")
 assert host["gateways"] == [{"ip": "192.168.1.1", "dev": "br0", "mac": "AA:BB:CC:DD:EE:FF"}]
 assert host["lldp"] == [{"local_port": "eno1", "neighbor": "core-sw", "protocol": "LLDP", "neighbor_port": "port 7"}]
-assert host["dns"] == ["1.1.1.1"] and arch.parse_host("") == {"gateways": [], "lldp": [], "dns": []}
+assert host["dns"] == ["1.1.1.1"] and host["arp"] == {"AA:BB:CC:DD:EE:FF": "192.168.1.1"}
+assert arch.parse_host("") == {"gateways": [], "lldp": [], "dns": [], "arp": {}}
 assert arch.pct(1, 4) == 25.0 and arch.pct(1, 0) is None
 
 # Routes are registered.
