@@ -126,7 +126,7 @@ async def enrich(base: dict, *, hostname_editable: bool = False) -> dict:
     clustered = cluster.in_cluster(st)
     return {**base, "updates": x["updates"], "hardware": x["hardware"], "os": {
         "product_name": updater.edition()["edition"],
-        "release_version": x["updates"]["current_version"], "os_pretty_name": os_pretty_name(),
+        "release_version": x["updates"]["current_version"], "os_pretty_name": base.get("platform_version") or os_pretty_name(),  # the host, not this container
         "kernel_version": base.get("kernel") or x["metrics"].kernel or platform.release(),
         "architecture": platform.machine() or os.uname().machine, "hypervisor_driver": caps.driver,
         "hostname": base.get("node") or settings.node_name, "uptime_seconds": base.get("uptime") or x["metrics"].uptime,
