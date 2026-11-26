@@ -81,7 +81,7 @@ fi
 HASH="$(openssl passwd -6 "$PASSWORD" 2>/dev/null || mkpasswd -m sha-512 "$PASSWORD")" || die "need openssl 1.1.1+ or mkpasswd"
 
 WORK="$(mktemp -d)"
-trap 'rm -rf "$WORK"' EXIT
+trap 'umount -l "$WORK/chroot/dev" 2>/dev/null; rm -rf "$WORK"' EXIT
 echo "==> Extracting $(basename "$SOURCE_ISO")"
 xorriso -osirrox on -indev "$SOURCE_ISO" -extract / "$WORK/iso" 2>/dev/null
 chmod -R u+w "$WORK/iso"
@@ -103,10 +103,12 @@ if [[ -z "$NO_REPO" ]]; then
   unsquashfs -q -n -d "$CH" "$SQUASH" >/dev/null || die "cannot unpack ${SQUASH##*/}"
   CODENAME="$(. "$CH/etc/os-release" && echo "$VERSION_CODENAME")"
   [[ "$CODENAME" =~ ^[a-z]+$ ]] || die "cannot read the release codename of the source ISO"
-  # Device nodes for apt (no bind mounts: nothing of the host can be deleted with the work folder).
+  # Device nodes for apt on a private tmpfs: works on build hosts whose disk forbids device files, and removing it can
+  # never touch the host's own /dev (no bind mounts).
   mkdir -p "$CH/dev"
+  mount -t tmpfs -o mode=755,size=1m solardeck-dev "$CH/dev"
   for n in "null 1 3" "zero 1 5" "random 1 8" "urandom 1 9"; do
-    set -- $n; [[ -e "$CH/dev/$1" ]] || mknod -m 666 "$CH/dev/$1" c "$2" "$3"
+    set -- $n; mknod -m 666 "$CH/dev/$1" c "$2" "$3"
   done
   rm -f "$CH/etc/resolv.conf" "$CH/etc/apt/sources.list" "$CH"/etc/apt/sources.list.d/*
   cp -L /etc/resolv.conf "$CH/etc/resolv.conf"
@@ -137,7 +139,7 @@ EOF
   R="$WORK/iso/solardeck-repo"
   mkdir -p "$R/pool/main"
   mv "$CH"/solardeck-debs/*.deb "$R/pool/main/"
-  rm -rf "$CH"
+  umount "$CH/dev" && rm -rf "$CH"
   for p in linux-image- grub-efi-amd64-signed_ shim-signed_ grub-pc_ qemu-system-x86_ zfsutils-linux_ incus_; do
     compgen -G "$R/pool/main/${p}*.deb" >/dev/null || die "the repository lacks ${p%_}"
   done
