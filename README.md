@@ -112,7 +112,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/
 |---|---|
 | 🖥️ **A real desktop** | Movable windows with snapping, a dock or taskbar, live widgets, Spotlight search (Ctrl+K) and a Welcome Tour. |
 | ⚙️ **One Settings hub** | Every system, storage, security, network and hypervisor setting in one app: 5 categories, 24 sub-modules, a live filter and deep links from the top bar. The App Gallery stays focused on Settings, Compute, Files, App Center, Terminal and the apps you install. |
-| 📦 **Virtual machines & containers** | Create them with step-by-step wizards, open their screen or shell in the browser, pass through GPUs, PCI and USB devices. Windows-ready out of the box. |
+| 📦 **Virtual machines & containers** | Create them with step-by-step wizards, open their screen or shell in the browser, pass through GPUs, PCI and USB devices. Desktop guest operating systems are ready out of the box. Switch any guest to the **Wireframe Architecture** view to inspect and edit every device and re-patch its network cards. |
 | 💽 **ZFS storage made easy** | Build mirrors and RAIDZ pools, datasets, snapshots and schedules, check SMART health and benchmark your disks. |
 | 🗂️ **Files, shares & backups** | A file browser, SMB shares for your network, and a Backup Center to back up and restore guests. |
 | 🛒 **App Center** | One click for Jellyfin, Docker + Portainer, AdGuard Home, Nginx Proxy Manager, Immich and more. |
@@ -120,7 +120,7 @@ bash -c "$(curl -fsSL https://raw.githubusercontent.com/Legend-Services/SolarOS/
 | 🧪 **Virtual hardware & labs** | Give any VM or container emulated peripherals (HD audio + microphone, retro sound, virtual webcam, SAS/RAID HBA, NVMe, 56k modem, 10 Mbps NIC, TPM 2.0, smartcard reader, watchdog, entropy), slow down its CPU and network (10 Mbps, 56k, 4G or your own latency and packet loss) and launch air-gapped lab networks in one click. |
 | 🪑 **Multi-seat workstations** | One machine, several desks: give each seat VM its own GPU with its monitors, its own physical USB ports (plug a keyboard in and it is assigned), USB controllers and dedicated CPU cores, then start every seat with one click. |
 | 🔌 **Visual virtual switch** | Every virtual switch as a rack faceplate: drag ports onto color-coded VLANs, add virtual network cards in two clicks, set host IPs safely and run a DHCP server per VLAN. |
-| 🌐 **Network & VPN** | A live network map, DNS with ad blocking, DHCP, WireGuard VPN with QR codes, port forwarding and Let's Encrypt. |
+| 🌐 **Network & VPN** | A live network map, the **Network Architect** blueprint with per-network device and port discovery, DNS with ad blocking, DHCP, WireGuard VPN with QR codes, port forwarding and Let's Encrypt. |
 | 🔔 **Alerts & automation** | "When the GPU gets hot, tell me on Telegram" style rules, without writing code. |
 | 🎨 **Make it yours** | 11 themes in dark and light with 4 generative wallpapers each, custom wallpapers, a theme creator and a **Wallpaper Studio** that puts the logo and your server or node name on the desktop as a glass watermark. |
 | 🌍 **Five languages** | English, Nederlands, Deutsch, Español and Français. |
@@ -248,4 +248,4 @@ SolarDeck is dual-licensed:
 
 *SolarDeck* and *SolarOS* are an independent open-source project by Ty Gultekin / Legend IT. They are not affiliated with, endorsed by, or sponsored by Proxmox Server Solutions GmbH. Proxmox® is a registered trademark of Proxmox Server Solutions GmbH; it is used here only to describe compatibility with Proxmox VE.
 
-SolarDeck was previously named ProxmoxOS. Existing installations keep working unchanged: the app still lives in `/opt/proxmox-os` (with an `/opt/solardeck` alias), the systemd units keep their names, and re-running `install.sh` upgrades a `proxmox-os` container in place.
+Installations from before the SolarDeck name keep working unchanged: the app still lives in `/opt/proxmox-os` (with an `/opt/solardeck` alias), the systemd units keep their names, and re-running `install.sh` upgrades a `proxmox-os` container in place.

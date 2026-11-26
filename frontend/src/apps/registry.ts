@@ -1,4 +1,4 @@
-import { Activity, LifeBuoy, ArchiveRestore, Boxes, BrainCircuit, Building2, FolderOpen, Globe, HardDrive, Settings, Share2, SlidersHorizontal, Store, SquareTerminal, Terminal, type LucideIcon } from "lucide-react";
+import { Activity, LifeBuoy, ArchiveRestore, Boxes, Waypoints, BrainCircuit, Building2, FolderOpen, Globe, HardDrive, Settings, Share2, SlidersHorizontal, Store, SquareTerminal, Terminal, type LucideIcon } from "lucide-react";
 
 // Metadata only (no components) so stores can import it without a circular dependency.
 // `icon` is the small title-bar glyph; launchers and the dock use the bespoke icons in components/icons/AppIcons.
@@ -11,6 +11,7 @@ export const APPS = {
   files: { title: "File Station", desc: "Browse, upload and organize files on your storage", icon: FolderOpen, size: { w: 960, h: 620 } },
   appcenter: { title: "App Center", desc: "One-click installs: Jellyfin, Docker, AdGuard Home and more", icon: Store, size: { w: 1040, h: 660 } },
   "local-ai": { title: "Local AI", desc: "Download and run AI models on your GPU, with a test chat", icon: BrainCircuit, size: { w: 1080, h: 700 } },
+  architect: { title: "Network Architect", desc: "Live blueprint of hosts, switches, VLANs, labs and every device on your networks", icon: Waypoints, size: { w: 1240, h: 760 } },
   backup: { title: "Backup Center", desc: "Back up, schedule and restore VMs and containers", icon: ArchiveRestore, size: { w: 980, h: 640 } },
   shares: { title: "Network Shares", desc: "Share folders with every computer and phone on your network", icon: Share2, size: { w: 940, h: 640 } },
   netservices: { title: "Network & Services", desc: "DNS, ad blocking, DHCP, WireGuard VPN and certificates", icon: Globe, size: { w: 1060, h: 680 } },

@@ -12,6 +12,7 @@ import { TaskLog } from "../components/TaskCenter";
 import { PassthroughPicker, usePassthroughDevices, type PciSel, type UsbSel } from "./guest/passthrough";
 import { HaPolicyForm } from "../components/cluster/ClusterDialogs";
 import VirtualHardwarePanel from "../components/compute/VirtualHardwarePanel";
+import WireframeNodeArchitect from "../components/compute/WireframeNodeArchitect";
 import { useTranslation } from "../i18n";
 
 type Tab = "resources" | "hardware" | "virtual" | "network" | "cloudinit" | "snapshots" | "ha" | "options";
@@ -846,6 +847,7 @@ function DeleteCard({ guest, onDeleted }: { guest: Guest; onDeleted: () => void 
 export default function GuestDrawer({ guest, onClose, onSaved, clustered = false }: { guest: Guest | null; onClose: () => void; onSaved: () => void; clustered?: boolean }) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>("resources");
+  const [mode, setMode] = useState<"form" | "wireframe">("form");
   const [hw, setHw] = useState<Hardware | null>(null);
   const [error, setError] = useState("");
   const load = useCallback(() => {
@@ -872,9 +874,21 @@ export default function GuestDrawer({ guest, onClose, onSaved, clustered = false
   ];
 
   return (
-    <GlassModal open={!!guest} onClose={onClose} side width="max-w-3xl" title={guest ? `${guest.name} (${guest.vmid}) · ${qemu ? "VM" : "Container"}` : ""}>
+    <GlassModal open={!!guest} onClose={onClose} side width={mode === "wireframe" ? "max-w-6xl" : "max-w-3xl"} title={guest ? `${guest.name} (${guest.vmid}) · ${qemu ? "VM" : "Container"}` : ""}>
       {guest && (
         <div className="space-y-4">
+          <Segmented
+            value={mode}
+            onChange={setMode}
+            options={[
+              { id: "form", label: t("wf.formView") },
+              { id: "wireframe", label: t("wf.wireframeView") },
+            ]}
+          />
+          {mode === "wireframe" ? (
+            <WireframeNodeArchitect key={`${guest.type}${guest.vmid}`} guest={guest} onChanged={reload} />
+          ) : (
+          <>
           <div className="flex flex-wrap items-center gap-2">
             <Segmented value={tab} onChange={setTab} options={tabs} />
             {hw && hw.pending.length > 0 && (
@@ -906,6 +920,8 @@ export default function GuestDrawer({ guest, onClose, onSaved, clustered = false
               <OptionsTab guest={guest} hw={hw} reload={reload} />
               <DeleteCard guest={guest} onDeleted={() => (onSaved(), onClose())} />
             </>
+          )}
+          </>
           )}
         </div>
       )}

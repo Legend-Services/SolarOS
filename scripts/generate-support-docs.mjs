@@ -194,6 +194,22 @@ async function capture(page, reg) {
   });
   await snap("settings-hub", () => show(page, { kind: "app", appId: "settings" }));
   for (const id of reg.apps) await snap(`app-${id}`, () => show(page, { kind: "app", appId: id }));
+  // Screens a few clicks deep: the guest drawer's wireframe (NIC inspector open) and a network drill-down with its device explorer.
+  await snap("compute-wireframe", async () => {
+    await show(page, { kind: "app", appId: "compute" });
+    await page.getByRole("button", { name: "media-server", exact: true }).first().click();
+    await page.getByRole("tab", { name: "Wireframe Architecture" }).click();
+    await settle(page, 600);
+    await page.getByRole("button", { name: /^net0 · / }).first().click();
+    await settle(page, 500);
+  });
+  await snap("architect-network", async () => {
+    await show(page, { kind: "app", appId: "architect" });
+    await page.getByRole("button", { name: "Open the network view of br0" }).click();
+    await settle(page, 600);
+    await page.getByRole("button", { name: /^Other Devices/ }).click();
+    await settle(page, 500);
+  });
   for (const c of reg.categories) await snap(`settings-${c}`, () => show(page, { kind: "settings", category: c }).then(() => page.waitForTimeout(400)));
   for (const m of reg.modules) await snap(`settings-${m}`, () => show(page, { kind: "settings", module: m }));
   for (const c of reg.controls.filter((x) => x.shot))

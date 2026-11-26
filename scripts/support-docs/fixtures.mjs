@@ -622,7 +622,127 @@ const HA_SET = new Set(CLUSTER_STATUS.ha_policies.map((p) => p.key));
 Object.assign(SWITCH.bridges[0], { clustered: true, synced_hosts: 3 });
 SWITCH.cluster = { mode: "cluster", hosts: 3 };
 
+/* ---------------- Wireframe Node Architect & Network Architect ---------------- */
+
+const LAB = { id: "5eed1ab0", name: "Malware Lab", bridge: "br50", vlan_id: 900, gateway_cidr: "10.66.0.1/24", range_start: "10.66.0.100", range_end: "10.66.0.200", members: [{ guest_type: "vm", guest_id: 102, net_id: "net0" }] };
+const net = (id, kind, name, bridge, vlan, cidr, gw, dhcp, range, dns, color) => ({
+  network_id: id, kind, name, bridge, vlan_id: vlan, iface: vlan && kind === "vlan" ? `${bridge}.${vlan}` : bridge, host_cidr: cidr,
+  subnet_cidr: cidr ? cidr.replace(/\.\d+\/24$/, ".0/24") : null, gateway_ip: gw, dhcp_active: dhcp, dhcp_range: range, dns_servers: dns, color, clustered: bridge === "br0", vlan_aware: true,
+});
+const NETWORKS = [
+  net("br0", "switch", "br0", "br0", null, `${HOST}/24`, GW, false, null, [GW], null),
+  net("br-lab", "switch", "br-lab", "br-lab", null, "10.30.0.1/24", null, false, null, [], null),
+  net("vlan-10", "vlan", "Management", "br0", 10, "10.20.10.10/24", "10.20.10.10", false, null, [], "#38bdf8"),
+  net("vlan-20", "vlan", "Smart Home", "br0", 20, "10.20.20.1/24", "10.20.20.1", true, "10.20.20.100 – 10.20.20.200", [GW], "#22c55e"),
+  net("vlan-30", "vlan", "Lab", "br-lab", 30, null, null, false, null, [], "#a855f7"),
+  net(`lab-${LAB.id}`, "lab", LAB.name, LAB.bridge, LAB.vlan_id, LAB.gateway_cidr, "10.66.0.1", true, "10.66.0.100 – 10.66.0.200", [], "#f59e0b"),
+];
+const ARCH_OVERVIEW = {
+  mode: "cluster", cluster_name: "home-lab", quorum_status: "healthy", quorum: CLUSTER_STATUS.quorum, floating_vips: CLUSTER_STATUS.vips,
+  hosts: CLUSTER_HOSTS.map((h) => ({ host_id: h.name, hostname: h.name, ip_addresses: [h.address], role: h.role, status: h.online ? (h.maintenance ? "maintenance" : "online") : "offline", cpu_pct: Math.round(h.cpu * 1000) / 10, ram_pct: h.maxmem ? Math.round((1000 * h.mem) / h.maxmem) / 10 : null, local: h.local })),
+  uplinks: SWITCH.physical.map((p) => ({ name: p.name, mac: p.mac, link_up: p.link_up, speed_mbps: p.speed_mbps, bridge: p.assigned_bridge })),
+  gateways: [{ ip: GW, dev: "br0", mac: "AA:3E:9C:10:00:01", mac_vendor: "Example Networks Inc." }],
+  lldp_neighbors: [{ local_port: "eno1", neighbor: "core-switch-24p", protocol: "LLDP", neighbor_port: "port 7" }],
+  host_dns_servers: [GW],
+  switches: SWITCH.bridges.map((b) => ({ name: b.name, vlan_aware: b.vlan_aware, clustered: !!b.clustered, ipv4_cidr: b.ipv4_cidr, mode: b.mode, member_ports: b.member_ports, comment: b.comment })),
+  vlans: NETWORKS.filter((n) => n.kind === "vlan"),
+  labs: NETWORKS.filter((n) => n.kind === "lab").map((n) => ({ ...n, lab_id: LAB.id, members: LAB.members })),
+  networks: NETWORKS,
+  guests: [...GUESTS.map((g) => ({ ...g, host: NODE })), ...REMOTE_GUESTS].map((g) => {
+    const gt = g.type === "qemu" ? "vm" : "lxc";
+    const nic = SWITCH.guest_vnics.find((n) => n.guest_id === g.vmid);
+    return {
+      guest_type: gt, guest_id: g.vmid, name: g.name, status: g.status, host: g.host, ha: HA_SET.has(`${g.type}:${g.vmid}`), standby_hosts: [],
+      lab_id: g.vmid === 102 ? LAB.id : null,
+      interfaces: g.vmid === 102 ? [{ net_id: "net0", bridge: LAB.bridge, vlan_tag: null, ip_address: null, mac_address: mac(102), link_up: true }]
+        : nic ? [{ net_id: "net0", bridge: nic.bridge, vlan_tag: nic.vlan_tag, ip_address: nic.ip_address, mac_address: nic.mac, link_up: true }]
+        : [{ net_id: "net0", bridge: "br0", vlan_tag: null, ip_address: guestIp(g.vmid), mac_address: mac(g.vmid), link_up: true }],
+    };
+  }),
+  scans: {}, driver: "native_ubuntu", node: NODE,
+};
+const P = (port, protocol, service_name, purpose_description) => ({ port, protocol, service_name, purpose_description });
+const PORTS = {
+  22: P(22, "tcp", "SSH", "Secure remote command line and file copy"), 53: P(53, "tcp", "DNS", "Name resolution: turns names into IP addresses"),
+  80: P(80, "tcp", "HTTP", "Web page or device admin page (unencrypted)"), 443: P(443, "tcp", "HTTPS", "Encrypted web page or device admin page"),
+  445: P(445, "tcp", "SMB", "Shared folders and network drives"), 554: P(554, "tcp", "RTSP", "Live video streams from cameras and recorders"),
+  631: P(631, "tcp", "IPP", "Internet Printing Protocol: printing and scanning"), 1883: P(1883, "tcp", "MQTT", "Messages between smart-home and IoT devices"),
+  2049: P(2049, "tcp", "NFS", "Network file system shares"), 3389: P(3389, "tcp", "RDP", "Remote desktop of a computer"),
+  5000: P(5000, "tcp", "HTTP (5000)", "Web app or storage admin page"), 5353: P(5353, "udp", "mDNS", "Zero-configuration device and service discovery"),
+  8006: P(8006, "tcp", "Hypervisor UI", "Virtualization host web console"), 8096: P(8096, "tcp", "Media (8096)", "Media streaming server"),
+  8123: P(8123, "tcp", "Home Automation", "Smart-home automation hub"), 9100: P(9100, "tcp", "Raw Print", "Direct printing to a network printer"),
+};
+const dev = (ip, macAddr, vendor, name, cat, roles, summary, ports, extra = {}) => ({
+  ip_address: ip, mac_address: macAddr, mac_vendor: vendor, hostname: name, display_name: name ?? ip, device_category: cat, is_managed_guest: false,
+  is_solardeck_host: false, guest: null, roles, functionality_summary: summary, open_ports: ports.map((p) => PORTS[p]), ...extra,
+});
+const SCAN_BR0 = {
+  status: "done", progress: 100, started_at: NOW_S - 140, finished_at: NOW_S - 95, gateway_ip: GW,
+  network: { network_id: "br0", kind: "switch", name: "br0", subnet_cidr: "10.20.0.0/24", gateway_ip: GW, dhcp_active: false },
+  devices: [
+    dev(GW, "AA:3E:9C:10:00:01", "Example Networks Inc.", "router", "router_gateway", ["gateway", "dhcp", "dns", "web"], "Gateway, DHCP & DNS Resolver, Web & Reverse Proxy Host", [53, 80, 443]),
+    dev("10.20.0.2", "AA:3E:9C:10:00:02", "Example Networks Inc.", "core-switch-24p", "switch_ap", ["web"], "Web & Reverse Proxy Host", [443]),
+    dev("10.20.0.3", "6C:11:B0:20:00:03", "Mesh Wireless Co.", "ap-living-room", "switch_ap", ["web"], "Web & Reverse Proxy Host", [80, 443]),
+    dev(HOST, "BC:24:11:00:00:10", null, NODE, "server_hypervisor", ["ssh", "web", "hypervisor", "solardeck_host"], "SSH, Web & Reverse Proxy Host, Virtualization Host …", [22, 443, 8006], { is_solardeck_host: true }),
+    dev(guestIp(100), mac(100), null, "media-server", "media_tv", ["ssh", "media", "managed_guest"], "SSH, Media Streaming Server", [22, 8096], { is_managed_guest: true, guest: { guest_type: "vm", guest_id: 100, name: "media-server" } }),
+    dev(guestIp(103), mac(103), null, "dns-filter", "server_hypervisor", ["dns", "web", "managed_guest"], "DNS Resolver, Web & Reverse Proxy Host", [53, 80], { is_managed_guest: true, guest: { guest_type: "lxc", guest_id: 103, name: "dns-filter" } }),
+    dev("10.20.0.21", "00:1E:8F:21:00:21", "Office Imaging Ltd.", "office-printer", "printer_scanner", ["web", "printer", "discovery"], "Web & Reverse Proxy Host, Network Printer", [80, 631, 9100, 5353]),
+    dev("10.20.0.31", "4C:BD:8F:31:00:31", "Vision Security Corp.", "cam-driveway", "camera_nvr", ["web", "camera"], "Web & Reverse Proxy Host, RTSP IP Camera", [80, 554]),
+    dev("10.20.0.32", "4C:BD:8F:31:00:32", "Vision Security Corp.", "cam-garden", "camera_nvr", ["web", "camera"], "Web & Reverse Proxy Host, RTSP IP Camera", [80, 554]),
+    dev("10.20.0.40", "00:11:32:40:00:40", "Storage Appliances BV", "nas-archive", "nas_storage", ["web", "file_share", "dashboard"], "Web & Reverse Proxy Host, File Sharing, Web Dashboard", [443, 445, 2049, 5000]),
+    dev("10.20.0.61", "F0:27:2D:61:00:61", "Display Electronics", "living-room-tv", "media_tv", ["discovery"], "TV / Media Player", [5353]),
+    dev("10.20.0.70", "3C:22:FB:70:00:70", "Laptop Makers Inc.", "laptop-anna", "workstation_pc", ["file_share", "remote_desktop"], "File Sharing, Remote Desktop", [445, 3389]),
+    dev("10.20.0.71", "D6:41:9A:71:00:71", "Randomized (private) address", null, "mobile_tablet", [], "Phone or Tablet", []),
+    dev("10.20.0.72", "8A:13:5C:72:00:72", "Randomized (private) address", null, "mobile_tablet", [], "Phone or Tablet", []),
+    dev("10.20.0.80", "24:0A:C4:80:00:80", "Embedded Chips Co.", "plug-kitchen", "iot_device", ["web"], "Web & Reverse Proxy Host", [80]),
+    dev("10.20.0.81", "24:0A:C4:80:00:81", "Embedded Chips Co.", "thermostat", "iot_device", ["mqtt"], "IoT Message Broker", [1883]),
+    dev("10.20.0.82", "B8:27:EB:82:00:82", "Single Board Computers", "home-hub", "iot_device", ["ssh", "home_automation", "mqtt"], "SSH, Home Automation Hub, IoT Message Broker", [22, 8123, 1883]),
+    dev("10.20.0.90", "00:0C:29:90:00:90", null, null, "unknown", [], "No open services found", []),
+  ],
+};
+const VHW_CATALOG = {
+  devices: [
+    { type: "hd_audio", category: "audio", bus: "PCIe", guest_types: ["vm", "lxc"], hotplug: false, single: true, options: [] },
+    { type: "virtual_camera", category: "video", bus: "USB", guest_types: ["lxc"], hotplug: true, options: [{ key: "source", kind: "select", choices: ["test_pattern", "rtsp_url", "video_file", "vnc_guest_capture"], default: "test_pattern" }, { key: "url", kind: "text", default: "", when: ["source", "rtsp_url"] }, { key: "resolution", kind: "select", choices: ["640x480", "1280x720", "1920x1080"], default: "1280x720" }, { key: "fps", kind: "number", min: 1, max: 60, default: 30 }] },
+    { type: "sas_hba", category: "storage", bus: "PCIe", guest_types: ["vm"], hotplug: false, options: [{ key: "model", kind: "select", choices: ["megasas", "mptsas1068", "lsi53c895a"], default: "megasas" }] },
+    { type: "virtual_nvme", category: "storage", bus: "PCIe", guest_types: ["vm"], hotplug: false, options: [{ key: "size_gb", kind: "number", min: 1, max: 4096, default: 32 }, { key: "serial", kind: "text", default: "" }] },
+    { type: "smartcard", category: "security", bus: "USB", guest_types: ["vm"], hotplug: false, single: true, options: [] },
+  ],
+  cpu_models: ["host", "qemu64", "pentium3", "486"], net_presets: {}, driver: "native_ubuntu",
+};
+const ident = (o = {}) => ({ device_name: "", vendor_id: "", device_id: "", serial_number: "", pci_or_usb_address: "", bus_type: "PCIe", native_vendor_id: null, native_device_id: null, guest_visible: [], ...o });
+const wfNic = (id, model, bridge, tag, ip, macAddr, vlan, extra = {}) => ({
+  net_id: id, interface_name: extra.label || id, label: extra.label || "", mac_address: macAddr, model, pci_slot: null,
+  vendor_id: model === "virtio" ? "0x1af4" : model === "e1000" ? "0x8086" : null, device_id: model === "virtio" ? "0x1000" : model === "e1000" ? "0x100e" : null,
+  bridge, vlan_tag: tag, trunks: [], ipv4_addresses: ip ? [ip] : [], link_up: true, rate_mbps: extra.rate ?? null, firewall: true, vlan, lab: null,
+});
+const vlanOf = (id) => { const v = SWITCH.vlans.find((x) => x.vlan_id === id); return v && { vlan_id: id, name: v.name, color: v.color, subnet_cidr: v.host_ipv4_cidr?.replace(/\.\d+\/24$/, ".0/24") ?? null, gateway_ip: v.dhcp_config?.gateway_ip ?? null, dns_servers: v.dhcp_config?.dns_servers ?? [], dhcp_active: v.dhcp_active }; };
+const detailed = (g) => {
+  const vm = g.type === "qemu";
+  const pol = CLUSTER_STATUS.ha_policies.find((p) => p.guest_id === g.vmid);
+  return {
+    guest_type: vm ? "vm" : "lxc", guest_id: g.vmid, running: g.status === "running", name: g.name, cores: g.maxcpu, sockets: 1, memory_mb: Math.round(g.maxmem / 1024 ** 2),
+    os_profile: vm ? "l26" : null, throttling: { cpu_limit_percent: 100, cpu_model: null, nics: {} }, driver: "native_ubuntu",
+    devices: vm
+      ? [
+          { id: "a1c0de", type: "hd_audio", options: {}, state: {}, bus: "PCIe", category: "audio", hotplug: false, driver_compat: "universal_inbox", identity: ident({ native_vendor_id: "0x8086", native_device_id: "0x293e" }) },
+          { id: "b2c0de", type: "virtual_nvme", options: { size_gb: 64, serial: "SDNVME7F3A21C0" }, state: {}, bus: "PCIe", category: "storage", hotplug: false, driver_compat: "universal_inbox", identity: ident({ serial_number: "SDNVME7F3A21C0", native_vendor_id: "0x1b36", native_device_id: "0x0010", guest_visible: ["serial_number"] }) },
+          { id: "c3c0de", type: "smartcard", options: {}, state: {}, bus: "USB", category: "security", hotplug: false, driver_compat: "universal_inbox", identity: ident({ bus_type: "USB", native_vendor_id: "0x08e6", native_device_id: "0x4433" }) },
+        ]
+      : [{ id: "d4c0de", type: "virtual_camera", options: { source: "rtsp_url", url: "rtsp://10.20.0.31:554/stream1", resolution: "1920x1080", fps: 30 }, state: { video_nr: 40 }, bus: "USB", category: "video", hotplug: true, driver_compat: "universal_inbox", identity: ident({ device_name: "Studio HDMI Capture Pro", bus_type: "USB", pci_or_usb_address: "/dev/video40", guest_visible: ["device_name"] }) }],
+    nics: vm
+      ? [wfNic("net0", "virtio", "br0", null, guestIp(g.vmid), mac(g.vmid), null, { label: "LAN uplink" }), wfNic("net1", "e1000", "br0", 20, "10.20.20.115", "BC:24:11:01:00:B1", vlanOf(20), { rate: 100 })]
+      : [wfNic("net0", "veth", "br0", 20, "10.20.20.101", mac(g.vmid), vlanOf(20), { label: "eth0" })],
+    passthrough: vm ? { pci: [{ key: "hostpci0", index: 0, raw: "0000:01:00", id: "0000:01:00", pcie: true, rombar: true, x_vga: true, all_functions: true }], usb: [{ key: "usb0", index: 0, host: "1-4", usb3: true }] } : { pci: [], usb: [] },
+    disks: guestConfig(g).disks,
+    placement: { mode: "cluster", cluster_name: "home-lab", host: NODE, host_ip: HOST, ha_enabled: !!pol, preferred_active_host: pol?.preferred_active_host ?? NODE, passive_standby_hosts: pol?.passive_standby_hosts ?? [], replication_interval_minutes: pol?.replication_interval_minutes ?? null, floating_vips: CLUSTER_STATUS.vips },
+  };
+};
+
 const EXACT = {
+  "/architecture/overview": () => ARCH_OVERVIEW,
+  "/virtual-hardware/catalog": () => VHW_CATALOG,
+  "/virtual-hardware/labs/sandbox": () => ({ labs: [LAB] }),
   "/cluster/status": () => CLUSTER_STATUS,
   "/cluster/workloads": () => ({
     mode: "cluster", self: NODE,
@@ -733,6 +853,8 @@ const PATTERNS = [
   [/^\/v1\/disks\/benchmark\/(.+)$/, (m) => BENCH_HISTORY.find((j) => j.id === m[1])],
   [/^\/network\/switch\/vlans\/\d+\/leases$/, () => LEASES],
   [/^\/ai\/chats\/[^/]+$/, () => CHAT],
+  [/^\/architecture\/networks\/([^/]+)\/devices$/, (m) => (m[1] === "br0" ? SCAN_BR0 : { status: "idle", progress: 0, devices: [], network_id: m[1] })],
+  [/^\/virtual-hardware\/(vm|lxc)\/(\d+)\/detailed$/, (m) => { const g = GUESTS.find((x) => x.vmid === +m[2]); return g && detailed(g); }],
 ];
 
 export function fixture(method, path, search = new URLSearchParams()) {

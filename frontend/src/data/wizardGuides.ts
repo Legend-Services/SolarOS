@@ -155,7 +155,7 @@ export const APP_GUIDES: Record<AppId, Guide> = {
       "Use the Grid | List switch to see machines as cards or as a detailed table.",
     ],
     action: { label: "Create a Virtual Machine", app: "compute", intent: "vm" },
-    related: ["compute-vm-vs-ct", "compute-create", "compute-passthrough"],
+    related: ["compute-vm-vs-ct", "compute-create", "compute-passthrough", "compute-wireframe"],
   }),
   storage: guide({
     id: "storage",
@@ -417,6 +417,31 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     tip: "Turn on KV Cache Quantization in Settings → Hardware to fit longer conversations into the same VRAM.",
     action: { label: "Open Local AI", app: "local-ai" },
   }),
+  architect: guide({
+    id: "architect",
+    app: "architect",
+    title: "Network Architect Guide",
+    blurb: "See your whole setup as a live blueprint and find every device on a network.",
+    what: "Network Architect draws your server (or every host of your cluster), its network ports, the router, virtual switches, VLANs, isolated labs and all VMs and containers as one schematic. Click any network to zoom in, scan it, and see every phone, printer, camera or computer on it with the services it offers.",
+    cards: [
+      { title: "Blueprint", body: "Columns from left to right: gateway and physical switch neighbors, network ports, virtual switches, VLANs and labs, then your VMs and containers with their IP addresses. Green DHCP and DNS badges show which networks hand out addresses and resolve names." },
+      { title: "Network drill-down", body: "The router, DHCP server, DNS server, this host and your guests sit around the network hub. When more than six other devices are found they are grouped into one Other Devices (+N) hub so the picture stays readable." },
+      { title: "Device scan", body: "Scan Network Now pings the subnet from the host, reads the ARP and DHCP tables, asks for names (reverse DNS and mDNS) and checks a list of common service ports without logging in to anything." },
+    ],
+    when: [
+      "You want to know what is on a network before you change it.",
+      "Finding the IP address of a printer, camera or smart-home device.",
+      "Checking which VLANs have DHCP and DNS, and which guests are connected where.",
+    ],
+    how: [
+      "Open Network Architect from the App Gallery or Settings → Network & Services → Network Topology.",
+      "Drag to pan and scroll (or use the + and − buttons) to zoom the blueprint.",
+      "Click a switch, VLAN or lab to open its network view, then click Scan Network Now.",
+      "Click Other Devices (+N) or Show Devices to search and filter what was found; click the port pills of a device to see what each open port is for.",
+    ],
+    tip: "A network can only be scanned when the host has an address on it: give the switch or VLAN a host address in Network & Virtual Switch first.",
+    action: { label: "Open Network Architect", app: "architect" },
+  }),
   console: guide({
     id: "console",
     app: "console",
@@ -435,6 +460,31 @@ export const APP_GUIDES: Record<AppId, Guide> = {
 
 /** Sub-wizards for key workflows (linked from app guides, empty states and creation dialogs). */
 const SUB_GUIDES: Guide[] = [
+  guide({
+    id: "compute-wireframe",
+    app: "compute",
+    title: "Wireframe Node Architecture & Hardware ID Overrides",
+    blurb: "Inspect and edit a VM or container as a schematic computer.",
+    what: "Every VM and container window has a Form View and a Wireframe Architecture view. The wireframe draws the guest as a computer case with its network cards, PCIe cards, peripherals and drives, connected by lines to the switch or VLAN each network card is plugged into, to an isolated lab when it is in one, and to the host (or cluster hosts) it runs on.",
+    cards: [
+      { title: "Click to inspect", body: "Click any device in the case to open the Hardware Device Inspector: name, MAC address with a randomizer, driver model, slot, vendor and device ID, serial number, link and speed." },
+      { title: "Guest Device Manager name", body: "Give a virtual capture card or webcam the name the guest's own device list should show (for example Studio HDMI Capture Pro). Fields marked Visible in guest reach the guest; others are SolarDeck labels." },
+      { title: "Re-patch in one click", body: "Click a network line or switch node to move that network card to another virtual switch, physical bridge, router, VLAN or isolated lab immediately." },
+    ],
+    when: [
+      "You want to see at a glance how a guest is wired.",
+      "Changing a MAC address, NIC model, VLAN or speed limit.",
+      "Moving a guest into or out of an isolated lab.",
+    ],
+    how: [
+      "Open Compute Manager, click a VM or container and switch to Wireframe Architecture at the top.",
+      "Click a device to inspect it; edit the fields and click Save & Apply.",
+      "Click a line or switch node, pick the new switch, VLAN or lab and click Apply Now.",
+      "Check the host node on the right: Standalone Mode shows the host and its address, Cluster Mode the preferred active host, standby hosts, ZFS sync interval and floating VIPs.",
+    ],
+    tip: "Changing the model or MAC of a running VM's network card applies after the guest restarts on some platforms; the camera's new name appears once no program in the guest holds the camera open.",
+    action: { label: "Open Compute Manager", app: "compute" },
+  }),
   guide({
     id: "compute-vm-vs-ct",
     app: "compute",
