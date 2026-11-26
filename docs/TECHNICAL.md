@@ -60,11 +60,11 @@ Then open **Datacenter → your node → the VM → Console** (noVNC):
 Eject the ISO afterwards with `qm set <vmid> --ide2 none,media=cdrom`; remove the VM with `qm destroy <vmid> --purge`.
 
 
-Both editions update from the same `main` branch in Settings → Software & Repositories.
+Both editions update from the same `main` branch in Settings → System Services & Repositories.
 
 ## Updating & Downgrading Without Losing Settings
 
-**From the desktop (recommended):** open **Settings → Software & Repositories**.
+**From the desktop (recommended):** open **Settings → System → Info** (quick check) or **Settings → System → System Services & Repositories** (schedule, history, rollback).
 
 - **Check for Updates** compares your version with GitHub and lists what's new. **Install Update Now** updates in about a minute.
 - **Update Progress**: while an update runs, a progress bar shows the step (backup 5%, fetch 20%, checkout 40%, backend dependencies 60%, frontend 80%, service restart 92%, done 100%), the elapsed time and the live log. The runner is a detached systemd unit that writes its stage to `/run/<prefix>-update-progress.json`, so the progress survives the backend restart; the page reloads itself 2 seconds after 100%. A failed step keeps its percentage and shows the error and the full log.
@@ -79,7 +79,7 @@ Updates and downgrades only replace program files. **Your settings, users, passw
 
 ## Reporting Bugs
 
-Found a problem? Click **Report a Bug**. It's in the **?** Help menu and the user menu in the top bar, in Settings → Software & Repositories, and in the desktop right-click menu.
+Found a problem? Click **Report a Bug**. It's in the **?** Help menu and the user menu in the top bar, in Settings → System Services & Repositories, and in the desktop right-click menu.
 
 1. Pick a category, give it a short title, and describe what happened and how to reproduce it.
 2. Leave **Attach anonymized system diagnostics** on. It adds the SolarDeck and Proxmox VE versions, kernel, CPU/RAM and the last 30 backend log lines. IP and MAC addresses, e-mail addresses, passwords, tokens, JWTs and SSH keys are removed first. Click **Preview** to see exactly what is sent.

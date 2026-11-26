@@ -138,9 +138,9 @@ export const edition: Edition = {
         intro: "There are two kinds of updates: the Proxmox host itself and the SolarDeck desktop.",
         fix: "repos",
         steps: [
-          { text: "Host: open Settings → Software & Repositories → OS Updates, press Refresh, then Upgrade.", link: { app: "system" } },
+          { text: "Host: open Settings → System Services & Repositories → OS Updates, press Refresh, then Upgrade.", link: { app: "system" } },
           { text: "Seeing '401 Unauthorized'? Your server uses the paid Enterprise source — the Help Center fix switches to the free one." },
-          { text: "SolarDeck: Settings → Software & Repositories → 'Check & Install Updates'.", link: { app: "controlpanel", intent: "power" } },
+          { text: "SolarDeck: Settings → System → Info → 'Check for Updates'.", link: { app: "controlpanel", intent: "power" } },
         ],
       },
     },

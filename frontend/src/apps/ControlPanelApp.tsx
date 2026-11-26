@@ -152,7 +152,7 @@ const short = (c?: string | null) => (c ? c.slice(0, 10) : "unknown");
 const when = (iso?: string | null) => (iso ? new Date(iso).toLocaleString([], { dateStyle: "medium", timeStyle: "short" }) : "Never");
 type Start = (path: "apply" | "rollback", targetRef?: string, includeSystemPackages?: boolean) => Promise<unknown>;
 
-/** Settings → Software & Repositories: version check, live update progress, schedule and version history share one state. */
+/** Settings → System Services & Repositories: version check, live update progress, schedule and version history share one state. */
 function UpdatesSection() {
   const [st, setSt] = useState<UpdateStatus | null>(null);
   const [error, setError] = useState("");
@@ -270,7 +270,7 @@ function UpdateProgressCard({ st, onDismiss }: { st: UpdateStatus; onDismiss: ()
   );
 }
 
-/** Settings → Software & Repositories: how to build the bootable SolarOS installer ISO, and the ISOs already built. */
+/** Settings → System Services & Repositories: how to build the bootable SolarOS installer ISO, and the ISOs already built. */
 function HypervisorIsoCard() {
   const [st, setSt] = useState<HypervisorIsoStatus | null>(null);
   const [copied, setCopied] = useState("");

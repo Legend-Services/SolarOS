@@ -526,6 +526,52 @@ export interface SystemInfo {
   admin_username: string;
   storage_root: string;
   helper: string;
+  /** Settings › System › Info blocks (both drivers). */
+  os?: SystemOs;
+  updates?: SystemUpdates;
+  hardware?: SystemHardware;
+}
+
+export interface SystemOs {
+  product_name: string;
+  release_version: string | null;
+  os_pretty_name: string;
+  kernel_version: string;
+  architecture: string;
+  hypervisor_driver: string;
+  hostname: string;
+  uptime_seconds: number;
+  cluster_mode: string;
+  cluster_name: string | null;
+  hostname_editable: boolean;
+}
+
+export interface SystemUpdates {
+  current_version: string | null;
+  latest_version: string | null;
+  update_available: boolean;
+  last_checked: string | null;
+  release_notes_summary: string | null;
+  channel: string | null;
+}
+
+export interface SystemGpu {
+  slot: string;
+  name: string;
+  vendor: string;
+  gpu_type: "integrated" | "discrete";
+  vram_total_mb: number | null;
+  vram_used_mb: number | null;
+  driver: string | null;
+  temperature_c: number | null;
+  passthrough_bound: boolean;
+}
+
+export interface SystemHardware {
+  cpu: { model: string | null; sockets: number | null; physical_cores: number | null; logical_threads: number | null; current_freq_mhz: number | null; temperature_c: number | null; load_avg: number[] };
+  memory: { total_bytes: number; used_bytes: number; available_bytes: number; zfs_arc_bytes: number; swap_total_bytes: number; swap_used_bytes: number; memory_type_speed: string | null };
+  gpus: SystemGpu[];
+  storage: { physical_disk_count: number; total_raw_bytes: number; healthy_disks: number; degraded_disks: number; pool_count: number; pools_summary: { name: string; health: string; used_bytes: number; total_bytes: number }[] };
 }
 
 /* ---------------- Phase 5: provisioning, backups, search, updates ---------------- */

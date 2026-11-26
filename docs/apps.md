@@ -12,11 +12,11 @@ Every app on the SolarDeck desktop. Open them from the Dock, the App Gallery or 
 
 ### Overview
 
-Settings is the hub for every system, storage, security, network and hypervisor option. Five main categories hold the sub-modules; each sub-module opens the screens it owns.
+Settings is the hub for every system, storage, security, network and hypervisor option. The All Settings page shows the five main categories as large cards; opening one shows its title, a breadcrumb and a sidebar with only that category's sub-modules. System opens on Info.
 
 1. Open Settings from the Dock, the App Gallery or the TopBar search.
-2. Type in the search field at the top to filter sub-modules, or click a tile.
-3. Inside a sub-module, use the left tree to jump to another one and the breadcrumb to go back to all settings.
+2. Click a category card, or type in the search field at the top to find any sub-module and click it.
+3. Inside a category, use the left sidebar to jump to another sub-module of that category and ← All Settings in the breadcrumb to go back.
 4. Press “? Guide” in the breadcrumb for a step-by-step tour of the current screen.
 
 > **Tip:** The language buttons next to the search field switch the whole desktop between English, Nederlands, Deutsch, Español and Français.

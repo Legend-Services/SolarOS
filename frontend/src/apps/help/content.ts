@@ -272,7 +272,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     fix: "iommu",
     steps: [
       { text: "Turn on IOMMU (VT-d). Help Center → Fix problems → 'Device passthrough (IOMMU / VT-d)' does it for you, and 'BIOS & firmware' shows how to enable VT-d in your BIOS (with a QR code for your phone).", link: { app: "help", intent: "fix" } },
-      { text: "Switch the card to VM Passthrough Mode in Settings → Hardware & GPU → GPU & Drivers, then reboot the host.", link: { app: "controlpanel", intent: "hardware" } },
+      { text: "Switch the card to VM Passthrough Mode in Settings → Hardware, GPU & BIOS → GPU & Drivers, then reboot the host.", link: { app: "controlpanel", intent: "hardware" } },
       { text: "Create the VM (or edit it) and add the card under Hardware & Passthrough. Keep 'Include HDMI audio' on; tick 'Primary GPU' to use the card's video outputs.", link: { app: "compute", intent: "vm" } },
       { text: "Start the VM and install the GPU driver inside it (e.g. NVIDIA's driver in Windows)." },
     ],
@@ -285,7 +285,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     keywords: "driver nvidia cuda nvidia-smi intel quicksync quick sync transcoding amd rocm install gpu host container plex jellyfin",
     intro: "Use host drivers when containers (Plex, Jellyfin, AI tools) should share the card.",
     steps: [
-      { text: "Open Settings → Hardware & GPU and scroll to GPU & Drivers.", link: { app: "controlpanel", intent: "hardware" } },
+      { text: "Open Settings → Hardware, GPU & BIOS and scroll to GPU & Drivers.", link: { app: "controlpanel", intent: "hardware" } },
       { text: "Press the install button for your card (NVIDIA, Intel or AMD), confirm, and watch the live log." },
       { text: "Reboot the host when the log asks for it. The GPU card then shows live usage and temperature." },
     ],
@@ -389,8 +389,8 @@ const BASE_TUTORIALS: Tutorial[] = [
     keywords: "update upgrade apt packages security patch new version solardeck repository",
     intro: `There are two kinds of updates: ${edition.host} itself and the SolarDeck desktop.`,
     steps: [
-      { text: "Host: open Settings → Software & Repositories → OS Updates, press Refresh, then Upgrade.", link: { app: "system" } },
-      { text: "SolarDeck: Settings → Software & Repositories → 'Check & Install Updates'.", link: { app: "controlpanel", intent: "power" } },
+      { text: "Host: open Settings → System Services & Repositories → OS Updates, press Refresh, then Upgrade.", link: { app: "system" } },
+      { text: "SolarDeck: Settings → System → Info → 'Check for Updates'.", link: { app: "controlpanel", intent: "power" } },
     ],
   },
   {
@@ -400,7 +400,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     minutes: 1,
     keywords: "hardware cpu memory ram temperature sensors gpu disk nic motherboard bios inventory",
     intro: "Settings shows every component with temperatures and health.",
-    steps: [{ text: "Open Settings → Hardware & GPU.", link: { app: "controlpanel", intent: "hardware" } }],
+    steps: [{ text: "Open Settings → Hardware, GPU & BIOS.", link: { app: "controlpanel", intent: "hardware" } }],
   },
   {
     id: "dock",
@@ -423,7 +423,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     minutes: 1,
     keywords: "reboot restart shutdown power off turn off",
     intro: "All VMs and containers stop when the server restarts.",
-    steps: [{ text: "Settings → Host & Power → Reboot host / Shut down host, and type the node name to confirm.", link: { app: "controlpanel", intent: "power" } }],
+    steps: [{ text: "Settings → System → Info → Reboot / Shut Down, and type the node name to confirm.", link: { app: "controlpanel", intent: "power" } }],
   },
 ];
 
@@ -434,7 +434,7 @@ const BASE_FAQS: (Faq | Slot)[] = [
   { id: "password", q: "I forgot the SolarDeck password. What now?", a: "On the server, run: grep ADMIN_PASSWORD /opt/solardeck/backend/.env — or set a new one in that file and restart the backend (systemctl restart solardeck-backend).", keywords: "forgot password reset login locked out" },
   { id: "2fa", q: "I lost my 2FA phone and can't sign in.", a: "On the server run: rm /opt/solardeck/backend/data/security.json — this turns 2FA off. Set it up again afterwards.", keywords: "2fa lost phone code locked out authenticator" },
   { slot: "repo-401" },
-  { q: "My VM doesn't start after adding a graphics card.", a: "Usually IOMMU is off or the card is still used by the host. Check Fix problems for an IOMMU warning, and switch the card to VM Passthrough Mode in Settings → Hardware & GPU, then reboot.", keywords: "gpu passthrough vm not start error iommu vfio", link: { app: "controlpanel", intent: "hardware" } },
+  { q: "My VM doesn't start after adding a graphics card.", a: "Usually IOMMU is off or the card is still used by the host. Check Fix problems for an IOMMU warning, and switch the card to VM Passthrough Mode in Settings → Hardware, GPU & BIOS, then reboot.", keywords: "gpu passthrough vm not start error iommu vfio", link: { app: "controlpanel", intent: "hardware" } },
   { q: "The VM console is black.", a: "The VM may be off or still booting. Start it in Compute Manager. With a passed-through 'Primary GPU' the picture goes to the card's own monitor output instead of the console.", keywords: "console black screen vnc nothing", link: { app: "compute" } },
   { q: "The container Shell button asks for nothing — is that safe?", a: "Yes, it opens a root shell over SolarDeck's own key. Only people signed in to SolarDeck can do this, so keep your password strong and 2FA on.", keywords: "shell container root login password safe security" },
   { q: "What is the difference between a VM and a container?", a: "A VM is a full computer (any OS, including Windows). A container shares the host's Linux kernel: much lighter and faster, Linux only.", keywords: "vm container difference lxc which choose" },
@@ -446,9 +446,9 @@ const BASE_FAQS: (Faq | Slot)[] = [
   { q: "Ads still show after enabling the AdBlocker.", a: `Devices must use ${edition.host} as DNS server: set it in your router's DHCP settings and reconnect the devices. Browsers with 'secure DNS' (DoH) bypass it; turn that off.`, keywords: "adblock ads still showing dns not working", link: { app: "netservices" } },
   { q: "My VPN connects but I can't reach anything.", a: `Forward UDP 51820 in your home router to ${edition.host}, and make sure the WAN interface in WireGuard Server settings is your LAN bridge (e.g. ${edition.bridgePrefix}0).`, keywords: "vpn wireguard connected no internet cannot reach", link: { app: "netservices" } },
   { id: "break", q: "Will SolarDeck break my server?", a: "SolarDeck uses standard tools. Risky actions always ask for confirmation, and every Help Center fix shows exactly what it changes and how to undo it.", keywords: "safe break damage risk" },
-  { q: "How do I update SolarDeck itself?", a: "Settings → Host & Power → Check & Install Updates. Your settings are kept.", keywords: "update solardeck new version upgrade desktop", link: { app: "controlpanel", intent: "power" } },
+  { q: "How do I update SolarDeck itself?", a: "Settings → System → Info → Check for Updates. Your settings are kept.", keywords: "update solardeck new version upgrade desktop", link: { app: "controlpanel", intent: "power" } },
   { slot: "web-ui" },
-  { id: "more-help", q: "How do I get more help?", a: "Run Fix problems first. For anything else, use Report a Bug in Settings → Software & Repositories → Report a Bug to reach the SolarDeck developers.", keywords: "help support forum contact more" },
+  { id: "more-help", q: "How do I get more help?", a: "Run Fix problems first. For anything else, use Report a Bug in Settings → System Services & Repositories → Report a Bug to reach the SolarDeck developers.", keywords: "help support forum contact more" },
 ];
 
 /** Shared entries, replaced (or removed with null) by the edition's own with the same id; slots appear only when the edition fills them. */

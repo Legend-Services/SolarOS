@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.22.0 - Five-category Settings home & System › Info hub — 2026-11-26
+
+### Added
+- **Settings › System › Info**, the first page of System and the one it opens on. It shows the operating system and release version, kernel, architecture, hypervisor driver, boot mode, uptime and cluster membership, plus **Reboot** and **Shut Down** (type the host name to confirm). It also has a **Software Update** bar: *Check for Updates*, an up-to-date / update-available badge with the incoming release notes, and a one-click *Install Update* that opens the live progress in System Services & Repositories.
+- **Hardware overview** on Info. *Processor*: model, sockets, cores and threads, clock, temperature and load average. *Memory*: total, a usage bar, ZFS ARC cache and swap. *Graphics*: every integrated and discrete GPU with VRAM, driver, temperature and passthrough state. *Storage*: physical disks, raw capacity, SMART summary and each ZFS pool with its health and usage. Links open Hardware, GPU & BIOS or Storage & ZFS Pools.
+- **Rename the server** from Info on SolarOS: the pencil next to the hostname updates it through `hostnamectl` and `/etc/hosts`, after the usual step-up confirmation. It is read-only on a hypervisor node and on a cluster member, because renaming those would detach their guests.
+- `GET /api/system/info` now also returns structured `os`, `updates` and `hardware` blocks (`cpu`, `memory`, `gpus`, `storage`) for both drivers, cached for 30 seconds. The fields it returned before are unchanged. New `POST /api/system/hostname` on the SolarOS driver.
+
+### Changed
+- **The All Settings page now shows only the five main categories**: System, Storage & Data, Privilege & Security, Network & Services and Hypervisor & Runtime. Each is a large card that describes what you can configure there. Typing in the search field still finds every sub-module across all categories; click a result to open it.
+- **Inside a category**, the window keeps the *Settings* title and shows the category name centred beneath it. Below that is the breadcrumb (*‹ All Settings › System › Info*), and the sidebar lists only that category's sub-modules.
+- **System** sidebar order: Info, General & Appearance, Features & Services, Installed Apps & Instances (moved here from Hypervisor & Runtime), Hardware, GPU & BIOS, Resource Monitor, System Services & Repositories, Automation & Alerts, Power & UPS.
+- **Hardware, GPU & BIOS** combines Hardware & GPU and BIOS & Firmware in tabs: *GPUs & Devices*, *BIOS & UEFI Firmware* and *Multi-Seat & Ports*.
+- **System Services & Repositories** combines System Services and Software & Repositories in tabs: *System Services*, *SolarDeck Updates*, *OS Repositories* and *OS Updates*.
+- **Host & Power** is now part of Info. Old links and bookmarks to Host & Power, BIOS & Firmware and Software & Repositories open their new place and tab.
+- Guides, Help articles, search, the Manual and its screenshots follow the new layout, in all five languages.
+
 ## v2.21.2 - Responsive sub-windows, inspector drawer layout & unified theme tokens — 2026-11-26
 
 ### Fixed

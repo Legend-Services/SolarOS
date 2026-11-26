@@ -2,7 +2,7 @@
 
 # Settings › Network & Services
 
-Virtual switches, DNS, VPN, firewall and server automation.
+Virtual switches & VLANs, network topology, DHCP, DNS & ad-blocking, WireGuard VPN, reverse proxy, SSL certificates and firewall.
 
 [← Manual](README.md)
 

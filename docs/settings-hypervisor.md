@@ -2,13 +2,13 @@
 
 # Settings › Hypervisor & Runtime
 
-Virtualization defaults, AI compute runtime and background daemons.
+Multi-host clustering, high availability failover, live migration, out-of-band BMC/IPMI and programmatic API keys.
 
 [← Manual](README.md)
 
 ![Hypervisor & Runtime](screenshots/settings-hypervisor.png)
 
-**Sub-modules:** [Hypervisor Defaults](#hypervisor-defaults) · [Installed Apps & Instances](#installed-apps-instances) · [Local AI Runtime](#local-ai-runtime) · [Cluster & High Availability](#cluster-high-availability)
+**Sub-modules:** [Hypervisor Defaults](#hypervisor-defaults) · [Local AI Runtime](#local-ai-runtime) · [Cluster & High Availability](#cluster-high-availability)
 
 ## Hypervisor Defaults
 
@@ -46,18 +46,6 @@ The storage new guest disks go to by default.
 Let guests run their own hypervisor.
 
 1. Switch nested virtualization on and restart the affected VMs.
-
-## Installed Apps & Instances
-
-![Installed Apps & Instances](screenshots/settings-installed-apps.png)
-
-### Overview
-
-Every app installed from App Center, grouped by app, with each instance's label, container ID, IP address and status.
-
-1. Open Settings › Hypervisor & Runtime › Installed Apps & Instances (or press “Open This Setting / App →” above).
-2. Press Open App to open an instance's web interface.
-3. Press Uninstall, choose whether to also delete the app's data, and confirm.
 
 ## Local AI Runtime
 

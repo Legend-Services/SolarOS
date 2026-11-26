@@ -5,6 +5,7 @@ import re
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
+from app import system_info
 from app.auth import require_user
 from app.config import settings
 from app.system import PowerBody
@@ -94,7 +95,7 @@ async def info():
         _safe("/version"), _safe(_node("/status"), {}), _safe(_node("/network"), []), _safe(_node("/dns"), {}),
     )
     status, cpu = status or {}, (status or {}).get("cpuinfo", {})
-    return {
+    return await system_info.enrich({
         "node": settings.node_name,
         "version": version or {},
         "platform_version": status.get("pveversion", ""),
@@ -110,4 +111,4 @@ async def info():
         "admin_username": settings.admin_username,
         "storage_root": str(settings.storage_root),
         "helper": "ssh " + settings.host_ssh if settings.host_ssh else "local",
-    }
+    })

@@ -131,7 +131,7 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     how: [
       "Open Resource Monitor from the Desktop or Dock.",
       "The Performance tab shows CPU, memory and network graphs.",
-      "Switch to Hardware & GPU to see graphics card load and drive temperatures.",
+      "Switch to GPU & Sensors to see graphics card load and drive temperatures.",
       "Yellow and red numbers mean something is running hot or full.",
     ],
     action: { label: "Open Resource Monitor", app: "monitor" },
@@ -338,7 +338,7 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     app: "settings",
     title: "Settings Guide",
     blurb: "Every system, storage, security, network and hypervisor setting in one place.",
-    what: "Settings is the one place to configure SolarDeck and the host. Five categories (System, Storage & Data, Privilege & Security, Network & Services, Hypervisor & Runtime) each hold a row of sub-modules: click a tile to open it.",
+    what: "Settings is the one place to configure SolarDeck and the host. Five categories (System, Storage & Data, Privilege & Security, Network & Services, Hypervisor & Runtime) appear as five large cards on the All Settings page: click a card to open that category with its own sidebar. System opens on Info, the overview of the OS, updates, power and hardware.",
     when: [
       "Changing the theme, wallpaper, Dock or language.",
       "Creating a ZFS pool, a share or a backup schedule.",
@@ -346,12 +346,12 @@ export const APP_GUIDES: Record<AppId, Guide> = {
       "Installing SolarDeck or host updates, or rebooting the host.",
     ],
     how: [
-      "Type in Filter settings to find a sub-module, then press Enter to open the first match.",
-      "Use the breadcrumb (← All Settings) to go back, or the sidebar to jump straight to another sub-module.",
+      "Type in Filter settings to search every sub-module of every category, then click a result or press Enter to open the first match.",
+      "Inside a category the sidebar lists only that category's sub-modules; use the breadcrumb (← All Settings › Category › Sub-module) to go back.",
       "The ? Guide button in the breadcrumb opens the guide for the sub-module you are in.",
       "The CPU, memory and pool pills in the top bar open Resource Monitor and Storage & ZFS Pools directly.",
     ],
-    action: { label: "Open General & Appearance", app: "settings", intent: "general-appearance" },
+    action: { label: "Open System Info", app: "settings", intent: "system-info" },
     related: ["features-services", "server-setup", "desktop-tour", "security-hardening", "security-modules", "net-reverse-proxy", "dr-321", "users-roles"],
   }),
   controlpanel: guide({
@@ -368,9 +368,9 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     ],
     how: [
       "Security Posture & Hardening: check the security score. Security & 2FA: change the admin password, set up 2FA and sign out other devices. Audit & System Logs: read the audit log. Add more {platform} users and roles in Users & Roles.",
-      "Hardware & GPU → GPU & Drivers: pick your card's vendor and press Install.",
+      "Hardware, GPU & BIOS → GPU & Drivers: pick your card's vendor and press Install.",
       "General & Appearance: themes, Light / Dark Mode, wallpapers, Grid/List view, icon size, spacing and Dock.",
-      "Software & Repositories → SolarDeck Updates: check for and install updates. To go back to an older version, redeploy that release with deploy.sh.",
+      "System → Info: Check for Updates, or System Services & Repositories → SolarDeck Updates for the schedule and history. To go back to an older version, redeploy that release with deploy.sh.",
       "To report a bug, use Help & Support → Ask, then open an issue on the project's GitHub page with what you saw.",
     ],
     action: { label: "Open General & Appearance", app: "controlpanel", intent: "appearance" },
@@ -379,9 +379,9 @@ export const APP_GUIDES: Record<AppId, Guide> = {
   system: guide({
     id: "system",
     app: "system",
-    title: "Software & Repositories Guide",
+    title: "System Services & Repositories Guide",
     blurb: "Package sources and host updates.",
-    what: "Software & Repositories (in Settings) manages where the host gets its software (package repositories) and installs {platform} and operating system updates.",
+    what: "System Services & Repositories (in Settings) manages where the host gets its software (package repositories) and installs {platform} and operating system updates.",
     when: [
       "Updates fail with an error like 401 Unauthorized (the Enterprise source needs a paid subscription).",
       "Installing security updates for the host.",
@@ -389,9 +389,9 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     how: [
       "Repositories: turn off Enterprise and turn on No-Subscription if you don't have a subscription.",
       "Updates: press Refresh, review the list, then Upgrade.",
-      "Reboot from Settings → Host & Power if a new kernel was installed.",
+      "Reboot from Settings → System → Info if a new kernel was installed.",
     ],
-    action: { label: "Open Software & Repositories", app: "system" },
+    action: { label: "Open System Services & Repositories", app: "settings", intent: "system-services" },
   }),
   "local-ai": guide({
     id: "local-ai",
@@ -588,7 +588,7 @@ const SUB_GUIDES: Guide[] = [
     how: [
       "Turn on VT-d / AMD-Vi (IOMMU) in the BIOS: Help & Support → BIOS & firmware shows the exact menu.",
       "Run Help & Support → Fix problems: if IOMMU is off on the host, press Fix it for me and reboot.",
-      "For GPUs, switch the card to passthrough mode in Settings → Hardware & GPU → GPU & Drivers.",
+      "For GPUs, switch the card to passthrough mode in Settings → Hardware, GPU & BIOS → GPU & Drivers.",
       "Shut down the VM, open Compute Manager → Edit → Hardware, and Add PCI/GPU device or Add USB device.",
       "Tick \"include audio\" for GPUs, then start the VM and install the device's drivers inside it.",
     ],
@@ -893,7 +893,7 @@ const SUB_GUIDES: Guide[] = [
     cards: [
       { title: "Sub-features", body: "WireGuard VPN has separate switches for the server (remote access in) and the client (tunnels out). Per-VLAN DHCP Servers sit under Virtual Switch." },
       { title: "Background services", body: "Turning off WireGuard, per-VLAN DHCP or UPS monitoring pauses that service; turning it on starts it again. Configuration files are never deleted." },
-      { title: "Always there", body: "General & Appearance, Users & Roles, Software & Repositories and Features & Services itself cannot be hidden." },
+      { title: "Always there", body: "General & Appearance, Users & Roles, System Services & Repositories and Features & Services itself cannot be hidden." },
     ],
     when: ["The sidebar shows things you never use.", "You set up a dedicated storage, gateway or AI box.", "Someone new should not be overwhelmed."],
     how: [

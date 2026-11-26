@@ -2,13 +2,60 @@
 
 # Settings › System
 
-Core hardware, OS repositories, firmware, live telemetry, power and updates.
+OS info, software updates, appearance themes, features toggle, installed apps, hardware & GPU, telemetry, services and UPS power.
 
 [← Manual](README.md)
 
 ![System](screenshots/settings-system.png)
 
-**Sub-modules:** [General & Appearance](#general-appearance) · [Features & Services](#features-services) · [Hardware & GPU](#hardware-gpu) · [BIOS & Firmware](#bios-firmware) · [Resource Monitor](#resource-monitor) · [Software & Repositories](#software-repositories) · [System Services](#system-services) · [Automation & Alerts](#automation-alerts) · [Host & Power](#host-power) · [Power & UPS](#power-ups)
+**Sub-modules:** [Info](#info) · [General & Appearance](#general-appearance) · [Features & Services](#features-services) · [Installed Apps & Instances](#installed-apps-instances) · [Hardware, GPU & BIOS](#hardware-gpu-bios) · [Resource Monitor](#resource-monitor) · [System Services & Repositories](#system-services-repositories) · [Automation & Alerts](#automation-alerts) · [Power & UPS](#power-ups)
+
+## Info
+
+![Info](screenshots/settings-system-info.png)
+
+### Overview
+
+The first page of Settings › System: the operating system and SolarDeck release, kernel, architecture, hypervisor driver, uptime and cluster membership, the hostname, Reboot and Shut Down, a quick software update check, and a hardware overview of the processor, memory, graphics adapters and storage with links to the detailed pages.
+
+1. Open Settings › System › Info (or press “Open This Setting / App →” above).
+2. Read the release, kernel, architecture and uptime at the top.
+3. Press Check for Updates; when a new release is shown, press Install Update to start it (progress opens in System Services & Repositories › SolarDeck Updates).
+4. Use Reboot or Shut Down and type the host name to confirm.
+5. Follow Hardware, GPU & BIOS or Storage & ZFS Pools from the hardware cards for the full details.
+
+> **Tip:** On SolarOS the pencil next to the hostname renames the server; a hypervisor node or a cluster member keeps its name, because renaming it would detach its guests.
+
+### OS & Release
+
+The operating system and SolarDeck release, kernel, architecture, hypervisor driver, uptime, cluster membership and the hostname of this server.
+
+1. Read the facts at the top of Info.
+2. On SolarOS press the pencil next to the hostname to rename the server.
+
+### Software Update
+
+A quick update check: the installed release, whether a newer one is available with its notes, and a one-click install.
+
+1. Press Check for Updates.
+2. Press Install Update when a new release is shown; its progress opens in System Services & Repositories.
+
+![Software Update](screenshots/settings-system-info--software-update.png)
+
+### Reboot & Shutdown
+
+Reboot or shut down the host safely.
+
+1. Press Reboot or Shut Down and type the host name to confirm.
+
+> **Tip:** Guests with autostart come back on by themselves after a reboot.
+
+### Hardware Overview
+
+Processor model, sockets, cores and threads, clock speed, temperature and load; memory with the ZFS ARC cache and swap; every integrated and discrete GPU with VRAM, driver and temperature; disks, SMART health and ZFS pools.
+
+1. Scroll to the hardware cards below the release facts.
+2. Press Hardware, GPU & BIOS or Storage & ZFS Pools for the full details.
 
 ## General & Appearance
 
@@ -104,7 +151,7 @@ Choose which optional features this server shows. A feature you switch off disap
 4. Use a quick preset (Minimal Core, Home & Media Server, Full Hypervisor Lab, Enable All) to set many switches at once.
 5. Press Re-run Setup Wizard to pick server roles again.
 
-> **Tip:** General & Appearance, Users & Roles, Software & Repositories and Features & Services itself can never be hidden, so you cannot lock yourself out.
+> **Tip:** General & Appearance, Users & Roles, System Services & Repositories and Features & Services itself can never be hidden, so you cannot lock yourself out.
 
 ### Quick presets
 
@@ -126,23 +173,37 @@ The Server Setup Wizard opens on the first sign-in of a new installation and any
 
 > **Tip:** Skip Setup & Use Defaults (first run only) keeps every feature on and skips the tour.
 
-## Hardware & GPU
+## Installed Apps & Instances
 
-![Hardware & GPU](screenshots/settings-hardware-gpu.png)
+![Installed Apps & Instances](screenshots/settings-installed-apps.png)
 
 ### Overview
 
-See the CPU, memory, GPUs, PCIe and IOMMU groups and network adapters of the host, and switch the GPU driver mode.
+Every app installed from App Center, grouped by app, with each instance's label, container ID, IP address and status.
 
-1. Open Settings › System › Hardware & GPU (or press “Open This Setting / App →” above).
-2. Read the CPU and memory cards for model, cores, temperature and usage.
-3. In GPU & Drivers, choose between host use and passthrough to a VM.
+1. Open Settings › System › Installed Apps & Instances (or press “Open This Setting / App →” above).
+2. Press Open App to open an instance's web interface.
+3. Press Uninstall, choose whether to also delete the app's data, and confirm.
+
+## Hardware, GPU & BIOS
+
+![Hardware, GPU & BIOS](screenshots/settings-hardware-gpu.png)
+
+### Overview
+
+See the CPU, memory, GPUs, PCIe and IOMMU groups and network adapters of the host, switch the GPU driver mode, set up multi-seat workstations and read the BIOS & UEFI firmware guide. GPUs & Devices, BIOS & UEFI Firmware and Multi-Seat & Ports are the tabs at the top.
+
+1. Open Settings › System › Hardware, GPU & BIOS (or press “Open This Setting / App →” above).
+2. GPUs & Devices: read the CPU and memory cards for model, cores, temperature and usage, and in GPU & Drivers choose between host use and passthrough to a VM.
+3. BIOS & UEFI Firmware: check for a newer BIOS for your motherboard and open the guides for virtualization, IOMMU and power settings, with a QR code to read them on your phone.
+
+> **Tip:** The QR guide works offline: the text is inside the code.
 
 ### CPU & Memory
 
 Processor model, cores, temperature and memory modules of the host.
 
-1. Read the CPU and Memory cards at the top of Hardware & GPU.
+1. Read the CPU and Memory cards at the top of Hardware, GPU & BIOS.
 
 ### GPU & Drivers
 
@@ -152,7 +213,7 @@ Every GPU with its IOMMU group, and the driver mode: used by the host or passed 
 2. Choose Passthrough to give it to a VM, or Host to use it on the server.
 3. Reboot when asked.
 
-> **Tip:** IOMMU must be enabled in the BIOS; see BIOS & Firmware.
+> **Tip:** IOMMU must be enabled in the BIOS; see Hardware, GPU & BIOS › BIOS & UEFI Firmware.
 
 ![GPU & Drivers](screenshots/settings-hardware-gpu--gpu-drivers.png)
 
@@ -175,30 +236,9 @@ Several people work or play on one machine at the same time: every seat is a VM 
 
 > **Tip:** When the seat uses the GPU the server boots on, the server's own console screen switches off while that seat runs.
 
-> **Tip:** IOMMU must be enabled in the BIOS; see BIOS & Firmware.
+> **Tip:** IOMMU must be enabled in the BIOS; see Hardware, GPU & BIOS › BIOS & UEFI Firmware.
 
 ![Multi-Seat & Ports](screenshots/settings-hardware-gpu--multiseat.png)
-
-### Network Interfaces
-
-Physical network adapters with link speed and driver.
-
-1. Read the Network interfaces card at the bottom.
-
-## BIOS & Firmware
-
-![BIOS & Firmware](screenshots/settings-bios-firmware.png)
-
-### Overview
-
-Check whether a newer BIOS exists for your motherboard, read the recommended BIOS settings for virtualization and take the guide along on your phone.
-
-1. Open Settings › System › BIOS & Firmware (or press “Open This Setting / App →” above).
-2. Read the detected motherboard and BIOS version.
-3. Open a guide card for the setting you need (virtualization, IOMMU, power).
-4. Press the QR button and scan it with your phone to read the steps while you are in the BIOS.
-
-> **Tip:** The QR guide works offline: the text is inside the code.
 
 ### BIOS Update Check
 
@@ -217,7 +257,13 @@ Step-by-step guides for the BIOS settings that matter (virtualization, IOMMU, po
 2. Press the QR button and scan it with your phone.
 3. Reboot into the BIOS and follow the steps on your phone.
 
-![BIOS Optimization Guide & Mobile QR](screenshots/settings-bios-firmware--bios-guides.png)
+![BIOS Optimization Guide & Mobile QR](screenshots/settings-hardware-gpu--bios-guides.png)
+
+### Network Interfaces
+
+Physical network adapters with link speed and driver.
+
+1. Read the Network interfaces card at the bottom.
 
 ## Resource Monitor
 
@@ -243,18 +289,35 @@ GPU load, video engines and temperature sensors.
 
 1. Click GPU & Sensors at the top of Resource Monitor.
 
-## Software & Repositories
+## System Services & Repositories
 
-![Software & Repositories](screenshots/settings-software-updates.png)
+![System Services & Repositories](screenshots/settings-system-services.png)
 
 ### Overview
 
-Keep SolarDeck and the operating system up to date, choose package sources, roll back a release and report bugs.
+Start, stop, restart and enable the background services of the host and of deployed apps, keep SolarDeck and the operating system up to date, choose package sources, roll back a release and report bugs. System Services, SolarDeck Updates, OS Repositories and OS Updates are the tabs at the top.
 
-1. Open Settings › System › Software & Repositories (or press “Open This Setting / App →” above).
-2. SolarDeck Updates checks for a new release and installs it.
-3. OS Repositories chooses the package sources.
-4. OS Updates lists and installs pending operating system packages.
+1. Open Settings › System › System Services & Repositories (or press “Open This Setting / App →” above).
+2. System Services: find a service in the list (filter by name) and use the buttons on its row to start, stop, restart or enable it at boot.
+3. SolarDeck Updates checks for a new release, installs it on a schedule or right away, and rolls back to an earlier one.
+4. OS Repositories chooses the package sources; OS Updates lists and installs pending operating system packages.
+
+> **Tip:** The quick update check also sits at the top of Settings › System › Info.
+
+### Service Manager
+
+The background services of the host and deployed apps with start, stop, restart and enable at boot.
+
+1. Filter the list by name.
+2. Use the row buttons to control a service.
+
+### Docker Engine & Compose
+
+Docker Engine & Compose is a built-in platform feature, switched on and off with its card in Features & Services. While it is on, Compute › Docker and Settings › System Services & Repositories show its Security-by-Design options: Isolated Container (recommended) or Host Native, and the network it is pinned to (management, VLAN, DMZ or isolated lab). Containers and stacks are managed in Compute › Docker.
+
+1. Switch on Docker Engine & Compose in Features & Services.
+2. Pick Isolated Container or Host Native and the network, then press Save.
+3. Open Compute › Docker to install the engine and manage containers.
 
 ### SolarDeck Updates
 
@@ -263,7 +326,7 @@ Check for and install a new SolarDeck release; the update runs in the background
 1. Press Check now.
 2. Press Install update when a new version is shown.
 
-![SolarDeck Updates](screenshots/settings-software-updates--solardeck-updates.png)
+![SolarDeck Updates](screenshots/settings-system-services--solardeck-updates.png)
 
 ### Automatic Updates & Schedule
 
@@ -295,33 +358,6 @@ Choose the operating system package sources.
 Pending operating system package updates.
 
 1. Press Refresh, then Install all.
-
-## System Services
-
-![System Services](screenshots/settings-system-services.png)
-
-### Overview
-
-Start, stop, restart and enable the background services of the host and of deployed apps.
-
-1. Open Settings › System › System Services (or press “Open This Setting / App →” above).
-2. Find a service in the list (filter by name).
-3. Use the buttons on its row to start, stop, restart or enable it at boot.
-
-### Service Manager
-
-The background services of the host and deployed apps with start, stop, restart and enable at boot.
-
-1. Filter the list by name.
-2. Use the row buttons to control a service.
-
-### Docker Engine & Compose
-
-Docker Engine & Compose is a built-in platform feature, switched on and off with its card in Features & Services. While it is on, Compute › Docker and Settings › System Services show its Security-by-Design options: Isolated Container (recommended) or Host Native, and the network it is pinned to (management, VLAN, DMZ or isolated lab). Containers and stacks are managed in Compute › Docker.
-
-1. Switch on Docker Engine & Compose in Features & Services.
-2. Pick Isolated Container or Host Native and the network, then press Save.
-3. Open Compute › Docker to install the engine and manage containers.
 
 ## Automation & Alerts
 
@@ -358,26 +394,6 @@ No-code rules: when a trigger fires and the condition holds, run an action or se
 When each rule ran and what it did.
 
 1. Scroll to the Execution Log at the bottom of Automation & Alerts.
-
-## Host & Power
-
-![Host & Power](screenshots/settings-host-power.png)
-
-### Overview
-
-Reboot or shut down the host, see its uptime and open the host console.
-
-1. Open Settings › System › Host & Power (or press “Open This Setting / App →” above).
-2. Press Reboot or Shut down in the Power card and confirm.
-3. Running guests are stopped cleanly first.
-
-### Reboot & Shutdown
-
-Reboot or shut down the host safely.
-
-1. Press Reboot or Shut down and confirm.
-
-> **Tip:** Guests with autostart come back on by themselves after a reboot.
 
 ## Power & UPS
 
