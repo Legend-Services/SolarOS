@@ -25,10 +25,10 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException, Path
 from pydantic import BaseModel, Field, model_validator
 
-from . import host_ssh, network_switch as ns
+from . import cluster, host_ssh, network_switch as ns
 from .auth import require_user
 from .config import settings
-from .guest_hardware import QEMU_MODELS, NetBody
+from .guest_hardware import MAC_RE, QEMU_MODELS, NetBody
 from providers.registry import get_provider
 
 router = APIRouter(prefix="/api/virtual-hardware", tags=["virtual_hardware"], dependencies=[Depends(require_user)])
@@ -42,6 +42,7 @@ HOST_DIR = f"/var/lib/{P}/vhw"
 MODEM_PY = f"/usr/local/lib/{P}/vhw_modem.py"
 VCAM_BASE = 40  # virtual cameras are /dev/video40 … /dev/video47
 VCAM_SLOTS = 8
+VCAM_LABEL = "SolarDeck-Camera"
 _lock = asyncio.Lock()
 
 GuestTypeT = Literal["vm", "lxc"]
@@ -139,7 +140,8 @@ def _key(guest_type: str, guest_id: int) -> str:
 
 def profile(guest_type: str, guest_id: int) -> dict:
     p = _load(PROFILES, {}).get(_key(guest_type, guest_id)) or {}
-    return {"devices": p.get("devices", []), "throttling": p.get("throttling") or default_throttling()}
+    return {"devices": p.get("devices", []), "throttling": p.get("throttling") or default_throttling(),
+            "nic_labels": p.get("nic_labels", {})}
 
 
 def _store(guest_type: str, guest_id: int, prof: dict) -> None:
@@ -229,6 +231,77 @@ def overlaps(cidr: str, model: dict) -> str | None:
     return None
 
 
+# ---------------------------------------------------------------- Hardware identity (Wireframe Node Architect)
+
+# PCI vendor:device the guest sees for each emulated NIC model (fixed by the emulated chip).
+NIC_PCI_IDS: dict[str, tuple[str, str]] = {
+    "virtio": ("0x1af4", "0x1000"), "e1000": ("0x8086", "0x100e"), "e1000e": ("0x8086", "0x10d3"),
+    "rtl8139": ("0x10ec", "0x8139"), "vmxnet3": ("0x15ad", "0x07b0"), "ne2k_pci": ("0x10ec", "0x8029"),
+    "pcnet": ("0x1022", "0x2000")}
+# Native vendor:device of the emulated virtual devices (option value or device type → ids).
+NATIVE_IDS: dict[str, tuple[str, str]] = {
+    "hd_audio": ("0x8086", "0x293e"), "ac97": ("0x8086", "0x2415"), "megasas": ("0x1000", "0x0060"),
+    "mptsas1068": ("0x1000", "0x0054"), "lsi53c895a": ("0x1000", "0x0012"), "virtual_nvme": ("0x1b36", "0x0010"),
+    "smartcard": ("0x08e6", "0x4433"), "watchdog": ("0x8086", "0x25ab"), "virtio_rng": ("0x1af4", "0x1005"),
+    "ne2k_pci": NIC_PCI_IDS["ne2k_pci"], "pcnet": NIC_PCI_IDS["pcnet"], "rtl8139": NIC_PCI_IDS["rtl8139"],
+    "e1000": NIC_PCI_IDS["e1000"]}
+# Identity fields that reach the guest's own device list; every other field is a SolarDeck label.
+GUEST_VISIBLE: dict[str, list[str]] = {"virtual_camera": ["device_name"], "virtual_nvme": ["serial_number"]}
+IDENTITY_KEYS = ("device_name", "vendor_id", "device_id", "serial_number", "pci_or_usb_address")
+
+
+def hex_id(v: str) -> str:
+    """'8086' / '0X8086' → '0x8086' ('' stays '')."""
+    return f"0x{v.lower().removeprefix('0x')}" if v else ""
+
+
+def unicast_mac(mac: str) -> bool:
+    """A usable guest MAC: well-formed, unicast (I/G bit clear) and not all zeros."""
+    return bool(re.fullmatch(MAC_RE, mac)) and not int(mac[:2], 16) & 1 and mac.replace(":", "") != "0" * 12
+
+
+def native_ids(dev: dict) -> tuple[str, str] | tuple[None, None]:
+    key = dev["options"].get("model") if dev["type"] in ("legacy_audio", "sas_hba", "legacy_nic") else dev["type"]
+    return NATIVE_IDS.get(key or "", (None, None))
+
+
+def identity_view(dev: dict) -> dict:
+    """A virtual device's identity: overrides with the native ids and NVMe serial filled in."""
+    ident = {k: (dev.get("identity") or {}).get(k, "") for k in IDENTITY_KEYS}
+    vid, did = native_ids(dev)
+    if dev["type"] == "virtual_nvme":
+        ident["serial_number"] = dev["options"].get("serial", "")
+    if dev["type"] == "virtual_camera" and dev["state"].get("video_nr") is not None:
+        ident["pci_or_usb_address"] = ident["pci_or_usb_address"] or f"/dev/video{dev['state']['video_nr']}"
+    return {**ident, "bus_type": CATALOG[dev["type"]]["bus"], "native_vendor_id": vid, "native_device_id": did,
+            "guest_visible": GUEST_VISIBLE.get(dev["type"], [])}
+
+
+def nic_view(n: dict, label: str, vlan_map: dict, ips: list[str], lab: dict | None, dhcp: dict) -> dict:
+    """One guest NIC with its endpoint (switch, VLAN with DHCP state, lab) for the wireframe."""
+    model = n.get("model") or "veth"
+    vid, did = NIC_PCI_IDS.get(model, (None, None))
+    tag = n.get("tag")
+    vkey = str(tag) if tag and str(tag) in vlan_map else next(
+        (k for k, v in vlan_map.items() if v.get("lab") and v.get("bridge") == n.get("bridge")), None)
+    v = vlan_map.get(vkey) if vkey else None
+    vlan = None if v is None else {"vlan_id": int(vkey), "name": v.get("name"), "color": v.get("color"),
+                                   "subnet_cidr": str(ipaddress.ip_interface(v["host_ipv4_cidr"]).network)
+                                   if v.get("host_ipv4_cidr") else None,
+                                   "gateway_ip": (v.get("dhcp_config") or {}).get("gateway_ip"),
+                                   "dns_servers": (v.get("dhcp_config") or {}).get("dns_servers") or [],
+                                   "dhcp_active": bool(dhcp.get(vkey))}
+    rate = n.get("rate")
+    return {"net_id": n["key"], "interface_name": n.get("name") or label or n["key"], "label": label,
+            "mac_address": n.get("macaddr"), "model": model, "pci_slot": n.get("pci_slot"), "vendor_id": vid,
+            "device_id": did, "bridge": n.get("bridge") or "", "switch_name": n.get("bridge") or "", "vlan_tag": tag,
+            "trunks": [int(x) for x in str(n.get("trunks") or "").split(";") if x.isdigit()], "ipv4_addresses": ips,
+            "link_up": not n.get("link_down"), "rate_mbps": round(rate * 8, 1) if rate else None,
+            "firewall": bool(n.get("firewall")), "vlan": vlan,
+            "lab": {"lab_id": lab["id"], "name": lab["name"], "subnet_cidr": str(ipaddress.ip_interface(lab["gateway_cidr"]).network)}
+            if lab else None}
+
+
 # ---------------------------------------------------------------- Host plumbing
 
 
@@ -269,16 +342,52 @@ async def snd_nodes() -> list[str]:
     return nodes
 
 
-async def vcam_start(guest_type: str, guest_id: int, dev: dict, used: set[int]) -> int:
-    nr = next((VCAM_BASE + i for i in range(VCAM_SLOTS) if VCAM_BASE + i not in used), None)
+def vcam_labels(profiles: dict) -> list[str]:
+    """The card name of every camera slot: the device's chosen Device Manager name, else the default."""
+    labels = [VCAM_LABEL] * VCAM_SLOTS
+    for p in profiles.values():
+        for d in p.get("devices", []):
+            nr = (d.get("state") or {}).get("video_nr")
+            name = (d.get("identity") or {}).get("device_name")
+            if isinstance(nr, int) and 0 <= nr - VCAM_BASE < VCAM_SLOTS and name:
+                labels[nr - VCAM_BASE] = name
+    return labels
+
+
+def vcam_opts(labels: list[str]) -> str:
+    """v4l2loopback module options; labels match IdentityBody.device_name, so they carry no quotes or commas."""
+    nrs = ",".join(str(VCAM_BASE + i) for i in range(VCAM_SLOTS))
+    return f"devices={VCAM_SLOTS} video_nr={nrs} exclusive_caps=1 card_label=" + ",".join(f'"{x}"' for x in labels)
+
+
+def _vcam_conf(opts: str) -> str:
+    return f"printf '%s\\n' {shlex.quote('options v4l2loopback ' + opts)} > /etc/modprobe.d/{P}-vcam.conf"
+
+
+async def vcam_relabel() -> bool:
+    """Write the per-slot card names and reload the module; False while a guest holds a camera open (the names then
+    apply at the next module load, e.g. a host reboot)."""
+    opts = vcam_opts(vcam_labels(_load(PROFILES, {})))
+    units = " ".join(settings.name(f"vcam-{VCAM_BASE + i}") for i in range(VCAM_SLOTS))
+    out = await host_ssh.run(
+        f"{_vcam_conf(opts)}; [ -e /dev/video{VCAM_BASE} ] || {{ echo reloaded; exit 0; }}\n"
+        f"act=$(for u in {units}; do systemctl is-active -q $u && echo $u; done)\n"
+        "[ -n \"$act\" ] && systemctl stop $act\n"
+        f"modprobe -r v4l2loopback 2>/dev/null && modprobe v4l2loopback {shlex.quote(opts)} && echo reloaded\n"
+        "[ -n \"$act\" ] && systemctl start $act; true", timeout=60)
+    return "reloaded" in out
+
+
+async def vcam_start(guest_type: str, guest_id: int, dev: dict, used: set[int], nr: int | None = None) -> int:
+    """Start the ffmpeg feed of a free camera slot, or with `nr` rewrite and restart that slot's feed."""
+    nr = nr or next((VCAM_BASE + i for i in range(VCAM_SLOTS) if VCAM_BASE + i not in used), None)
     if nr is None:
         raise HTTPException(409, f"All {VCAM_SLOTS} virtual camera slots are in use")
     await need("ffmpeg", "The virtual camera needs ffmpeg on the host: install it with apt install ffmpeg")
-    nrs = ",".join(str(VCAM_BASE + i) for i in range(VCAM_SLOTS))
-    load = (f"[ -e /dev/video{VCAM_BASE} ] || modprobe v4l2loopback devices={VCAM_SLOTS} video_nr={nrs} exclusive_caps=1 "
-            f"card_label=SolarDeck-Camera; echo v4l2loopback > /etc/modules-load.d/{P}-vcam.conf; "
-            f"echo 'options v4l2loopback devices={VCAM_SLOTS} video_nr={nrs} exclusive_caps=1 card_label=SolarDeck-Camera' "
-            f"> /etc/modprobe.d/{P}-vcam.conf; [ -e /dev/video{nr} ] && echo ok; true")
+    opts = vcam_opts(vcam_labels(_load(PROFILES, {})))
+    load = (f"[ -e /dev/video{VCAM_BASE} ] || modprobe v4l2loopback {shlex.quote(opts)}; "
+            f"echo v4l2loopback > /etc/modules-load.d/{P}-vcam.conf; {_vcam_conf(opts)}; "
+            f"[ -e /dev/video{nr} ] && echo ok; true")
     if "ok" not in await host_ssh.run(load):
         raise HTTPException(409, "The virtual camera needs the v4l2loopback kernel module on the host: install it with "
                                  "apt install v4l2loopback-dkms (plus the headers of the running kernel)")
@@ -310,7 +419,7 @@ async def modem_vm_start(guest_id: int, dev: dict, socket_path: str) -> None:
     await host_ssh.write_file(f"/etc/systemd/system/{unit}.service", unit_file(
         f"SolarDeck virtual 56k modem of VM {guest_id}",
         f"/usr/bin/python3 {MODEM_PY} --unix {socket_path}{_modem_args(dev['options'])}"))
-    await host_ssh.run(f"systemctl daemon-reload && systemctl enable -q --now {unit}")
+    await host_ssh.run(f"systemctl daemon-reload && systemctl enable -q --now {unit} && systemctl restart {unit}")
 
 
 async def modem_vm_stop(guest_id: int, dev: dict) -> None:
@@ -608,6 +717,246 @@ async def remove_device(guest_type: GuestTypeT, guest_id: int = GUEST_ID, device
     # A running container keeps removed device nodes until it restarts; VM hardware outside hot-plug needs a power cycle.
     cold = not CATALOG[dev["type"]]["hotplug"] if kind == "qemu" else bool(dev["state"].get("keys"))
     return {"ok": True, "restart_required": running and cold}
+
+
+# ---------------------------------------------------------------- Routes: detailed view, identity editor, re-patching
+
+
+async def _leases() -> dict[str, str]:
+    """Guest IPv4 addresses from the host's DHCP leases, by upper-case MAC."""
+    txt = await host_ssh.run("cat /var/lib/misc/dnsmasq.vlan-*.leases /var/lib/misc/dnsmasq.leases 2>/dev/null; true",
+                             check=False)
+    return {x["mac"]: x["ip"] for x in ns.parse_leases(txt, [])}
+
+
+def _lab_index() -> dict[tuple, dict]:
+    return {(m["guest_type"], int(m["guest_id"]), m["net_id"]): lab for lab in _labs() for m in lab["members"]}
+
+
+async def placement(kind: str, guest_id: int) -> dict:
+    """Where the guest runs: the standalone host, or its cluster host with HA roles and floating VIPs."""
+    st = cluster.load()
+    if not cluster.in_cluster(st):
+        return {"mode": "standalone", "host": st["self"], "host_ip": get_provider().host_address()}
+    hosts = st["shared"]["hosts"]
+    try:
+        cur = (await cluster.find_guest(st, kind, guest_id)).get("host")
+    except HTTPException:
+        cur = None
+    pol = st["shared"]["ha_policies"].get(cluster.key_of(kind, guest_id)) or {}
+    return {"mode": "cluster", "cluster_name": st["shared"]["name"], "host": cur,
+            "host_ip": (hosts.get(cur) or {}).get("address"), "ha_enabled": bool(pol.get("enabled")),
+            "preferred_active_host": pol.get("preferred_active_host"),
+            "passive_standby_hosts": pol.get("passive_standby_hosts", []),
+            "replication_interval_minutes": pol.get("replication_interval_minutes"),
+            "floating_vips": st["shared"]["vips"]}
+
+
+@router.get("/{guest_type}/{guest_id}/detailed")
+async def get_detailed(guest_type: GuestTypeT, guest_id: int = GUEST_ID):
+    """Everything the Wireframe Node Architect draws: specs, virtual devices with identity, NICs with their endpoint,
+    passthrough devices, disks and host / cluster placement."""
+    base = await guest_view(guest_type, guest_id)
+    kind, p = _kind(guest_type), get_provider()
+
+    async def safe(coro, default):
+        try:
+            return await coro
+        except Exception:  # noqa: BLE001 - one missing source must not blank the whole view
+            return default
+
+    cfg, hw, vlan_map, leases, (_links, facts), where = await asyncio.gather(
+        safe(p.get_guest_config(kind, guest_id), {}), safe(ns.driver().hardware(kind, guest_id), {}),
+        safe(ns.vlans(), {}), safe(_leases(), {}), safe(ns.live(), ({}, {"dhcp": {}})),
+        safe(placement(kind, guest_id), {"mode": "standalone"}))
+    devs = (hw or {}).get("devices") or {}
+    labs, labels = _lab_index(), profile(guest_type, guest_id)["nic_labels"]
+    nics = []
+    for n in devs.get("net", []):
+        ips = [leases[n["macaddr"].upper()]] if n.get("macaddr") and n["macaddr"].upper() in leases else []
+        if n.get("ip") and "/" in str(n["ip"]):
+            ips.append(n["ip"].split("/")[0])
+        nics.append(nic_view(n, labels.get(n["key"], ""), vlan_map, ips,
+                             labs.get((guest_type, guest_id, n["key"])), facts.get("dhcp", {})))
+    by_id = {d["id"]: d for d in profile(guest_type, guest_id)["devices"]}
+    return {**base, "name": cfg.get("name") or str(guest_id), "cores": cfg.get("cores"), "sockets": cfg.get("sockets"),
+            "memory_mb": cfg.get("memory"), "os_profile": (hw.get("options") or {}).get("ostype") if hw else None,
+            "devices": [{**d, "identity": identity_view(by_id[d["id"]])} for d in base["devices"]],
+            "nics": nics, "passthrough": {"pci": devs.get("hostpci", []), "usb": devs.get("usb", [])},
+            "disks": cfg.get("disks", []), "placement": where, "driver": settings.hypervisor_driver}
+
+
+class IdentityBody(BaseModel):
+    # Fits a V4L2 card name (32 bytes) and a quoted modprobe argument.
+    device_name: str = Field("", pattern=r"^([A-Za-z0-9][A-Za-z0-9 ._()+-]{0,30})?$")
+    vendor_id: str = Field("", pattern=r"^((0x)?[0-9a-fA-F]{4})?$")
+    device_id: str = Field("", pattern=r"^((0x)?[0-9a-fA-F]{4})?$")
+    serial_number: str = Field("", pattern=r"^[A-Za-z0-9-]{0,20}$")
+    pci_or_usb_address: str = Field("", pattern=r"^[0-9A-Za-z:./-]{0,24}$")
+
+
+class DeviceUpdate(BaseModel):
+    """PUT body: `options` / `identity` for a virtual device; the NIC fields for net0 … net7. Omitted fields keep
+    their value; a NIC's `vlan_tag: null` removes the tag."""
+    options: dict | None = None
+    identity: IdentityBody | None = None
+    interface_name: str | None = Field(None, pattern=r"^[A-Za-z0-9][A-Za-z0-9 ._-]{0,30}$")
+    mac_address: str | None = Field(None, pattern=MAC_RE)
+    model: Literal[QEMU_MODELS] | None = None  # type: ignore[valid-type]
+    bridge: str | None = Field(None, pattern=ns.IFACE_RE)
+    vlan_tag: int | None = Field(None, ge=1, le=4094)
+    trunks: list[int] | None = Field(None, max_length=64)
+    link_up: bool | None = None
+    rate_mbps: float | None = Field(None, gt=0, le=800_000)
+
+    @model_validator(mode="after")
+    def _check(self):
+        if self.trunks and not all(1 <= t <= 4094 for t in self.trunks):
+            raise ValueError("Trunk VLANs must be 1-4094")
+        if self.mac_address and not unicast_mac(self.mac_address):
+            raise ValueError("Use a unicast MAC address (the lowest bit of the first byte must be 0)")
+        return self
+
+
+NIC_FIELDS = ("interface_name", "mac_address", "model", "bridge", "vlan_tag", "trunks", "link_up", "rate_mbps")
+
+
+async def _update_nic(body: DeviceUpdate, guest_type: str, guest_id: int, net_id: str) -> dict:
+    kind, f = _kind(guest_type), body.model_fields_set
+    if f & {"options", "identity"}:
+        raise HTTPException(422, "A network interface has no options or identity block: send its fields directly")
+    cur = next((n for n in await ns._nets(kind, guest_id) if n["key"] == net_id), None)
+    if cur is None:
+        raise HTTPException(404, f"{guest_type} {guest_id} has no {net_id}")
+    if kind == "lxc" and body.model:
+        raise HTTPException(422, "Containers use a virtual Ethernet pair: the NIC model applies to VMs only")
+    name = cur.get("name") or None
+    if "interface_name" in f and kind == "lxc":
+        if not re.fullmatch(r"eth\d{1,2}", body.interface_name or ""):
+            raise HTTPException(422, "A container interface name must be eth0 … eth99")
+        name = body.interface_name
+    pick = lambda k, old: getattr(body, k) if k in f else old  # noqa: E731
+    bridge = pick("bridge", None) or cur.get("bridge") or settings.default_bridge
+    tag = pick("vlan_tag", cur.get("tag"))
+    trunks = (";".join(map(str, sorted(set(body.trunks or [])))) or None) if "trunks" in f else cur.get("trunks")
+    rate = body.rate_mbps / 8 if "rate_mbps" in f and body.rate_mbps else (None if "rate_mbps" in f else cur.get("rate"))
+    model = body.model or cur.get("model") or "virtio"
+    extra = await ns._ensure_vlan_aware(bridge, bool(tag or trunks))
+    await ns.driver().set_net(kind, guest_id, NetBody(
+        bridge=bridge, tag=tag, trunks=trunks, model=model if model in QEMU_MODELS else "virtio",
+        macaddr=pick("mac_address", cur.get("macaddr")), rate=rate,
+        link_down=not body.link_up if "link_up" in f and body.link_up is not None else bool(cur.get("link_down")),
+        firewall=bool(cur.get("firewall")), name=name, **ns._keep_ip(cur)), int(net_id[3:]))
+    if "interface_name" in f and kind == "qemu":  # a VM NIC's name is a SolarDeck label
+        async with _lock:
+            prof = profile(guest_type, guest_id)
+            prof["nic_labels"] = {**prof["nic_labels"], net_id: body.interface_name or ""}
+            _store(guest_type, guest_id, prof)
+    return {"ok": True, "net_id": net_id, **extra}
+
+
+@router.put("/{guest_type}/{guest_id}/devices/{device_id}")
+async def update_device(body: DeviceUpdate, guest_type: GuestTypeT, guest_id: int = GUEST_ID,
+                        device_id: str = Path(pattern=r"^([0-9a-f]{6}|net[0-7])$")):
+    """Edit a device's hardware metadata. Virtual devices: options (the feed of a camera, a modem's dial target, an
+    HBA model …) and identity overrides; `guest_visible` in the detailed view says which identity fields the guest
+    itself shows. NICs (net0 … net7): name, MAC, model, switch, VLAN tag, trunks, link and rate, applied at once."""
+    if device_id.startswith("net"):
+        return await _update_nic(body, guest_type, guest_id, device_id)
+    if body.model_fields_set & set(NIC_FIELDS):
+        raise HTTPException(422, "NIC fields apply to net0 … net7 only")
+    g = await _guest(guest_type, guest_id)
+    kind = _kind(guest_type)
+    notes: list[str] = []
+    async with _lock:
+        prof = profile(guest_type, guest_id)
+        dev = next((x for x in prof["devices"] if x["id"] == device_id), None)
+        if dev is None:
+            raise HTTPException(404, "This device does not exist")
+        t, old = dev["type"], dict(dev["options"])
+        opts = clean_options(t, {**old, **(body.options or {})}) if body.options is not None else dict(old)
+        ident = {**{k: "" for k in IDENTITY_KEYS}, **(dev.get("identity") or {})}
+        if body.identity is not None:
+            given = body.identity.model_dump(exclude_unset=True)
+            ident.update({k: hex_id(v) if k in ("vendor_id", "device_id") else v.strip() for k, v in given.items()})
+            if t == "virtual_nvme" and given.get("serial_number"):
+                opts["serial"] = given["serial_number"]
+        if t == "virtual_nvme" and opts["size_gb"] != old.get("size_gb"):
+            raise HTTPException(422, "The size of an emulated NVMe drive is fixed once it exists")
+        if t == "legacy_nic" and opts != old:
+            raise HTTPException(422, "Edit this card's model and switch in its network interface")
+        changed = opts != old
+        if changed and t == "virtual_camera":
+            await vcam_start(guest_type, guest_id, {**dev, "options": opts}, set(), nr=dev["state"]["video_nr"])
+        elif changed and t == "hayes_modem":
+            if kind == "qemu":
+                await modem_vm_start(guest_id, {**dev, "options": opts}, dev["state"]["socket"])
+            elif g.get("status") == "running":
+                await get_provider().container_exec(guest_id, modem_container_script({**dev, "options": opts}), timeout=60)
+            else:
+                notes.append("modem_applies_at_start")
+        elif changed and kind == "qemu":
+            d = driver()
+            await d.detach(kind, guest_id, dev)
+            new = {**dev, "options": opts}
+            dev["state"] = {**dev["state"], **(await d.attach(kind, guest_id, new) or {})}
+        relabel = t == "virtual_camera" and ident["device_name"] != (dev.get("identity") or {}).get("device_name", "")
+        dev["options"], dev["identity"] = opts, ident
+        _store(guest_type, guest_id, prof)
+    if relabel and not await vcam_relabel():
+        notes.append("camera_name_applies_at_reload")
+    running = g.get("status") == "running"
+    return {"ok": True, "device": {**dev, "identity": identity_view(dev)}, "notes": notes,
+            "restart_required": running and kind == "qemu" and changed and not CATALOG[t]["hotplug"]}
+
+
+class RepatchBody(BaseModel):
+    net_id: str = Field("net0", pattern=r"^net[0-7]$")
+    bridge: str | None = Field(None, pattern=ns.IFACE_RE)
+    vlan_tag: int | None = Field(None, ge=1, le=4094)
+    lab_id: str | None = Field(None, pattern=r"^[0-9a-f]{8}$")
+
+    @model_validator(mode="after")
+    def _one(self):
+        if bool(self.bridge) == bool(self.lab_id):
+            raise ValueError("Give either a switch (bridge, optional vlan_tag) or an isolated lab (lab_id)")
+        if self.lab_id and self.vlan_tag:
+            raise ValueError("A lab sandbox port is untagged")
+        return self
+
+
+@router.post("/{guest_type}/{guest_id}/repatch-endpoint")
+async def repatch_endpoint(body: RepatchBody, guest_type: GuestTypeT, guest_id: int = GUEST_ID):
+    """Move one guest NIC to another virtual switch / physical bridge / router bridge, VLAN or isolated lab in one
+    call. The NIC keeps its MAC, model, rate and link state; trunks are dropped (the port becomes an access port).
+    Joining a lab records the NIC's previous endpoint, so deleting the lab puts it back."""
+    kind, idx = _kind(guest_type), int(body.net_id[3:])
+    async with _lock:
+        labs = _labs()
+        lab = next((x for x in labs if x["id"] == body.lab_id), None) if body.lab_id else None
+        if body.lab_id and lab is None:
+            raise HTTPException(404, "This lab does not exist")
+        cur = next((n for n in await ns._nets(kind, guest_id) if n["key"] == body.net_id), None)
+        if cur is None:
+            raise HTTPException(404, f"{guest_type} {guest_id} has no {body.net_id}")
+        bridge = lab["bridge"] if lab else body.bridge
+        extra = await ns._ensure_vlan_aware(bridge, bool(body.vlan_tag))
+        ip = {"ip": "dhcp", "gw": None, "ip6": None} if lab and kind == "lxc" else ns._keep_ip(cur)
+        await ns.driver().set_net(kind, guest_id, NetBody(
+            bridge=bridge, tag=body.vlan_tag, model=cur.get("model") if cur.get("model") in QEMU_MODELS else "virtio",
+            macaddr=cur.get("macaddr"), rate=cur.get("rate"), link_down=bool(cur.get("link_down")),
+            firewall=bool(cur.get("firewall")), name=cur.get("name") or None, **ip), idx)
+        # Lab membership: leave the old lab (keeping the original endpoint when hopping lab to lab), join the new one.
+        me = (guest_type, guest_id, body.net_id)
+        old = next((m for x in labs for m in x["members"] if (m["guest_type"], int(m["guest_id"]), m["net_id"]) == me), None)
+        for x in labs:
+            x["members"] = [m for m in x["members"] if (m["guest_type"], int(m["guest_id"]), m["net_id"]) != me]
+        if lab:
+            lab["members"].append({"guest_type": guest_type, "guest_id": guest_id, "net_id": body.net_id,
+                                   "previous": old["previous"] if old else cur})
+        _save(LABS, labs)
+    return {"ok": True, "net_id": body.net_id, "bridge": bridge, "vlan_tag": body.vlan_tag,
+            "lab_id": lab["id"] if lab else None, **extra}
 
 
 # ---------------------------------------------------------------- Routes: throttling
