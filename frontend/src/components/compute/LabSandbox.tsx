@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { FlaskConical, Plus, ShieldCheck } from "lucide-react";
 import { api, ApiError } from "../../lib/api";
 import { useRunner } from "../../lib/hooks";
@@ -32,6 +32,24 @@ function rangeFor(cidr: string): [string, string] | null {
   const hi = net + (size >= 256 ? 200 : size - 2);
   const s = (n: number) => [24, 16, 8, 0].map((b) => (n >>> b) & 255).join(".");
   return [s(lo), s(hi)];
+}
+
+/** Quick-start presets: name, gateway/subnet and VLAN filled in one click. */
+const PRESETS = [
+  { key: "lab.example1", cidr: "10.99.10.1/24", vlan: 910 },
+  { key: "lab.example2", cidr: "10.99.20.1/24", vlan: 920 },
+  { key: "lab.example3", cidr: "10.99.30.1/24", vlan: 930 },
+] as const;
+
+/** A captioned group of controls; a div, unlike Field's <label>, so the caption doesn't click the first control. */
+function Group({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <div className="text-[11px] text-slate-400">
+      <div className="mb-1.5 font-medium text-slate-300">{label}</div>
+      {children}
+      {hint && <div className="mt-1 text-[10px] text-slate-500">{hint}</div>}
+    </div>
+  );
 }
 
 function LabWizard({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: () => void }) {
@@ -84,6 +102,7 @@ function LabWizard({ open, onClose, onCreated }: { open: boolean; onClose: () =>
       onClose={onClose}
       width="max-w-2xl"
       title={t("lab.wizardTitle")}
+      subtitle={t("lab.subtitle")}
       footer={
         <>
           <GlassButton onClick={onClose}>{t("common.cancel")}</GlassButton>
@@ -93,7 +112,7 @@ function LabWizard({ open, onClose, onCreated }: { open: boolean; onClose: () =>
         </>
       }
     >
-      <div className="space-y-4">
+      <div className="space-y-5">
         <div className="flex items-start gap-3 rounded-xl bg-emerald-400/10 p-3 ring-1 ring-emerald-300/20 ring-inset">
           <ShieldCheck size={18} className="mt-0.5 shrink-0 text-emerald-300" />
           <div className="text-[11px] leading-relaxed text-emerald-100/90">
@@ -101,46 +120,59 @@ function LabWizard({ open, onClose, onCreated }: { open: boolean; onClose: () =>
             {t("lab.airgapExplain")}
           </div>
         </div>
+        <Group label={t("lab.presets")}>
+          <div className="flex flex-wrap gap-1.5">
+            {PRESETS.map((p) => (
+              <GlassButton key={p.key} size="xs" onClick={() => (setName(t(p.key)), changeCidr(p.cidr), setVlan(String(p.vlan)))}>
+                {t(p.key)}
+              </GlassButton>
+            ))}
+          </div>
+        </Group>
         <Field label={t("lab.name")}>
           <GlassInput className="w-full" value={name} maxLength={40} placeholder={t("lab.example1")} onChange={(e) => setName(e.target.value)} />
         </Field>
-        <div className="flex flex-wrap gap-1.5">
-          {(["lab.example1", "lab.example2", "lab.example3"] as const).map((k) => (
-            <GlassButton key={k} size="xs" onClick={() => setName(t(k))}>
-              {t(k)}
-            </GlassButton>
-          ))}
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label={t("lab.gateway")} hint={t("lab.gatewayHint")}>
             <GlassInput className="w-full font-mono" value={cidr} onChange={(e) => changeCidr(e.target.value)} />
           </Field>
           <Field label={t("lab.vlan")} hint={t("lab.vlanHint")}>
-            <GlassInput className="w-full" type="number" min={1} max={4094} value={vlan} placeholder={t("lab.auto")} onChange={(e) => setVlan(e.target.value)} />
-          </Field>
-          <Field label={t("lab.rangeStart")}>
-            <GlassInput className="w-full font-mono" value={range[0]} onChange={(e) => setRange([e.target.value, range[1]])} />
-          </Field>
-          <Field label={t("lab.rangeEnd")}>
-            <GlassInput className="w-full font-mono" value={range[1]} onChange={(e) => setRange([range[0], e.target.value])} />
+            <GlassInput className="w-full" type="number" min={2} max={4094} value={vlan} placeholder={t("lab.auto")} onChange={(e) => setVlan(e.target.value)} />
           </Field>
         </div>
-        <Field label={t("lab.guests")} hint={t("lab.guestsHint")}>
-          <div className="glass-field max-h-44 space-y-1 overflow-auto p-2">
+        <Group label={t("lab.dhcp")} hint={t("lab.dhcpHint")}>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label={t("lab.rangeStart")}>
+              <GlassInput className="w-full font-mono" value={range[0]} onChange={(e) => setRange([e.target.value, range[1]])} />
+            </Field>
+            <Field label={t("lab.rangeEnd")}>
+              <GlassInput className="w-full font-mono" value={range[1]} onChange={(e) => setRange([range[0], e.target.value])} />
+            </Field>
+          </div>
+        </Group>
+        <Group label={t("lab.guests")} hint={t("lab.guestsHint")}>
+          <div className="glass-field max-h-52 space-y-1 overflow-y-auto p-2">
             {guests.length === 0 && <p className="text-[11px] text-slate-500">{t("lab.noGuests")}</p>}
             {guests.map((g) => {
               const k = `${g.type}/${g.vmid}`;
               return (
-                <GlassCheckbox
-                  key={k}
-                  checked={picked.includes(k)}
-                  onChange={() => toggle(k)}
-                  label={`${g.name || g.vmid} (${g.vmid}) · ${g.type === "qemu" ? t("lab.vm") : t("lab.container")}`}
-                />
+                <div key={k} className="flex items-center gap-2 rounded-lg px-1.5 py-1 hover:bg-white/5">
+                  <GlassCheckbox
+                    className="min-w-0 flex-1"
+                    checked={picked.includes(k)}
+                    onChange={() => toggle(k)}
+                    label={
+                      <span className="truncate">
+                        <span className="font-mono text-slate-400">{g.vmid}</span> · {g.name || g.vmid} · {g.type === "qemu" ? t("lab.vm") : t("lab.container")}
+                      </span>
+                    }
+                  />
+                  <GlassBadge tone={g.status === "running" ? "success" : "neutral"}>{g.status}</GlassBadge>
+                </div>
               );
             })}
           </div>
-        </Field>
+        </Group>
         <Notice error={error} />
       </div>
     </GlassModal>

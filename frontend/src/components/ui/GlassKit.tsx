@@ -1,4 +1,5 @@
 import { useEffect, useId, useState, type ButtonHTMLAttributes, type CSSProperties, type InputHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { useTranslation } from "../../i18n";
 
@@ -200,6 +201,7 @@ export function GlassModal({
   footer,
   side = false,
   width = "max-w-lg",
+  subtitle,
 }: {
   open: boolean;
   onClose: () => void;
@@ -208,42 +210,60 @@ export function GlassModal({
   footer?: ReactNode;
   side?: boolean;
   width?: string;
+  subtitle?: ReactNode;
 }) {
   const [shown, setShown] = useState(false);
+  const [stacked, setStacked] = useState(false);
   useEffect(() => {
     if (!open) return setShown(false);
+    setStacked(openModals++ > 0);
     const r = requestAnimationFrame(() => setShown(true));
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
     return () => {
+      openModals--;
       cancelAnimationFrame(r);
       window.removeEventListener("keydown", onKey);
     };
   }, [open, onClose]);
   if (!open) return null;
-  return (
-    <div className={`fixed inset-0 z-50 flex ${side ? "justify-end" : "items-center justify-center p-4"}`}>
-      <div className={`absolute inset-0 bg-black/45 backdrop-blur-[2px] transition-opacity duration-200 ${shown ? "opacity-100" : "opacity-0"}`} onClick={onClose} />
+  // Portal to <body>: a window frame or outer dialog (backdrop-filter, overflow-hidden) would otherwise trap and clip this "fixed" layer.
+  return createPortal(
+    <div className={`fixed inset-0 z-[9999] flex ${side ? "justify-end" : "items-center justify-center p-4 sm:p-6"}`}>
+      <div
+        className={`absolute inset-0 transition-opacity duration-200 ${stacked ? "" : "bg-slate-950/80 backdrop-blur-md"} ${shown ? "opacity-100" : "opacity-0"}`}
+        onClick={onClose}
+      />
       <div
         role="dialog"
         aria-modal="true"
-        className={`glass-panel relative flex max-h-full w-full flex-col overflow-hidden transition-[opacity,translate,scale] duration-300 ${width} ${
-          side ? `h-full rounded-none rounded-l-2xl ${shown ? "translate-x-0" : "translate-x-8 opacity-0"}` : `rounded-2xl ${shown ? "scale-100 opacity-100" : "scale-95 opacity-0"}`
+        className={`glass-panel relative flex w-full flex-col overflow-hidden border border-slate-700/80 shadow-2xl transition-[opacity,translate,scale] duration-300 ${width} ${
+          side ? `h-full max-h-full rounded-none rounded-l-2xl ${shown ? "translate-x-0" : "translate-x-8 opacity-0"}` : `max-h-[88vh] rounded-2xl ${shown ? "scale-100 opacity-100" : "scale-95 opacity-0"}`
         }`}
-        style={{ transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)" }}
+        style={{
+          transitionTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+          backgroundColor: "rgb(from var(--sd-surface-elevated) r g b / 0.97)", // theme surface, near-opaque: nothing bleeds through
+        }}
       >
-        <header className="flex shrink-0 items-center gap-2 border-b border-white/10 px-4 py-3">
-          <h3 className="flex-1 truncate text-sm font-semibold text-white">{title}</h3>
+        <header className="flex shrink-0 items-start gap-2 border-b border-white/10 px-4 py-3">
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-sm font-semibold text-white">{title}</h3>
+            {subtitle && <p className="mt-0.5 text-[11px] leading-relaxed text-slate-400">{subtitle}</p>}
+          </div>
           <GlassButton variant="ghost" size="xs" onClick={onClose} aria-label="Close dialog">
             <X size={14} />
           </GlassButton>
         </header>
-        <div className="min-h-0 flex-1 overflow-auto p-4">{children}</div>
-        {footer && <footer className="flex shrink-0 justify-end gap-2 border-t border-white/10 px-4 py-3">{footer}</footer>}
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">{children}</div>
+        {footer && <footer className="flex shrink-0 items-center justify-end gap-2 border-t border-white/10 px-4 py-3">{footer}</footer>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
+
+/** Open GlassModals; only the first draws the dimmed backdrop so nested dialogs don't stack a second one. */
+let openModals = 0;
 
 /** Destructive-action dialog; with `expect`, the user must type that exact text (device path, pool name, …). */
 export function ConfirmModal({

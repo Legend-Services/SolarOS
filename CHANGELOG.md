@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.20.3 - Isolated lab dialog visibility & layout — 2026-11-26
+
+### Fixed
+- **Compute → Isolated Lab Sandbox → New Lab**: the *Launch an isolated lab* dialog was trapped inside the Labs dialog, so it was clipped and drew a second dimmed backdrop. Dialogs now always render on top of the whole desktop, with a single darker, blurred backdrop, a near-opaque surface in the current theme's colour, and a height limit of 88% of the screen: the header and the Cancel / Launch lab buttons stay visible and only the form scrolls.
+- The same fix applies to every dialog that uses the shared dialog frame, including **Add Virtual Device**, **Create VM**, **Zero-Touch Create** and **Create Container**, which could be clipped by their app window.
+- The lab dialog has a subtitle, and the quick-start presets (Retro Gaming LAN, Firewall & Router Test Lab, Malware Analysis Sandbox) now fill in the gateway/subnet and VLAN as well as the name. The DHCP range has its own **DHCP server** section, the VLAN field shows the valid range (2–4094), and the guest checklist shows each guest's ID, name, type and status.
+
 ## v2.20.2 - Features & Services grid alignment — 2026-11-26
 
 ### Fixed
