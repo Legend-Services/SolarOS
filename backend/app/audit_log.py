@@ -37,6 +37,13 @@ HTTP_EVENTS = [
     ("PUT", r"^/api/network/switch/vlans/\d+/dhcp$", "network.vlan.dhcp"),
     ("POST", r"^/api/multiseat/egpu/authorize$", "egpu.authorize"),
     ("POST", r"^/api/multiseat/seats/([0-9a-f]{8}/start|start-all)$", "seat.start"),
+    ("POST", r"^/api/cluster/(create|join|leave|token)$", "cluster.membership"),
+    ("*", r"^/api/cluster/witness$", "cluster.witness"),
+    ("POST", r"^/api/cluster/hosts/[^/]+/maintenance$", "cluster.maintenance"),
+    ("POST", r"^/api/cluster/workloads/(qemu|lxc)/\d+/migrate$", "cluster.migrate"),
+    ("*", r"^/api/cluster/ha/(qemu|lxc)/\d+(/switchover)?$", "cluster.ha"),
+    ("*", r"^/api/cluster/vips(/[0-9a-f]{8})?$", "cluster.vip"),
+    ("*", r"^/api/network/switch/(sync-cluster|bridges/[^/]+/clustered)$", "network.switch.cluster"),
 ]
 
 

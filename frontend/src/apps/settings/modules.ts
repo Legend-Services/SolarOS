@@ -1,5 +1,5 @@
 import {
-  Activity, ArchiveRestore, Award, BellRing, BrainCircuit, Cog, Cpu, Database, Disc3, FileClock, Flame, Globe, HardDrive, KeyRound, Layers, MonitorCog, Network,
+  Activity, ArchiveRestore, Award, BellRing, Boxes, BrainCircuit, Cog, Cpu, Database, Disc3, FileClock, Flame, Globe, HardDrive, KeyRound, Layers, MonitorCog, Network,
   Package, Palette, Power, Server, Share2, ShieldCheck, Users, Waypoints, Workflow, type LucideIcon,
 } from "lucide-react";
 import type { AppId } from "../registry";
@@ -44,6 +44,7 @@ export const MODULES = {
   "hypervisor-defaults": { cat: "hypervisor", icon: Server, tint: "from-emerald-400 to-teal-600", guide: "compute" },
   "installed-apps": { cat: "hypervisor", icon: Package, tint: "from-sky-400 to-blue-600", guide: "appcenter" },
   "local-ai-runtime": { cat: "hypervisor", icon: BrainCircuit, tint: "from-purple-400 to-indigo-600", guide: "local-ai" },
+  "cluster-ha": { cat: "hypervisor", icon: Boxes, tint: "from-sky-400 to-indigo-600", guide: "compute" },
 } satisfies Record<string, { cat: CategoryId; icon: LucideIcon; tint: string; guide: AppId }>;
 
 export type ModuleId = keyof typeof MODULES;

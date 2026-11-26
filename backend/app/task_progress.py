@@ -44,9 +44,24 @@ STAGES: dict[str, list[tuple[int, str, str]]] = {
                   (75, "cleanup", "Cleaning up reverse proxy routes and application metadata"),
                   (90, "retention", "Applying storage retention policy"),
                   (100, "done", "Application instance removed")],
+    "migrate": [(5, "precheck", "Checking the workload, source and target host"),
+                (15, "sync", "Pre-syncing disks and replicas to the target host"),
+                (30, "transfer", "Transferring disk and memory state"),
+                (90, "switchover", "Switching the workload over to the target host"),
+                (100, "done", "Migration completed")],
+    "drain": [(0, "evacuate", "Live-migrating workloads off the host"),
+              (100, "done", "Host drained for maintenance")],
+    "failover": [(10, "detect", "Active host lost; quorum confirmed"),
+                 (40, "promote", "Starting the workload from its latest replica"),
+                 (80, "register", "Registering the workload on its new active host"),
+                 (100, "done", "Failover completed")],
+    "cluster": [(10, "prepare", "Checking prerequisites and backing up host configuration"),
+                (40, "cluster", "Updating cluster membership"),
+                (80, "sync", "Synchronizing cluster state, keys and inventory"),
+                (100, "done", "Cluster membership updated")],
 }
 MARK = re.compile(r"^@@stage (\w+) (\d+)@@$")
-JOB_ID = r"^(os-upgrade|gpu-[a-z-]{1,40}|app-\d{1,9}|uninstall-\d{1,9}|ai-[0-9a-f]{12})$"
+JOB_ID = r"^(os-upgrade|gpu-[a-z-]{1,40}|app-\d{1,9}|uninstall-\d{1,9}|ai-[0-9a-f]{12}|cluster-[0-9a-f]{12})$"
 KEEP_FINISHED = 600  # seconds a finished job stays in the Task Center feed
 
 
@@ -168,7 +183,16 @@ async def resolve(job_id: str) -> dict | None:
         from . import local_ai
         job = local_ai._pulls.get(job_id[3:])
         return from_pull(job) if job else None
+    if job_id.startswith("cluster-"):
+        from . import cluster
+        job = cluster._jobs.get(job_id)
+        return from_cluster(job) if job else None
     return None
+
+
+def from_cluster(job: dict) -> dict:
+    return view(job["id"], job["kind"], job["status"], job["stage"], job["logs"], job["subject"], job["error"],
+                job["percent"])
 
 
 def _recent(v: dict, w: dict) -> bool:
@@ -200,11 +224,14 @@ async def feed(kind: str | None = None) -> list[dict]:
         out += [v for job in list(apps._removals.values()) if _recent(v := from_uninstall(job), job)]
     if kind in (None, "ai"):
         out += [v for job in list(local_ai._pulls.values()) if _recent(v := from_pull(job), job)]
+    if kind in (None, "cluster"):
+        from . import cluster
+        out += [v for job in list(cluster._jobs.values()) if _recent(v := from_cluster(job), job)]
     return out
 
 
 @router.get("/api/system/tasks")
-async def tasks(kind: Literal["gpu", "app", "os", "ai", "uninstall"] | None = None):
+async def tasks(kind: Literal["gpu", "app", "os", "ai", "uninstall", "cluster"] | None = None):
     return {"tasks": await feed(kind)}
 
 

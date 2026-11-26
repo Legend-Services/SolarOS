@@ -103,6 +103,10 @@ async def main():
     fake.calls = []
     apps.data_dir("docker-portainer-102").mkdir(parents=True)
     await apps.uninstall("docker-portainer-102", delete_data=True)
+    for _ in range(500):  # the data folder is removed in a worker thread: wait real time, not event-loop ticks
+        if not apps.data_dir("docker-portainer-102").exists():
+            break
+        await asyncio.sleep(0.01)
     for _ in range(50):
         await asyncio.sleep(0)
     assert fake.calls == ["delete"] and not apps.data_dir("docker-portainer-102").exists()
