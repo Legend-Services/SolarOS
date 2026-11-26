@@ -1,5 +1,28 @@
 # Changelog
 
+## v2.15.0 - Multi-Seat Workstations, Physical Port Passthrough & Offline ISO — 2026-11-26
+
+### Added
+- **Multi-Seat & Ports studio** in **Compute** (a tab next to *VMs* and *Containers*) and in **Settings → System → Hardware & GPU → Multi-Seat & Ports**: turn one machine into several workstations, one Liquid Glass card per seat plus **+ Create Seat**.
+  - Each seat has a name, a target VM (or **Create New Seat VM**, which opens the VM wizard), a *Running* / *Stopped* badge with **Start Seat** / **Stop Seat**, and an *Include in Start All* switch. **Start All Seats** starts every enabled seat one after the other, 3 seconds apart.
+  - **Display & GPU Output:** every GPU with its model and PCIe slot, a *Boot GPU* badge for the card the server starts on, *External GPU* for Thunderbolt / USB4 enclosures, its HDMI / DisplayPort connectors (*HDMI-A-1: Connected*, *DP-1: Ready*) and *GPU Audio Included* when the card's HDMI/DP audio function comes along.
+  - **Physical USB Ports & Hubs:** ports are bound by physical bus-port path (`1-4`, `3-2.1`), so identical mice or keyboards on different ports go to different seats. **Plug to Assign** starts a 30-second listener (sysfs polled every 250 ms): plug a mouse, keyboard, game controller, audio DAC or USB hub into any port of the server and it is bound to the seat (devices behind a newly plugged hub included). Connected devices can also be picked from a list, and whole USB host controllers can be passed through for hot-plug and full bandwidth.
+  - **CPU Core Pinning:** a core-pair map (a physical core with its SMT / Hyper-Threading sibling); cores of other seats are greyed out and the server's own first core(s) are locked. **Auto-Balance Cores Across Seats** hands every enabled seat an equal, non-overlapping share of whole cores.
+- **Automatic boot-GPU release:** before a seat whose GPU is the boot GPU starts, SolarDeck unbinds the virtual consoles and the firmware framebuffer (`efi-framebuffer` / `simple-framebuffer`) and binds the GPU and its audio function to `vfio-pci`, so every GPU in the machine can drive a desk. The server's console screen switches off while that seat runs.
+- **External GPUs:** new Thunderbolt / USB4 devices are listed with an **Authorize** button (`boltctl enroll` when installed, otherwise the kernel's authorization switch, then a PCI rescan). Authorizing asks to confirm your identity and is recorded in the audit log.
+- New endpoints: `GET /api/multiseat/topology`, `GET` / `POST /api/multiseat/seats`, `PUT` / `DELETE /api/multiseat/seats/{seat_id}`, `POST /api/multiseat/seats/{seat_id}/start`, `POST …/stop`, `POST /api/multiseat/seats/start-all`, `POST /api/multiseat/seats/auto-balance`, `POST /api/multiseat/usb/listen`, `GET /api/multiseat/usb/listen/{session_id}` and `POST /api/multiseat/egpu/authorize`. Seats persist in `backend/data/multiseat.json`; deploys and updates keep it.
+- Both drivers implement the new `seat_driver()` contract: `hostpciN` (GPU with `x-vga`), `usbN host=<bus-port>` and CPU `affinity` with Proxmox VE; aliased libvirt `<hostdev>` elements (USB ports resolved to the plugged-in device at every save and start, `startupPolicy="optional"`) and `<vcpu cpuset>` with SolarOS. Your own passthrough devices on the VM are left alone.
+- **100% offline SolarOS ISO:** `build-iso.sh` resolves the complete `.deb` closure of the kernel, both boot loaders (UEFI and BIOS) and every package SolarOS uses inside the ISO's own minimal root file system (any Linux build host, no container runtime needed) and ships it as a signed APT repository in place of the ISO's own package archive (`dists/` + `pool/`, the archive the installer always uses), with a one-time signing key per build that is also baked into the installed image. The SolarDeck bundle (source, prebuilt desktop, Python wheels) becomes `solardeck-bundle.tar.gz`. `--no-offline-repo` builds the smaller online ISO.
+  - The autoinstall uses that archive as its only mirror (updates / backports / security suites, geoip, drivers, codecs, OEM and installer refresh off) and treats Ethernet as optional, so it installs on air-gapped machines without a cable or DHCP server. `late-commands` copy the repository and the bundle to `/opt/solardeck-offline`.
+  - First boot points APT at `/opt/solardeck-offline/repo` (`solardeck-offline.list`) and enables the Ubuntu mirrors in `ubuntu.sources` only when they can be reached (`Enabled: no` otherwise; flip it once the server is online).
+  - `test-in-proxmox-vm.sh --offline` creates the test VM with its network link down, to prove an install needs no internet.
+- `bolt` is installed on SolarOS hosts (Thunderbolt / USB4 enrollment). Global Search and the Help manual find the studio. All new texts in English, Nederlands, Deutsch, Español and Français.
+
+### Notes
+- Seats need IOMMU (VT-d / AMD-Vi) switched on in the BIOS; the studio says so when it is off. A seat's GPU should sit in its own IOMMU group (the GPU list warns otherwise).
+- On SolarOS a USB device that is replugged while its seat runs comes back at the next seat start (libvirt addresses USB devices by bus and device number); Proxmox VE follows the port live.
+- The offline ISO is larger (about 2.8 GB) because it carries the kernel, firmware and every package.
+
 ## v2.14.0 - Virtual Hardware, Retro Throttling & Isolated Lab Forge — 2026-11-26
 
 ### Added
