@@ -32,15 +32,11 @@ autoinstall:
     preserve_sources_list: false
     geoip: false
     disable_suites: [updates, backports, security]
+    # The repository's signing key is already in the installed image (build-iso.sh adds it to the minimal squashfs):
+    # offline, subiquity ignores this entry and installs from its own file:///cdrom line, which is the same archive.
     primary:
       - arches: [default]
         uri: "file:///cdrom"
-    # Offline, subiquity drops `primary` and installs from its own file:///cdrom line; a key-only source entry makes
-    # curtin trust the repository's signing key in the target either way.
-    sources:
-      solardeck-offline:
-        key: |
-          @@REPO_KEY@@
     fallback: offline-install
   kernel:
     package: linux-generic

@@ -49,7 +49,7 @@ mkdir -p "$(dirname "$OUTPUT")"
 for bin in xorriso curl gzip; do command -v "$bin" >/dev/null || die "missing $bin (apt install xorriso curl git)"; done
 if [[ -z "$NO_REPO" ]]; then
   [[ $EUID -eq 0 ]] || die "run as root: the offline package repository is resolved in a chroot (or pass --no-offline-repo)"
-  for bin in unsquashfs gpg apt-ftparchive; do
+  for bin in unsquashfs mksquashfs gpg apt-ftparchive; do
     command -v "$bin" >/dev/null || die "missing $bin (apt install squashfs-tools gpg apt-utils), or pass --no-offline-repo"
   done
 fi
@@ -175,6 +175,19 @@ EOF
   gpg --batch --export >"$R/solardeck-offline.gpg"
   gpgconf --kill all 2>/dev/null || true
   unset GNUPGHOME
+  # The installed system must trust the key before its first apt call: offline, subiquity drops the mirror entries of
+  # the autoinstall (and their keys) and installs the boot loader from its own file:///cdrom line. So the key goes into
+  # the root file system image the installer copies to the disk.
+  echo "==> Adding the repository key to ${SQUASH##*/}"
+  M="$WORK/minimal"
+  unsquashfs -q -n -d "$M" "$SQUASH" >/dev/null || die "cannot unpack ${SQUASH##*/}"
+  install -D -m 644 "$R/solardeck-offline.gpg" "$M/etc/apt/trusted.gpg.d/solardeck-offline.gpg"
+  COMP="$(unsquashfs -s "$SQUASH" | sed -n 's/^Compression //p')"
+  mksquashfs "$M" "$SQUASH.new" -comp "${COMP:-xz}" -noappend -quiet >/dev/null || die "cannot repack ${SQUASH##*/}"
+  du -sx --block-size=1 "$M" | cut -f1 >"${SQUASH%.squashfs}.size"
+  mv "$SQUASH.new" "$SQUASH"
+  rm -rf "$M"
+  sed -i -E '\#\./casper/ubuntu-server-minimal\.(squashfs|size)$#d' "$R/md5sum.txt" 2>/dev/null || true
   echo "    repository: $(ls "$R/pool/main" | wc -l) packages, $(du -sh "$R/pool" | cut -f1) (${CODENAME}, signed)"
 fi
 
