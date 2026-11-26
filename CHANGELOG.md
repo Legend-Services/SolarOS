@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.24.0 - DMZ VLAN template & educational template tooltips — 2026-11-26
+
+### Added
+- **60 · DMZ VLAN template** in *Create New VLAN* (Settings › Network & Services › Virtual Switch & VLANs), next to Management, IoT Devices, Guest Network, Lab and Cameras, with its own orange indicator and color swatch. One click fills in VLAN ID 60, the name DMZ, host IP 10.10.60.1/24, the description and the color.
+- **Educational hover and focus tooltips on every VLAN template**: hovering or tabbing to a template opens a theme-aware card above the dialog. It shows the template's purpose, how it works technically, its Layer-2 802.1Q tag, its Layer-3 subnet and gateway, and WAN / LAN / Management reachability badges.
+- All templates now also fill in the host IP (10.10.<ID>.1/24) and a short description.
+- New guide *Splitting Your Network with VLAN Templates*, a Help FAQ, a Manual section with a screenshot of the DMZ tooltip, and translations in English, Dutch, German, Spanish and French.
+
 ## v2.23.0 - Top-down network topology & theme-uniform guest wireframe editor — 2026-11-26
 
 ### Changed
