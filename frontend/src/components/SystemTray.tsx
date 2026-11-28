@@ -110,13 +110,13 @@ function TrayItemView({ id, up }: { id: TrayItem; up: boolean }) {
   const open = useWindows((s) => s.open);
   const gallery = useDock((s) => s.gallery);
   const setDock = useDock((s) => s.set);
-  const monitor = () => openLink("settings", "resource-monitor");
+  const monitor = (tab: "cpu" | "memory") => openLink("settings", { module: "resource-monitor", tab });
   switch (id) {
     case "cpu":
-      return <Pill icon={<Cpu size={12} />} label={`${overview ? overview.cpu.toFixed(0) : "–"}%`} onClick={monitor} title={t("set.mod.resource-monitor")} />;
+      return <Pill icon={<Cpu size={12} />} label={`${overview ? overview.cpu.toFixed(0) : "–"}%`} onClick={() => monitor("cpu")} title={t("set.mod.resource-monitor")} />;
     case "ram": {
       const ram = overview ? percent(overview.memory.used, overview.memory.total) : 0;
-      return <Pill icon={<MemoryStick size={12} />} label={`${ram.toFixed(0)}%`} onClick={monitor} title={t("set.mod.resource-monitor")} />;
+      return <Pill icon={<MemoryStick size={12} />} label={`${ram.toFixed(0)}%`} onClick={() => monitor("memory")} title={t("set.mod.resource-monitor")} />;
     }
     case "storage": {
       const health = zfsHealth(storage);

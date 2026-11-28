@@ -156,7 +156,7 @@ export const en = {
   "gallery.noMatch": "No apps match your search.",
 
   // Apps
-  "app.monitor": "Resource Monitor",
+  "app.monitor": "Resource & Thermal Monitor",
   "app.compute": "Compute Manager",
   "app.storage": "Storage & ZFS",
   "app.files": "File Station",
@@ -527,8 +527,8 @@ export const en = {
   "set.modDesc.general-appearance": "Themes, light/dark mode, wallpapers, Dock/taskbar layout, desktop widgets and language",
   "set.mod.hardware-gpu": "Hardware, BIOS/Firmware & Multi-Seat",
   "set.modDesc.hardware-gpu": "CPU, memory, GPUs, PCIe/IOMMU groups, NICs, GPU driver mode, multi-seat and the BIOS & UEFI firmware guide",
-  "set.mod.resource-monitor": "Resource Monitor",
-  "set.modDesc.resource-monitor": "Live CPU, RAM, thermal sensors, GPU and process telemetry",
+  "set.mod.resource-monitor": "Resource & Thermal Monitor",
+  "set.modDesc.resource-monitor": "Live CPU load, per-core temperatures and clocks, fans, memory, network, GPUs and drive temperatures",
   "set.mod.storage-zfs": "Storage & ZFS Pools",
   "set.modDesc.storage-zfs": "ZFS pools, RAIDZ/mirror management, datasets, snapshots, SMART health and disk benchmarks",
   "set.mod.backup-restore": "Backup & Restore",
@@ -789,7 +789,7 @@ export const en = {
   "kb.bios-update": "BIOS Update Check",
   "kb.bios-guides": "BIOS Optimization Guide & Mobile QR",
   "kb.live-performance": "Live Performance",
-  "kb.gpu-sensors": "GPU & Sensors",
+  "kb.gpu-sensors": "GPU",
   "kb.version-history": "Version History & Downgrade",
   "kb.service-manager": "Service Manager",
   "kb.notification-channels": "Notification Channels",

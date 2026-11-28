@@ -157,7 +157,7 @@ export const es: Dict = {
   "gallery.noMatch": "Ninguna app coincide con tu búsqueda.",
 
   // Apps
-  "app.monitor": "Monitor de recursos",
+  "app.monitor": "Monitor de recursos y temperatura",
   "app.compute": "Gestor de cómputo",
   "app.storage": "Almacenamiento y ZFS",
   "app.files": "File Station",
@@ -528,8 +528,8 @@ export const es: Dict = {
   "set.modDesc.general-appearance": "Temas, modo claro/oscuro, fondos, Dock/barra de tareas, widgets del escritorio e idioma",
   "set.mod.hardware-gpu": "Hardware, BIOS/firmware y multipuesto",
   "set.modDesc.hardware-gpu": "CPU, memoria, GPU, grupos PCIe/IOMMU, tarjetas de red, modo del controlador GPU, multipuesto y la guía de BIOS y firmware UEFI",
-  "set.mod.resource-monitor": "Monitor de recursos",
-  "set.modDesc.resource-monitor": "CPU, RAM, sensores térmicos, GPU y procesos en vivo",
+  "set.mod.resource-monitor": "Monitor de recursos y temperatura",
+  "set.modDesc.resource-monitor": "Carga de CPU en vivo, temperatura y frecuencia por núcleo, ventiladores, memoria, red, GPU y temperatura de discos",
   "set.mod.storage-zfs": "Almacenamiento y pools ZFS",
   "set.modDesc.storage-zfs": "Pools ZFS, gestión RAIDZ/espejo, datasets, instantáneas, salud SMART y pruebas de disco",
   "set.mod.backup-restore": "Copia de seguridad y restauración",
@@ -790,7 +790,7 @@ export const es: Dict = {
   "kb.bios-update": "Comprobación de actualización de BIOS",
   "kb.bios-guides": "Guía de optimización de BIOS y QR móvil",
   "kb.live-performance": "Rendimiento en vivo",
-  "kb.gpu-sensors": "GPU y sensores",
+  "kb.gpu-sensors": "GPU",
   "kb.version-history": "Historial de versiones y downgrade",
   "kb.service-manager": "Gestor de servicios",
   "kb.notification-channels": "Canales de notificación",

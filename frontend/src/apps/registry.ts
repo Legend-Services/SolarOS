@@ -5,7 +5,7 @@ import { Activity, LifeBuoy, ArchiveRestore, Boxes, Waypoints, BrainCircuit, Bui
 // `desc` is the plain-English one-liner shown in List View.
 export const APPS = {
   settings: { title: "Settings", desc: "Every system, storage, security, network and hypervisor setting in one place", icon: Settings, size: { w: 1180, h: 740 } },
-  monitor: { title: "Resource Monitor", desc: "Live CPU, memory, network, GPU and drive temperatures", icon: Activity, size: { w: 900, h: 620 } },
+  monitor: { title: "Resource & Thermal Monitor", desc: "Live CPU and per-core temperatures, memory, network, GPU and drive temperatures", icon: Activity, size: { w: 900, h: 620 } },
   compute: { title: "Compute Manager", desc: "Create and run virtual machines and containers", icon: Boxes, size: { w: 1000, h: 620 } },
   storage: { title: "Storage & ZFS", desc: "Disks, ZFS pools, datasets, snapshots and disk health", icon: HardDrive, size: { w: 1040, h: 680 } },
   files: { title: "File Station", desc: "Browse, upload and organize files on your storage", icon: FolderOpen, size: { w: 960, h: 620 } },

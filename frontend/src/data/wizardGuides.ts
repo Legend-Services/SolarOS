@@ -114,9 +114,9 @@ export const APP_GUIDES: Record<AppId, Guide> = {
   monitor: guide({
     id: "monitor",
     app: "monitor",
-    title: "Resource Monitor Guide",
-    blurb: "Read CPU, memory, network, GPU and temperature graphs.",
-    what: "Resource Monitor shows how hard your server is working right now and over the last couple of minutes. It updates every two seconds.",
+    title: "Resource & Thermal Monitor Guide",
+    blurb: "Read CPU, per-core temperatures, memory, network, GPU and drive temperatures.",
+    what: "Resource & Thermal Monitor shows how hard and how hot your server is working right now and over the last couple of minutes. It updates every two seconds.",
     cards: [
       { title: "CPU %", body: "How busy the processor is. Short spikes are normal; staying above 90% means the server is overloaded." },
       { title: "Memory & ZFS cache", body: "ZFS borrows free memory as a read cache (ARC) to speed up disks. It hands memory back when apps need it, so high usage is usually fine." },
@@ -129,12 +129,12 @@ export const APP_GUIDES: Record<AppId, Guide> = {
       "Making sure disks and the GPU stay cool during a long job.",
     ],
     how: [
-      "Open Resource Monitor from the Desktop or Dock.",
-      "The Performance tab shows CPU, memory and network graphs.",
-      "Switch to GPU & Sensors to see graphics card load and drive temperatures.",
+      "Open Resource & Thermal Monitor from the Desktop or Dock.",
+      "CPU & Cooling shows the load graph, the temperature and clock of every core, and the fans.",
+      "Memory and Network show their own graphs; GPU and Drives show graphics card and disk temperatures.",
       "Yellow and red numbers mean something is running hot or full.",
     ],
-    action: { label: "Open Resource Monitor", app: "monitor" },
+    action: { label: "Open Resource & Thermal Monitor", app: "monitor" },
   }),
   compute: guide({
     id: "compute",
@@ -350,7 +350,7 @@ export const APP_GUIDES: Record<AppId, Guide> = {
       "Type in Filter settings to search every sub-module of every category, then click a result or press Enter to open the first match.",
       "Inside a category the sidebar lists only that category's sub-modules; use the breadcrumb (← All Settings › Category › Sub-module) to go back.",
       "The ? Guide button in the breadcrumb opens the guide for the sub-module you are in.",
-      "The CPU, memory and pool pills in the top bar open Resource Monitor and Storage & ZFS Pools directly.",
+      "The CPU, memory and pool pills in the top bar open Resource & Thermal Monitor and Storage & ZFS Pools directly.",
     ],
     action: { label: "Open System Info", app: "settings", intent: "system-info" },
     related: ["system-info", "features-services", "server-setup", "desktop-tour", "security-hardening", "security-modules", "net-reverse-proxy", "dr-321", "users-roles"],

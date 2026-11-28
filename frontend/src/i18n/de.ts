@@ -157,7 +157,7 @@ export const de: Dict = {
   "gallery.noMatch": "Keine Apps passen zu deiner Suche.",
 
   // Apps
-  "app.monitor": "Ressourcenmonitor",
+  "app.monitor": "Ressourcen- & Temperaturmonitor",
   "app.compute": "Compute-Manager",
   "app.storage": "Speicher & ZFS",
   "app.files": "File Station",
@@ -528,8 +528,8 @@ export const de: Dict = {
   "set.modDesc.general-appearance": "Themes, Hell/Dunkel, Hintergründe, Dock/Taskleiste, Desktop-Widgets und Sprache",
   "set.mod.hardware-gpu": "Hardware, BIOS/Firmware & Multi-Seat",
   "set.modDesc.hardware-gpu": "CPU, Arbeitsspeicher, GPUs, PCIe/IOMMU-Gruppen, Netzwerkkarten, GPU-Treibermodus, Multi-Seat und der BIOS- & UEFI-Firmware-Leitfaden",
-  "set.mod.resource-monitor": "Ressourcenmonitor",
-  "set.modDesc.resource-monitor": "Live-CPU, RAM, Temperatursensoren, GPU und Prozesse",
+  "set.mod.resource-monitor": "Ressourcen- & Temperaturmonitor",
+  "set.modDesc.resource-monitor": "Live-CPU-Last, Temperatur und Takt pro Kern, Lüfter, Arbeitsspeicher, Netzwerk, GPUs und Laufwerkstemperaturen",
   "set.mod.storage-zfs": "Speicher & ZFS-Pools",
   "set.modDesc.storage-zfs": "ZFS-Pools, RAIDZ/Mirror-Verwaltung, Datasets, Snapshots, SMART-Status und Laufwerks-Benchmarks",
   "set.mod.backup-restore": "Sicherung & Wiederherstellung",
@@ -790,7 +790,7 @@ export const de: Dict = {
   "kb.bios-update": "BIOS-Update-Prüfung",
   "kb.bios-guides": "BIOS-Optimierungsleitfaden & Mobil-QR",
   "kb.live-performance": "Live-Leistung",
-  "kb.gpu-sensors": "GPU & Sensoren",
+  "kb.gpu-sensors": "GPU",
   "kb.version-history": "Versionsverlauf & Downgrade",
   "kb.service-manager": "Dienstverwaltung",
   "kb.notification-channels": "Benachrichtigungskanäle",
