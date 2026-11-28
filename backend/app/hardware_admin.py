@@ -385,6 +385,7 @@ true
 """
 THERMAL_TTL = 1.5  # several open views (Hardware, Info, Resource & Thermal Monitor) share one host read per poll
 GPU_HWMON = ("amdgpu", "radeon", "i915", "xe", "nouveau")
+MEM_HWMON = ("jc42", "spd5118")  # DIMM temperature sensors (DDR4 thermal sensor / DDR5 SPD hub)
 _thermals: tuple[float, dict] | None = None
 _thermal_lock = asyncio.Lock()
 _prev_stat: dict[str, tuple[int, int]] = {}
@@ -448,7 +449,7 @@ def parse_thermals(s: dict[str, str], prev_stat: dict, drives_meta: list[dict]) 
         gpus[c[0].lower()[-7:]] = {"slot": c[0].lower()[-7:], "name": c[1], "temp_c": n[0], "hotspot_temp_c": None,
                                    "fan_rpm_or_pct": n[1], "fan_unit": "%", "power_w": n[2], "vram_used_mb": n[3],
                                    "vram_total_mb": n[4], "utilization_pct": n[5]}
-    fans, drives = [], {}
+    fans, drives, memory = [], {}, []
     for r in rows:
         chip, dev, block, attr, label, v = r[0], r[1], r[2], r[3], r[4], val(r)
         if v is None:
@@ -465,6 +466,8 @@ def parse_thermals(s: dict[str, str], prev_stat: dict, drives_meta: list[dict]) 
                 g["fan_rpm_or_pct"] = v
             elif attr.startswith("power"):
                 g["power_w"] = round(v / 1e6, 1)  # microwatts
+        elif chip in MEM_HWMON and attr.startswith("temp"):
+            memory.append({"label": label or f"DIMM {len(memory)}", "temp_c": round(v / 1000, 1)})
         elif chip in ("nvme", "drivetemp") and attr.startswith("temp"):
             name = block or dev
             if chip == "nvme" and re.fullmatch(r"nvme\d+", dev):
@@ -480,7 +483,7 @@ def parse_thermals(s: dict[str, str], prev_stat: dict, drives_meta: list[dict]) 
     return {"cpu": {"package_temp_c": temps["package_c"], "cores": cores,
                     "avg_freq_mhz": round(sum(mhz) / len(mhz)) if mhz else None,
                     "min_freq_mhz": round(min(mhz)) if mhz else None, "max_freq_mhz": round(max(mhz)) if mhz else None},
-            "gpus": sorted(gpus.values(), key=lambda g: g["slot"]), "drives": drive_rows, "chassis_fans": fans}
+            "gpus": sorted(gpus.values(), key=lambda g: g["slot"]), "drives": drive_rows, "memory": memory, "chassis_fans": fans}
 
 
 def _num(v: str) -> float | None:
@@ -528,7 +531,7 @@ async def thermals():
         s = split_sections(await _thermal_read())
         data = guard("thermals", lambda: parse_thermals(s, _prev_stat, _drive_meta()),
                      {"cpu": {"package_temp_c": None, "cores": [], "avg_freq_mhz": None, "min_freq_mhz": None,
-                              "max_freq_mhz": None}, "gpus": [], "drives": [], "chassis_fans": []})
+                              "max_freq_mhz": None}, "gpus": [], "drives": [], "memory": [], "chassis_fans": []})
         _prev_stat = parse_stat(s.get("stat", "")) or _prev_stat
         data["timestamp"] = time.time()
         _thermals = (time.monotonic(), data)

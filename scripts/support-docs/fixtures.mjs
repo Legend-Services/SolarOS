@@ -1044,6 +1044,7 @@ const EXACT = {
       cores: Array.from({ length: 8 }, (_, i) => ({ core_id: i, temp_c: 47 + (i % 4) * 2, freq_mhz: 2400 + i * 300, load_pct: 8 + i * 6 })) },
     gpus: [{ slot: "0000:01:00.0", name: "Discrete GPU 16 GB", temp_c: 44, hotspot_temp_c: 51, fan_rpm_or_pct: 32, fan_unit: "%", power_w: 38, vram_used_mb: 1830, vram_total_mb: 16384, utilization_pct: 6 }],
     drives: DISK_ROWS.map(([device, model, , , , , , , , wear, temp]) => ({ device, model, temp_c: temp, wear_pct: wear })),
+    memory: [{ label: "DIMM 0", temp_c: 42 }, { label: "DIMM 1", temp_c: 44 }],
     chassis_fans: [{ label: "CPU Fan", rpm: 1180 }, { label: "Rear Fan", rpm: 860 }, { label: "Front Fan 1", rpm: 740 }, { label: "Pump", rpm: 2400 }],
     timestamp: 1764316800,
   }),

@@ -1,14 +1,15 @@
 import { useCallback, useState, type DragEvent, type ReactNode } from "react";
 import {
   ArchiveRestore, Boxes, BrainCircuit, Container, Database, EyeOff, Gauge as GaugeIcon, GripVertical, HeartPulse, Lock, Maximize2, Minimize2, Monitor,
-  NotebookPen, Activity, SquareTerminal, Zap,
+  NotebookPen, Activity, Settings2, SquareTerminal, Zap,
 } from "lucide-react";
-import { useAuth, useIntent, useTelemetry, useWindows } from "../lib/stores";
+import { openLink, useAuth, useIntent, useLiveThermals, useTelemetry, useWindows } from "../lib/stores";
 import { bytes, healthColor, percent, tempColor, uptime } from "../lib/format";
 import { api } from "../lib/api";
 import { usePoll } from "../lib/hooks";
 import { useTranslation, type TKey } from "../i18n";
-import { useWidgets, type WidgetCfg, type WidgetId, type WidgetSlot } from "../store/widgetStore";
+import { HW_PARTS, useWidgets, type HwPart, type WidgetCfg, type WidgetId, type WidgetSlot } from "../store/widgetStore";
+import { GlassCheckbox } from "./ui/GlassKit";
 import { AreaChart, Bar, Gauge } from "./charts";
 
 export const WIDGET_META: Record<WidgetId, { title: TKey; desc: TKey; icon: ReactNode }> = {
@@ -94,50 +95,165 @@ function ComputeWidget({ compact, t }: { compact: boolean; t: T }) {
   );
 }
 
-function GpuWidget({ compact, t }: { compact: boolean; t: T }) {
-  const hw = useTelemetry((s) => s.hardware);
-  const open = useWindows((s) => s.open);
-  const gpu = hw?.gpu;
-  const disks = (hw?.disks ?? []).filter((d) => d.temp_c !== null).sort((a, b) => (b.temp_c ?? 0) - (a.temp_c ?? 0));
+/* Hardware & Thermal Monitor (id "gpu"): CPU, GPU, RAM and storage, each with its temperatures when shown and available. */
+
+const Temp = ({ c }: { c: number | null | undefined }) => (c == null ? null : <span className={`tabular-nums ${tempColor(c)}`}>{c.toFixed(0)}°C</span>);
+
+function HwSection({ title, right, children }: { title: string; right?: ReactNode; children?: ReactNode }) {
   return (
-    <button onClick={() => open("monitor")} className="w-full space-y-2 text-left">
-      {gpu?.available ? (
-        <>
-          <div className="flex items-center justify-between text-xs">
-            <span className="truncate font-medium text-slate-100">{gpu.name}</span>
-            <span className="shrink-0 pl-2 tabular-nums text-slate-300">
-              <span className={tempColor(gpu.temp_c)}>{gpu.temp_c ?? "—"}°C</span> · {gpu.power_w?.toFixed(0) ?? "—"} W
-            </span>
-          </div>
-          <div className="flex justify-between text-[11px] text-slate-400">
-            <span>{t("widget.core", { n: gpu.utilization_pct ?? 0 })}</span>
-            <span className="tabular-nums">{t("widget.vram", { used: ((gpu.vram_used_mb ?? 0) / 1024).toFixed(1), total: ((gpu.vram_total_mb ?? 0) / 1024).toFixed(1) })}</span>
-          </div>
-          <Bar value={percent(gpu.vram_used_mb ?? 0, gpu.vram_total_mb ?? 0)} className="bg-emerald-400" />
-        </>
-      ) : (
-        <p className="text-xs text-slate-400">{t("widget.noGpu")}</p>
+    <div className="space-y-1">
+      <div className="flex items-baseline justify-between gap-2 text-xs">
+        <span className="text-[10px] font-semibold tracking-wide text-slate-400 uppercase">{title}</span>
+        <span className="flex shrink-0 items-baseline gap-2 text-[11px] text-slate-300">{right}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function HardwareWidget({ compact, t, w }: { compact: boolean; t: T; w?: WidgetCfg }) {
+  const o = useTelemetry((s) => s.overview);
+  const hw = useTelemetry((s) => s.hardware);
+  const storage = useTelemetry((s) => s.storage);
+  const show = new Set<HwPart>(w?.show ?? HW_PARTS);
+  const heat = show.has("thermals");
+  // The desktop is always open: stream sensors only when a live part is shown (RAM and pool usage come from overview/storage).
+  const th = useLiveThermals(heat || show.has("cpu") || show.has("gpu"));
+  const parts = HW_PARTS.filter((p) => p !== "thermals" && show.has(p));
+  // GPUs from the 2 s stream; before its first answer, the 15 s summary of the first NVIDIA GPU.
+  const gpus = th?.gpus.length
+    ? th.gpus
+    : hw?.gpu.available
+      ? [{ slot: "", name: hw.gpu.name ?? "GPU", temp_c: hw.gpu.temp_c, hotspot_temp_c: null, power_w: hw.gpu.power_w, utilization_pct: hw.gpu.utilization_pct, vram_used_mb: hw.gpu.vram_used_mb, vram_total_mb: hw.gpu.vram_total_mb }]
+      : [];
+  const live = new Map(th?.drives.map((d) => [d.device, d.temp_c]));
+  const disks = (hw?.disks ?? []).map((d) => ({ ...d, temp_c: live.get(d.devpath) ?? d.temp_c })).filter((d) => d.temp_c != null).sort((a, b) => (b.temp_c ?? 0) - (a.temp_c ?? 0));
+  const hottest = th?.cpu.cores.reduce<number | null>((m, c) => (c.temp_c != null && (m == null || c.temp_c > m) ? c.temp_c : m), null);
+  const dimm = th?.memory.length ? Math.max(...th.memory.map((m) => m.temp_c)) : null;
+  const go = (tab: string) => openLink("settings", { module: "resource-monitor", tab });
+
+  if (!parts.length) return <p className="text-xs text-slate-400">{t("widget.hwNothing")}</p>;
+  return (
+    <div className="space-y-3">
+      {parts.includes("cpu") && (
+        <button onClick={() => go("cpu")} className="block w-full text-left">
+          <HwSection
+            title={t("widget.sec.cpu")}
+            right={<>
+              <span className="tabular-nums">{o ? `${o.cpu.toFixed(0)}%` : "—"}</span>
+              {th?.cpu.avg_freq_mhz != null && <span className="tabular-nums text-slate-400">{th.cpu.avg_freq_mhz} MHz</span>}
+              {heat && <Temp c={th?.cpu.package_temp_c} />}
+            </>}
+          >
+            <Bar value={o?.cpu ?? 0} className="bg-sky-400" />
+            {heat && !compact && hottest != null && (
+              <div className="flex justify-between text-[11px] text-slate-400">
+                <span>{t("widget.hottestCore")}</span>
+                <Temp c={hottest} />
+              </div>
+            )}
+          </HwSection>
+        </button>
       )}
-      {hw?.igpu.available && (
-        <div className="flex justify-between text-[11px] text-slate-400">
-          <span>{t("widget.igpu")}</span>
-          <span>{hw.igpu.quicksync ? "Quick Sync" : hw.igpu.render_nodes.map((n) => n.path.split("/").pop()).join(", ")}</span>
-        </div>
+
+      {parts.includes("gpu") && (
+        <button onClick={() => go("gpu")} className="block w-full text-left">
+          <HwSection title={t("widget.sec.gpu")}>
+            {gpus.length ? (
+              gpus.slice(0, compact ? 1 : 4).map((g) => (
+                <div key={g.slot || g.name} className="space-y-1">
+                  <div className="flex items-baseline justify-between gap-2 text-xs">
+                    <span className="min-w-0 break-words font-medium text-slate-100">{g.name}</span>
+                    <span className="shrink-0 space-x-2 text-[11px] text-slate-300">
+                      {g.utilization_pct != null && <span className="tabular-nums">{g.utilization_pct.toFixed(0)}%</span>}
+                      {heat && <Temp c={g.temp_c} />}
+                      {heat && g.power_w != null && <span className="tabular-nums text-slate-400">{g.power_w.toFixed(0)} W</span>}
+                    </span>
+                  </div>
+                  {g.vram_total_mb != null && (
+                    <>
+                      <Bar value={percent(g.vram_used_mb ?? 0, g.vram_total_mb)} className="bg-emerald-400" />
+                      {!compact && (
+                        <div className="flex justify-between text-[11px] text-slate-400">
+                          <span className="tabular-nums">{t("widget.vram", { used: ((g.vram_used_mb ?? 0) / 1024).toFixed(1), total: (g.vram_total_mb / 1024).toFixed(1) })}</span>
+                          {heat && g.hotspot_temp_c != null && <span>hotspot <Temp c={g.hotspot_temp_c} /></span>}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              ))
+            ) : (
+              <p className="text-[11px] text-slate-500">{t("widget.noGpu")}</p>
+            )}
+            {!compact && hw?.igpu.available && (
+              <div className="flex justify-between text-[11px] text-slate-400">
+                <span>{t("widget.igpu")}</span>
+                <span>{hw.igpu.quicksync ? "Quick Sync" : hw.igpu.render_nodes.map((n) => n.path.split("/").pop()).join(", ")}</span>
+              </div>
+            )}
+          </HwSection>
+        </button>
       )}
-      <div className="border-t border-white/10 pt-2 text-[10px] font-semibold tracking-wide text-slate-400 uppercase">{t("widget.drives")}</div>
-      {disks.length ? (
-        <ul className="space-y-1 text-[11px]">
-          {disks.slice(0, compact ? 3 : 8).map((d) => (
-            <li key={d.devpath} className="flex justify-between gap-2">
-              <span className="truncate text-slate-300">{d.model || d.devpath}</span>
-              <span className={`tabular-nums ${tempColor(d.temp_c)}`}>{d.temp_c}°C</span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p className="text-[11px] text-slate-500">{t("widget.noDrives")}</p>
+
+      {parts.includes("ram") && (
+        <button onClick={() => go("memory")} className="block w-full text-left">
+          <HwSection
+            title={t("widget.sec.ram")}
+            right={<>
+              <span className="tabular-nums">{o ? t("widget.usedOf", { used: bytes(o.memory.used), total: bytes(o.memory.total) }) : "—"}</span>
+              {heat && <Temp c={dimm} />}
+            </>}
+          >
+            <Bar value={o ? percent(o.memory.used, o.memory.total) : 0} className="bg-violet-400" />
+          </HwSection>
+        </button>
       )}
-    </button>
+
+      {parts.includes("storage") && (
+        <button onClick={() => go("drives")} className="block w-full text-left">
+          <HwSection title={t("widget.sec.storage")}>
+            {storage?.pools.slice(0, compact ? 2 : 4).map((p) => (
+              <div key={p.name}>
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-slate-200">{p.name}</span>
+                  <span className={healthColor(p.health)}>{percent(p.alloc, p.size).toFixed(0)}% · {p.health}</span>
+                </div>
+                <Bar value={percent(p.alloc, p.size)} className="bg-amber-400" />
+              </div>
+            ))}
+            {heat &&
+              (disks.length ? (
+                <ul className="space-y-1 pt-1 text-[11px]">
+                  {disks.slice(0, compact ? 3 : 8).map((d) => (
+                    <li key={d.devpath} className="flex justify-between gap-2">
+                      <span className="min-w-0 break-words text-slate-300">{d.model || d.devpath}</span>
+                      <Temp c={d.temp_c} />
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[11px] text-slate-500">{t("widget.noDrives")}</p>
+              ))}
+            {!storage?.pools.length && !heat && <p className="text-[11px] text-slate-500">{t("widget.noPools")}</p>}
+          </HwSection>
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Gear panel of the Hardware widget: which parts to show, and whether to add their temperatures. */
+function HardwareOptions({ w, t }: { w: WidgetCfg; t: T }) {
+  const update = useWidgets((s) => s.update);
+  const show = w.show ?? [...HW_PARTS];
+  const toggle = (p: HwPart, on: boolean) => update(w.id, { show: HW_PARTS.filter((x) => (x === p ? on : show.includes(x))) });
+  return (
+    <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1.5 rounded-xl bg-black/20 p-2.5" role="group" aria-label={t("widget.hwOptions")}>
+      {HW_PARTS.map((p) => (
+        <GlassCheckbox key={p} checked={show.includes(p)} onChange={(v) => toggle(p, v)} label={<span className="text-[11px]">{t(p === "thermals" ? "widget.thermals" : `widget.sec.${p}`)}</span>} />
+      ))}
+    </div>
   );
 }
 
@@ -262,11 +378,11 @@ function ActionsWidget({ compact, t }: { compact: boolean; t: T }) {
   );
 }
 
-const BODIES: Record<WidgetId, (p: { compact: boolean; t: T }) => ReactNode> = {
+const BODIES: Record<WidgetId, (p: { compact: boolean; t: T; w?: WidgetCfg }) => ReactNode> = {
   health: HealthWidget,
   storage: StorageWidget,
   compute: ComputeWidget,
-  gpu: GpuWidget,
+  gpu: HardwareWidget,
   network: NetworkWidget,
   ai: AiWidget,
   actions: ActionsWidget,
@@ -280,6 +396,7 @@ function WidgetCard({ w, editing, t }: { w: WidgetCfg; editing: boolean; t: T })
   const update = useWidgets((s) => s.update);
   const move = useWidgets((s) => s.move);
   const [over, setOver] = useState(false);
+  const [opts, setOpts] = useState(false);
   const meta = WIDGET_META[w.id];
   const Body = BODIES[w.id];
   const drop = (e: DragEvent) => {
@@ -305,7 +422,18 @@ function WidgetCard({ w, editing, t }: { w: WidgetCfg; editing: boolean; t: T })
       <h2 className="mb-3 flex items-center gap-2 text-xs font-semibold tracking-wide text-slate-300 uppercase">
         {editing && <GripVertical size={14} className="text-slate-500" aria-label={t("studio.drag")} />}
         {meta.icon}
-        <span className="flex-1 truncate">{t(meta.title)}</span>
+        <span className="min-w-0 flex-1 leading-snug">{t(meta.title)}</span>
+        {w.id === "gpu" && (
+          <button
+            onClick={() => setOpts((v) => !v)}
+            aria-expanded={opts}
+            className={`rounded p-0.5 hover:bg-white/10 hover:text-white ${opts ? "text-white" : "text-slate-400"}`}
+            aria-label={t("widget.hwOptions")}
+            title={t("widget.hwOptions")}
+          >
+            <Settings2 size={13} />
+          </button>
+        )}
         {editing && (
           <>
             <button
@@ -322,9 +450,10 @@ function WidgetCard({ w, editing, t }: { w: WidgetCfg; editing: boolean; t: T })
           </>
         )}
       </h2>
+      {opts && w.id === "gpu" && <HardwareOptions w={w} t={t} />}
       {/* Widgets stay live while editing, but clicks go to the frame so a drag never opens an app. */}
       <div className={editing ? "pointer-events-none select-none" : ""}>
-        <Body compact={w.size === "compact"} t={t} />
+        <Body compact={w.size === "compact"} t={t} w={w} />
       </div>
     </section>
   );
