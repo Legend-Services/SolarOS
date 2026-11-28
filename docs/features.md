@@ -57,6 +57,12 @@ Info** and the monitor share one stream, so they always show the same numbers. T
 fixed facts (model, topology, max clock, virtualization, kernel command line) and its **Live sensors** button opens
 *CPU & Cooling*.
 
+The **Hardware & Thermal Monitor** desktop widget shows the same stream at a glance. Press its gear to choose **CPU**
+(load, clock, package and hottest-core temperature), **GPU** (load, VRAM, temperature, hotspot, power), **RAM** (usage and
+DIMM temperature when the board has `jc42` / `spd5118` sensors) and **Storage** (pool usage and drive temperatures), and
+whether to show **Temperatures**. The choice is saved with the widget layout; with no live part selected the widget does
+not stream sensors. Clicking a section opens the matching monitor tab.
+
 ## Multi-Host Cluster, Live Migration & High Availability
 
 Open **Settings → Hypervisor & Runtime → Cluster & High Availability**:

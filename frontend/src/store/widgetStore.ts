@@ -5,11 +5,16 @@ export const WIDGET_IDS = ["health", "storage", "compute", "gpu", "network", "ai
 export type WidgetId = (typeof WIDGET_IDS)[number];
 export type WidgetSlot = "left" | "right" | "grid";
 export type WidgetSize = "compact" | "expanded";
+/** What the Hardware & Thermal Monitor widget (id "gpu") shows; "thermals" adds temperatures to every part. */
+export const HW_PARTS = ["cpu", "gpu", "ram", "storage", "thermals"] as const;
+export type HwPart = (typeof HW_PARTS)[number];
 export interface WidgetCfg {
   id: WidgetId;
   enabled: boolean;
   slot: WidgetSlot;
   size: WidgetSize;
+  /** Hardware widget only; absent = everything. */
+  show?: HwPart[];
 }
 
 const SLOTS: WidgetSlot[] = ["left", "right", "grid"];
@@ -26,7 +31,8 @@ export function sanitizeWidgets(v: unknown): WidgetCfg[] {
     const id = x?.id as WidgetId;
     if (!WIDGET_IDS.includes(id) || seen.has(id)) continue;
     seen.add(id);
-    out.push({ id, enabled: x.enabled === true, slot: SLOTS.includes(x.slot) ? x.slot : "right", size: x.size === "compact" ? "compact" : "expanded" });
+    const show = Array.isArray(x.show) ? HW_PARTS.filter((p) => x.show.includes(p)) : undefined;
+    out.push({ id, enabled: x.enabled === true, slot: SLOTS.includes(x.slot) ? x.slot : "right", size: x.size === "compact" ? "compact" : "expanded", ...(show ? { show } : {}) });
   }
   if (!out.length) return defaultWidgets();
   return [...out, ...defaultWidgets().filter((d) => !seen.has(d.id)).map((d) => ({ ...d, enabled: false }))];
