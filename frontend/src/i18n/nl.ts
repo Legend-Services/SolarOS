@@ -157,7 +157,7 @@ export const nl: Dict = {
   "gallery.noMatch": "Geen apps gevonden voor je zoekopdracht.",
 
   // Apps
-  "app.monitor": "Resourcemonitor",
+  "app.monitor": "Resource- & temperatuurmonitor",
   "app.compute": "Computebeheer",
   "app.storage": "Opslag & ZFS",
   "app.files": "Bestandsstation",
@@ -528,8 +528,8 @@ export const nl: Dict = {
   "set.modDesc.general-appearance": "Thema's, licht/donker, achtergronden, Dock/taakbalk, bureaubladwidgets en taal",
   "set.mod.hardware-gpu": "Hardware, BIOS/firmware & multi-seat",
   "set.modDesc.hardware-gpu": "CPU, geheugen, GPU's, PCIe/IOMMU-groepen, netwerkkaarten, GPU-drivermodus, multi-seat en de BIOS- en UEFI-firmwaregids",
-  "set.mod.resource-monitor": "Bronnenmonitor",
-  "set.modDesc.resource-monitor": "Live CPU, RAM, temperatuursensoren, GPU en processen",
+  "set.mod.resource-monitor": "Resource- & temperatuurmonitor",
+  "set.modDesc.resource-monitor": "Live CPU-belasting, temperatuur en kloksnelheid per kern, ventilatoren, geheugen, netwerk, GPU's en schijftemperaturen",
   "set.mod.storage-zfs": "Opslag & ZFS-pools",
   "set.modDesc.storage-zfs": "ZFS-pools, RAIDZ/mirror-beheer, datasets, snapshots, SMART-status en schijfbenchmarks",
   "set.mod.backup-restore": "Back-up & herstel",
@@ -790,7 +790,7 @@ export const nl: Dict = {
   "kb.bios-update": "BIOS-updatecontrole",
   "kb.bios-guides": "BIOS-optimalisatiegids & mobiele QR",
   "kb.live-performance": "Live prestaties",
-  "kb.gpu-sensors": "GPU & sensoren",
+  "kb.gpu-sensors": "GPU",
   "kb.version-history": "Versiegeschiedenis & downgrade",
   "kb.service-manager": "Servicebeheer",
   "kb.notification-channels": "Meldingskanalen",

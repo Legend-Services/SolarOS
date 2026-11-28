@@ -307,13 +307,19 @@ export const MODULE_DOCS: Record<ModuleId, Doc> = {
       "Temperatures, clocks, GPU power and VRAM, drive temperatures and fan speeds update live every 2 seconds (the LIVE · 2s pill next to Refresh); press Pause to freeze the readings and Play to resume.",
       "BIOS/Firmware: check for a newer BIOS for your motherboard and open the guides for virtualization, IOMMU and power settings, with a QR code to read them on your phone.",
     ],
-    tips: ["The QR guide works offline: the text is inside the code.", "System › Info and Resource Monitor › GPU & Sensors show the same live readings."],
+    tips: ["The QR guide works offline: the text is inside the code.", "Live CPU, core and fan sensors moved to Resource & Thermal Monitor › CPU & Cooling (press Live sensors on the CPU card); System › Info shows the same readings."],
     keywords: "live thermals temperature realtime fan rpm clock frequency hardware gpu cpu memory pcie iommu passthrough driver graphics card nic multi seat usb port pinning bios uefi firmware motherboard update virtualization qr phone",
   },
   "resource-monitor": {
-    intro: "Live CPU, memory, network, GPU and temperature telemetry of the host.",
-    steps: ["Performance shows live graphs for CPU, memory and network.", "GPU & Sensors shows GPU load, video engines and temperatures."],
-    keywords: "monitor cpu ram memory network usage graphs temperature sensors live telemetry performance",
+    intro: "Live load and temperatures of the host, one subject per tab: CPU & Cooling, Memory, Network, GPU and Drives. Temperatures, clocks and fans refresh every 2 seconds.",
+    steps: [
+      "CPU & Cooling: the CPU load graph, package temperature, average clock, and a bar per core with its temperature, clock and load, plus the chassis fans.",
+      "Memory and Network: larger live graphs of memory (with ZFS cache and swap) and of traffic in and out.",
+      "GPU: every graphics card with its load, temperature, hotspot, fan, power and video memory; Drives: temperature, SMART health and wear of every disk.",
+      "Use Pause next to LIVE · 2s to freeze the readings, and Play to resume.",
+    ],
+    tips: ["The CPU and RAM pills in the top bar open the CPU & Cooling and Memory tabs directly."],
+    keywords: "resource thermal monitor cpu cores per core temperature clock mhz fan rpm cooling ram memory network usage graphs sensors live telemetry performance gpu drives disks",
   },
   "system-services": {
     intro: "Start, stop, restart and enable the background services of the host and of deployed apps, keep SolarDeck and the operating system up to date, choose package sources, roll back a release and report bugs. System Services, SolarDeck Updates, OS Repositories and OS Updates are the tabs at the top.",
@@ -482,8 +488,11 @@ export const CONTROLS: Control[] = [
     { id: "network-adapters", titleKey: "kb.network-adapters", headings: ["Network interfaces"], description: "Physical network adapters with link speed and driver.", keywords: "nic network adapter ethernet link speed driver", steps: ["Read the Network interfaces card at the bottom."] },
   ]),
   ...c("resource-monitor", [
-    { id: "live-performance", titleKey: "kb.live-performance", tabId: "performance", description: "Live graphs of CPU, memory and network use.", keywords: "performance graphs cpu memory network live usage", steps: ["Open Resource Monitor; Performance is the first tab."] },
-    { id: "gpu-sensors", titleKey: "kb.gpu-sensors", tabId: "hardware", description: "GPU load, video engines and temperature sensors.", keywords: "gpu sensors temperature thermal fans video engine", steps: ["Click GPU & Sensors at the top of Resource Monitor."] },
+    { id: "live-performance", titleKey: "rm.tab.cpu", tabId: "cpu", shot: true, description: "CPU load graph, package temperature, clocks, a live bar per core (temperature, clock, load) and the fans.", keywords: "cpu load cores per core temperature clock mhz fan rpm cooling thermal sensors performance", steps: ["Open Resource & Thermal Monitor; CPU & Cooling is the first tab.", "Watch the Cores card: every bar updates every 2 seconds."] },
+    { id: "memory-usage", titleKey: "rm.tab.memory", tabId: "memory", description: "Live memory graph with apps, ZFS cache (ARC), free memory and swap.", keywords: "memory ram zfs arc cache swap usage graph", steps: ["Click Memory at the top of Resource & Thermal Monitor."] },
+    { id: "network-traffic", titleKey: "rm.tab.network", tabId: "network", description: "Live graph of all traffic in and out of the host.", keywords: "network traffic bandwidth in out throughput graph", steps: ["Click Network at the top of Resource & Thermal Monitor."] },
+    { id: "gpu-sensors", titleKey: "kb.gpu-sensors", tabId: "gpu", shot: true, description: "Every GPU with its load, temperature, hotspot, fan, power and video memory.", keywords: "gpu graphics card temperature hotspot fan power vram load quick sync video engine", steps: ["Click GPU at the top of Resource & Thermal Monitor."] },
+    { id: "drive-temps", titleKey: "rm.tab.drives", tabId: "drives", description: "Temperature, SMART health and remaining life of every disk.", keywords: "drives disks nvme sata ssd hdd temperature smart health wear life", steps: ["Click Drives at the top of Resource & Thermal Monitor."], tips: ["Drives above about 55 °C deserve better cooling."] },
   ]),
   ...c("system-services", [
     { id: "service-manager", tabId: "services", titleKey: "kb.service-manager", headings: ["System services"], description: "The background services of the host and deployed apps with start, stop, restart and enable at boot.", keywords: "service manager systemd daemon unit restart enable", steps: ["Filter the list by name.", "Use the row buttons to control a service."] },

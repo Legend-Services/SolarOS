@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { edition } from "@edition";
-import { Copy, Cpu, Download, Fan, MonitorCog, Pause, Play, RefreshCw, Repeat } from "lucide-react";
+import { Copy, Cpu, Download, MonitorCog, Pause, Play, RefreshCw, Repeat, Thermometer } from "lucide-react";
 import { api } from "../lib/api";
 import { bytes, copyText, percent, tempColor } from "../lib/format";
 import { useRunner } from "../lib/hooks";
-import { useLiveThermals, useThermals, type LiveThermals } from "../lib/stores";
+import { openLink, useLiveThermals, useThermals, type LiveThermals } from "../lib/stores";
 import { useTranslation } from "../i18n";
 import { Bar } from "../components/charts";
 import { OperationProgressCard, useJobProgress } from "../components/ui/OperationProgressCard";
@@ -146,7 +146,7 @@ function Rows({ rows }: { rows: [string, ReactNode][] }) {
       {rows.map(([k, v]) => (
         <div key={k} className="contents">
           <dt className="text-slate-400">{k}</dt>
-          <dd className="min-w-0 truncate text-slate-100">{v || "—"}</dd>
+          <dd className="min-w-0 break-words text-slate-100">{v || "—"}</dd>
         </div>
       ))}
     </dl>
@@ -187,46 +187,29 @@ const driverTone = (d: string | null) => (d === "vfio-pci" ? "info" : d ? "succe
 
 /* ---------------- Sections ---------------- */
 
-function CpuCard({ cpu, virt, live }: { cpu: Inventory["cpu"]; virt: Inventory["virtualization"]; live: LiveThermals["cpu"] | null }) {
-  const pkg = live?.package_temp_c ?? cpu.package_c;
-  const mhz = live?.avg_freq_mhz != null ? { min: live.min_freq_mhz ?? 0, avg: live.avg_freq_mhz, max: live.max_freq_mhz ?? 0 } : cpu.mhz;
-  const cores = live?.cores.length
-    ? live.cores.map((c) => ({ label: `Core ${c.core_id}`, c: c.temp_c, mhz: c.freq_mhz, load: c.load_pct }))
-    : cpu.cores_c.map((c) => ({ label: c.label, c: c.c as number | null, mhz: null as number | null, load: null as number | null }));
+function CpuCard({ cpu, virt }: { cpu: Inventory["cpu"]; virt: Inventory["virtualization"] }) {
+  const { t } = useTranslation();
   return (
-    <Card title="CPU" action={pkg != null && <span className="text-xs tabular-nums">Package {C(pkg)}</span>}>
+    <Card
+      title="CPU"
+      action={
+        <GlassButton size="xs" variant="ghost" onClick={() => openLink("settings", { module: "resource-monitor", tab: "cpu" })}>
+          <Thermometer size={12} /> {t("si.openSensors")}
+        </GlassButton>
+      }
+    >
       <Rows
         rows={[
           ["Model", cpu.model],
           ["Topology", cpu.cores ? `${cpu.sockets ?? 1} socket · ${cpu.cores} cores · ${cpu.threads} threads` : null],
-          ["Clock", mhz ? <span className="tabular-nums">{`${mhz.min.toFixed(0)}–${mhz.max.toFixed(0)} MHz (avg ${mhz.avg}) · max ${cpu.max_mhz ?? "?"} MHz`}</span> : null],
-          ["Virtualization", <span className="flex gap-1.5">
+          ["Max clock", cpu.max_mhz ? `${cpu.max_mhz.toFixed(0)} MHz` : null],
+          ["Virtualization", <span className="flex flex-wrap gap-1.5">
             <GlassBadge tone={virt.cpu ? "success" : "danger"}>{virt.cpu ?? "NO VT-x / AMD-V"}</GlassBadge>
             <GlassBadge tone={virt.iommu ? "success" : "warning"}>{virt.iommu ? "IOMMU ON" : "IOMMU OFF"}</GlassBadge>
           </span>],
-          ["Kernel cmdline", <span className="font-mono text-[10px]">{virt.cmdline}</span>],
+          ["Kernel cmdline", <span className="font-mono text-[10px] break-all whitespace-normal">{virt.cmdline}</span>],
         ]}
       />
-      {cores.length > 0 && (
-        <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
-          {cores.map((c) => (
-            <div key={c.label} className="text-[11px] tabular-nums">
-              <div className="flex justify-between text-slate-400">
-                <span>{c.label}</span>
-                {C(c.c)}
-              </div>
-              {/* 100 °C ≈ Tjunction max of current desktop/mobile CPUs; without a core sensor the bar shows load. */}
-              <Bar value={c.c ?? c.load ?? 0} className={c.c != null ? "bg-emerald-400" : "bg-sky-400"} />
-              {(c.mhz != null || c.load != null) && (
-                <div className="mt-0.5 flex justify-between text-[10px] text-slate-500">
-                  <span>{c.mhz != null ? `${c.mhz} MHz` : ""}</span>
-                  <span>{c.load != null ? `${c.load.toFixed(0)}%` : ""}</span>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
     </Card>
   );
 }
@@ -461,7 +444,6 @@ export function LiveThermalsPill() {
 }
 
 export default function HardwarePanel() {
-  const { t } = useTranslation();
   const [inv, setInv] = useState<Inventory | null>(null);
   const th = useLiveThermals();
   const { busy, error, run } = useRunner();
@@ -497,23 +479,11 @@ export default function HardwarePanel() {
           ]}
         />
       </Card>
-      <CpuCard cpu={inv.cpu} virt={inv.virtualization} live={th?.cpu ?? null} />
+      <CpuCard cpu={inv.cpu} virt={inv.virtualization} />
       <MemoryCard m={inv.memory} />
       {inv.gpus.map((g) => (
         <GpuCard key={g.id} g={g} live={liveGpu.get(g.id) ?? null} />
       ))}
-      {!!th?.chassis_fans.length && (
-        <Card title={<span className="flex items-center gap-2"><Fan size={15} /> {t("si.fans")}</span>}>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs tabular-nums sm:grid-cols-4">
-            {th.chassis_fans.map((f, i) => (
-              <div key={`${f.label}-${i}`} className="flex justify-between">
-                <span className="truncate text-slate-400">{f.label}</span>
-                <span className="text-slate-100">{f.rpm} RPM</span>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
       <DriversCard inv={inv} onChanged={load} />
       <Card title="Storage">
         <Table

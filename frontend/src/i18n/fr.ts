@@ -157,7 +157,7 @@ export const fr: Dict = {
   "gallery.noMatch": "Aucune application ne correspond à votre recherche.",
 
   // Apps
-  "app.monitor": "Moniteur de ressources",
+  "app.monitor": "Moniteur de ressources et thermique",
   "app.compute": "Gestionnaire de calcul",
   "app.storage": "Stockage et ZFS",
   "app.files": "File Station",
@@ -528,8 +528,8 @@ export const fr: Dict = {
   "set.modDesc.general-appearance": "Thèmes, mode clair/sombre, fonds d'écran, Dock/barre des tâches, widgets du bureau et langue",
   "set.mod.hardware-gpu": "Matériel, BIOS/firmware et multiposte",
   "set.modDesc.hardware-gpu": "CPU, mémoire, GPU, groupes PCIe/IOMMU, cartes réseau, mode du pilote GPU, multi-poste et le guide BIOS et firmware UEFI",
-  "set.mod.resource-monitor": "Moniteur de ressources",
-  "set.modDesc.resource-monitor": "Processeur, RAM, capteurs thermiques, GPU et processus en direct",
+  "set.mod.resource-monitor": "Moniteur de ressources et thermique",
+  "set.modDesc.resource-monitor": "Charge CPU en direct, température et fréquence par cœur, ventilateurs, mémoire, réseau, GPU et température des disques",
   "set.mod.storage-zfs": "Stockage et pools ZFS",
   "set.modDesc.storage-zfs": "Pools ZFS, gestion RAIDZ/miroir, datasets, instantanés, santé SMART et tests de disques",
   "set.mod.backup-restore": "Sauvegarde et restauration",
@@ -790,7 +790,7 @@ export const fr: Dict = {
   "kb.bios-update": "Vérification des mises à jour du BIOS",
   "kb.bios-guides": "Guide d'optimisation du BIOS et QR mobile",
   "kb.live-performance": "Performances en direct",
-  "kb.gpu-sensors": "GPU et capteurs",
+  "kb.gpu-sensors": "GPU",
   "kb.version-history": "Historique des versions et rétrogradation",
   "kb.service-manager": "Gestionnaire de services",
   "kb.notification-channels": "Canaux de notification",
