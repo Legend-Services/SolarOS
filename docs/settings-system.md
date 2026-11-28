@@ -8,7 +8,7 @@ OS info, software updates, appearance themes, features toggle, installed apps, h
 
 ![System](screenshots/settings-system.png)
 
-**Sub-modules:** [Info](#info) · [General & Appearance](#general--appearance) · [Features & Services](#features--services) · [Installed Apps & Instances](#installed-apps--instances) · [Hardware, GPU & BIOS](#hardware-gpu--bios) · [Resource Monitor](#resource-monitor) · [System Services & Repositories](#system-services--repositories) · [Automation & Alerts](#automation--alerts) · [Power & UPS](#power--ups)
+**Sub-modules:** [Info](#info) · [General & Appearance](#general--appearance) · [Features & Services](#features--services) · [Installed Apps & Instances](#installed-apps--instances) · [Hardware, BIOS/Firmware & Multi-Seat](#hardware-biosfirmware--multi-seat) · [Resource Monitor](#resource-monitor) · [System Services & Repositories](#system-services--repositories) · [Automation & Alerts](#automation--alerts) · [Power & UPS](#power--ups)
 
 ## Info
 
@@ -22,7 +22,7 @@ The first page of Settings › System: the operating system and SolarDeck releas
 2. Read the release, kernel, architecture and uptime at the top.
 3. Press Check for Updates; when a new release is shown, press Install Update to start it (progress opens in System Services & Repositories › SolarDeck Updates).
 4. Use Reboot or Shut Down and type the host name to confirm.
-5. Follow Hardware, GPU & BIOS or Storage & ZFS Pools from the hardware cards for the full details.
+5. Follow Hardware, BIOS/Firmware & Multi-Seat or Storage & ZFS Pools from the hardware cards for the full details.
 
 > **Tip:** On SolarOS the pencil next to the hostname renames the server; a hypervisor node or a cluster member keeps its name, because renaming it would detach its guests.
 
@@ -55,7 +55,7 @@ Reboot or shut down the host safely.
 Processor model, sockets, cores and threads, clock speed, temperature and load; memory with the ZFS ARC cache and swap; every integrated and discrete GPU with VRAM, driver and temperature; disks, SMART health and ZFS pools.
 
 1. Scroll to the hardware cards below the release facts.
-2. Press Hardware, GPU & BIOS or Storage & ZFS Pools for the full details.
+2. Press Hardware, BIOS/Firmware & Multi-Seat or Storage & ZFS Pools for the full details.
 
 ## General & Appearance
 
@@ -188,25 +188,29 @@ Every app installed from App Center, grouped by app, with each instance's label,
 3. Press OSI Architecture to see the instance's veth, IP address, port, TLS and web endpoint layer by layer.
 4. Press Uninstall, choose whether to also delete the app's data, and confirm.
 
-## Hardware, GPU & BIOS
+## Hardware, BIOS/Firmware & Multi-Seat
 
-![Hardware, GPU & BIOS](screenshots/settings-hardware-gpu.png)
+![Hardware, BIOS/Firmware & Multi-Seat](screenshots/settings-hardware-gpu.png)
 
 ### Overview
 
-See the CPU, memory, GPUs, PCIe and IOMMU groups and network adapters of the host, switch the GPU driver mode, set up multi-seat workstations and read the BIOS & UEFI firmware guide. GPUs & Devices, BIOS & UEFI Firmware and Multi-Seat & Ports are the tabs at the top.
+See the CPU, memory, GPUs, PCIe and IOMMU groups and network adapters of the host, switch the GPU driver mode, set up multi-seat workstations and read the BIOS & UEFI firmware guide. Hardware, BIOS/Firmware and Multi-Seat are the tabs at the top.
 
-1. Open Settings › System › Hardware, GPU & BIOS (or press “Open This Setting / App →” above).
-2. GPUs & Devices: read the CPU and memory cards for model, cores, temperature and usage, and in GPU & Drivers choose between host use and passthrough to a VM.
-3. BIOS & UEFI Firmware: check for a newer BIOS for your motherboard and open the guides for virtualization, IOMMU and power settings, with a QR code to read them on your phone.
+1. Open Settings › System › Hardware, BIOS/Firmware & Multi-Seat (or press “Open This Setting / App →” above).
+2. Hardware: read the CPU and memory cards for model, cores, temperature and usage, and in GPU & Drivers choose between host use and passthrough to a VM.
+3. Temperatures, clocks, GPU power and VRAM, drive temperatures and fan speeds update live every 2 seconds (the LIVE · 2s pill next to Refresh); press Pause to freeze the readings and Play to resume.
+4. BIOS/Firmware: check for a newer BIOS for your motherboard and open the guides for virtualization, IOMMU and power settings, with a QR code to read them on your phone.
 
 > **Tip:** The QR guide works offline: the text is inside the code.
 
+> **Tip:** System › Info and Resource Monitor › GPU & Sensors show the same live readings.
+
 ### CPU & Memory
 
-Processor model, cores, temperature and memory modules of the host.
+Processor model, cores, live package and per-core temperature, clock and load, and the memory modules of the host.
 
-1. Read the CPU and Memory cards at the top of Hardware, GPU & BIOS.
+1. Read the CPU and Memory cards at the top of Hardware, BIOS/Firmware & Multi-Seat.
+2. Watch the per-core bars: temperatures and clocks refresh every 2 seconds.
 
 ### GPU & Drivers
 
@@ -216,7 +220,7 @@ Every GPU with its IOMMU group, and the driver mode: used by the host or passed 
 2. Choose Passthrough to give it to a VM, or Host to use it on the server.
 3. Reboot when asked.
 
-> **Tip:** IOMMU must be enabled in the BIOS; see Hardware, GPU & BIOS › BIOS & UEFI Firmware.
+> **Tip:** IOMMU must be enabled in the BIOS; see Hardware, BIOS/Firmware & Multi-Seat › BIOS/Firmware.
 
 ![GPU & Drivers](screenshots/settings-hardware-gpu--gpu-drivers.png)
 
@@ -226,7 +230,7 @@ Motherboard model, BIOS version and system details.
 
 1. Read the System & Motherboard card.
 
-### Multi-Seat & Ports
+### Multi-Seat
 
 Several people work or play on one machine at the same time: every seat is a VM with its own GPU and monitors, its own physical USB ports and dedicated CPU cores.
 
@@ -239,9 +243,9 @@ Several people work or play on one machine at the same time: every seat is a VM 
 
 > **Tip:** When the seat uses the GPU the server boots on, the server's own console screen switches off while that seat runs.
 
-> **Tip:** IOMMU must be enabled in the BIOS; see Hardware, GPU & BIOS › BIOS & UEFI Firmware.
+> **Tip:** IOMMU must be enabled in the BIOS; see Hardware, BIOS/Firmware & Multi-Seat › BIOS/Firmware.
 
-![Multi-Seat & Ports](screenshots/settings-hardware-gpu--multiseat.png)
+![Multi-Seat](screenshots/settings-hardware-gpu--multiseat.png)
 
 ### BIOS Update Check
 

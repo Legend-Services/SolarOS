@@ -1,5 +1,17 @@
 # Changelog
 
+## v2.27.0 - Realtime hardware thermals & Hardware, BIOS/Firmware & Multi-Seat — 2026-11-28
+
+### Added
+- **Live hardware thermals every 2 seconds**: in Settings › System › Hardware, BIOS/Firmware & Multi-Seat › *Hardware*, the CPU package temperature, every per-core temperature bar (now with its clock and load), the CPU clock range, GPU temperature, hotspot, fan, power and VRAM, NVMe/SATA drive temperatures and a new *Fans* card update in place: no loading spinner, no scroll jump.
+- **`LIVE · 2s` pill** next to *Refresh* with a pulsing dot and a **Pause / Resume** button. The readings stream only while a view that shows them is open, and stop while the browser tab is hidden.
+- **System › Info** (CPU clock and temperature, GPU temperatures) and **Resource Monitor › GPU & Sensors** (GPU temperature, power, load and VRAM, drive temperatures) read the same live stream, so all three views always show the same numbers.
+- **API**: `GET /api/hardware/thermals` returns `cpu` (`package_temp_c`, `cores[{core_id, temp_c, freq_mhz, load_pct}]`, `avg/min/max_freq_mhz`), `gpus[{slot, name, temp_c, hotspot_temp_c, fan_rpm_or_pct, power_w, vram_used_mb, vram_total_mb, utilization_pct}]`, `drives[{device, model, temp_c, wear_pct}]`, `chassis_fans[{label, rpm}]` and `timestamp`. It runs one light sysfs/hwmon read plus `nvidia-smi` over the existing SSH connection (or locally when there is no bridge), with no `lspci`, `dmidecode` or `smartctl`. Answers are cached for 1.5 s, so several open views share one host read. Drive model and wear come from the 30 s SMART cache, which refreshes in the background.
+
+### Changed
+- **Hardware, GPU & BIOS is now Hardware, BIOS/Firmware & Multi-Seat** in the sidebar, breadcrumb, System card, Global Search, Manual, guides and docs, in all five languages. Its tabs are now **Hardware**, **BIOS/Firmware** and **Multi-Seat** (the Compute tab is also named *Multi-Seat*).
+- The Hardware tab's 5-second GPU metrics poll is replaced by the shared 2-second thermals stream. `GET /api/hardware/gpu-metrics` stays available for API clients.
+
 ## v2.26.0 - Solar AI Studio & local image upload for vision chat — 2026-11-28
 
 ### Added

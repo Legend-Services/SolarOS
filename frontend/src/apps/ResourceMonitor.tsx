@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { edition } from "@edition";
 import { Cpu, HardDrive, MonitorPlay, Thermometer, Zap } from "lucide-react";
-import { useTelemetry } from "../lib/stores";
+import { useLiveThermals, useTelemetry } from "../lib/stores";
 import { bytes, healthColor, percent, tempColor, uptime } from "../lib/format";
 import { AreaChart, Bar, Gauge, Legend } from "../components/charts";
 
@@ -22,8 +22,15 @@ const fmt = (v: number | null, unit: string, digits = 0) => (v == null ? "—" :
 
 function HardwareTab() {
   const hw = useTelemetry((s) => s.hardware);
+  const th = useLiveThermals();
   if (!hw) return <p className="p-4 text-sm text-slate-400">Loading hardware telemetry…</p>;
-  const g = hw.gpu;
+  // The 2 s thermals stream (shared with Settings › Hardware) overrides the 15 s summary where it has a value.
+  const lg = th?.gpus.find((x) => x.name === hw.gpu.name);
+  const g = lg
+    ? { ...hw.gpu, temp_c: lg.temp_c ?? hw.gpu.temp_c, power_w: lg.power_w ?? hw.gpu.power_w, utilization_pct: lg.utilization_pct ?? hw.gpu.utilization_pct, vram_used_mb: lg.vram_used_mb ?? hw.gpu.vram_used_mb }
+    : hw.gpu;
+  const liveDrive = new Map(th?.drives.map((d) => [d.device, d.temp_c]));
+  const disks = hw.disks.map((d) => ({ ...d, temp_c: liveDrive.get(d.devpath) ?? d.temp_c }));
 
   return (
     <div className="grid h-full auto-rows-min gap-3 overflow-y-auto p-4 lg:grid-cols-2">
@@ -80,9 +87,9 @@ function HardwareTab() {
 
       <section className="glass-soft rounded-xl p-4 lg:col-span-2">
         <h3 className="mb-3 text-sm font-semibold text-slate-100">Drives</h3>
-        {hw.disks.length === 0 && <p className="text-xs text-slate-400">No physical disks reported.</p>}
+        {disks.length === 0 && <p className="text-xs text-slate-400">No physical disks reported.</p>}
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {hw.disks.map((d) => (
+          {disks.map((d) => (
             <div key={d.devpath} className="rounded-xl bg-white/5 p-3">
               <div className="flex items-center gap-2 text-xs">
                 <HardDrive size={14} className="text-slate-400" />

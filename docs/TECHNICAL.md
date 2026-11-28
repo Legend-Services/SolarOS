@@ -267,7 +267,7 @@ undo it. The **FAQ** tab answers the common questions. For everything else:
 | Lost the 2FA phone | Sign in with one of the 8 recovery codes. Without them, delete `backend/data/security.json` (see Known limits). |
 | Signed out right after signing in, or "locked out" | 5 failed sign-ins within 10 minutes lock an address for 1 minute, doubling up to an hour (`Retry-After` header). Wait, or sign in from another address. |
 | A setting, tab or app is missing | It is switched off in **Settings → System → Features & Services**. Switching it back on restores its saved settings. |
-| VM does not start after adding a GPU | IOMMU is off or the host still uses the card. Check *Fix problems* for an IOMMU warning and switch the card to VM Passthrough Mode in **Settings → System → Hardware, GPU & BIOS**, then reboot. |
+| VM does not start after adding a GPU | IOMMU is off or the host still uses the card. Check *Fix problems* for an IOMMU warning and switch the card to VM Passthrough Mode in **Settings → System → Hardware, BIOS/Firmware & Multi-Seat**, then reboot. |
 | VM console stays black | The VM is off or still booting; with a passed-through primary GPU the picture goes to that card's own monitor. |
 | Console or host shell closes immediately | The console WebSocket closes with 4401 (not signed in) or 4403 (expired single-use console session, older than 60 s, or a cross-origin page). Open the console again from the same SolarDeck tab. |
 | Network change cut off the browser | Wait 60 seconds: *Apply safely* restores the previous network configuration by itself unless you press **Keep Settings**. |

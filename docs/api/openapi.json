@@ -8422,6 +8422,26 @@
     }
    }
   },
+  "/api/hardware/thermals": {
+   "get": {
+    "tags": [
+     "hardware_admin"
+    ],
+    "summary": "Thermals",
+    "description": "Live CPU/GPU/drive temperatures, clocks, loads and fan speeds; static board/BIOS data stays in /inventory.",
+    "operationId": "thermals_api_hardware_thermals_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/v1/bios/status": {
    "get": {
     "tags": [

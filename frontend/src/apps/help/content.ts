@@ -272,7 +272,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     fix: "iommu",
     steps: [
       { text: "Turn on IOMMU (VT-d). Help Center → Fix problems → 'Device passthrough (IOMMU / VT-d)' does it for you, and 'BIOS & firmware' shows how to enable VT-d in your BIOS (with a QR code for your phone).", link: { app: "help", intent: "fix" } },
-      { text: "Switch the card to VM Passthrough Mode in Settings → System → Hardware, GPU & BIOS → GPU & Drivers, then reboot the host.", link: { app: "controlpanel", intent: "hardware" } },
+      { text: "Switch the card to VM Passthrough Mode in Settings → System → Hardware, BIOS/Firmware & Multi-Seat → GPU & Drivers, then reboot the host.", link: { app: "controlpanel", intent: "hardware" } },
       { text: "Create the VM (or edit it) and add the card under Hardware & Passthrough. Keep 'Include HDMI audio' on; tick 'Primary GPU' to use the card's video outputs.", link: { app: "compute", intent: "vm" } },
       { text: "Start the VM and install the GPU driver inside it (e.g. NVIDIA's driver in Windows)." },
     ],
@@ -285,7 +285,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     keywords: "driver nvidia cuda nvidia-smi intel quicksync quick sync transcoding amd rocm install gpu host container plex jellyfin",
     intro: "Use host drivers when containers (Plex, Jellyfin, AI tools) should share the card.",
     steps: [
-      { text: "Open Settings → System → Hardware, GPU & BIOS and scroll to GPU & Drivers.", link: { app: "controlpanel", intent: "hardware" } },
+      { text: "Open Settings → System → Hardware, BIOS/Firmware & Multi-Seat and scroll to GPU & Drivers.", link: { app: "controlpanel", intent: "hardware" } },
       { text: "Press the install button for your card (NVIDIA, Intel or AMD), confirm, and watch the live log." },
       { text: "Reboot the host when the log asks for it. The GPU card then shows live usage and temperature." },
     ],
@@ -400,7 +400,7 @@ const BASE_TUTORIALS: Tutorial[] = [
     minutes: 1,
     keywords: "hardware cpu memory ram temperature sensors gpu disk nic motherboard bios inventory",
     intro: "Settings shows every component with temperatures and health.",
-    steps: [{ text: "Open Settings → System → Hardware, GPU & BIOS.", link: { app: "controlpanel", intent: "hardware" } }],
+    steps: [{ text: "Open Settings → System → Hardware, BIOS/Firmware & Multi-Seat.", link: { app: "controlpanel", intent: "hardware" } }],
   },
   {
     id: "dock",
@@ -434,7 +434,7 @@ const BASE_FAQS: (Faq | Slot)[] = [
   { id: "password", q: "I forgot the SolarDeck password. What now?", a: "On the server, run: grep ADMIN_PASSWORD /opt/solardeck/backend/.env — or set a new one in that file and restart the backend (systemctl restart solardeck-backend).", keywords: "forgot password reset login locked out" },
   { id: "2fa", q: "I lost my 2FA phone and can't sign in.", a: "On the server run: rm /opt/solardeck/backend/data/security.json — this turns 2FA off. Set it up again afterwards.", keywords: "2fa lost phone code locked out authenticator" },
   { slot: "repo-401" },
-  { q: "My VM doesn't start after adding a graphics card.", a: "Usually IOMMU is off or the card is still used by the host. Check Fix problems for an IOMMU warning, and switch the card to VM Passthrough Mode in Settings → System → Hardware, GPU & BIOS, then reboot.", keywords: "gpu passthrough vm not start error iommu vfio", link: { app: "controlpanel", intent: "hardware" } },
+  { q: "My VM doesn't start after adding a graphics card.", a: "Usually IOMMU is off or the card is still used by the host. Check Fix problems for an IOMMU warning, and switch the card to VM Passthrough Mode in Settings → System → Hardware, BIOS/Firmware & Multi-Seat, then reboot.", keywords: "gpu passthrough vm not start error iommu vfio", link: { app: "controlpanel", intent: "hardware" } },
   { q: "The VM console is black.", a: "The VM may be off or still booting. Start it in Compute Manager. With a passed-through 'Primary GPU' the picture goes to the card's own monitor output instead of the console.", keywords: "console black screen vnc nothing", link: { app: "compute" } },
   { q: "The container Shell button asks for nothing — is that safe?", a: "Yes, it opens a root shell over SolarDeck's own key. Only people signed in to SolarDeck can do this, so keep your password strong and 2FA on.", keywords: "shell container root login password safe security" },
   { q: "What is the difference between a VM and a container?", a: "A VM is a full computer (any OS, including Windows). A container shares the host's Linux kernel: much lighter and faster, Linux only.", keywords: "vm container difference lxc which choose" },
