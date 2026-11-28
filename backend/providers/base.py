@@ -236,7 +236,7 @@ class HypervisorProvider(ABC):
     @abstractmethod
     async def list_gpus(self) -> list[GpuDeviceInfo]: ...
 
-    # Local AI GPU provisioning
+    # Solar AI Studio GPU provisioning
     @abstractmethod
     async def provision_ai_container(self, spec: dict) -> TaskInfo: ...
 

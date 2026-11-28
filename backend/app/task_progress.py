@@ -1,5 +1,5 @@
 """Unified stage-based progress for long-running jobs: GPU driver installs and mode switches, App Center installs,
-OS package upgrades, Local AI model pulls and app uninstalls. Every job is reported in one shape, shown by the frontend's
+OS package upgrades, Solar AI Studio model pulls and app uninstalls. Every job is reported in one shape, shown by the frontend's
 OperationProgressCard and the Task Center:
 
     {job_id, kind, subject, status: running|completed|failed, progress_percent: 0..100, current_stage, stage_key,

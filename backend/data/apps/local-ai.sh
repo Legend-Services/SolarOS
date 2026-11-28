@@ -1,4 +1,4 @@
-# Local AI Studio. Env from the backend: SD_COMPUTE (cpu | nvidia:* | intel:* | amd:*), SD_WEBUI (0/1).
+# Solar AI Studio. Env from the backend: SD_COMPUTE (cpu | nvidia:* | intel:* | amd:*), SD_WEBUI (0/1).
 echo "==> Installing Ollama (compute target: ${SD_COMPUTE:-cpu})"
 apt-get install -y -qq zstd >/dev/null
 if [ "${SD_COMPUTE%%:*}" = amd ]; then

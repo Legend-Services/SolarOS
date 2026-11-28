@@ -465,7 +465,7 @@ const BIOS = {
   ],
 };
 
-/* ---------------- Apps / Local AI ---------------- */
+/* ---------------- Apps / Solar AI Studio ---------------- */
 
 const app = (id, name, category, description, icon, cores, memory_mb, disk_gb, web_port, extra = {}) => ({
   id, name, category, description, icon, cores, memory_mb, disk_gb, web_port, web_scheme: "http", supports_igpu: false, supports_storage_mount: true, featured: false, compute_selector: false, installed: [], ...extra,
@@ -477,13 +477,13 @@ const inst = (app_id, app_name, label, guest_id, ip, port, status, scheme = "htt
 const INSTANCES = [
   inst("portainer", "Portainer CE", "", 110, "192.168.1.60", 9443, "running", "https"),
   inst("portainer", "Portainer CE", "Dev", 111, null, 9443, "stopped", "https"),
-  inst("local-ai", "Local AI Studio", "", 105, "192.168.1.55", 8080, "running"),
+  inst("local-ai", "Solar AI Studio", "", 105, "192.168.1.55", 8080, "running"),
   // Installed before file sharing became built in: still listed, opened and uninstalled, with the badge.
   inst("samba", "File Server (legacy)", "", 108, "192.168.1.58", null, "running", "http", { legacy: true, native_feature: "smb_shares", badge: "Built-In Native Feature Available" }),
 ];
 
 const CATALOG = [
-  app("local-ai", "Local AI Studio", "AI & Compute", "Private AI chat on your own hardware, with a model library and a web chat interface.", "BrainCircuit", 8, 12288, 64, 8080, { featured: true, installed: [{ vmid: 105, name: "local-ai", status: "running" }] }),
+  app("local-ai", "Solar AI Studio", "AI & Compute", "Private AI chat on your own hardware, with a model library and a web chat interface.", "BrainCircuit", 8, 12288, 64, 8080, { featured: true, installed: [{ vmid: 105, name: "local-ai", status: "running" }] }),
   app("jellyfin", "Jellyfin Media Server", "Media", "Stream your movies, shows and music to any device, with hardware transcoding when a GPU is present.", "Clapperboard", 2, 2048, 16, 8096, { supports_igpu: true }),
   app("immich", "Immich", "Media", "Self-hosted photo and video backup with phone apps, face recognition and shared albums.", "Images", 4, 4096, 32, 2283),
   app("music-library", "Music Library", "Media", "Organise and stream your music collection in the browser.", "Clapperboard", 1, 1024, 8, 4533),
@@ -503,6 +503,7 @@ const AI_STATUS = {
 const LOCAL_MODELS = [
   { name: "assistant:8b", size: 4.9e9, modified_at: new Date((T0 - 5 * 86400) * 1000).toISOString(), family: "assistant", parameter_size: "8.0B", quantization: "Q4_K_M", loaded: true, size_vram: 5.4e9 },
   { name: "coder:7b", size: 4.7e9, modified_at: new Date((T0 - 12 * 86400) * 1000).toISOString(), family: "coder", parameter_size: "7.6B", quantization: "Q4_K_M", loaded: false, size_vram: null },
+  { name: "vision:11b", size: 7.9e9, modified_at: new Date((T0 - 2 * 86400) * 1000).toISOString(), family: "mllama", parameter_size: "10.7B", quantization: "Q4_K_M", loaded: false, size_vram: null, supports_vision: true },
 ];
 const AI_HARDWARE = {
   targets: [
@@ -517,7 +518,7 @@ const ONLINE_MODELS = {
   models: [
     { name: "assistant", description: "General-purpose chat model with strong instruction following.", category: "chat", capabilities: ["tools"], pulls: "12M", tags: [tag("8b", "4.9GB", 8, 4.9, "optimal_gpu"), tag("70b", "43GB", 70, 43, "cpu_offload")] },
     { name: "coder", description: "Code completion and explanation in many programming languages.", category: "code", capabilities: ["tools"], pulls: "4.1M", tags: [tag("7b", "4.7GB", 7.6, 4.7, "optimal_gpu"), tag("32b", "20GB", 32, 20, "tight_gpu")] },
-    { name: "vision", description: "Describes and answers questions about images.", category: "vision", capabilities: ["vision"], pulls: "2.3M", tags: [tag("11b", "7.9GB", 11, 7.9, "optimal_gpu")] },
+    { name: "vision", description: "Describes and answers questions about images.", category: "vision", capabilities: ["vision"], pulls: "2.3M", supports_vision: true, tags: [tag("11b", "7.9GB", 11, 7.9, "optimal_gpu")] },
     { name: "embed", description: "Text embeddings for search and retrieval.", category: "embedding", capabilities: ["embedding"], pulls: "8.7M", tags: [tag("latest", "274MB", 0.14, 0.27, "optimal_gpu")] },
   ],
 };
@@ -897,7 +898,7 @@ const MODULE_FIXTURES = {
   "/proxy/access-lists": () => PROXY_ACLS,
   "/proxy/certificates": () => ({ certificates: PROXY_CERTS, root_ca: ROOT_CA, acme_job: null }),
   "/proxy/upstreams": () => [
-    { kind: "app", name: "Local AI Studio", host: "10.20.0.55", port: null, guest_id: 105 },
+    { kind: "app", name: "Solar AI Studio", host: "10.20.0.55", port: null, guest_id: 105 },
     ...GUESTS.map((g) => ({ kind: g.type === "qemu" ? "vm" : "container", name: g.name, host: null, port: null, guest_id: g.vmid })),
   ],
   "/dr/status": () => ({ module: moduleProfile("offsite_backup"), local_snapshots: 2, latest_snapshot: DR_SNAPS[0], offsite_targets: 2, offsite_ok: 2, verifications: DR_VERIFY }),

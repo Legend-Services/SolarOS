@@ -183,7 +183,7 @@
   :where(:root[data-color-mode="light"] :is(.bg-black\/15, .bg-black\/20, .bg-black\/25, .bg-black\/30, .bg-black\/35, .bg-black\/40, .bg-black\/50):not(.inset-0, [class*="border"], [class*="ring-"])) {
     box-shadow: inset 0 0 0 1px var(--sd-hairline);
   }
-  /* App sidebars (Settings, Files, Manual, Local AI) share the window's own surface; only their border-r divides. */
+  /* App sidebars (Settings, Files, Manual, Solar AI Studio) share the window's own surface; only their border-r divides. */
   :where(:root[data-color-mode="light"]) aside:is(.bg-black\/15, .bg-black\/20) {
     background-color: transparent;
   }

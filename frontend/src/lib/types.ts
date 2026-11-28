@@ -153,7 +153,7 @@ export interface AppInstance {
   badge?: string;
 }
 
-/* ---------------- Local AI Studio ---------------- */
+/* ---------------- Solar AI Studio (app id "local-ai") ---------------- */
 
 export interface ComputeTarget {
   id: string; // "nvidia:01:00.0" | "intel:/dev/dri/renderD128" | "amd:..." | "cpu"
@@ -189,6 +189,7 @@ export interface OnlineModel {
   category: string;
   capabilities: string[];
   pulls: string | null;
+  supports_vision?: boolean;
   tags: { tag: string; size: string; params_b: number | null; download_gb: number | null; vram_required_gb: number | null; vram_fit: VramFit }[];
 }
 
@@ -201,6 +202,7 @@ export interface LocalModel {
   quantization: string | null;
   loaded: boolean;
   size_vram: number | null;
+  supports_vision?: boolean;
 }
 
 export interface PullJob {

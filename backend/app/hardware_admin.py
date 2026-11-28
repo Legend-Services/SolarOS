@@ -444,7 +444,7 @@ else
       if grep -q "^$m " /proc/modules; then rmmod "$m" 2>/dev/null || true; fi
     done
     if grep -q '^nvidia ' /proc/modules; then
-      echo "!! The running NVIDIA driver ${CUR:-} is in use by a container, VM or service, so it cannot be replaced. Stop the guests that use the GPU (for example Local AI Studio), then click Install again."
+      echo "!! The running NVIDIA driver ${CUR:-} is in use by a container, VM or service, so it cannot be replaced. Stop the guests that use the GPU (for example Solar AI Studio), then click Install again."
       exit 4
     fi
   fi
