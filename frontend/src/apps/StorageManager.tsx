@@ -32,7 +32,8 @@ import { ViewToggle } from "../components/ViewOptions";
 import { GuideBanner } from "../components/wizards/GuidedWizardModal";
 import { api } from "../lib/api";
 import type { PhysicalDisk, Schedule, Share, SmartReport, StorageInfo, ZfsDataset, ZfsDatasetInfo, ZfsSnapshot, ZfsVdev } from "../lib/types";
-import { bytes, healthColor, percent, tempColor } from "../lib/format";
+import { bytes, healthColor, percent } from "../lib/format";
+import { TempText } from "../components/TempText";
 import { useRunner } from "../lib/hooks";
 import { Bar } from "../components/charts";
 import Benchmark from "./storage/Benchmark";
@@ -918,7 +919,7 @@ function SmartDrawer({ disk, onClose }: { disk: PhysicalDisk | null; onClose: ()
   const tiles: [string, ReactNode][] = data
     ? [
         ["Health", <span className={healthColor(data.health)}>{data.health}</span>],
-        ["Temperature", <span className={tempColor(data.temperature_c)}>{data.temperature_c ?? "—"} °C</span>],
+        ["Temperature", <TempText c={data.temperature_c} kind={disk?.rotational ? "hdd" : "ssd"} />],
         ["Power-on hours", data.power_on_hours?.toLocaleString() ?? "—"],
         ["Life used", data.wearout_used_pct != null ? `${data.wearout_used_pct}%` : "—"],
         ["Unsafe shutdowns", data.unsafe_shutdowns ?? "—"],
@@ -1170,8 +1171,8 @@ function Disks({ disks, onChanged }: { disks: PhysicalDisk[] | null; onChanged: 
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-semibold text-slate-100">{bytes(d.size)}</div>
-                    <div className={`flex items-center justify-end gap-0.5 text-[11px] ${tempColor(temp)}`}>
-                      <Thermometer size={11} /> {temp ?? "—"} °C
+                    <div className="flex items-center justify-end gap-0.5 text-[11px]">
+                      <Thermometer size={11} /> <TempText c={temp} kind={d.rotational ? "hdd" : "ssd"} />
                     </div>
                   </div>
                 </div>
@@ -1238,7 +1239,7 @@ function Disks({ disks, onChanged }: { disks: PhysicalDisk[] | null; onChanged: 
                       <GlassBadge tone="info">{d.bus}</GlassBadge> <span className="text-[10px] text-slate-400">{d.rotational ? "HDD" : "SSD"}</span>
                     </td>
                     <td className="px-2 text-right tabular-nums text-slate-200">{bytes(d.size)}</td>
-                    <td className={`px-2 text-right tabular-nums ${tempColor(temp)}`}>{temp ?? "—"} °C</td>
+                    <td className="px-2 text-right"><TempText c={temp} kind={d.rotational ? "hdd" : "ssd"} /></td>
                     <td className="px-2">
                       <LifeCell d={d} />
                     </td>

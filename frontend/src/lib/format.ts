@@ -16,9 +16,6 @@ export function uptime(s: number): string {
 }
 
 // 55 °C matches the backend's disk temperature alert threshold.
-export const tempColor = (c: number | null | undefined) =>
-  c == null ? "text-slate-400" : c > 55 ? "text-rose-400" : c > 45 ? "text-amber-400" : "text-emerald-400";
-
 export const healthColor = (h?: string) =>
   !h ? "text-slate-400" : /ONLINE|PASSED|OK/i.test(h) ? "text-emerald-400" : /DEGRADED|UNKNOWN/i.test(h) ? "text-amber-400" : "text-rose-400";
 

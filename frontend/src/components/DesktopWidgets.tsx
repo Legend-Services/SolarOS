@@ -4,13 +4,16 @@ import {
   NotebookPen, Activity, Settings2, SquareTerminal, Zap,
 } from "lucide-react";
 import { openLink, useAuth, useIntent, useLiveThermals, useTelemetry, useWindows } from "../lib/stores";
-import { bytes, healthColor, percent, tempColor, uptime } from "../lib/format";
+import { bytes, healthColor, percent, uptime } from "../lib/format";
 import { api } from "../lib/api";
 import { usePoll } from "../lib/hooks";
 import { useTranslation, type TKey } from "../i18n";
 import { HW_PARTS, useWidgets, type HwPart, type WidgetCfg, type WidgetId, type WidgetSlot } from "../store/widgetStore";
 import { GlassCheckbox } from "./ui/GlassKit";
 import { AreaChart, Bar, Gauge } from "./charts";
+import { driveKind, type SensorKind } from "../lib/thermals";
+import { TempText } from "./TempText";
+import ThermalSettingsPanel from "./settings/ThermalSettingsPanel";
 
 export const WIDGET_META: Record<WidgetId, { title: TKey; desc: TKey; icon: ReactNode }> = {
   health: { title: "widget.health", desc: "widget.healthDesc", icon: <HeartPulse size={14} /> },
@@ -97,7 +100,7 @@ function ComputeWidget({ compact, t }: { compact: boolean; t: T }) {
 
 /* Hardware & Thermal Monitor (id "gpu"): CPU, GPU, RAM and storage, each with its temperatures when shown and available. */
 
-const Temp = ({ c }: { c: number | null | undefined }) => (c == null ? null : <span className={`tabular-nums ${tempColor(c)}`}>{c.toFixed(0)}°C</span>);
+const Temp = ({ c, kind }: { c: number | null | undefined; kind: SensorKind }) => <TempText c={c} kind={kind} unit="°C" empty={null} />;
 
 function HwSection({ title, right, children }: { title: string; right?: ReactNode; children?: ReactNode }) {
   return (
@@ -142,14 +145,14 @@ function HardwareWidget({ compact, t, w }: { compact: boolean; t: T; w?: WidgetC
             right={<>
               <span className="tabular-nums">{o ? `${o.cpu.toFixed(0)}%` : "—"}</span>
               {th?.cpu.avg_freq_mhz != null && <span className="tabular-nums text-slate-400">{th.cpu.avg_freq_mhz} MHz</span>}
-              {heat && <Temp c={th?.cpu.package_temp_c} />}
+              {heat && <Temp c={th?.cpu.package_temp_c} kind="cpu" />}
             </>}
           >
             <Bar value={o?.cpu ?? 0} className="bg-sky-400" />
             {heat && !compact && hottest != null && (
               <div className="flex justify-between text-[11px] text-slate-400">
                 <span>{t("widget.hottestCore")}</span>
-                <Temp c={hottest} />
+                <Temp c={hottest} kind="cpu" />
               </div>
             )}
           </HwSection>
@@ -166,7 +169,7 @@ function HardwareWidget({ compact, t, w }: { compact: boolean; t: T; w?: WidgetC
                     <span className="min-w-0 break-words font-medium text-slate-100">{g.name}</span>
                     <span className="shrink-0 space-x-2 text-[11px] text-slate-300">
                       {g.utilization_pct != null && <span className="tabular-nums">{g.utilization_pct.toFixed(0)}%</span>}
-                      {heat && <Temp c={g.temp_c} />}
+                      {heat && <Temp c={g.temp_c} kind="gpu" />}
                       {heat && g.power_w != null && <span className="tabular-nums text-slate-400">{g.power_w.toFixed(0)} W</span>}
                     </span>
                   </div>
@@ -176,7 +179,7 @@ function HardwareWidget({ compact, t, w }: { compact: boolean; t: T; w?: WidgetC
                       {!compact && (
                         <div className="flex justify-between text-[11px] text-slate-400">
                           <span className="tabular-nums">{t("widget.vram", { used: ((g.vram_used_mb ?? 0) / 1024).toFixed(1), total: (g.vram_total_mb / 1024).toFixed(1) })}</span>
-                          {heat && g.hotspot_temp_c != null && <span>hotspot <Temp c={g.hotspot_temp_c} /></span>}
+                          {heat && g.hotspot_temp_c != null && <span>hotspot <Temp c={g.hotspot_temp_c} kind="hotspot" /></span>}
                         </div>
                       )}
                     </>
@@ -202,7 +205,7 @@ function HardwareWidget({ compact, t, w }: { compact: boolean; t: T; w?: WidgetC
             title={t("widget.sec.ram")}
             right={<>
               <span className="tabular-nums">{o ? t("widget.usedOf", { used: bytes(o.memory.used), total: bytes(o.memory.total) }) : "—"}</span>
-              {heat && <Temp c={dimm} />}
+              {heat && <Temp c={dimm} kind="ram" />}
             </>}
           >
             <Bar value={o ? percent(o.memory.used, o.memory.total) : 0} className="bg-violet-400" />
@@ -228,7 +231,7 @@ function HardwareWidget({ compact, t, w }: { compact: boolean; t: T; w?: WidgetC
                   {disks.slice(0, compact ? 3 : 8).map((d) => (
                     <li key={d.devpath} className="flex justify-between gap-2">
                       <span className="min-w-0 break-words text-slate-300">{d.model || d.devpath}</span>
-                      <Temp c={d.temp_c} />
+                      <Temp c={d.temp_c} kind={driveKind(d.devpath, d.type)} />
                     </li>
                   ))}
                 </ul>
@@ -249,10 +252,13 @@ function HardwareOptions({ w, t }: { w: WidgetCfg; t: T }) {
   const show = w.show ?? [...HW_PARTS];
   const toggle = (p: HwPart, on: boolean) => update(w.id, { show: HW_PARTS.filter((x) => (x === p ? on : show.includes(x))) });
   return (
-    <div className="mb-3 flex flex-wrap gap-x-3 gap-y-1.5 rounded-xl bg-black/20 p-2.5" role="group" aria-label={t("widget.hwOptions")}>
-      {HW_PARTS.map((p) => (
-        <GlassCheckbox key={p} checked={show.includes(p)} onChange={(v) => toggle(p, v)} label={<span className="text-[11px]">{t(p === "thermals" ? "widget.thermals" : `widget.sec.${p}`)}</span>} />
-      ))}
+    <div className="mb-3 max-h-[60vh] space-y-3 overflow-y-auto rounded-xl bg-black/20 p-2.5">
+      <div className="flex flex-wrap gap-x-3 gap-y-1.5" role="group" aria-label={t("widget.hwOptions")}>
+        {HW_PARTS.map((p) => (
+          <GlassCheckbox key={p} checked={show.includes(p)} onChange={(v) => toggle(p, v)} label={<span className="text-[11px]">{t(p === "thermals" ? "widget.thermals" : `widget.sec.${p}`)}</span>} />
+        ))}
+      </div>
+      {show.includes("thermals") && <ThermalSettingsPanel compact />}
     </div>
   );
 }
