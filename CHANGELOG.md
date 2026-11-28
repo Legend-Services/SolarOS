@@ -1,5 +1,10 @@
 # Changelog
 
+## v2.27.1 - Full Settings sidebar names — 2026-11-28
+
+### Fixed
+- **Long names in the Settings sidebar wrap onto a second line** instead of being cut off, so *Hardware, BIOS/Firmware & Multi-Seat* is readable in full.
+
 ## v2.27.0 - Realtime hardware thermals & Hardware, BIOS/Firmware & Multi-Seat — 2026-11-28
 
 ### Added
