@@ -21,6 +21,21 @@ try {
 
   await card.getByRole("button", { name: "Choose what to show" }).click();
   const opts = card.getByRole("group", { name: "Choose what to show" });
+
+  // Thermal sliders in the gear panel: averaging window and per-sensor limits (generic CPU profile: red from 90 °C).
+  const pkg = card.locator("span", { hasText: /^53°C$/ }).first();
+  assert.match(await pkg.getAttribute("class"), /text-emerald-400/, "53 °C is green on the generic profile");
+  const slider = (label) => card.locator("label", { hasText: label }).locator('input[type="range"]');
+  await slider("Average temperatures over").fill("30");
+  await slider("Red from").first().fill("50");
+  await page.waitForTimeout(200);
+  assert.match(await pkg.getAttribute("class"), /text-rose-400/, "53 °C turns red with red from 50 °C");
+  if (out) await card.screenshot({ path: `${out}/widget-sliders.png` });
+  const th = await page.evaluate(() => JSON.parse(localStorage.getItem("solardeck-thermal")).state);
+  assert.equal(th.smoothSec, 30, "averaging window saved");
+  assert.equal(th.overrides.cpu.hot, 50, "CPU red limit saved");
+  assert.ok(th.overrides.cpu.warn < 50, "orange stays below red");
+
   await opts.getByText("GPU", { exact: true }).click();
   await opts.getByText("Temperatures", { exact: true }).click();
   await page.waitForTimeout(300);

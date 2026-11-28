@@ -2,13 +2,14 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ArrowUpRight, Check, CloudDownload, Cpu, HardDrive, MemoryStick, MonitorCog, Pencil, Power, RefreshCw, RotateCcw, Server, X } from "lucide-react";
 import { edition } from "@edition";
 import { api } from "../../lib/api";
-import { bytes, percent, tempColor, uptime } from "../../lib/format";
+import { bytes, percent, uptime } from "../../lib/format";
 import { useRunner } from "../../lib/hooks";
 import { openLink, useLiveThermals } from "../../lib/stores";
 import type { SystemInfo, SystemUpdates, UpdateStatus } from "../../lib/types";
 import { useTranslation } from "../../i18n";
 import { useUpdateStore } from "../../store/updateStore";
 import { ConfirmModal, GlassBadge, GlassButton, GlassInput, Notice, healthTone } from "../ui/GlassKit";
+import { TempText } from "../TempText";
 
 const HOSTNAME = /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/;
 
@@ -212,7 +213,7 @@ function HardwareCards({ info }: { info: SystemInfo }) {
             [t("si.sockets"), n(cpu.sockets)],
             [t("si.coresThreads"), cpu.physical_cores || cpu.logical_threads ? `${cpu.physical_cores ?? "—"} / ${cpu.logical_threads ?? "—"}` : null],
             [t("si.clock"), cpu.current_freq_mhz ? `${Math.round(cpu.current_freq_mhz)} MHz` : null],
-            [t("si.temp"), cpu.temperature_c != null ? <span className={tempColor(cpu.temperature_c)}>{Math.round(cpu.temperature_c)} °C</span> : null],
+            [t("si.temp"), cpu.temperature_c != null ? <TempText c={cpu.temperature_c} kind="cpu" /> : null],
             [t("si.load"), cpu.load_avg?.length ? cpu.load_avg.map((x) => x.toFixed(2)).join(" · ") : null],
           ]}
         />
@@ -236,7 +237,7 @@ function HardwareCards({ info }: { info: SystemInfo }) {
                   <span className="font-mono">{g.slot}</span>
                   {g.vram_total_mb != null && <span>{t("si.vram")}: {g.vram_used_mb != null ? `${bytes(g.vram_used_mb * 1048576)} / ` : ""}{bytes(g.vram_total_mb * 1048576)}</span>}
                   <span>{t("si.driver")}: {g.driver ?? t("si.noDriver")}</span>
-                  {g.temperature_c != null && <span className={tempColor(g.temperature_c)}>{Math.round(g.temperature_c)} °C</span>}
+                  {g.temperature_c != null && <TempText c={g.temperature_c} kind="gpu" />}
                 </div>
               </li>
             ))}

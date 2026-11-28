@@ -3,6 +3,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { api, forgetStepUp, setUnauthorizedHandler } from "./api";
 import type { ConsoleTarget, HardwareInfo, Overview, StorageInfo } from "./types";
+import { smooth, type LiveThermals, type Sample as ThermalSample } from "./thermals";
 import type { AppId } from "../apps/registry";
 import { APPS, APP_IDS, DOCK_DEFAULT, liveAppIds } from "../apps/registry";
 import { settingsModule, settingsTab, type ModuleId } from "../apps/settings/modules";
@@ -393,28 +394,19 @@ export const useTelemetry = create<TelemetryState>((set, get) => ({
 
 /* ---------------- Live hardware thermals (GET /api/hardware/thermals) ---------------- */
 
-export interface LiveThermals {
-  cpu: {
-    package_temp_c: number | null;
-    cores: { core_id: number; temp_c: number | null; freq_mhz: number | null; load_pct: number | null }[];
-    avg_freq_mhz: number | null;
-    min_freq_mhz: number | null;
-    max_freq_mhz: number | null;
-  };
-  gpus: { slot: string; name: string; temp_c: number | null; hotspot_temp_c: number | null; fan_rpm_or_pct: number | null; fan_unit: "%" | "rpm"; power_w: number | null; vram_used_mb: number | null; vram_total_mb: number | null; utilization_pct: number | null }[];
-  drives: { device: string; model: string | null; temp_c: number | null; wear_pct: number | null }[];
-  /** DIMM sensors (jc42 / spd5118) when the board has them. */
-  memory: { label: string; temp_c: number }[];
-  chassis_fans: { label: string; rpm: number }[];
-  timestamp: number;
-}
+export type { LiveThermals } from "./thermals";
 
 export const THERMAL_MS = 2000;
 
 interface ThermalState {
+  /** Newest reading with temperatures averaged over `windowMs` (see lib/thermals smooth()). */
   data: LiveThermals | null;
+  samples: ThermalSample[];
+  /** Averaging window; set from the Thermal Sensors settings (store/thermalStore). */
+  windowMs: number;
   paused: boolean;
   subs: number;
+  setWindow: (ms: number) => void;
   setPaused: (paused: boolean) => void;
   /** Mount-time subscription: one shared 2 s poll runs while any view is subscribed and not paused. */
   subscribe: () => () => void;
@@ -423,7 +415,14 @@ interface ThermalState {
 let thermalTimer: ReturnType<typeof setInterval> | undefined;
 
 export const useThermals = create<ThermalState>((set, get) => {
-  const tick = () => !document.hidden && api<LiveThermals>("/hardware/thermals").then((data) => set({ data }), () => {});
+  const tick = () =>
+    !document.hidden &&
+    api<LiveThermals>("/hardware/thermals").then((d) => {
+      const at = Date.now();
+      // Keep a little more than the longest window (60 s) so a larger window applies at once.
+      const samples = [...get().samples.filter((x) => x.at >= at - 65_000), { at, d }];
+      set({ samples, data: smooth(samples, get().windowMs) });
+    }, () => {});
   const sync = () => {
     const on = get().subs > 0 && !get().paused;
     if (on && !thermalTimer) (tick(), (thermalTimer = setInterval(tick, THERMAL_MS)));
@@ -431,8 +430,11 @@ export const useThermals = create<ThermalState>((set, get) => {
   };
   return {
     data: null,
+    samples: [],
+    windowMs: 10_000,
     paused: false,
     subs: 0,
+    setWindow: (windowMs) => set((s) => ({ windowMs, data: smooth(s.samples, windowMs) })),
     setPaused: (paused) => (set({ paused }), sync()),
     subscribe: () => {
       set((s) => ({ subs: s.subs + 1 }));
