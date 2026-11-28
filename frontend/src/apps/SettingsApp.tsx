@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight, CircleHelp, PanelLeftClose, PanelLeftOpen, Search } from "lucide-react";
 import { useCapabilities } from "../store/capabilitiesStore";
 import { useFeatures, useVisibility } from "../store/featureStore";
@@ -46,6 +46,10 @@ import StorageProtocolsPanel from "./settings/StorageProtocolsPanel";
 import ImageHubPanel from "../components/compute/ImageHubPanel";
 import FeaturesServicesPanel from "../components/settings/FeaturesServicesPanel";
 import SystemInfoPanel from "../components/settings/SystemInfoPanel";
+
+const TREE_KEY = "solardeck-settings-tree-width";
+const TREE_DEFAULT = 240, TREE_MIN = 160, TREE_MAX = 480;
+const clampTree = (w: number) => Math.round(Math.min(TREE_MAX, Math.max(TREE_MIN, w)));
 
 const pad = (n: ReactNode) => <div className="h-full space-y-4 overflow-auto p-4 pb-10" data-settings-body>{n}</div>;
 /** An optional Security-by-Design module: its header (on/off, runtime, network), then the panel while it is on. */
@@ -344,6 +348,21 @@ export default function SettingsApp() {
   const [module, setModule] = useState<ModuleId | null>(null);
   const [query, setQuery] = useState("");
   const [tree, setTree] = useState(true);
+  const [treeW, setTreeW] = useState(() => clampTree(Number(localStorage.getItem(TREE_KEY)) || TREE_DEFAULT));
+  const resizeTree = (w: number) => {
+    const v = clampTree(w);
+    setTreeW(v);
+    localStorage.setItem(TREE_KEY, String(v));
+  };
+  const dragTree = (e: ReactPointerEvent) => {
+    e.preventDefault();
+    const x0 = e.clientX, w0 = treeW;
+    const move = (ev: PointerEvent) => resizeTree(w0 + ev.clientX - x0);
+    const up = () => (window.removeEventListener("pointermove", move), window.removeEventListener("pointerup", up), (document.body.style.cursor = ""));
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+    document.body.style.cursor = "col-resize";
+  };
   // The last deep link: which module's inner tab to open, and what to highlight once it renders.
   const [nav, setNav] = useState<{ n: number; module?: ModuleId; tab?: string; anchor?: string }>({ n: 0 });
   const root = useRef<HTMLDivElement>(null);
@@ -385,14 +404,14 @@ export default function SettingsApp() {
           <ChevronRight size={12} className="text-slate-600" />
           <button onClick={() => setModule(inCat(cat)[0])} className="rounded-md px-1.5 py-1 text-slate-400 hover:bg-white/10 hover:text-slate-200">{t(`set.cat.${cat}`)}</button>
           <ChevronRight size={12} className="text-slate-600" />
-          <span className="truncate font-semibold text-white" aria-current="page">{t(`set.mod.${module}`)}</span>
+          <span className="min-w-0 font-semibold text-white" aria-current="page">{t(`set.mod.${module}`)}</span>
           <button onClick={() => showGuide(MODULES[module].guide)} className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 text-slate-300 hover:bg-white/10">
             <CircleHelp size={13} /> {t("set.guide")}
           </button>
         </nav>
         <div className="flex min-h-0 flex-1">
           {tree && (
-            <aside className="w-60 shrink-0 overflow-auto border-r border-white/10 bg-black/20 p-2 pb-8 max-sm:hidden" aria-label={t(`set.cat.${cat}`)}>
+            <aside style={{ width: treeW }} className="shrink-0 overflow-auto bg-black/20 p-2 pb-8 max-sm:hidden" aria-label={t(`set.cat.${cat}`)}>
               {inCat(cat).map((id) => {
                 const Icon = MODULES[id].icon;
                 return (
@@ -402,13 +421,29 @@ export default function SettingsApp() {
                     aria-current={id === module}
                     className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition ${id === module ? "bg-white/12 text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"}`}
                   >
-                    <Icon size={13} className="shrink-0" /> <span className="min-w-0 flex-1 leading-snug">{t(`set.mod.${id}`)}</span>
+                    <Icon size={13} className="shrink-0" /> <span className="min-w-0 flex-1 leading-snug [overflow-wrap:anywhere]">{t(`set.mod.${id}`)}</span>
                     {id === "features-services" && <FeatureCount compact />}
                     {dots[id] && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dots[id]}`} aria-hidden />}
                   </button>
                 );
               })}
             </aside>
+          )}
+          {tree && (
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              aria-label={t("set.resizeTree")}
+              title={t("set.resizeTree")}
+              aria-valuenow={treeW}
+              aria-valuemin={TREE_MIN}
+              aria-valuemax={TREE_MAX}
+              tabIndex={0}
+              onPointerDown={dragTree}
+              onDoubleClick={() => resizeTree(TREE_DEFAULT)}
+              onKeyDown={(e) => (e.key === "ArrowLeft" ? resizeTree(treeW - 16) : e.key === "ArrowRight" ? resizeTree(treeW + 16) : undefined)}
+              className="w-1.5 shrink-0 cursor-col-resize touch-none border-l border-white/10 transition-colors hover:bg-sky-400/30 focus-visible:bg-sky-400/50 focus-visible:outline-none max-sm:hidden"
+            />
           )}
           <div className="min-w-0 flex-1">
             <ModuleBody key={`${module}:${nav.n}`} id={module} tab={nav.module === module ? nav.tab : undefined} />

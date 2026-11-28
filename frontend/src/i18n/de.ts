@@ -500,6 +500,7 @@ export const de: Dict = {
   "set.all": "Alle Einstellungen",
   "set.guide": "Anleitung",
   "set.toggleTree": "Kategorie-Seitenleiste ein- oder ausblenden",
+  "set.resizeTree": "Ziehen, um die Seitenleiste zu verbreitern oder zu verschmälern (Pfeiltasten gehen auch, Doppelklick setzt zurück)",
   "set.noMatch": "Keine Einstellungen passen zu deinem Filter.",
   "set.host.hostname": "Hostname",
   "set.host.platform": "Plattform",

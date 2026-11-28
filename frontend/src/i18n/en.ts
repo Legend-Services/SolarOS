@@ -499,6 +499,7 @@ export const en = {
   "set.all": "All Settings",
   "set.guide": "Guide",
   "set.toggleTree": "Show or hide the category sidebar",
+  "set.resizeTree": "Drag to resize the sidebar (arrow keys work too, double-click resets)",
   "set.noMatch": "No settings match your filter.",
   "set.host.hostname": "Hostname",
   "set.host.platform": "Platform",
