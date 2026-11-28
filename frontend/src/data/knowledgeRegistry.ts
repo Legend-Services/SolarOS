@@ -220,10 +220,33 @@ export const APP_DOCS: Partial<Record<AppId, Doc>> = {
     keywords: "app center store install deploy one click media docker portainer apps marketplace samba nginx proxy built in native osi model 7 layer seven layers l1 l2 l3 l4 l5 l6 l7 physical data link network transport session presentation application pdu frame packet segment encapsulation junior learn port tls veth",
   },
   "local-ai": {
-    intro: "Local AI Studio downloads AI models and runs them on your own hardware, with a private chat to test them. Nothing leaves your server.",
-    steps: ["Open the model library and download a model that fits your GPU memory.", "Start a new chat and pick the model at the top.", "Add custom instructions to shape the answers."],
-    tips: ["GPU assignment and the model storage folder are in Settings › Hypervisor & Runtime › Local AI Runtime."],
-    keywords: "ai llm model chat gpu local private assistant inference studio",
+    intro: "Solar AI Studio downloads AI models and runs them on your own hardware, with a private chat to test them. Nothing leaves your server.",
+    steps: [
+      "Open the model library and download a model that fits your GPU memory.",
+      "Start a new chat and pick the model under the message box.",
+      "To ask about a screenshot or photo, click the image button left of the message box, drop image files on the chat or paste a screenshot (PNG, JPEG, WebP or GIF, up to 5 per message). Large pictures are scaled to 2048 px first.",
+      "Models that can read images carry a Vision badge. With an image attached to a text-only model, the banner above the message box switches to an installed vision model or downloads llama3.2-vision in one click.",
+      "Add custom instructions to shape the answers.",
+    ],
+    tips: [
+      "GPU assignment and the model storage folder are in Settings › Hypervisor & Runtime › Solar AI Studio Runtime.",
+      "Sending only an image asks the model to describe and analyze it. Click an image in the conversation to see it full size; saved conversations keep their images.",
+    ],
+    keywords: "ai llm model chat gpu local private assistant inference studio solar ollama vision image picture photo screenshot upload attach paste drag drop ocr multimodal",
+    more: [
+      {
+        id: "vision",
+        title: "Image Upload & Vision Chat",
+        body: "Solar AI Studio can answer questions about pictures: an error on a screenshot, a photo of a device label, a chart or a scanned document. Attach up to five PNG, JPEG, WebP or GIF images per message. Pictures larger than 2048 pixels are scaled down in the browser first, and screenshots stay PNG so small text remains readable. The attached images appear as thumbnails above the message box; hover one to see its file name and size, or press × to remove it. Only models that can read images use them: those carry a Vision badge in the model picker and in Settings › Installed models and Download models. Images and conversations stay on your server.",
+        steps: [
+          "Click the image button left of the message box and pick one or more files, drag image files onto the chat, or paste a screenshot with Ctrl+V / ⌘V.",
+          "Type a question such as “What is causing this error in my screenshot?”, or send the image on its own to have it described and analyzed.",
+          "If the selected model can't read images, the banner above the message box offers Switch to <vision model>, or Install Vision Model (llama3.2-vision) with a download progress bar when none is installed yet.",
+          "Click an image in the conversation to open it full size. Reopening a saved conversation shows its images again.",
+        ],
+        shot: "local-ai-vision",
+      },
+    ],
   },
   terminal: {
     intro: "Terminal opens an instant root command line on the host and on its containers, right in the browser.",

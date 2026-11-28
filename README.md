@@ -133,8 +133,8 @@ Press **⌘K / Ctrl+K** at any time to search every app, setting and help articl
 | 📦 **Virtual machines & containers** | Step-by-step wizards, browser consoles and GPU, PCI and USB passthrough. **Smart Compute Groups** group machines by network or by your own groups (Grouped or Flat List), with multi-homed badges and group power actions. Every guest has a **Wireframe Architecture** view with the Hardware Device Inspector & Editor below it, and an **OSI Architecture** view. |
 | 💽 **ZFS storage made easy** | Mirrors and RAIDZ pools, datasets, snapshots and schedules, SMART health and disk benchmarks. |
 | 🗂️ **Files, shares & backups** | A file browser, built-in SMB shares, and a Backup Center to back up and restore guests. |
-| 🛒 **App Center** | One click for Portainer CE, Local AI Studio, Jellyfin Media Server, AdGuard Home and Immich, as many labelled instances as you like. Docker Engine & Compose, SMB shares and the reverse proxy with SSL are built in. |
-| 🧠 **Local AI** | Ollama + Open WebUI on your own GPU (NVIDIA, Intel, AMD) or CPU, with a model library that tells you what fits. |
+| 🛒 **App Center** | One click for Portainer CE, Solar AI Studio, Jellyfin Media Server, AdGuard Home and Immich, as many labelled instances as you like. Docker Engine & Compose, SMB shares and the reverse proxy with SSL are built in. |
+| 🧠 **Solar AI Studio** | Ollama + Open WebUI on your own GPU (NVIDIA, Intel, AMD) or CPU, with a model library that tells you what fits, and a private chat that reads screenshots and photos you attach. |
 | 🌐 **Network & VPN** | A visual virtual switch with drag-and-drop VLANs and VLAN templates (including **60 · DMZ**), a top-down **Network Topology**, the **Network Architect** Overview and Infrastructure Blueprint with 3-level semantic zoom, DNS with ad blocking, DHCP per VLAN, WireGuard VPN server and client, port forwarding and Let's Encrypt. |
 | 🎓 **Learn as you go** | The **7-Layer OSI Architecture Explorer** in Compute, Network and App Center shows which layer each device, network and app works on, with plain-language learning cards. |
 | 🧪 **Labs, virtual hardware & multi-seat** | Emulated peripherals, CPU and network throttling, air-gapped lab networks, and multi-seat workstations with their own GPU, USB ports and CPU cores. |
@@ -159,12 +159,12 @@ The same manual is built into the desktop under **Help & Support → Manual**.
 | Guide | What's in it |
 |---|---|
 | [Manual](docs/README.md) | Start page: Global Search, App Gallery, Settings and Help, with screenshots |
-| [Apps](docs/apps.md) | Compute (Smart Groups, Wireframe, OSI, Docker), Files, App Center, Local AI, Network Architect, Help and more |
+| [Apps](docs/apps.md) | Compute (Smart Groups, Wireframe, OSI, Docker), Files, App Center, Solar AI Studio, Network Architect, Help and more |
 | [Settings › System](docs/settings-system.md) | Info, General & Appearance, Features & Services, Installed Apps & Instances, Hardware, GPU & BIOS, Services & Repositories |
 | [Settings › Storage & Data](docs/settings-storage.md) | ZFS pools, disks & SMART, backups, Shared Folders & SMB, ISO & template library |
 | [Settings › Privilege & Security](docs/settings-security.md) | Users & Roles, Security & 2FA, Security Posture & Hardening, audit logs |
 | [Settings › Network & Services](docs/settings-network.md) | Virtual switch & VLANs (DMZ template), Network Topology, DNS/DHCP, certificates, reverse proxy, firewall, WireGuard |
-| [Settings › Hypervisor & Runtime](docs/settings-hypervisor.md) | Hypervisor defaults, Local AI runtime, Cluster & High Availability |
+| [Settings › Hypervisor & Runtime](docs/settings-hypervisor.md) | Hypervisor defaults, Solar AI Studio runtime, Cluster & High Availability |
 | [Feature deep dives](docs/features.md) | Virtual switch, virtual hardware & labs, multi-seat, clustering & HA, security internals |
 | [Technical notes](docs/TECHNICAL.md) | Architecture, both hypervisor drivers, running from source, testing the ISO, troubleshooting |
 | [REST API](docs/api/README.md) | Every REST endpoint and WebSocket, per driver ([OpenAPI schema](docs/api/openapi.json)) |

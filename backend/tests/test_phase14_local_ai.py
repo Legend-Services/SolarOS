@@ -70,6 +70,7 @@ assert ai.LocalAiDeployBody(ip_config={"cidr": "10.0.0.9/24", "gateway": "10.0.0
 import asyncio  # noqa: E402
 
 ai.CHATS_FILE = Path(tempfile.mkdtemp()) / "ai_chats.json"
+ai.IMAGES_DIR = ai.CHATS_FILE.parent / "ai_chat_images"
 msg = [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello", "tps": 50.0, "tokens": 3}]
 doc = lambda t: ai.ChatDoc(title=t, model="qwen2.5:0.5b", messages=msg)  # noqa: E731
 assert asyncio.run(ai.list_chats()) == []
@@ -115,4 +116,48 @@ assert [c["title"] for c in asyncio.run(ai.list_chats(q="powershell"))] == ["Pow
 assert asyncio.run(ai.list_chats(q="powershell"))[0]["snippet"] is None and asyncio.run(ai.list_chats(q="no-such-text")) == []
 s = ai.snippet("Once upon a time an old lighthouse keeper watched the stormy sea every night.", "stormy sea")
 assert s.startswith("…") and s[1:].split()[0] in "Once upon a time an old lighthouse keeper".split() and "stormy sea" in s, s
+
+# Vision: capability detection, image validation (HTTP 400), saved as files, forwarded to Ollama as bare base64.
+import base64  # noqa: E402
+from fastapi import HTTPException  # noqa: E402
+
+assert ai.supports_vision("llama3.2-vision:11b") and ai.supports_vision("x:7b", ["llama", "clip"])
+assert ai.supports_vision("gemma3:12b") and not ai.supports_vision("gemma3:1b", caps=["completion"])
+assert not ai.supports_vision("deepseek-r1:32b", ["qwen2"]) and ai.supports_vision("m", caps=["completion", "vision"])
+lib_v = {m["name"]: ai.annotate(m, 24)["supports_vision"] for m in ai.FALLBACK}
+assert lib_v["llama3.2-vision"] and lib_v["llava"] and not lib_v["deepseek-r1"], lib_v
+png = b"\x89PNG\r\n\x1a\n" + b"\0" * 32
+url = "data:image/png;base64," + base64.b64encode(png).decode()
+assert ai.decode_image(url) == (png, "png") and ai.decode_image(base64.b64encode(png).decode()) == (png, "png")
+for bad, why in ((["data:image/svg+xml;base64,PHN2Zz4="], "Unsupported image type"),
+                 (["data:image/png;base64,not base64!"], "base64"),
+                 (["data:image/png;base64," + base64.b64encode(b"hello world").decode()], "Unsupported image format"),
+                 ([url] * 6, "At most 5"), (["a" * 64 + ".png"], "no longer stored"),
+                 (["A" * (ai.MAX_IMAGE_BYTES * 2)], "larger than")):
+    try:
+        ai.check_images(bad)
+        raise AssertionError(f"image accepted: {why}")
+    except HTTPException as e:
+        assert e.status_code == 400 and why in e.detail, (why, e.detail)
+vis = [{"role": "user", "content": "What is this?", "images": [url]}, {"role": "assistant", "content": "A PNG."}]
+asyncio.run(ai.put_chat(ai.ChatDoc(title="pic", model="m", messages=vis), "f" * 12))
+ref = asyncio.run(ai.get_chat("f" * 12))["messages"][0]["images"][0]
+assert ai.IMAGE_REF.match(ref) and (ai.IMAGES_DIR / ref).read_bytes() == png, ref
+assert str(asyncio.run(ai.chat_image(ref)).path) == str(ai.IMAGES_DIR / ref)
+asyncio.run(ai.put_chat(ai.ChatDoc(title="pic", model="m", messages=[{**vis[0], "images": [ref]}]), "f" * 12))  # name round-trips
+assert asyncio.run(ai.get_chat("f" * 12))["messages"][0]["images"] == [ref]
+sent = {}
+
+
+async def fake_ollama(method, path, timeout=30, **kw):
+    sent.update(kw["json"])
+    return {"message": {"content": "ok"}}
+
+
+ai.ollama, real_ollama = fake_ollama, ai.ollama
+asyncio.run(ai.chat(ai.ChatBody(model="llava:7b", messages=[{"role": "user", "content": "?", "images": [ref, url]}])))
+assert sent["messages"][0]["images"] == [base64.b64encode(png).decode()] * 2, sent
+ai.ollama = real_ollama
+asyncio.run(ai.delete_chat("f" * 12))
+assert not (ai.IMAGES_DIR / ref).exists(), "image of a deleted conversation kept"
 print("phase14 local ai: ok")

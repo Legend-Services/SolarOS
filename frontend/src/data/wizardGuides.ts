@@ -203,7 +203,7 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     app: "appcenter",
     title: "App Center Guide",
     blurb: "One-click installs of popular self-hosted apps.",
-    what: "App Center installs ready-made apps like Jellyfin, Immich, AdGuard Home, Portainer CE and Local AI Studio, each in its own container, with sensible CPU, memory and disk sizes already filled in. Docker Engine & Compose, SMB file sharing and the reverse proxy are built in (Compute › Docker, Settings › Storage & Data › Shared Folders & SMB, Settings › Network & Services › Reverse Proxy & SSL), so they are not in the catalog.",
+    what: "App Center installs ready-made apps like Jellyfin, Immich, AdGuard Home, Portainer CE and Solar AI Studio, each in its own container, with sensible CPU, memory and disk sizes already filled in. Docker Engine & Compose, SMB file sharing and the reverse proxy are built in (Compute › Docker, Settings › Storage & Data › Shared Folders & SMB, Settings › Network & Services › Reverse Proxy & SSL), so they are not in the catalog.",
     when: [
       "You want a media server, ad blocker or local AI without typing commands.",
       "Trying an app safely: removing its container removes it completely.",
@@ -397,13 +397,13 @@ export const APP_GUIDES: Record<AppId, Guide> = {
   "local-ai": guide({
     id: "local-ai",
     app: "local-ai",
-    title: "Local AI Guide",
+    title: "Solar AI Studio Guide",
     blurb: "Run ChatGPT-style AI models privately on your own GPU.",
-    what: "Local AI manages your Local AI Studio container: it downloads open AI models, shows whether each one fits in your graphics card's memory (VRAM), switches between GPU and CPU, and has a built-in chat to test them. Nothing you type leaves your server.",
+    what: "Solar AI Studio manages your AI container: it downloads open AI models, shows whether each one fits in your graphics card's memory (VRAM), switches between GPU and CPU, and has a built-in chat that also reads images you attach. Nothing you type leaves your server.",
     cards: [
       { title: "VRAM fit", body: "Green means the whole model fits in GPU memory and runs at full speed. Amber is a tight fit. Hybrid means part of it runs on the CPU, which is much slower." },
       { title: "Model sizes", body: "The number with a B is billions of parameters. Bigger is smarter but needs more memory: a 24 GB card like the RTX 3090 runs models up to about 32B at full speed." },
-      { title: "API for other apps", body: "Copy the OpenAI-compatible address from Local AI → Settings → Hardware into any tool that supports a custom OpenAI endpoint." },
+      { title: "API for other apps", body: "Copy the OpenAI-compatible address from Solar AI Studio → Settings → Hardware into any tool that supports a custom OpenAI endpoint." },
     ],
     when: [
       "You want a private assistant for writing, coding or questions about your documents.",
@@ -411,13 +411,14 @@ export const APP_GUIDES: Record<AppId, Guide> = {
       "Pointing coding tools or home automation at an AI that runs on your own hardware.",
     ],
     how: [
-      "Install Local AI Studio from App Center → AI & Compute and pick your GPU in the hardware picker.",
-      "Open Local AI → Settings → Download models, search or filter by category, and click Download Model.",
+      "Install Solar AI Studio from App Center → AI & Compute and pick your GPU in the hardware picker.",
+      "Open Solar AI Studio → Settings → Download models, search or filter by category, and click Download Model.",
       "Back in the chat, pick the model under the message box and start typing; each reply shows its tokens per second.",
-      "Use Local AI → Settings → Installed models to unload a model from VRAM or delete it, and Local AI → Settings → Storage to move your models to another disk.",
+      "To ask about a screenshot or photo, click the image button left of the message box, drop the file on the chat or paste it (up to 5 per message), and pick a model with the Vision badge.",
+      "Use Solar AI Studio → Settings → Installed models to unload a model from VRAM or delete it, and Solar AI Studio → Settings → Storage to move your models to another disk.",
     ],
-    tip: "Turn on KV Cache Quantization in Local AI → Settings → Hardware to fit longer conversations into the same VRAM.",
-    action: { label: "Open Local AI", app: "local-ai" },
+    tip: "Turn on KV Cache Quantization in Solar AI Studio → Settings → Hardware to fit longer conversations into the same VRAM.",
+    action: { label: "Open Solar AI Studio", app: "local-ai" },
   }),
   architect: guide({
     id: "architect",
@@ -959,7 +960,7 @@ const SUB_GUIDES: Guide[] = [
     what: "The wizard opens on the first sign-in of a new installation. You tick one or more server roles on wireframe cards, choose Standalone Server or Cluster Host, fine-tune single services, tick apps to install, and press Setup My Server. A live progress card runs from 0 to 100 %.",
     cards: [
       { title: "Roles", body: "Storage & Media, Virtualization Host, Multi-Seat Gaming, High-Availability Cluster, Network Gateway & VPN, AI Compute and Other Services. Combine as many as you like." },
-      { title: "Apps", body: "Tick Local AI Studio, Jellyfin, Immich, AdGuard Home or Portainer CE; each card shows its CPU, memory and disk needs. Docker Engine, file sharing and the reverse proxy are built-in services you switch on under Customize Services." },
+      { title: "Apps", body: "Tick Solar AI Studio, Jellyfin, Immich, AdGuard Home or Portainer CE; each card shows its CPU, memory and disk needs. Docker Engine, file sharing and the reverse proxy are built-in services you switch on under Customize Services." },
       { title: "Finish", body: "The finish screen shows the server address, roles and apps. Cluster Host opens cluster setup next." },
     ],
     when: ["Right after installing.", "The server takes on a new job.", "You want to start over with a clean selection."],
@@ -1014,7 +1015,7 @@ const SUB_GUIDES: Guide[] = [
     app: "appcenter",
     title: "Built-In Docker Engine & the App Center",
     blurb: "What is built in, what App Center installs, and where to manage each.",
-    what: "Docker Engine & Compose, SMB file sharing and the reverse proxy with SSL are part of SolarDeck itself: you switch them on in Settings › System › Features & Services, so App Center does not list them. App Center installs ready-made apps (Portainer CE, Local AI Studio, Jellyfin Media Server, AdGuard Home and Immich), each in its own container, as many labelled instances as you like.",
+    what: "Docker Engine & Compose, SMB file sharing and the reverse proxy with SSL are part of SolarDeck itself: you switch them on in Settings › System › Features & Services, so App Center does not list them. App Center installs ready-made apps (Portainer CE, Solar AI Studio, Jellyfin Media Server, AdGuard Home and Immich), each in its own container, as many labelled instances as you like.",
     cards: [
       { title: "Docker Engine & Compose", body: "Managed in Compute › Docker: run the engine in an Isolated Container (recommended) or Host Native, pin it to a network, then start, stop and remove containers and Compose stacks." },
       { title: "Built-in services", body: "SMB shares live in Settings › Storage & Data › Shared Folders & SMB; publishing apps with HTTPS in Settings › Network & Services › Reverse Proxy & SSL." },

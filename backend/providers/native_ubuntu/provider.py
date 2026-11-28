@@ -266,7 +266,7 @@ class NativeUbuntuProvider(HypervisorProvider):
         return [{**g.model_dump(), "tags": reg.get(g.vmid, {}).get("tags", "")} for g in guests]
 
     async def container_ip(self, vmid: int) -> str | None:
-        """First IPv4 on eth0 of a running container (Local AI, App Center)."""
+        """First IPv4 on eth0 of a running container (Solar AI Studio, App Center)."""
         try:
             st = await run_json("incus", "query", f"/1.0/instances/{host.name_of(vmid, 'lxc')}/state")
         except (HTTPException, ValueError):
@@ -579,7 +579,7 @@ class NativeUbuntuProvider(HypervisorProvider):
     async def list_gpus(self) -> list[GpuDeviceInfo]:
         return _many(GpuDeviceInfo, await provisioning.gpus())
 
-    # ============================================================ App Center & Local AI (Incus)
+    # ============================================================ App Center & Solar AI Studio (Incus)
     async def app_catalog(self) -> list[dict]:
         reg, _, cts = await self._registry()
         lxc = [{"vmid": k, "name": v["name"], "tags": v.get("tags", ""),

@@ -9356,6 +9356,47 @@
     }
    }
   },
+  "/api/ai/chat-images/{name}": {
+   "get": {
+    "tags": [
+     "local_ai"
+    ],
+    "summary": "Chat Image",
+    "operationId": "chat_image_api_ai_chat_images__name__get",
+    "parameters": [
+     {
+      "name": "name",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "pattern": "^[0-9a-f]{64}\\.(png|jpg|webp|gif)$",
+       "title": "Name"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/ai/status": {
    "get": {
     "tags": [
@@ -18254,6 +18295,20 @@
       "type": "string",
       "maxLength": 100000,
       "title": "Content"
+     },
+     "images": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Images"
      }
     },
     "type": "object",
@@ -22662,6 +22717,20 @@
       "type": "string",
       "maxLength": 200000,
       "title": "Content"
+     },
+     "images": {
+      "anyOf": [
+       {
+        "items": {
+         "type": "string"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Images"
      },
      "thinking": {
       "anyOf": [

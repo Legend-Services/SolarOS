@@ -107,7 +107,7 @@ const STARTER_MODELS = [
   { tag: "nomic-embed-text", label: "Nomic Embed Text", note: "Document search (RAG) · 274 MB" },
 ];
 
-/** Compute Hardware Selector for Local AI Studio: one card per detected GPU / CPU from GET /api/ai/hardware. */
+/** Compute Hardware Selector for Solar AI Studio: one card per detected GPU / CPU from GET /api/ai/hardware. */
 function ComputeSelector({ value, onChange }: { value: string; onChange: (id: string) => void }) {
   const [hw, setHw] = useState<AiHardware | null>(null);
   const [error, setError] = useState("");

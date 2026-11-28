@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.26.0 - Solar AI Studio & local image upload for vision chat — 2026-11-28
+
+### Added
+- **Ask about images in Solar AI Studio**: attach up to five PNG, JPEG, WebP or GIF images per message with the new image button left of the message box, by dropping files on the chat (a highlighted drop zone appears) or by pasting a screenshot. Pictures over 2048 px are scaled down in the browser first; screenshots stay PNG so small text stays readable. Thumbnails (64 × 64, with file name and size on hover and a × to remove) sit above the message box. Sending an image without text asks the model to *Describe and analyze this image.*
+- **Images in the conversation**: user messages show their images, and clicking one opens it full size. Saved conversations keep their images, so reopening a chat shows them and follow-up questions still include them.
+- **Vision badges**: models that can read images carry a *Vision* badge in the model picker, under Settings › Installed models and in the model library. With an image attached to a text-only model, a banner above the message box offers **Switch to &lt;vision model&gt;**, or **Install Vision Model (llama3.2-vision)** with the download progress bar when none is installed. `llama3.2-vision` is part of the built-in model list used when the online library is unreachable.
+- **API**: `POST /api/ai/chat` and `PUT /api/ai/chats/{id}` accept `images` on each message (data URLs, bare base64 or a saved image name). Each image is checked by its file signature (PNG, JPEG, WebP, GIF only, 10 MB at most, 5 per message) and refused with HTTP 400 and a clear message otherwise. Images go to Ollama as bare base64. `GET /api/ai/models/local` and `GET /api/ai/models/online` return `supports_vision`, taken from Ollama's own capability list when it has one, otherwise from the model name and family. New `GET /api/ai/chat-images/{name}` serves saved images.
+- Manual article *Solar AI Studio › Image Upload & Vision Chat* with a new screenshot; Global Search finds it under image, screenshot, vision, OCR and similar words.
+
+### Changed
+- **Local AI is now Solar AI Studio** everywhere: window title, TopBar, Dock and App Gallery, App Center card (*Solar AI Studio (Ollama + Open WebUI)*), Server Setup Wizard, Settings › System › Features & Services, Settings › Hypervisor & Runtime › *Solar AI Studio Runtime*, the dashboard widget, Global Search, guides, the Manual and the READMEs, in all five languages. The app id, the `local-ai` container, its data files and every `/api/ai/*` endpoint are unchanged, so existing installs keep working without reinstalling. Their App Center and instance names update to the new name on the next refresh.
+- Saved chat images live in `backend/data/ai_chat_images/` (one file per image, shared between conversations); an image is deleted when no saved conversation uses it any more. Deploys and updates leave that folder alone.
+
 ## v2.25.2 - Current screenshots in the README — 2026-11-26
 
 ### Changed

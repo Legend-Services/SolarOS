@@ -31,7 +31,7 @@ local RBAC in `data/local_rbac.json`, the VNC bridge in-process instead of a sep
 | `supports_clustering` | `false` | Hides the cluster task/access log |
 | `supports_rbac_realms` | `false` | Hides Datacenter → Realms |
 | `supports_lxc` / `supports_qemu` / `supports_zfs` | `true` | Create buttons, filters, ZFS tabs |
-| `supports_gpu_passthrough` / `supports_bios_manager` | `true` | Local AI GPU targets, BIOS guide |
+| `supports_gpu_passthrough` / `supports_bios_manager` | `true` | Solar AI Studio GPU targets, BIOS guide |
 | `supports_apt_repos` / `supports_host_shell` | `true` | System → Repositories, Host Shell button |
 
 ## Method mapping

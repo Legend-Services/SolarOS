@@ -1,4 +1,4 @@
-"""Proxmox side of Local AI Studio: the GPU-enabled Ollama LXC, prepared with pct and the root SSH bridge.
+"""Proxmox side of Solar AI Studio: the GPU-enabled Ollama LXC, prepared with pct and the root SSH bridge.
 
 Root-only host steps (NVIDIA device bind mounts + cgroup rules in /etc/pve/lxc/<id>.conf, /dev/dri, model storage
 bind mount) run before the App Center starts the container (before_start) and when the compute target or the

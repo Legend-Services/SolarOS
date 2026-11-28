@@ -8,7 +8,7 @@ Multi-host clustering, high availability failover, live migration, out-of-band B
 
 ![Hypervisor & Runtime](screenshots/settings-hypervisor.png)
 
-**Sub-modules:** [Hypervisor Defaults](#hypervisor-defaults) · [Local AI Runtime](#local-ai-runtime) · [Cluster & High Availability](#cluster--high-availability)
+**Sub-modules:** [Hypervisor Defaults](#hypervisor-defaults) · [Solar AI Studio Runtime](#solar-ai-studio-runtime) · [Cluster & High Availability](#cluster--high-availability)
 
 ## Hypervisor Defaults
 
@@ -47,15 +47,15 @@ Let guests run their own hypervisor.
 
 1. Switch nested virtualization on and restart the affected VMs.
 
-## Local AI Runtime
+## Solar AI Studio Runtime
 
-![Local AI Runtime](screenshots/settings-local-ai-runtime.png)
+![Solar AI Studio Runtime](screenshots/settings-local-ai-runtime.png)
 
 ### Overview
 
 Which GPU runs the AI models, the AI model service and where models are stored.
 
-1. Open Settings › Hypervisor & Runtime › Local AI Runtime (or press “Open This Setting / App →” above).
+1. Open Settings › Hypervisor & Runtime › Solar AI Studio Runtime (or press “Open This Setting / App →” above).
 2. Pick the GPU under GPU assignment.
 3. Choose a model storage folder with enough space.
 

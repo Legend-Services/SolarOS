@@ -135,19 +135,34 @@ App Center installs ready-made applications (media servers, ad blockers, home au
 
 > **Tip:** Apps installed on an older version that are now built in show a Built-In Native Feature Available badge in Settings › Hypervisor & Runtime › Installed Apps & Instances; they keep working and can be opened or uninstalled as usual.
 
-## Local AI
+## Solar AI Studio
 
-![Local AI](screenshots/app-local-ai.png)
+![Solar AI Studio](screenshots/app-local-ai.png)
 
 ### Overview
 
-Local AI Studio downloads AI models and runs them on your own hardware, with a private chat to test them. Nothing leaves your server.
+Solar AI Studio downloads AI models and runs them on your own hardware, with a private chat to test them. Nothing leaves your server.
 
 1. Open the model library and download a model that fits your GPU memory.
-2. Start a new chat and pick the model at the top.
-3. Add custom instructions to shape the answers.
+2. Start a new chat and pick the model under the message box.
+3. To ask about a screenshot or photo, click the image button left of the message box, drop image files on the chat or paste a screenshot (PNG, JPEG, WebP or GIF, up to 5 per message). Large pictures are scaled to 2048 px first.
+4. Models that can read images carry a Vision badge. With an image attached to a text-only model, the banner above the message box switches to an installed vision model or downloads llama3.2-vision in one click.
+5. Add custom instructions to shape the answers.
 
-> **Tip:** GPU assignment and the model storage folder are in Settings › Hypervisor & Runtime › Local AI Runtime.
+> **Tip:** GPU assignment and the model storage folder are in Settings › Hypervisor & Runtime › Solar AI Studio Runtime.
+
+> **Tip:** Sending only an image asks the model to describe and analyze it. Click an image in the conversation to see it full size; saved conversations keep their images.
+
+### Image Upload & Vision Chat
+
+Solar AI Studio can answer questions about pictures: an error on a screenshot, a photo of a device label, a chart or a scanned document. Attach up to five PNG, JPEG, WebP or GIF images per message. Pictures larger than 2048 pixels are scaled down in the browser first, and screenshots stay PNG so small text remains readable. The attached images appear as thumbnails above the message box; hover one to see its file name and size, or press × to remove it. Only models that can read images use them: those carry a Vision badge in the model picker and in Settings › Installed models and Download models. Images and conversations stay on your server.
+
+1. Click the image button left of the message box and pick one or more files, drag image files onto the chat, or paste a screenshot with Ctrl+V / ⌘V.
+2. Type a question such as “What is causing this error in my screenshot?”, or send the image on its own to have it described and analyzed.
+3. If the selected model can't read images, the banner above the message box offers Switch to <vision model>, or Install Vision Model (llama3.2-vision) with a download progress bar when none is installed yet.
+4. Click an image in the conversation to open it full size. Reopening a saved conversation shows its images again.
+
+![Image Upload & Vision Chat](screenshots/local-ai-vision.png)
 
 ## Network Architect
 
