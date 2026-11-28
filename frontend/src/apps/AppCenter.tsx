@@ -126,7 +126,7 @@ function ComputeSelector({ value, onChange }: { value: string; onChange: (id: st
     setError("");
     try {
       await api(`/hardware/gpu-drivers/${action}`, { method: "POST", json: { gpu } });
-      setNotice("Host driver job started. Follow it in Settings → System → Hardware, GPU & BIOS → GPU & Drivers; reboot the host if it asks, then reopen this installer.");
+      setNotice("Host driver job started. Follow it in Settings → System → Hardware, BIOS/Firmware & Multi-Seat → GPU & Drivers; reboot the host if it asks, then reopen this installer.");
     } catch (e) {
       setError((e as Error).message);
     }

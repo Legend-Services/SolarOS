@@ -160,7 +160,7 @@ The same manual is built into the desktop under **Help & Support → Manual**.
 |---|---|
 | [Manual](docs/README.md) | Start page: Global Search, App Gallery, Settings and Help, with screenshots |
 | [Apps](docs/apps.md) | Compute (Smart Groups, Wireframe, OSI, Docker), Files, App Center, Solar AI Studio, Network Architect, Help and more |
-| [Settings › System](docs/settings-system.md) | Info, General & Appearance, Features & Services, Installed Apps & Instances, Hardware, GPU & BIOS, Services & Repositories |
+| [Settings › System](docs/settings-system.md) | Info, General & Appearance, Features & Services, Installed Apps & Instances, Hardware, BIOS/Firmware & Multi-Seat, Services & Repositories |
 | [Settings › Storage & Data](docs/settings-storage.md) | ZFS pools, disks & SMART, backups, Shared Folders & SMB, ISO & template library |
 | [Settings › Privilege & Security](docs/settings-security.md) | Users & Roles, Security & 2FA, Security Posture & Hardening, audit logs |
 | [Settings › Network & Services](docs/settings-network.md) | Virtual switch & VLANs (DMZ template), Network Topology, DNS/DHCP, certificates, reverse proxy, firewall, WireGuard |

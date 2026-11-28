@@ -28,7 +28,7 @@ Open a guest in **Compute** and pick the **Virtual Hardware & Lab** tab:
 
 ## Multi-Seat Workstations & Physical Ports
 
-Open **Compute → Multi-Seat & Ports** (or **Settings → System → Hardware, GPU & BIOS → Multi-Seat & Ports**):
+Open **Compute → Multi-Seat** (or **Settings → System → Hardware, BIOS/Firmware & Multi-Seat → Multi-Seat**):
 
 - **Seats.** Press **+ Create Seat** and pick the seat's VM, or press **Create New Seat VM**. Each seat card shows its power state with **Start Seat** / **Stop Seat**; **Start All Seats** starts every enabled seat, 3 seconds apart.
 - **Display & GPU output.** Choose the GPU whose monitors the seat uses: every GPU is listed with its PCIe slot, a *Boot GPU* badge for the card the server starts on, external Thunderbolt / USB4 GPUs (authorized from the studio), its HDMI / DisplayPort connectors (*HDMI-1: Connected*, *DP-1: Ready*) and *GPU Audio Included* for the card's own audio function. When a seat uses the boot GPU, SolarDeck releases it from the server's console before the seat starts, so every GPU in the machine can drive a desk.
