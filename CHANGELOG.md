@@ -1,5 +1,16 @@
 # Changelog
 
+## v2.30.0 - Hardware & Thermal Monitor widget — 2026-11-28
+
+### Added
+- **The GPU & Thermal Monitor widget is now the Hardware & Thermal Monitor** (all five languages). Press the new **gear** in its title to choose what it shows: **CPU** (load, average clock, package temperature and hottest core), **GPU** (every GPU with load, VRAM, temperature, hotspot and power, plus the integrated GPU), **RAM** (usage and DIMM temperature) and **Storage** (pool usage and drive temperatures), and whether to show **Temperatures**. Each temperature appears only when the host reports it.
+- The choice is saved with your widget layout (in the browser and on the server). Clicking a section opens the matching tab of the Resource & Thermal Monitor.
+- **DIMM temperatures**: `GET /api/hardware/thermals` adds `memory: [{label, temp_c}]` from `jc42` (DDR4) and `spd5118` (DDR5) sensors when the board has them.
+- Browser self-check `scripts/support-docs/check-hardware-widget.mjs`.
+
+### Changed
+- The widget reads the same 2-second stream as the monitor, and only while it shows CPU, GPU or temperatures. With just RAM and Storage it uses the regular telemetry and starts no sensor reads.
+
 ## v2.29.1 - Docs for live thermals and the Resource & Thermal Monitor — 2026-11-28
 
 ### Changed

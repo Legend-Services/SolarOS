@@ -60,7 +60,7 @@ with TestClient(app) as c:  # lifespan runs: creates the bridge key
 
     assert c.get("/api/hardware/gpu-metrics").json() == {"nvidia": {}, "amd_vram": {}}
     th = c.get("/api/hardware/thermals")  # no bridge: falls back to local reads, never a 500
-    assert th.status_code == 200 and {"cpu", "gpus", "drives", "chassis_fans", "timestamp"} <= th.json().keys(), th.text
+    assert th.status_code == 200 and {"cpu", "gpus", "drives", "memory", "chassis_fans", "timestamp"} <= th.json().keys(), th.text
     assert c.get("/api/host/bridge").json()["setup_command"]
     assert c.get("/api/v1/zfs/snapshots").json() == {"datasets": [], "snapshots": [], "zfs_available": False}
     assert c.get("/api/v1/zfs/datasets").json() == []

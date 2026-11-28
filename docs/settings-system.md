@@ -109,6 +109,7 @@ Show or hide the live widgets on the desktop and customize which ones appear.
 
 1. Turn Show desktop widgets on or off.
 2. Press Customize widgets to add, remove and arrange them.
+3. On the Hardware & Thermal Monitor widget, press the gear to choose CPU, GPU, RAM and Storage, and whether to show their temperatures.
 
 ### Desktop Layout
 

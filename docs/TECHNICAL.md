@@ -195,7 +195,7 @@ Models are stored on `/mnt/storage/ai-models` (bind-mounted at `/usr/share/ollam
 `GET /api/hardware/thermals` feeds the Resource & Thermal Monitor, the Hardware tab and System › Info. One call runs a
 single short shell script on the host (over the SSH bridge, or locally when there is no bridge) that reads only sysfs
 and procfs plus `nvidia-smi`: `/sys/class/hwmon/*` (CPU `coretemp`/`k10temp`, `amdgpu`/`i915`/`xe` GPUs, `nvme` and
-`drivetemp` disks, motherboard fan chips), `/sys/devices/system/cpu/*/cpufreq/scaling_cur_freq` and `/proc/stat`.
+`drivetemp` disks, `jc42`/`spd5118` DIMM sensors, motherboard fan chips), `/sys/devices/system/cpu/*/cpufreq/scaling_cur_freq` and `/proc/stat`.
 Per-core load is the difference with the previous sample; threads are folded into physical cores by `core_id`.
 It never runs `lspci`, `dmidecode` or `smartctl`, so a call takes about 0.25 s on a busy host. Board, BIOS and PCI data
 stay in `GET /api/hardware/inventory` (read on open and on **Refresh**).

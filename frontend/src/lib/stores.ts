@@ -403,6 +403,8 @@ export interface LiveThermals {
   };
   gpus: { slot: string; name: string; temp_c: number | null; hotspot_temp_c: number | null; fan_rpm_or_pct: number | null; fan_unit: "%" | "rpm"; power_w: number | null; vram_used_mb: number | null; vram_total_mb: number | null; utilization_pct: number | null }[];
   drives: { device: string; model: string | null; temp_c: number | null; wear_pct: number | null }[];
+  /** DIMM sensors (jc42 / spd5118) when the board has them. */
+  memory: { label: string; temp_c: number }[];
   chassis_fans: { label: string; rpm: number }[];
   timestamp: number;
 }
@@ -441,9 +443,9 @@ export const useThermals = create<ThermalState>((set, get) => {
 });
 
 /** Live thermals snapshot for the mounted view (Hardware tab, System › Info, Resource & Thermal Monitor). */
-export function useLiveThermals() {
+export function useLiveThermals(enabled = true) {
   const subscribe = useThermals((s) => s.subscribe);
-  useEffect(subscribe, [subscribe]);
+  useEffect(() => (enabled ? subscribe() : undefined), [subscribe, enabled]);
   return useThermals((s) => s.data);
 }
 

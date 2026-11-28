@@ -82,6 +82,7 @@ nvme|nvme0||temp1_input|Composite|39850
 nvme|nvme0||temp2_input|Sensor 1|44850
 drivetemp|0:0:0:0|sdb|temp1_input||33000
 nct6798|nct6775.656||fan1_input|CPU Fan|900
+spd5118|0-0051||temp1_input||41500
 nct6798|nct6775.656||fan2_input||0
 @@freq@@
 0|0|4800000
@@ -111,5 +112,6 @@ dr = {x["device"]: x for x in t["drives"]}
 assert dr["/dev/nvme0n1"] == {"device": "/dev/nvme0n1", "model": "Fast NVMe", "temp_c": 39.9, "wear_pct": 97}, dr
 assert dr["/dev/sdb"]["temp_c"] == 33.0, dr
 assert t["chassis_fans"] == [{"label": "CPU Fan", "rpm": 900}], t["chassis_fans"]
+assert t["memory"] == [{"label": "DIMM 0", "temp_c": 41.5}], t["memory"]
 assert h.parse_thermals({}, {}, [])["cpu"]["cores"] == []  # no bridge, no sysfs: empty but well-formed
 print("thermals self-check OK")
