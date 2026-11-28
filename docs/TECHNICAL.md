@@ -180,15 +180,15 @@ Settings → Network & Services → Network Topology → **Topology** draws `GET
 
 Widgets, their order, slot (left, right, grid) and size, and the Scratchpad notes are saved in the browser and under `widgets` in `/api/system/preferences`; the language is saved under `i18n.language`. Translations live in `frontend/src/i18n/` (`en.ts` is the source; TypeScript rejects a language file with a missing or extra key). They cover the login screen, top bar, Dock, taskbar, App Gallery, View Options, Settings, app names, widgets, Automation & Alerts and the Network & Services tabs; deeper app screens are still in English.
 
-### Local AI Studio
+### Solar AI Studio
 
-App Center → AI & Compute → **Local AI Studio** creates an unprivileged Debian 12 container with Ollama (and optionally Open WebUI on port 3000). The installer's **Compute Hardware Selector** lists every GPU from `GET /api/ai/hardware`:
+App Center → AI & Compute → **Solar AI Studio** creates an unprivileged Debian 12 container with Ollama (and optionally Open WebUI on port 3000). The installer's **Compute Hardware Selector** lists every GPU from `GET /api/ai/hardware`:
 
 - **NVIDIA** (`nvidia:<PCI address>`): the backend loads `nvidia`/`nvidia_uvm` on the host (and makes them load at boot), adds `lxc.cgroup2.devices.allow` rules for the NVIDIA device majors and `lxc.mount.entry` binds for `/dev/nvidia0`, `/dev/nvidiactl`, `/dev/nvidia-uvm`, `/dev/nvidia-uvm-tools` and `/dev/nvidia-modeset`, then installs the matching user-space driver inside the container with `--no-kernel-module`, so `nvidia-smi` and CUDA work immediately. A card without a host driver, or bound to `vfio-pci`, gets a one-click **Prepare** button.
 - **Intel / AMD** (`intel:/dev/dri/renderD128`): the render node is passed through and Ollama uses Vulkan (AMD also gets ROCm).
 - **CPU**: no devices are mapped.
 
-Models are stored on `/mnt/storage/ai-models` (bind-mounted at `/usr/share/ollama/.ollama/models`) when that option is on. The **Local AI** desktop app browses the ollama.com library (cached for 15 minutes, with a built-in catalog as a fallback), rates every size for your GPU's VRAM, downloads models with live progress, shows which models are loaded in VRAM, switches between GPU and CPU, toggles Flash Attention and KV cache quantization, and has a test chat. Other tools can use the OpenAI-compatible endpoint `http://<container IP>:11434/v1`.
+Models are stored on `/mnt/storage/ai-models` (bind-mounted at `/usr/share/ollama/.ollama/models`) when that option is on. The **Solar AI Studio** desktop app browses the ollama.com library (cached for 15 minutes, with a built-in catalog as a fallback), rates every size for your GPU's VRAM, downloads models with live progress, shows which models are loaded in VRAM, switches between GPU and CPU, toggles Flash Attention and KV cache quantization, and has a test chat. Other tools can use the OpenAI-compatible endpoint `http://<container IP>:11434/v1`.
 
 ### Security-by-Design modules
 
@@ -291,9 +291,9 @@ Still stuck? **Report a Bug** in the **?** menu opens a pre-filled GitHub issue 
 - If you lose your authenticator and your 8 recovery codes, delete `backend/data/security.json` on the server (in the container on Proxmox VE) to turn 2FA off.
 - PCIe passthrough needs IOMMU enabled on the host; Help & Support can check it and walk you through the BIOS.
 - App Center installer logs are kept in memory and are lost when the backend restarts (the containers remain).
-- Local AI model download progress is also kept in memory; after a backend restart, start the download again and Ollama resumes from the partial files.
-- Local AI Studio manages one AI container (`backend/data/local_ai.json`). An Ollama container from before v1.6.0 shows as installed in App Center but is not managed by the Local AI app; install Local AI Studio to use the new features.
-- NVIDIA GPU sharing binds the host's device nodes into the container, so the host driver must stay installed (not in VM passthrough mode). After a host driver upgrade, switch Local AI to CPU and back to the GPU in Hardware & Performance to reinstall matching user-space libraries.
+- Solar AI Studio model download progress is also kept in memory; after a backend restart, start the download again and Ollama resumes from the partial files.
+- Solar AI Studio manages one AI container (`backend/data/local_ai.json`). An Ollama container from before v1.6.0 shows as installed in App Center but is not managed by the Solar AI Studio app; install Solar AI Studio to use the new features.
+- NVIDIA GPU sharing binds the host's device nodes into the container, so the host driver must stay installed (not in VM passthrough mode). After a host driver upgrade, switch Solar AI Studio to CPU and back to the GPU in Hardware & Performance to reinstall matching user-space libraries.
 
 See [CHANGELOG.md](../CHANGELOG.md) for the full feature history.
 

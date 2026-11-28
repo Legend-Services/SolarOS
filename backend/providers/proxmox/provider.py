@@ -129,7 +129,7 @@ class ProxmoxProvider(HypervisorProvider):
     async def list_gpus(self) -> list[GpuDeviceInfo]:
         return _many(GpuDeviceInfo, await shared_provisioning.gpus())
 
-    # ------------------------------------------------------------ Local AI GPU provisioning
+    # ------------------------------------------------------------ Solar AI Studio GPU provisioning
     async def provision_ai_container(self, spec: dict) -> TaskInfo:
         return _task(await local_ai.deploy_ai(local_ai.LocalAiDeployBody(**spec)))
 

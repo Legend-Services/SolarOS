@@ -1,10 +1,13 @@
-"""Local AI Studio: compute discovery, model library, pulls and chat proxy, plus the install hooks shared by the drivers.
+"""Solar AI Studio (app id "local-ai"): compute discovery, model library, pulls and chat proxy, plus the install hooks shared by the drivers.
 
 The AI container is created by the driver's App Center (app id "local-ai"), which also maps the GPU into it. This
 module keeps the active container in data/local_ai.json and talks to Ollama on <container ip>:11434; commands inside
 the container go through the active provider (container_exec).
 """
 import asyncio
+import base64
+import binascii
+import hashlib
 import html
 import json
 import math
@@ -16,7 +19,7 @@ from typing import Annotated, Literal
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Path as PathParam, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel, Field, StringConstraints
 
 from . import host_ssh, pci
@@ -60,7 +63,7 @@ def save_state(**patch) -> dict:
 def _installed() -> dict:
     s = load_state()
     if not s.get("vmid"):
-        raise HTTPException(404, "Local AI Studio is not installed yet. Install it from App Center → AI & Compute.")
+        raise HTTPException(404, "Solar AI Studio is not installed yet. Install it from App Center → AI & Compute.")
     return s
 
 
@@ -127,6 +130,19 @@ def category(name: str, caps: list[str]) -> str:
     return "General"
 
 
+# Model names and Ollama families that take images; used when Ollama does not report capabilities (pre-0.6).
+VISION_HINTS = ("vision", "clip", "mllama", "llava", "minicpm-v", "gemma3", "qwen2.5vl", "qwen2-vl", "qwen2vl", "bakllava",
+                "moondream", "granite3.2-vision")
+
+
+def supports_vision(name: str, families: list[str] | None = None, caps: list[str] | None = None) -> bool:
+    """Ollama's own capability list wins (it knows gemma3:1b is text-only); otherwise match the name and families."""
+    if caps:
+        return "vision" in caps
+    hay = " ".join([name, *(families or [])]).lower()
+    return any(h in hay for h in VISION_HINTS)
+
+
 def parse_library(page: str) -> list[dict]:
     """ollama.com/library HTML → [{name, description, sizes, capabilities, pulls}]. Cloud-only models are skipped."""
     out = []
@@ -155,7 +171,8 @@ def annotate(model: dict, vram_gb: float) -> dict:
                      "download_gb": round(p * GB_PER_B * 0.95, 1) if p is not None else None,
                      "vram_required_gb": need, "vram_fit": vram_fit(need, vram_gb) if need is not None
                      else ("optimal_gpu" if vram_gb else "cpu_only")})
-    return {**model, "category": model.get("category") or category(model["name"], model["capabilities"]), "tags": tags}
+    return {**model, "category": model.get("category") or category(model["name"], model["capabilities"]), "tags": tags,
+            "supports_vision": supports_vision(model["name"], caps=model["capabilities"] or None)}
 
 
 def ollama_env(target: str, flash: bool, kv_q8: bool) -> str:
@@ -168,7 +185,7 @@ def ollama_env(target: str, flash: bool, kv_q8: bool) -> str:
         env["OLLAMA_FLASH_ATTENTION"] = "1"
         if kv_q8:  # quantized KV cache requires flash attention
             env["OLLAMA_KV_CACHE_TYPE"] = "q8_0"
-    return "# Managed by SolarDeck Local AI Studio\n[Service]\n" + "".join(f'Environment="{k}={v}"\n' for k, v in env.items())
+    return "# Managed by SolarDeck Solar AI Studio\n[Service]\n" + "".join(f'Environment="{k}={v}"\n' for k, v in env.items())
 
 
 FALLBACK: list[dict] = [
@@ -192,6 +209,8 @@ FALLBACK: list[dict] = [
      "description": "Microsoft's 14B model, strong at reasoning for its size."},
     {"name": "codestral", "category": "Coding", "sizes": ["22b"], "capabilities": [],
      "description": "Mistral's coding model trained on 80+ programming languages."},
+    {"name": "llama3.2-vision", "category": "Vision", "sizes": ["11b", "90b"], "capabilities": ["vision"],
+     "description": "Llama 3.2 Vision reads photos, screenshots, charts and documents and answers questions about them."},
     {"name": "llava", "category": "Vision", "sizes": ["7b", "13b", "34b"], "capabilities": ["vision"],
      "description": "Vision-language model that describes and answers questions about images."},
     {"name": "nomic-embed-text", "category": "Embeddings", "sizes": ["137m"], "capabilities": ["embedding"],
@@ -269,7 +288,7 @@ async def after_install(vmid: int, body: DeployBody, ip: str | None, log) -> Non
                kv_cache_q8=False, model_storage=HOST_MODELS if body.mount_storage else None, installed_at=int(time.time()),
                **info)
     for m in body.starter_models:
-        log(f"==> Downloading starter model {m} in the background (Local AI → Installed Models)")
+        log(f"==> Downloading starter model {m} in the background (Solar AI Studio → Installed Models)")
         start_pull(m)
 
 
@@ -378,11 +397,78 @@ def save_chats(chats: dict[str, dict]) -> None:
     tmp = CHATS_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(dict(newest)))
     tmp.replace(CHATS_FILE)  # atomic: a crash never leaves a half-written history
+    # Drop image files no saved conversation points at any more (deleted or trimmed chats).
+    used = {ref for _, c in newest for m in c.get("messages", []) for ref in m.get("images") or []}
+    for f in IMAGES_DIR.glob("*") if IMAGES_DIR.is_dir() else []:
+        if f.name not in used:
+            f.unlink(missing_ok=True)
+
+
+# Chat images: the browser sends data URLs (already scaled to ≤2048 px); saved conversations keep them as
+# content-addressed files so ai_chats.json stays small, and the chat endpoint accepts those names back.
+IMAGES_DIR = DATA / "ai_chat_images"
+MAX_IMAGES = 5
+MAX_IMAGE_BYTES = 10 * 1024 * 1024
+IMAGE_TYPES = {"image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/gif": "gif"}
+IMAGE_REF = re.compile(r"^[0-9a-f]{64}\.(png|jpg|webp|gif)$")
+DATA_URL = re.compile(r"^data:([\w/+.-]+);base64,")
+
+
+def image_kind(raw: bytes) -> str | None:
+    """File extension from the magic bytes, so a renamed or mislabelled file is never forwarded."""
+    if raw.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if raw.startswith(b"\xff\xd8\xff"):
+        return "jpg"
+    if raw[:4] == b"RIFF" and raw[8:12] == b"WEBP":
+        return "webp"
+    if raw[:6] in (b"GIF87a", b"GIF89a"):
+        return "gif"
+    return None
+
+
+def decode_image(item: str) -> tuple[bytes, str]:
+    """A data URL, bare base64 or saved image name → (bytes, extension). HTTP 400 for anything else."""
+    if IMAGE_REF.match(item):
+        try:
+            return (IMAGES_DIR / item).read_bytes(), item.rsplit(".", 1)[1]
+        except OSError:
+            raise HTTPException(400, "An image in this conversation is no longer stored. Attach it again.")
+    m = DATA_URL.match(item)
+    if m and m[1] not in IMAGE_TYPES:
+        raise HTTPException(400, f"Unsupported image type {m[1]}. Use PNG, JPEG, WebP or GIF.")
+    b64 = item[m.end():] if m else item
+    if len(b64) > MAX_IMAGE_BYTES * 4 // 3 + 4:
+        raise HTTPException(400, f"Image is larger than {MAX_IMAGE_BYTES // 2**20} MB.")
+    try:
+        raw = base64.b64decode(b64, validate=True)
+    except (binascii.Error, ValueError):
+        raise HTTPException(400, "Image is not valid base64 data.")
+    kind = image_kind(raw)
+    if not kind:
+        raise HTTPException(400, "Unsupported image format. Use PNG, JPEG, WebP or GIF.")
+    return raw, kind
+
+
+def check_images(items: list[str] | None) -> list[tuple[bytes, str]]:
+    if items and len(items) > MAX_IMAGES:
+        raise HTTPException(400, f"At most {MAX_IMAGES} images per message.")
+    return [decode_image(i) for i in items or []]
+
+
+def store_image(raw: bytes, kind: str) -> str:
+    name = f"{hashlib.sha256(raw).hexdigest()}.{kind}"
+    path = IMAGES_DIR / name
+    if not path.exists():
+        IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
+    return name
 
 
 class StoredMessage(BaseModel):
     role: Literal["user", "assistant"]
     content: str = Field(max_length=200_000)
+    images: list[str] | None = None  # data URLs on the way in, saved image names on the way out
     thinking: str | None = Field(None, max_length=200_000)
     tps: float | None = None
     tokens: int | None = None
@@ -435,7 +521,10 @@ async def get_chat(chat_id: str = PathParam(pattern=CHAT_ID_RE)):
 
 @router.put("/chats/{chat_id}")
 async def put_chat(body: ChatDoc, chat_id: str = PathParam(pattern=CHAT_ID_RE)):
-    async with _chats_lock:
+    decoded = [check_images(m.images) for m in body.messages]
+    async with _chats_lock:  # stored under the lock so another save's clean-up cannot remove them first
+        for m, imgs in zip(body.messages, decoded):
+            m.images = [store_image(*img) for img in imgs] or None
         chats = load_chats()
         now = int(time.time())
         old = chats.get(chat_id, {})
@@ -470,6 +559,15 @@ async def delete_chat(chat_id: str = PathParam(pattern=CHAT_ID_RE)):
             raise HTTPException(404, "Conversation not found")
         save_chats(chats)
     return {"ok": True}
+
+
+@router.get("/chat-images/{name}")
+async def chat_image(name: str = PathParam(pattern=IMAGE_REF.pattern)):
+    path = IMAGES_DIR / name
+    if not path.is_file():
+        raise HTTPException(404, "Image not found")
+    media = next(t for t, ext in IMAGE_TYPES.items() if name.endswith("." + ext))
+    return FileResponse(path, media_type=media, headers={"Cache-Control": "private, max-age=31536000, immutable"})
 
 
 @router.get("/status")
@@ -515,16 +613,29 @@ async def models_online(q: str = Query("", max_length=80), category: str = Query
     return {"models": out, "source": source, "vram_gb": vram_gb}
 
 
+_caps: dict[str, list[str]] = {}  # model digest → Ollama's capability list (a digest never changes)
+
+
+async def _model_caps(m: dict) -> None:
+    try:
+        _caps[m.get("digest")] = (await ollama("POST", "/api/show", json={"model": m["name"]})).get("capabilities") or []
+    except HTTPException:
+        pass  # older Ollama or a model being deleted: supports_vision falls back to the name and families
+
+
 @router.get("/models/local")
 async def models_local():
     tags, ps = await asyncio.gather(ollama("GET", "/api/tags"), ollama("GET", "/api/ps"))
     loaded = {m["name"]: m for m in ps.get("models", [])}
+    models = tags.get("models", [])
+    await asyncio.gather(*(_model_caps(m) for m in models if m.get("digest") not in _caps))
     return [{"name": m["name"], "size": m.get("size", 0), "modified_at": m.get("modified_at"),
+             "supports_vision": supports_vision(m["name"], (m.get("details") or {}).get("families"), _caps.get(m.get("digest"))),
              "family": (m.get("details") or {}).get("family"),
              "parameter_size": (m.get("details") or {}).get("parameter_size"),
              "quantization": (m.get("details") or {}).get("quantization_level"), "loaded": m["name"] in loaded,
              "size_vram": loaded.get(m["name"], {}).get("size_vram"), "expires_at": loaded.get(m["name"], {}).get("expires_at")}
-            for m in tags.get("models", [])]
+            for m in models]
 
 
 # shortcut: pull jobs live in memory (lost on backend restart; Ollama resumes a re-started pull from its partial blobs).
@@ -610,6 +721,7 @@ async def delete_model(name: str = PathParam(pattern=MODEL_RE)):
 class ChatMessage(BaseModel):
     role: str = Field(pattern=r"^(user|assistant|system)$")
     content: str = Field(max_length=100_000)
+    images: list[str] | None = None  # data URLs, bare base64 or saved image names (see decode_image)
 
 
 class ChatBody(BaseModel):
@@ -627,7 +739,11 @@ def speed(r: dict) -> dict:
 
 @router.post("/chat")
 async def chat(body: ChatBody):
-    msgs = ([{"role": "system", "content": body.system}] if body.system else []) + [m.model_dump() for m in body.messages]
+    msgs = [{"role": "system", "content": body.system}] if body.system else []
+    for m in body.messages:
+        imgs = check_images(m.images)
+        # Ollama wants bare base64 (no data: prefix) in messages[].images.
+        msgs.append({"role": m.role, "content": m.content, **({"images": [base64.b64encode(raw).decode() for raw, _ in imgs]} if imgs else {})})
     req = {"model": body.model, "messages": msgs}
     if not body.stream:
         r = await ollama("POST", "/api/chat", timeout=900, json={**req, "stream": False})

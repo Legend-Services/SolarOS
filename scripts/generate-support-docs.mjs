@@ -106,6 +106,14 @@ async function capture(page, reg) {
     await page.evaluate(async () => (await import("/src/lib/stores.ts")).useIntent.getState().go("compute", "docker"));
     await settle(page, 900);
   });
+  // Solar AI Studio with a screenshot attached to a text-only model: thumbnail strip plus the Switch to vision model banner.
+  await snap("local-ai-vision", async () => {
+    const picture = await page.screenshot({ clip: { x: 0, y: 0, width: 960, height: 600 } });
+    await show(page, { kind: "app", appId: "local-ai" });
+    await page.locator('input[type="file"][accept^="image/"]').setInputFiles({ name: "screenshot.png", mimeType: "image/png", buffer: picture });
+    await page.getByRole("textbox", { name: "Message" }).fill("What is causing this error in my screenshot?");
+    await settle(page, 600);
+  });
   // Smart Compute Groups: the grouped view with a multi-homed guest's group list open, and the auto-filling Create Group dialog.
   await snap("compute-groups", async () => {
     await show(page, { kind: "app", appId: "compute" });

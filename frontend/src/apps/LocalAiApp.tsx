@@ -1,20 +1,26 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent, type ReactNode } from "react";
 import {
-  ArrowLeft, ArrowUp, BrainCircuit, Check, ChevronDown, Copy, Cpu, Download, ExternalLink, Gauge, HardDrive, MessageSquare, Search,
-  PanelLeft, Pencil, Settings as SettingsIcon, Square, SquarePen, Thermometer, Trash2, Zap,
+  ArrowLeft, ArrowUp, BrainCircuit, Check, ChevronDown, Copy, Cpu, Download, ExternalLink, Eye, Gauge, HardDrive, ImagePlus, MessageSquare, Search,
+  PanelLeft, Pencil, Settings as SettingsIcon, Square, SquarePen, Thermometer, Trash2, X, Zap,
 } from "lucide-react";
 import { api } from "../lib/api";
 import { bytes, copyText, percent } from "../lib/format";
 import { useDismiss, usePoll } from "../lib/hooks";
 import { useWindows } from "../lib/stores";
 import type { AiHardware, AiStatus, LocalModel, OnlineModel, PullJob, VramFit } from "../lib/types";
-import { ConfirmModal, GlassBadge, GlassButton, GlassInput, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
+import { ConfirmModal, GlassBadge, GlassButton, GlassInput, GlassModal, GlassSelect, GlassSwitch, Notice, Segmented } from "../components/ui/GlassKit";
 import { useCapabilities } from "../store/capabilitiesStore";
 
 const CATEGORIES = ["All", "Coding", "General", "Reasoning", "Vision", "Embeddings"] as const;
 const FIT_TONE: Record<VramFit, "success" | "warning" | "danger" | "neutral"> = { optimal_gpu: "success", tight_gpu: "warning", cpu_offload: "danger", cpu_only: "neutral" };
 
 const shortGpu = (name?: string | null) => (name || "GPU").replace(/^NVIDIA\s+(GeForce\s+)?/i, "");
+
+const VisionBadge = () => (
+  <GlassBadge tone="info">
+    <Eye size={10} /> Vision
+  </GlassBadge>
+);
 
 function fitLabel(fit: VramFit, gpu: string) {
   return { optimal_gpu: `Fits ${gpu} 100% VRAM`, tight_gpu: `Tight fit in ${gpu} VRAM`, cpu_offload: "Hybrid GPU+RAM", cpu_only: "CPU only" }[fit];
@@ -117,11 +123,15 @@ function OnlineModels({ status, jobs, onPull }: { status: AiStatus; jobs: PullJo
                     </p>
                   </div>
                   <div className="flex flex-wrap justify-end gap-1">
-                    {m.capabilities.filter((c) => c !== "cloud").map((c) => (
-                      <GlassBadge key={c} tone="info">
-                        {c}
-                      </GlassBadge>
-                    ))}
+                    {m.capabilities.filter((c) => c !== "cloud").map((c) =>
+                      c === "vision" ? (
+                        <VisionBadge key={c} />
+                      ) : (
+                        <GlassBadge key={c} tone="info">
+                          {c}
+                        </GlassBadge>
+                      ),
+                    )}
                   </div>
                 </div>
                 <p className="line-clamp-2 text-[11px] text-slate-300">{m.description}</p>
@@ -217,6 +227,7 @@ function InstalledModels({ jobs, refreshKey, onChat }: { jobs: PullJob[]; refres
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <h3 className="truncate text-sm font-semibold text-white">{m.name}</h3>
+                {m.supports_vision && <VisionBadge />}
                 {m.loaded && <GlassBadge tone="success">In VRAM{m.size_vram ? ` · ${bytes(m.size_vram)}` : ""}</GlassBadge>}
               </div>
               <p className="text-[11px] text-slate-400">
@@ -447,7 +458,42 @@ function Markdown({ text }: { text: string }) {
 
 /* ---------------- Chat ---------------- */
 
-type Msg = { role: "user" | "assistant"; content: string; thinking?: string; tps?: number | null; tokens?: number; stopped?: boolean };
+/** images: data URLs while composing, saved image names once the conversation is stored (see imageSrc). */
+type Msg = { role: "user" | "assistant"; content: string; images?: string[]; thinking?: string; tps?: number | null; tokens?: number; stopped?: boolean };
+type Attachment = { src: string; name: string; w: number; h: number };
+
+const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+const MAX_ATTACH = 5; // matches the backend's per-message limit
+const MAX_SIDE = 2048;
+const VISION_DEFAULT = "llama3.2-vision";
+const IMAGE_PROMPT = "Describe and analyze this image.";
+const imageSrc = (s: string) => (s.startsWith("data:") ? s : `/api/ai/chat-images/${s}`);
+
+const readUrl = (f: Blob) =>
+  new Promise<string>((ok, fail) => {
+    const r = new FileReader();
+    r.onload = () => ok(r.result as string);
+    r.onerror = () => fail(r.error);
+    r.readAsDataURL(f);
+  });
+
+/** Longest side ≤ 2048 px so inference stays fast; PNG stays PNG so small text in screenshots stays sharp. */
+async function prepareImage(file: File): Promise<Attachment> {
+  const src = await readUrl(file);
+  const img = new Image();
+  img.src = src;
+  await img.decode();
+  const { naturalWidth: w, naturalHeight: h } = img;
+  const scale = Math.min(1, MAX_SIDE / Math.max(w, h));
+  if (scale === 1 && file.size <= 4 * 2 ** 20) return { src, name: file.name, w, h };
+  const c = document.createElement("canvas");
+  c.width = Math.round(w * scale);
+  c.height = Math.round(h * scale);
+  c.getContext("2d")?.drawImage(img, 0, 0, c.width, c.height);
+  let out = c.toDataURL(file.type === "image/png" ? "image/png" : "image/jpeg", 0.9);
+  if (out.length > 8 * 2 ** 20) out = c.toDataURL("image/jpeg", 0.9); // a photo saved as PNG: JPEG is far smaller
+  return { src: out, name: file.name, w: c.width, h: c.height };
+}
 
 function ModelPicker({ models, value, onChange, onManage }: { models: LocalModel[]; value: string; onChange: (m: string) => void; onManage: () => void }) {
   const [open, setOpen] = useState(false);
@@ -473,7 +519,10 @@ function ModelPicker({ models, value, onChange, onManage }: { models: LocalModel
               className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-white/10"
             >
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-xs font-medium text-white">{m.name}</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="truncate text-xs font-medium text-white">{m.name}</span>
+                  {m.supports_vision && <VisionBadge />}
+                </span>
                 <span className="block text-[10px] text-slate-400">
                   {[m.parameter_size, m.quantization, bytes(m.size)].filter(Boolean).join(" · ")}
                   {m.loaded && " · in VRAM"}
@@ -496,19 +545,56 @@ function ModelPicker({ models, value, onChange, onManage }: { models: LocalModel
 const newChatId = () => Array.from(crypto.getRandomValues(new Uint8Array(6)), (b) => b.toString(16).padStart(2, "0")).join("");
 const chatTitle = (msgs: Msg[]) => (msgs.find((m) => m.role === "user")?.content.split("\n")[0].trim() || "New chat").slice(0, 60);
 
-function ChatView({ status, model, setModel, instructions, visible, activeId, chatKey, onCreated, onSaved, onManage }: {
+function ChatView({ status, model, setModel, instructions, visible, activeId, chatKey, onCreated, onSaved, onManage, jobs, onPull, refreshKey }: {
   status: AiStatus; model: string; setModel: (m: string) => void; instructions: string; visible: boolean;
   activeId: string | null; chatKey: number; onCreated: (id: string) => void; onSaved: () => void; onManage: () => void;
+  jobs: PullJob[]; onPull: (tag: string) => void; refreshKey: number;
 }) {
   const idRef = useRef<string | null>(null); // the conversation on screen
   const [models, setModels] = useState<LocalModel[]>([]);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
+  const [attach, setAttach] = useState<Attachment[]>([]);
+  const [dragging, setDragging] = useState(false);
+  const [zoom, setZoom] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const box = useRef<HTMLDivElement>(null);
   const ta = useRef<HTMLTextAreaElement>(null);
+  const picker = useRef<HTMLInputElement>(null);
   const abort = useRef<AbortController | null>(null);
+
+  const addFiles = async (files: File[]) => {
+    const imgs = files.filter((f) => IMAGE_TYPES.includes(f.type));
+    const room = MAX_ATTACH - attach.length;
+    if (imgs.length < files.length) setError("Only PNG, JPEG, WebP and GIF images can be attached.");
+    else if (imgs.length > room) setError(`You can attach up to ${MAX_ATTACH} images per message.`);
+    else setError("");
+    try {
+      const ready = await Promise.all(imgs.slice(0, Math.max(0, room)).map(prepareImage));
+      setAttach((a) => [...a, ...ready].slice(0, MAX_ATTACH));
+    } catch {
+      setError("That image could not be read. Try saving it as PNG or JPEG first.");
+    }
+  };
+  const hasFiles = (e: DragEvent) => e.dataTransfer.types.includes("Files");
+  const dropProps = {
+    onDragOver: (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      setDragging(true);
+    },
+    onDragLeave: (e: DragEvent) => !e.currentTarget.contains(e.relatedTarget as Node | null) && setDragging(false),
+    onDrop: (e: DragEvent) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      setDragging(false);
+      void addFiles([...e.dataTransfer.files]);
+    },
+  };
+  const cur = models.find((m) => m.name === model);
+  const visionModel = models.find((m) => m.supports_vision);
+  const visionJob = jobs.find((j) => j.model.startsWith(`${VISION_DEFAULT}:`) && j.state !== "done");
 
   // Refresh the model list whenever the chat comes back into view (models may have been added in Settings).
   useEffect(() => {
@@ -519,8 +605,8 @@ function ChatView({ status, model, setModel, instructions, visible, activeId, ch
         if (!m.some((x) => x.name === model) && m[0]) setModel(m[0].name);
       })
       .catch((e) => setError(e.message));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload on visibility only
-  }, [visible]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reload on visibility and finished downloads only
+  }, [visible, refreshKey]);
   useEffect(() => () => abort.current?.abort(), []); // closing the app stops a running reply on the GPU
   // Open a saved conversation, or start empty (New chat). A reply still streaming for the previous one is stopped.
   useEffect(() => {
@@ -560,8 +646,10 @@ function ChatView({ status, model, setModel, instructions, visible, activeId, ch
 
   const send = async (e: FormEvent) => {
     e.preventDefault();
-    if (busy || !input.trim() || !model) return;
-    const next: Msg[] = [...msgs, { role: "user", content: input.trim() }];
+    if (busy || (!input.trim() && !attach.length) || !model) return;
+    const images = attach.length ? attach.map((a) => a.src) : undefined;
+    const next: Msg[] = [...msgs, { role: "user", content: input.trim() || IMAGE_PROMPT, images }];
+    setAttach([]);
     const id = idRef.current ?? newChatId();
     if (!idRef.current) {
       idRef.current = id;
@@ -584,7 +672,7 @@ function ChatView({ status, model, setModel, instructions, visible, activeId, ch
         signal: ctl.signal,
         credentials: "same-origin",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model, system: instructions.trim() || null, stream: true, messages: next.map(({ role, content }) => ({ role, content })) }),
+        body: JSON.stringify({ model, system: instructions.trim() || null, stream: true, messages: next.map(({ role, content, images }) => ({ role, content, images })) }),
       });
       if (!res.ok || !res.body) {
         const detail = (await res.json().catch(() => null))?.detail;
@@ -634,12 +722,59 @@ function ChatView({ status, model, setModel, instructions, visible, activeId, ch
     }
   };
 
+  const visionBanner = attach.length > 0 && !cur?.supports_vision && (
+    <div role="status" className="mb-2 flex flex-wrap items-center gap-2 rounded-xl border border-[var(--sd-border-hairline)] bg-[var(--sd-surface-card)] px-3 py-2 text-[11px] text-[var(--sd-text-secondary)]">
+      <Eye size={13} className="shrink-0 text-sky-300" />
+      <span className="min-w-0 flex-1">
+        {model ? `${model} can't read images.` : "No model is selected."} {visionModel ? "Switch to a vision model to include them." : "Install a vision model to include them."}
+      </span>
+      {visionModel ? (
+        <GlassButton size="xs" variant="primary" onClick={() => setModel(visionModel.name)}>
+          <Eye size={12} /> Switch to {visionModel.name}
+        </GlassButton>
+      ) : visionJob ? (
+        <div className="w-56">
+          <PullProgress job={visionJob} />
+        </div>
+      ) : (
+        <GlassButton size="xs" variant="primary" onClick={() => onPull(`${VISION_DEFAULT}:11b`)} disabled={!status.ollama_reachable}>
+          <Download size={12} /> Install Vision Model ({VISION_DEFAULT})
+        </GlassButton>
+      )}
+    </div>
+  );
+
   const composer = (
     <form onSubmit={send} className="glass-soft rounded-2xl px-3 pt-2.5 pb-2 ring-1 ring-white/10 transition-[background-color,border-color,box-shadow,transform,scale,opacity] focus-within:ring-violet-300/40">
+      {visionBanner}
+      {attach.length > 0 && (
+        <div className="mb-2 flex gap-2 overflow-x-auto px-1 pt-1.5 pb-1" aria-label="Attached images">
+          {attach.map((a, i) => (
+            <div key={i} className="relative h-16 w-16 shrink-0" title={`${a.name} · ${a.w}×${a.h}`}>
+              <img src={a.src} alt={a.name} className="h-16 w-16 rounded-xl border border-[var(--sd-border-hairline)] object-cover" />
+              <button
+                type="button"
+                onClick={() => setAttach((x) => x.filter((_, j) => j !== i))}
+                aria-label={`Remove ${a.name}`}
+                title="Remove"
+                className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-[var(--sd-border-hairline)] bg-[var(--sd-surface-elevated)] text-[var(--sd-text-primary)] transition hover:bg-rose-500 hover:text-white"
+              >
+                <X size={11} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
       <textarea
         ref={ta}
         rows={1}
         value={input}
+        onPaste={(e) => {
+          const files = [...e.clipboardData.files].filter((f) => f.type.startsWith("image/"));
+          if (!files.length) return; // plain text pastes as usual
+          e.preventDefault();
+          void addFiles(files);
+        }}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -652,13 +787,34 @@ function ChatView({ status, model, setModel, instructions, visible, activeId, ch
         className="block max-h-48 w-full resize-none bg-transparent px-1 text-sm text-white placeholder:text-slate-500 focus:outline-none"
       />
       <div className="mt-1.5 flex items-center justify-end gap-1">
+        <button
+          type="button"
+          onClick={() => picker.current?.click()}
+          disabled={attach.length >= MAX_ATTACH}
+          aria-label="Attach image"
+          title="Attach image (or drop / paste one)"
+          className="mr-auto flex h-8 w-8 items-center justify-center rounded-full text-slate-300 transition hover:bg-white/10 hover:text-white disabled:opacity-30"
+        >
+          <ImagePlus size={16} />
+        </button>
+        <input
+          ref={picker}
+          type="file"
+          accept={IMAGE_TYPES.join(",")}
+          multiple
+          hidden
+          onChange={(e) => {
+            void addFiles([...(e.target.files ?? [])]);
+            e.target.value = ""; // picking the same file again still fires onChange
+          }}
+        />
         <ModelPicker models={models} value={model} onChange={setModel} onManage={onManage} />
         {busy ? (
           <button type="button" onClick={() => abort.current?.abort()} aria-label="Stop" title="Stop" className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-slate-900 transition hover:bg-slate-200">
             <Square size={11} fill="currentColor" />
           </button>
         ) : (
-          <button type="submit" aria-label="Send" title="Send (Enter)" disabled={!model || !input.trim()} className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-500 text-white transition hover:bg-violet-400 disabled:opacity-30">
+          <button type="submit" aria-label="Send" title="Send (Enter)" disabled={!model || (!input.trim() && !attach.length)} className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-500 text-white transition hover:bg-violet-400 disabled:opacity-30">
             <ArrowUp size={16} />
           </button>
         )}
@@ -666,8 +822,25 @@ function ChatView({ status, model, setModel, instructions, visible, activeId, ch
     </form>
   );
 
+  // Both layouts are a drop zone for images and share the enlarge-image lightbox.
+  const frame = (content: ReactNode) => (
+    <div className="relative h-full" {...dropProps}>
+      {content}
+      {dragging && (
+        <div className="pointer-events-none absolute inset-2 z-30 flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[var(--sd-accent-primary)] bg-[var(--sd-surface-panel)] text-sm text-[var(--sd-text-primary)] shadow-2xl">
+          <ImagePlus size={28} className="text-[var(--sd-accent-primary)]" />
+          Drop images to attach them
+          <span className="text-[11px] text-[var(--sd-text-muted)]">PNG, JPEG, WebP or GIF · up to {MAX_ATTACH} per message</span>
+        </div>
+      )}
+      <GlassModal open={!!zoom} onClose={() => setZoom(null)} title="Image" width="max-w-5xl">
+        {zoom && <img src={zoom} alt="Attached image, enlarged" className="mx-auto max-h-[75vh] rounded-lg object-contain" />}
+      </GlassModal>
+    </div>
+  );
+
   if (msgs.length === 0)
-    return (
+    return frame(
       <div className="flex h-full flex-col items-center justify-center gap-6 p-6">
         <div className="text-center">
           <BrainCircuit size={32} className="mx-auto text-violet-300" />
@@ -683,14 +856,29 @@ function ChatView({ status, model, setModel, instructions, visible, activeId, ch
       </div>
     );
 
-  return (
+  return frame(
     <div className="flex h-full flex-col">
       <div ref={box} className="min-h-0 flex-1 overflow-auto">
         <div className="mx-auto max-w-3xl space-y-5 px-4 py-5">
           {msgs.map((m, i) =>
             m.role === "user" ? (
-              <div key={i} className="ml-auto w-fit max-w-[80%] rounded-2xl bg-white/10 px-4 py-2.5 text-sm whitespace-pre-wrap text-white">
-                {m.content}
+              <div key={i} className="ml-auto flex w-fit max-w-[80%] flex-col items-end gap-1.5">
+                {!!m.images?.length && (
+                  <div className="flex flex-wrap justify-end gap-1.5">
+                    {m.images.map((s, j) => (
+                      <button
+                        key={j}
+                        type="button"
+                        onClick={() => setZoom(imageSrc(s))}
+                        aria-label={`Enlarge image ${j + 1}`}
+                        className="overflow-hidden rounded-xl border border-[var(--sd-border-hairline)] bg-[var(--sd-surface-card)] transition hover:opacity-90"
+                      >
+                        <img src={imageSrc(s)} alt={`Attached image ${j + 1}`} loading="lazy" className="max-h-48 max-w-[240px] object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="rounded-2xl bg-white/10 px-4 py-2.5 text-sm whitespace-pre-wrap text-white">{m.content}</div>
               </div>
             ) : (
               <div key={i} className="flex gap-3">
@@ -1006,11 +1194,11 @@ export default function LocalAiApp({ initialTab, embedded = false }: { initialTa
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
         <BrainCircuit size={40} className="text-violet-300" />
-        <h2 className="text-base font-semibold text-white">Local AI Studio is not installed</h2>
+        <h2 className="text-base font-semibold text-white">Solar AI Studio is not installed</h2>
         <p className="max-w-md text-xs text-slate-400">
           {status.missing_vmid
-            ? `Container ${status.missing_vmid} no longer exists. Install Local AI Studio again from App Center.`
-            : "Install Local AI Studio (Ollama + Open WebUI) from App Center. You can pick your NVIDIA GPU, Intel/AMD graphics or CPU during setup."}
+            ? `Container ${status.missing_vmid} no longer exists. Install Solar AI Studio again from App Center.`
+            : "Install Solar AI Studio (Ollama + Open WebUI) from App Center. You can pick your NVIDIA GPU, Intel/AMD graphics or CPU during setup."}
         </p>
         <GlassButton variant="primary" onClick={() => open("appcenter")}>
           Open App Center
@@ -1100,6 +1288,9 @@ export default function LocalAiApp({ initialTab, embedded = false }: { initialTa
             onCreated={setActiveId}
             onSaved={loadChats}
             onManage={() => settings("download")}
+            jobs={jobs}
+            onPull={pull}
+            refreshKey={finished}
           />
         </div>
       </div>

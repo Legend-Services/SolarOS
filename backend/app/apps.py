@@ -27,10 +27,10 @@ BY_ID = {a["id"]: a for a in _ALL}
 # (native_feature): they are no longer installable, but existing instances are still listed, opened and uninstalled.
 CATALOG = [a for a in _ALL if not a.get("system") and not a.get("legacy")]
 TAG = settings.name("app")
-ALIASES = {"ollama": "local-ai"}  # pre-v1.6 Ollama installs show up under Local AI Studio
+ALIASES = {"ollama": "local-ai"}  # pre-v1.6 Ollama installs show up under Solar AI Studio
 
 
-# Local AI compute targets: "cpu", "nvidia:<index or PCI address>", "intel|amd:/dev/dri/renderD<N>".
+# Solar AI Studio compute targets: "cpu", "nvidia:<index or PCI address>", "intel|amd:/dev/dri/renderD<N>".
 TARGET_RE = r"^(cpu|nvidia:([0-9]{1,2}|([0-9a-f]{4}:)?[0-9a-f]{2}:[0-9a-f]{2}\.[0-7])|(intel|amd):/dev/dri/renderD[0-9]{3})$"
 
 
@@ -103,7 +103,7 @@ class DeployBody(BaseModel):
     ip_config: Literal["dhcp"] | StaticIP = "dhcp"
     mount_storage: bool = False
     enable_igpu: bool = False
-    # Local AI Studio only (app_id "local-ai").
+    # Solar AI Studio only (app_id "local-ai").
     compute_target: str = Field("cpu", pattern=TARGET_RE)
     install_open_webui: bool = False
     starter_models: list[Annotated[str, StringConstraints(pattern=MODEL_RE)]] = Field([], max_length=5)
@@ -214,6 +214,8 @@ async def reconcile() -> list[dict]:
             continue
         rec = by_vmid.get(vmid)
         rec = dict(rec) if rec and rec["app_id"] == app_id else _record(vmid, app_id, "")
+        # Names follow the catalog, so a renamed app (Local AI Studio → Solar AI Studio) updates existing installs.
+        rec.update(app_name=BY_ID[app_id]["name"], display_name=display_name(app_id, rec["instance_label"]))
         status = c.get("status") or "unknown"
         if not rec["ip_address"] and status == "running":
             rec["ip_address"] = await p.container_ip(vmid)

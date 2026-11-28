@@ -74,9 +74,9 @@
   },
   {
     "id": "local-ai",
-    "name": "Local AI Studio (Ollama + Open WebUI)",
+    "name": "Solar AI Studio (Ollama + Open WebUI)",
     "category": "AI & Compute",
-    "description": "Private ChatGPT-style AI on your own hardware: Ollama with NVIDIA CUDA (RTX GPUs), Intel/AMD Vulkan or CPU, an optional Open WebUI chat on port 3000, and a model library with VRAM fit ratings in the Local AI app.",
+    "description": "Private ChatGPT-style AI on your own hardware: Ollama with NVIDIA CUDA (RTX GPUs), Intel/AMD Vulkan or CPU, an optional Open WebUI chat on port 3000, and a model library with VRAM fit ratings in the Solar AI Studio app.",
     "icon": "BrainCircuit",
     "cores": 8, "memory_mb": 16384, "disk_gb": 64,
     "web_port": 3000, "web_scheme": "http",

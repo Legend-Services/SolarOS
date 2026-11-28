@@ -24,12 +24,12 @@ Opening a setting jumps straight to its tab and briefly highlights the card; ope
 
 ## Contents
 
-- [Apps](apps.md): Settings, Compute Manager, File Station, App Center, Local AI, Network Architect, Terminal, Help & Support
+- [Apps](apps.md): Settings, Compute Manager, File Station, App Center, Solar AI Studio, Network Architect, Terminal, Help & Support
 - [Settings › System](settings-system.md): Info, General & Appearance, Features & Services, Installed Apps & Instances, Hardware, GPU & BIOS, Resource Monitor, System Services & Repositories, Automation & Alerts, Power & UPS
 - [Settings › Storage & Data](settings-storage.md): Storage & ZFS Pools, Backup & Restore, Shared Folders & SMB, ISO & Template Library
 - [Settings › Privilege & Security](settings-security.md): Users & Roles, Security & 2FA, Security Posture & Hardening, Audit & System Logs, Security-by-Design Modules
 - [Settings › Network & Services](settings-network.md): Network & Virtual Switch, Network Topology, DNS, AdBlock & DHCP, Domains & Certificates, Reverse Proxy & SSL, Firewall & Port Forwarding, Firewall & IDS, WireGuard VPN
-- [Settings › Hypervisor & Runtime](settings-hypervisor.md): Hypervisor Defaults, Local AI Runtime, Cluster & High Availability
+- [Settings › Hypervisor & Runtime](settings-hypervisor.md): Hypervisor Defaults, Solar AI Studio Runtime, Cluster & High Availability
 - [Feature deep dives](features.md): virtual switch, virtual hardware & labs, multi-seat, clustering & HA, security internals
 - [REST API reference](api/README.md): every endpoint and WebSocket by area (regenerate with `node scripts/generate-api-docs.mjs`)
 

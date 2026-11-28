@@ -6,6 +6,7 @@ backend/data/virtual_hardware.json
 backend/data/isolated_labs.json
 backend/data/multiseat.json
 backend/data/ai_chats.json
+backend/data/ai_chat_images/
 backend/data/themes/
 backend/data/native_guests.json
 backend/data/local_rbac.json

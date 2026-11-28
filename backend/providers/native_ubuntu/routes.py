@@ -346,7 +346,7 @@ async def domains():
     return [{"realm": rbac.REALM, "type": "solardeck", "comment": "SolarDeck local users", "default": 1}]
 
 
-# ---------------------------------------------------------------- App Center & Local AI
+# ---------------------------------------------------------------- App Center & Solar AI Studio
 @router.get("/api/apps/catalog")
 async def catalog():
     return await P().app_catalog()
