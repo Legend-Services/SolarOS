@@ -383,7 +383,7 @@ echo @@stat@@; grep '^cpu[0-9]' /proc/stat
 echo @@nvidia@@; command -v nvidia-smi >/dev/null && nvidia-smi --query-gpu={THERMAL_NV_Q} --format=csv,noheader,nounits 2>/dev/null
 true
 """
-THERMAL_TTL = 1.5  # several open views (Hardware, Info, Resource Monitor) share one host read per poll
+THERMAL_TTL = 1.5  # several open views (Hardware, Info, Resource & Thermal Monitor) share one host read per poll
 GPU_HWMON = ("amdgpu", "radeon", "i915", "xe", "nouveau")
 _thermals: tuple[float, dict] | None = None
 _thermal_lock = asyncio.Lock()

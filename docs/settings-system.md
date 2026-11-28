@@ -8,7 +8,7 @@ OS info, software updates, appearance themes, features toggle, installed apps, h
 
 ![System](screenshots/settings-system.png)
 
-**Sub-modules:** [Info](#info) · [General & Appearance](#general--appearance) · [Features & Services](#features--services) · [Installed Apps & Instances](#installed-apps--instances) · [Hardware, BIOS/Firmware & Multi-Seat](#hardware-biosfirmware--multi-seat) · [Resource Monitor](#resource-monitor) · [System Services & Repositories](#system-services--repositories) · [Automation & Alerts](#automation--alerts) · [Power & UPS](#power--ups)
+**Sub-modules:** [Info](#info) · [General & Appearance](#general--appearance) · [Features & Services](#features--services) · [Installed Apps & Instances](#installed-apps--instances) · [Hardware, BIOS/Firmware & Multi-Seat](#hardware-biosfirmware--multi-seat) · [Resource & Thermal Monitor](#resource--thermal-monitor) · [System Services & Repositories](#system-services--repositories) · [Automation & Alerts](#automation--alerts) · [Power & UPS](#power--ups)
 
 ## Info
 
@@ -203,7 +203,7 @@ See the CPU, memory, GPUs, PCIe and IOMMU groups and network adapters of the hos
 
 > **Tip:** The QR guide works offline: the text is inside the code.
 
-> **Tip:** System › Info and Resource Monitor › GPU & Sensors show the same live readings.
+> **Tip:** Live CPU, core and fan sensors moved to Resource & Thermal Monitor › CPU & Cooling (press Live sensors on the CPU card); System › Info shows the same readings.
 
 ### CPU & Memory
 
@@ -272,29 +272,58 @@ Physical network adapters with link speed and driver.
 
 1. Read the Network interfaces card at the bottom.
 
-## Resource Monitor
+## Resource & Thermal Monitor
 
-![Resource Monitor](screenshots/settings-resource-monitor.png)
+![Resource & Thermal Monitor](screenshots/settings-resource-monitor.png)
 
 ### Overview
 
-Live CPU, memory, network, GPU and temperature telemetry of the host.
+Live load and temperatures of the host, one subject per tab: CPU & Cooling, Memory, Network, GPU and Drives. Temperatures, clocks and fans refresh every 2 seconds.
 
-1. Open Settings › System › Resource Monitor (or press “Open This Setting / App →” above).
-2. Performance shows live graphs for CPU, memory and network.
-3. GPU & Sensors shows GPU load, video engines and temperatures.
+1. Open Settings › System › Resource & Thermal Monitor (or press “Open This Setting / App →” above).
+2. CPU & Cooling: the CPU load graph, package temperature, average clock, and a bar per core with its temperature, clock and load, plus the chassis fans.
+3. Memory and Network: larger live graphs of memory (with ZFS cache and swap) and of traffic in and out.
+4. GPU: every graphics card with its load, temperature, hotspot, fan, power and video memory; Drives: temperature, SMART health and wear of every disk.
+5. Use Pause next to LIVE · 2s to freeze the readings, and Play to resume.
 
-### Live Performance
+> **Tip:** The CPU and RAM pills in the top bar open the CPU & Cooling and Memory tabs directly.
 
-Live graphs of CPU, memory and network use.
+### CPU & Cooling
 
-1. Open Resource Monitor; Performance is the first tab.
+CPU load graph, package temperature, clocks, a live bar per core (temperature, clock, load) and the fans.
 
-### GPU & Sensors
+1. Open Resource & Thermal Monitor; CPU & Cooling is the first tab.
+2. Watch the Cores card: every bar updates every 2 seconds.
 
-GPU load, video engines and temperature sensors.
+![CPU & Cooling](screenshots/settings-resource-monitor--live-performance.png)
 
-1. Click GPU & Sensors at the top of Resource Monitor.
+### Memory
+
+Live memory graph with apps, ZFS cache (ARC), free memory and swap.
+
+1. Click Memory at the top of Resource & Thermal Monitor.
+
+### Network
+
+Live graph of all traffic in and out of the host.
+
+1. Click Network at the top of Resource & Thermal Monitor.
+
+### GPU
+
+Every GPU with its load, temperature, hotspot, fan, power and video memory.
+
+1. Click GPU at the top of Resource & Thermal Monitor.
+
+![GPU](screenshots/settings-resource-monitor--gpu-sensors.png)
+
+### Drives
+
+Temperature, SMART health and remaining life of every disk.
+
+1. Click Drives at the top of Resource & Thermal Monitor.
+
+> **Tip:** Drives above about 55 °C deserve better cooling.
 
 ## System Services & Repositories
 

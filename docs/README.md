@@ -25,7 +25,7 @@ Opening a setting jumps straight to its tab and briefly highlights the card; ope
 ## Contents
 
 - [Apps](apps.md): Settings, Compute Manager, File Station, App Center, Solar AI Studio, Network Architect, Terminal, Help & Support
-- [Settings › System](settings-system.md): Info, General & Appearance, Features & Services, Installed Apps & Instances, Hardware, BIOS/Firmware & Multi-Seat, Resource Monitor, System Services & Repositories, Automation & Alerts, Power & UPS
+- [Settings › System](settings-system.md): Info, General & Appearance, Features & Services, Installed Apps & Instances, Hardware, BIOS/Firmware & Multi-Seat, Resource & Thermal Monitor, System Services & Repositories, Automation & Alerts, Power & UPS
 - [Settings › Storage & Data](settings-storage.md): Storage & ZFS Pools, Backup & Restore, Shared Folders & SMB, ISO & Template Library
 - [Settings › Privilege & Security](settings-security.md): Users & Roles, Security & 2FA, Security Posture & Hardening, Audit & System Logs, Security-by-Design Modules
 - [Settings › Network & Services](settings-network.md): Network & Virtual Switch, Network Topology, DNS, AdBlock & DHCP, Domains & Certificates, Reverse Proxy & SSL, Firewall & Port Forwarding, Firewall & IDS, WireGuard VPN

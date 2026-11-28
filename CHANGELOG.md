@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.29.0 - Resource & Thermal Monitor — 2026-11-28
+
+### Changed
+- **Resource Monitor is now Resource & Thermal Monitor** (Settings › System, the desktop app, Global Search, Manual and guides, in all five languages).
+- **One subject per tab**: *CPU & Cooling*, *Memory*, *Network*, *GPU* and *Drives* replace *Performance* and *GPU & Sensors*. Old links to those tabs open *CPU & Cooling* and *GPU*.
+  - *CPU & Cooling*: load graph, package temperature, average clock and clock range, host details, the live **Cores** grid (temperature, clock and load per core) and the **Fans** card.
+  - *Memory* and *Network*: larger live graphs (memory with ZFS cache and swap; traffic in and out).
+  - *GPU*: every GPU from the live stream (load, temperature, hotspot, fan, power, VRAM) plus Intel Quick Sync. Before, only the first NVIDIA GPU was shown.
+  - *Drives*: live temperature, SMART health and wear per disk.
+- **CPU sensors moved out of Hardware**: the per-core grid, package temperature, live clock and the Fans card now live in the monitor. The Hardware tab's CPU card keeps the model, topology, max clock, virtualization and kernel command line, with a **Live sensors** button that opens *CPU & Cooling*.
+- The CPU and RAM pills in the top bar open *CPU & Cooling* and *Memory* directly.
+- Values in the Hardware cards wrap instead of being cut off.
+
 ## v2.28.0 - Resizable Settings sidebar — 2026-11-28
 
 ### Added

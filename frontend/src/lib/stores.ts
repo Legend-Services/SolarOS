@@ -440,7 +440,7 @@ export const useThermals = create<ThermalState>((set, get) => {
   };
 });
 
-/** Live thermals snapshot for the mounted view (Hardware tab, System › Info, Resource Monitor › GPU & Sensors). */
+/** Live thermals snapshot for the mounted view (Hardware tab, System › Info, Resource & Thermal Monitor). */
 export function useLiveThermals() {
   const subscribe = useThermals((s) => s.subscribe);
   useEffect(subscribe, [subscribe]);
