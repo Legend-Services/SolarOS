@@ -63,6 +63,28 @@ DIMM temperature when the board has `jc42` / `spd5118` sensors) and **Storage** 
 whether to show **Temperatures**. The choice is saved with the widget layout; with no live part selected the widget does
 not stream sensors. Clicking a section opens the matching monitor tab.
 
+**Averaging and colour limits.** Temperatures are averaged over a window (10 s by default, 2-60 s), so a short spike
+barely moves them; only a temperature that stays high turns orange or red. Clocks, loads, power and fans stay current.
+Each sensor kind has its own orange and red limit. The CPU limits come from a table of CPU types matched against the
+detected model, because a 14900K or 14900HX is built to run hotter than an older or server CPU:
+
+| CPU type | Vendor max | Orange from | Red from |
+|---|---|---|---|
+| Intel Core Ultra 200S / 200HX | 105 °C (reported) | 90 °C | 100 °C |
+| Intel Core 13th/14th gen K / KF / KS and HX | 100 °C | 88 °C | 97 °C |
+| Intel Core 12th-14th gen (other) | 100 °C | 85 °C | 95 °C |
+| Intel N-series / Atom / Celeron / Pentium | 105 °C | 85 °C | 100 °C |
+| Intel Xeon | ~90 °C (varies) | 75 °C | 88 °C |
+| AMD Ryzen 7000 / 9000 X3D | 89 °C | 78 °C | 87 °C |
+| AMD Ryzen 7000 / 9000 (desktop) and Ryzen laptop | 95 °C | 85 °C | 95 °C |
+| AMD Ryzen 5000 (desktop) | 90 °C | 80 °C | 90 °C |
+| Other / unknown | — | 80 °C | 90 °C |
+
+Other sensors: GPU 80 / 88 °C, GPU hotspot 95 / 105 °C, NVMe / SSD 60 / 70 °C, hard disk 45 / 55 °C, RAM 70 / 85 °C.
+Change any limit with the sliders in **Settings → System → Resource & Thermal Monitor → Thermal Sensors** (which also
+shows the full table with sources) or in the widget's gear panel when *Temperatures* is on. The settings follow your
+account (stored with your other preferences) and **Reset** returns to the recommended limits.
+
 ## Multi-Host Cluster, Live Migration & High Availability
 
 Open **Settings → Hypervisor & Runtime → Cluster & High Availability**:

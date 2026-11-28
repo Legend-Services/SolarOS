@@ -317,8 +317,9 @@ export const MODULE_DOCS: Record<ModuleId, Doc> = {
       "Memory and Network: larger live graphs of memory (with ZFS cache and swap) and of traffic in and out.",
       "GPU: every graphics card with its load, temperature, hotspot, fan, power and video memory; Drives: temperature, SMART health and wear of every disk.",
       "Use Pause next to LIVE · 2s to freeze the readings, and Play to resume.",
+      "Thermal Sensors: set how long temperatures are averaged and drag the orange and red limits per sensor; the CPU limits start from a table of CPU types.",
     ],
-    tips: ["The CPU and RAM pills in the top bar open the CPU & Cooling and Memory tabs directly."],
+    tips: ["The CPU and RAM pills in the top bar open the CPU & Cooling and Memory tabs directly.", "Temperatures are averaged (10 s by default), so a short spike no longer turns a reading red."],
     keywords: "resource thermal monitor cpu cores per core temperature clock mhz fan rpm cooling ram memory network usage graphs sensors live telemetry performance gpu drives disks",
   },
   "system-services": {
@@ -493,6 +494,7 @@ export const CONTROLS: Control[] = [
     { id: "network-traffic", titleKey: "rm.tab.network", tabId: "network", description: "Live graph of all traffic in and out of the host.", keywords: "network traffic bandwidth in out throughput graph", steps: ["Click Network at the top of Resource & Thermal Monitor."] },
     { id: "gpu-sensors", titleKey: "kb.gpu-sensors", tabId: "gpu", shot: true, description: "Every GPU with its load, temperature, hotspot, fan, power and video memory.", keywords: "gpu graphics card temperature hotspot fan power vram load quick sync video engine", steps: ["Click GPU at the top of Resource & Thermal Monitor."] },
     { id: "drive-temps", titleKey: "rm.tab.drives", tabId: "drives", description: "Temperature, SMART health and remaining life of every disk.", keywords: "drives disks nvme sata ssd hdd temperature smart health wear life", steps: ["Click Drives at the top of Resource & Thermal Monitor."], tips: ["Drives above about 55 °C deserve better cooling."] },
+    { id: "thermal-sensors", titleKey: "rm.tab.sensors", tabId: "sensors", shot: true, description: "Averaging window for temperatures and the orange / red colour limits per sensor (CPU, GPU, GPU hotspot, NVMe / SSD, hard disk, RAM), with recommended limits per CPU type.", keywords: "thermal sensors temperature limits thresholds colours orange red average smoothing spikes slider cpu type tjmax 14900k 14900hx ryzen gpu ssd hdd ram", steps: ["Click Thermal Sensors at the top of Resource & Thermal Monitor.", "Drag Average temperatures over to choose how long readings are averaged.", "Drag Orange from and Red from for each sensor, or press Reset to go back to the recommended limit."], tips: ["The same sliders are in the gear panel of the Hardware & Thermal Monitor widget when Temperatures is on."] },
   ]),
   ...c("system-services", [
     { id: "service-manager", tabId: "services", titleKey: "kb.service-manager", headings: ["System services"], description: "The background services of the host and deployed apps with start, stop, restart and enable at boot.", keywords: "service manager systemd daemon unit restart enable", steps: ["Filter the list by name.", "Use the row buttons to control a service."] },

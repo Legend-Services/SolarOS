@@ -205,6 +205,11 @@ poll that runs only while a view is subscribed, is not paused, and the tab is vi
 the 30-second SMART cache of `GET /api/v1/telemetry/hardware`, refreshed in the background so a poll never waits on
 `smartctl`.
 
+The browser keeps the raw samples of the last minute and shows every temperature as its average over the user's window
+(`smooth()` in `frontend/src/lib/thermals.ts`, checked by `node scripts/check-thermals.mjs`). Colour limits come from
+`CPU_PROFILES` / `OTHER_LIMITS` in the same file, with the user's slider overrides (`store/thermalStore.ts`, synced in
+`/api/system/preferences` under `thermal`) on top.
+
 ### Security-by-Design modules
 
 Eight optional modules are governed by `backend/app/platform_modules.py` (`GET /api/platform/modules`,

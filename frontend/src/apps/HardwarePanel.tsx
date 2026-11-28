@@ -2,13 +2,15 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { edition } from "@edition";
 import { Copy, Cpu, Download, MonitorCog, Pause, Play, RefreshCw, Repeat, Thermometer } from "lucide-react";
 import { api } from "../lib/api";
-import { bytes, copyText, percent, tempColor } from "../lib/format";
+import { bytes, copyText, percent } from "../lib/format";
 import { useRunner } from "../lib/hooks";
 import { openLink, useLiveThermals, useThermals, type LiveThermals } from "../lib/stores";
 import { useTranslation } from "../i18n";
 import { Bar } from "../components/charts";
 import { OperationProgressCard, useJobProgress } from "../components/ui/OperationProgressCard";
 import { ConfirmModal, GlassBadge, GlassButton, Notice } from "../components/ui/GlassKit";
+import { driveKind } from "../lib/thermals";
+import { TempText } from "../components/TempText";
 
 /* ---------------- Types (GET /api/hardware/inventory) ---------------- */
 
@@ -182,7 +184,6 @@ function Table({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
   );
 }
 
-const C = (c: number | null | undefined) => (c == null ? "—" : <span className={tempColor(c)}>{c.toFixed(0)} °C</span>);
 const driverTone = (d: string | null) => (d === "vfio-pci" ? "info" : d ? "success" : "warning");
 
 /* ---------------- Sections ---------------- */
@@ -287,8 +288,8 @@ function GpuCard({ g, live }: { g: Gpu; live: LiveGpu | null }) {
             <Bar value={percent(m.vram_used_mib ?? 0, m.vram_total_mib ?? 0)} className="bg-violet-400" />
           </div>
           <div className="text-slate-400">
-            Temperature {C(m.temp_c)}
-            {live?.hotspot_temp_c != null && <> · hotspot {C(live.hotspot_temp_c)}</>}
+            Temperature <TempText c={m.temp_c} kind="gpu" />
+            {live?.hotspot_temp_c != null && <> · hotspot <TempText c={live.hotspot_temp_c} kind="hotspot" /></>}
           </div>
           <div className="text-slate-400">
             Power {m.power_w != null ? `${m.power_w.toFixed(0)} W` : "—"}
@@ -499,7 +500,7 @@ export default function HardwarePanel() {
               <span className="font-mono">{d.serial}</span>,
               d.type,
               d.size ? bytes(d.size) : null,
-              C(liveDrive.get(d.devpath) ?? d.temp_c),
+              <TempText c={liveDrive.get(d.devpath) ?? d.temp_c} kind={driveKind(d.devpath, d.type)} />,
               d.wearout != null && d.wearout !== "N/A" ? `${d.wearout}%` : null,
               d.health && <GlassBadge tone={/PASSED|OK/i.test(d.health) ? "success" : "danger"}>{d.health}</GlassBadge>,
             ])}

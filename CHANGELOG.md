@@ -1,5 +1,18 @@
 # Changelog
 
+## v2.31.0 - Averaged temperatures and per-CPU colour limits — 2026-11-28
+
+### Added
+- **Averaged temperatures**: every temperature (CPU package and cores, GPU and hotspot, drives, RAM) is shown as its average over a window, 10 s by default and adjustable from 2 to 60 s. A short spike no longer flashes orange or red; only a temperature that stays high changes colour. Clocks, loads, power and fans stay current.
+- **Colour limits per CPU type**: a table of recommended orange / red limits per CPU family, based on vendor maximums (e.g. Intel 14900K / 14900HX TjMax 100 °C → orange 88, red 97; AMD Ryzen 7000 95 °C; Ryzen 7000 X3D 89 °C; Ryzen 5000 90 °C). The detected CPU picks its row automatically. Own limits for GPU (80 / 88), GPU hotspot (95 / 105), NVMe / SSD (60 / 70), hard disk (45 / 55) and RAM (70 / 85).
+- **Thermal Sensors tab** in Settings › System › Resource & Thermal Monitor: the averaging slider, an orange and a red slider per sensor kind with a colour band preview, *Custom* / *Recommended* badges, per-sensor and full reset, and the table of CPU types with sources.
+- **The same sliders in the Hardware & Thermal Monitor widget** (gear panel, when *Temperatures* is on), with a link to all sensor settings.
+- The settings are saved in the browser and with your server preferences (`thermal`), so they follow you.
+- Self-checks: `node scripts/check-thermals.mjs` (averaging, CPU matching, levels); the widget browser check now drags the sliders.
+
+### Changed
+- All temperature colours (monitor, Hardware tab, System › Info, widget, Storage Manager) use these limits instead of the fixed 45 / 55 °C rule, which turned a CPU red at 56 °C. The old `tempColor` helper is removed.
+
 ## v2.30.0 - Hardware & Thermal Monitor widget — 2026-11-28
 
 ### Added

@@ -286,8 +286,11 @@ Live load and temperatures of the host, one subject per tab: CPU & Cooling, Memo
 3. Memory and Network: larger live graphs of memory (with ZFS cache and swap) and of traffic in and out.
 4. GPU: every graphics card with its load, temperature, hotspot, fan, power and video memory; Drives: temperature, SMART health and wear of every disk.
 5. Use Pause next to LIVE · 2s to freeze the readings, and Play to resume.
+6. Thermal Sensors: set how long temperatures are averaged and drag the orange and red limits per sensor; the CPU limits start from a table of CPU types.
 
 > **Tip:** The CPU and RAM pills in the top bar open the CPU & Cooling and Memory tabs directly.
+
+> **Tip:** Temperatures are averaged (10 s by default), so a short spike no longer turns a reading red.
 
 ### CPU & Cooling
 
@@ -325,6 +328,18 @@ Temperature, SMART health and remaining life of every disk.
 1. Click Drives at the top of Resource & Thermal Monitor.
 
 > **Tip:** Drives above about 55 °C deserve better cooling.
+
+### Thermal Sensors
+
+Averaging window for temperatures and the orange / red colour limits per sensor (CPU, GPU, GPU hotspot, NVMe / SSD, hard disk, RAM), with recommended limits per CPU type.
+
+1. Click Thermal Sensors at the top of Resource & Thermal Monitor.
+2. Drag Average temperatures over to choose how long readings are averaged.
+3. Drag Orange from and Red from for each sensor, or press Reset to go back to the recommended limit.
+
+> **Tip:** The same sliders are in the gear panel of the Hardware & Thermal Monitor widget when Temperatures is on.
+
+![Thermal Sensors](screenshots/settings-resource-monitor--thermal-sensors.png)
 
 ## System Services & Repositories
 

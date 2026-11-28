@@ -8,6 +8,7 @@ import { useWizard } from "./wizardStore";
 import { sanitizePrefs, themePrefs, useTheme } from "./themeStore";
 import type { ThemePrefs } from "../theme/themeTypes";
 import { NOTES_MAX, sanitizeWidgets, useWidgets, type WidgetCfg } from "./widgetStore";
+import { sanitizeThermal, useThermalPrefs, type ThermalPrefs } from "./thermalStore";
 import { isLang, useLanguage, type Lang } from "../i18n";
 
 export type ViewMode = "grid" | "list";
@@ -234,6 +235,7 @@ interface Preferences {
   widgets?: { items?: WidgetCfg[]; notes?: string; visible?: boolean };
   i18n?: { language?: Lang };
   hypervisor?: Partial<HypervisorDefaults>;
+  thermal?: Partial<ThermalPrefs>;
 }
 
 const snapshot = (): Preferences => {
@@ -245,6 +247,7 @@ const snapshot = (): Preferences => {
     widgets: { items: useWidgets.getState().items, notes: useWidgets.getState().notes, visible: usePrefs.getState().widgets },
     i18n: { language: useLanguage.getState().language },
     hypervisor: hypervisorPrefs(useHypervisorDefaults.getState()),
+    thermal: { smoothSec: useThermalPrefs.getState().smoothSec, overrides: useThermalPrefs.getState().overrides },
   };
 };
 
@@ -269,7 +272,7 @@ export function startPreferencesSync(onReady: () => void): () => void {
     }, 600);
   };
   const subs = [useLayout.subscribe(push), useDock.subscribe(push), useWizard.subscribe(push), useTheme.subscribe(push), useWidgets.subscribe(push),
-    usePrefs.subscribe(push), useLanguage.subscribe(push), useHypervisorDefaults.subscribe(push)];
+    usePrefs.subscribe(push), useLanguage.subscribe(push), useHypervisorDefaults.subscribe(push), useThermalPrefs.subscribe(push)];
 
   useUsage.getState().load();
   api<Preferences>("/system/preferences")
@@ -284,6 +287,7 @@ export function startPreferencesSync(onReady: () => void): () => void {
       if (typeof p.widgets?.visible === "boolean") usePrefs.getState().set({ widgets: p.widgets.visible });
       if (isLang(p.i18n?.language)) useLanguage.getState().setLanguage(p.i18n.language);
       if (p.hypervisor) useHypervisorDefaults.setState(sanitizeHypervisor(p.hypervisor));
+      if (p.thermal) useThermalPrefs.setState(sanitizeThermal(p.thermal));
       last = p.layout && p.theme ? JSON.stringify(snapshot()) : ""; // nothing stored yet: upload this browser's settings
     })
     .catch(() => {})

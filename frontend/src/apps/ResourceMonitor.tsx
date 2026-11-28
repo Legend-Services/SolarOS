@@ -1,11 +1,15 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { edition } from "@edition";
-import { Cpu, Fan, HardDrive, MemoryStick, MonitorPlay, Network, Thermometer, Zap } from "lucide-react";
+import { Cpu, Fan, HardDrive, MemoryStick, MonitorPlay, Network, SlidersHorizontal, Thermometer, Zap } from "lucide-react";
 import { useLiveThermals, useTelemetry, type LiveThermals } from "../lib/stores";
-import { bytes, healthColor, percent, tempColor, uptime } from "../lib/format";
+import { bytes, healthColor, percent, uptime } from "../lib/format";
 import { useTranslation, type TKey } from "../i18n";
 import { AreaChart, Bar, Gauge, Legend } from "../components/charts";
 import { LiveThermalsPill } from "./HardwarePanel";
+import { driveKind } from "../lib/thermals";
+import { useTempColor } from "../store/thermalStore";
+import { TempText } from "../components/TempText";
+import ThermalSettingsPanel from "../components/settings/ThermalSettingsPanel";
 
 function Panel({ title, right, className = "", children }: { title: ReactNode; right?: ReactNode; className?: string; children: ReactNode }) {
   return (
@@ -34,22 +38,22 @@ function Facts({ rows }: { rows: [string, ReactNode][] }) {
 
 const rate = (n: number) => `${bytes(n)}/s`;
 const fmt = (v: number | null | undefined, unit: string, digits = 0) => (v == null ? "—" : `${v.toFixed(digits)} ${unit}`);
-const C = (c: number | null | undefined) => (c == null ? "—" : <span className={tempColor(c)}>{c.toFixed(0)} °C</span>);
 const grid = "grid h-full auto-rows-min gap-3 overflow-y-auto p-4 lg:grid-cols-2";
 
 /* ---------------- CPU: load, temperatures, clocks, per-core sensors and cooling ---------------- */
 
 function CoreGrid({ cores }: { cores: LiveThermals["cpu"]["cores"] }) {
+  const tc = useTempColor();
   return (
     <div className="grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4 xl:grid-cols-6">
       {cores.map((c) => (
         <div key={c.core_id} className="text-[11px] tabular-nums">
           <div className="flex justify-between text-slate-400">
             <span>Core {c.core_id}</span>
-            {C(c.temp_c)}
+            <TempText c={c.temp_c} kind="cpu" />
           </div>
           {/* 100 °C ≈ Tjunction max of current desktop/mobile CPUs; without a core sensor the bar shows load. */}
-          <Bar value={c.temp_c ?? c.load_pct ?? 0} className={c.temp_c != null ? "bg-emerald-400" : "bg-sky-400"} />
+          <Bar value={c.temp_c ?? c.load_pct ?? 0} className={c.temp_c != null ? tc.bar(c.temp_c, "cpu") : "bg-sky-400"} />
           <div className="mt-0.5 flex justify-between text-[10px] text-slate-500">
             <span>{c.freq_mhz != null ? `${c.freq_mhz} MHz` : ""}</span>
             <span>{c.load_pct != null ? `${c.load_pct.toFixed(0)}%` : ""}</span>
@@ -77,7 +81,7 @@ function CpuTab() {
         <div className="mb-3 flex items-end gap-6">
           <div>
             <div className="text-[11px] text-slate-400">Package</div>
-            <div className="text-3xl font-semibold tabular-nums">{C(cpu?.package_temp_c)}</div>
+            <div className="text-3xl font-semibold tabular-nums"><TempText c={cpu?.package_temp_c} kind="cpu" /></div>
           </div>
           <div>
             <div className="text-[11px] text-slate-400">Average clock</div>
@@ -205,8 +209,8 @@ function GpuTab() {
               {g.utilization_pct != null && <Gauge value={g.utilization_pct} label="GPU core" color="#22c55e" />}
               <div className="space-y-2 text-xs tabular-nums">
                 <div className="flex items-center gap-1.5 text-slate-300">
-                  <Thermometer size={14} /> {C(g.temp_c)}
-                  {g.hotspot_temp_c != null && <span className="text-slate-400">· hotspot {C(g.hotspot_temp_c)}</span>}
+                  <Thermometer size={14} /> <TempText c={g.temp_c} kind="gpu" />
+                  {g.hotspot_temp_c != null && <span className="text-slate-400">· hotspot <TempText c={g.hotspot_temp_c} kind="hotspot" /></span>}
                 </div>
                 <div className="flex items-center gap-1.5 text-amber-300">
                   <Zap size={14} /> {fmt(g.power_w, "W", 1)}
@@ -284,7 +288,7 @@ function DrivesTab() {
                 {d.model || "Unknown model"} · {bytes(d.size)}
               </div>
               <div className="mt-2 flex items-end justify-between">
-                <span className={`text-2xl font-semibold tabular-nums ${tempColor(d.temp_c)}`}>{d.temp_c == null ? "—" : `${d.temp_c.toFixed(0)}°C`}</span>
+                <span className="text-2xl font-semibold"><TempText c={d.temp_c} kind={driveKind(d.devpath, d.type)} unit="°C" /></span>
                 <span className="text-right text-[11px] text-slate-400">
                   <span className={healthColor(d.health)}>SMART {d.health}</span>
                   <br />
@@ -299,6 +303,16 @@ function DrivesTab() {
   );
 }
 
+/* ---------------- Thermal sensor settings ---------------- */
+
+function SensorsTab() {
+  return (
+    <div className="h-full overflow-y-auto p-4">
+      <ThermalSettingsPanel />
+    </div>
+  );
+}
+
 /* ---------------- Shell ---------------- */
 
 const TABS = [
@@ -307,6 +321,7 @@ const TABS = [
   { id: "network", label: "rm.tab.network", icon: Network, body: NetworkTab },
   { id: "gpu", label: "rm.tab.gpu", icon: MonitorPlay, body: GpuTab },
   { id: "drives", label: "rm.tab.drives", icon: HardDrive, body: DrivesTab },
+  { id: "sensors", label: "rm.tab.sensors", icon: SlidersHorizontal, body: SensorsTab },
 ] as const satisfies readonly { id: string; label: TKey; icon: unknown; body: () => ReactNode }[];
 
 type TabId = (typeof TABS)[number]["id"];
