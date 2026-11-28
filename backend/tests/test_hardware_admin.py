@@ -68,3 +68,48 @@ assert "apt-cache show" not in h.NONFREE and "apt-cache madison" in h.NONFREE
 installs = [ln for s in h.SCRIPTS.values() for ln in s.splitlines() if "apt-get install" in ln]
 assert installs and not any("firmware-" in ln for ln in installs), "a GPU script installs a Debian firmware-* package"
 print("hardware_admin self-check OK")
+
+# Live thermals (GET /api/hardware/thermals): hwmon rows "chip|device|block|attr|label|value", per-core clock and load.
+probe_out = """@@hwmon@@
+coretemp|coretemp.0||temp1_input|Package id 0|61000
+coretemp|coretemp.0||temp2_input|Core 0|55000
+coretemp|coretemp.0||temp3_input|Core 1|58000
+amdgpu|0000:03:00.0||temp1_input|edge|47000
+amdgpu|0000:03:00.0||temp2_input|junction|52000
+amdgpu|0000:03:00.0||fan1_input||1200
+amdgpu|0000:03:00.0||power1_average||35000000
+nvme|nvme0||temp1_input|Composite|39850
+nvme|nvme0||temp2_input|Sensor 1|44850
+drivetemp|0:0:0:0|sdb|temp1_input||33000
+nct6798|nct6775.656||fan1_input|CPU Fan|900
+nct6798|nct6775.656||fan2_input||0
+@@freq@@
+0|0|4800000
+1|1|4200000
+2|0|5000000
+3|1|4000000
+@@mhz@@
+@@stat@@
+cpu0 200 0 100 600 100 0 0 0 0 0
+cpu1 100 0 0 900 0 0 0 0 0 0
+cpu2 0 0 0 1000 0 0 0 0 0 0
+cpu3 500 0 0 500 0 0 0 0 0 0
+@@nvidia@@
+00000000:01:00.0, RTX Test, 64, 30, 120.5, 2048, 8192, 45
+"""
+ts = h.split_sections(probe_out)
+prev = {"0": (0, 0), "1": (0, 0), "2": (0, 0), "3": (0, 0)}
+t = h.parse_thermals(ts, prev, [{"devpath": "/dev/nvme0n1", "model": "Fast NVMe", "life_left_pct": 97, "temp_c": 50}])
+assert t["cpu"]["package_temp_c"] == 61.0, t["cpu"]
+assert [(c["core_id"], c["temp_c"], c["freq_mhz"]) for c in t["cpu"]["cores"]] == [(0, 55.0, 5000), (1, 58.0, 4200)], t["cpu"]["cores"]
+assert t["cpu"]["cores"][0]["load_pct"] == 15.0 and t["cpu"]["cores"][1]["load_pct"] == 30.0, t["cpu"]["cores"]
+assert (t["cpu"]["min_freq_mhz"], t["cpu"]["avg_freq_mhz"], t["cpu"]["max_freq_mhz"]) == (4000, 4500, 5000)
+gp = {x["slot"]: x for x in t["gpus"]}
+assert gp["01:00.0"]["temp_c"] == 64 and gp["01:00.0"]["fan_rpm_or_pct"] == 30 and gp["01:00.0"]["vram_total_mb"] == 8192, gp
+assert (gp["03:00.0"]["temp_c"], gp["03:00.0"]["hotspot_temp_c"], gp["03:00.0"]["power_w"]) == (47.0, 52.0, 35.0), gp
+dr = {x["device"]: x for x in t["drives"]}
+assert dr["/dev/nvme0n1"] == {"device": "/dev/nvme0n1", "model": "Fast NVMe", "temp_c": 39.9, "wear_pct": 97}, dr
+assert dr["/dev/sdb"]["temp_c"] == 33.0, dr
+assert t["chassis_fans"] == [{"label": "CPU Fan", "rpm": 900}], t["chassis_fans"]
+assert h.parse_thermals({}, {}, [])["cpu"]["cores"] == []  # no bridge, no sysfs: empty but well-formed
+print("thermals self-check OK")

@@ -369,7 +369,7 @@ export const APP_GUIDES: Record<AppId, Guide> = {
     ],
     how: [
       "Security Posture & Hardening: check the security score. Security & 2FA: change the admin password, set up 2FA and sign out other devices. Audit & System Logs: read the audit log. Add more {platform} users and roles in Users & Roles.",
-      "Hardware, GPU & BIOS → GPU & Drivers: pick your card's vendor and press Install.",
+      "Hardware, BIOS/Firmware & Multi-Seat → GPU & Drivers: pick your card's vendor and press Install.",
       "General & Appearance: themes, Light / Dark Mode, wallpapers, Grid/List view, icon size, spacing and Dock.",
       "System → Info: Check for Updates, or System Services & Repositories → SolarDeck Updates for the schedule and history. To go back to an older version, redeploy that release with deploy.sh.",
       "To report a bug, use Help & Support → Ask, then open an issue on the project's GitHub page with what you saw.",
@@ -590,7 +590,7 @@ const SUB_GUIDES: Guide[] = [
     how: [
       "Turn on VT-d / AMD-Vi (IOMMU) in the BIOS: Help & Support → BIOS & firmware shows the exact menu.",
       "Run Help & Support → Fix problems: if IOMMU is off on the host, press Fix it for me and reboot.",
-      "For GPUs, switch the card to passthrough mode in Settings → System → Hardware, GPU & BIOS → GPU & Drivers.",
+      "For GPUs, switch the card to passthrough mode in Settings → System → Hardware, BIOS/Firmware & Multi-Seat → GPU & Drivers.",
       "Shut down the VM, open Compute Manager → Edit → Hardware, and Add PCI/GPU device or Add USB device.",
       "Tick \"include audio\" for GPUs, then start the VM and install the device's drivers inside it.",
     ],
@@ -1004,7 +1004,7 @@ const SUB_GUIDES: Guide[] = [
       "Open Settings › System › Info.",
       "Press Check for Updates, then Install Update if a new release is shown.",
       "Press Reboot or Shut Down and type the host name to confirm.",
-      "Click Hardware, GPU & BIOS or Storage & ZFS Pools on a hardware card for the full details.",
+      "Click Hardware, BIOS/Firmware & Multi-Seat or Storage & ZFS Pools on a hardware card for the full details.",
     ],
     tip: "On SolarOS the pencil next to the hostname renames the server. A hypervisor node or cluster member keeps its name, because renaming it would detach its guests.",
     action: { label: "Open System Info", app: "settings", intent: "system-info" },

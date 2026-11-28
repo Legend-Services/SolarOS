@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { edition } from "@edition";
-import { Copy, Cpu, Download, MonitorCog, RefreshCw, Repeat } from "lucide-react";
+import { Copy, Cpu, Download, Fan, MonitorCog, Pause, Play, RefreshCw, Repeat } from "lucide-react";
 import { api } from "../lib/api";
 import { bytes, copyText, percent, tempColor } from "../lib/format";
-import { usePoll, useRunner } from "../lib/hooks";
+import { useRunner } from "../lib/hooks";
+import { useLiveThermals, useThermals, type LiveThermals } from "../lib/stores";
+import { useTranslation } from "../i18n";
 import { Bar } from "../components/charts";
 import { OperationProgressCard, useJobProgress } from "../components/ui/OperationProgressCard";
 import { ConfirmModal, GlassBadge, GlassButton, Notice } from "../components/ui/GlassKit";
@@ -185,14 +187,19 @@ const driverTone = (d: string | null) => (d === "vfio-pci" ? "info" : d ? "succe
 
 /* ---------------- Sections ---------------- */
 
-function CpuCard({ cpu, virt }: { cpu: Inventory["cpu"]; virt: Inventory["virtualization"] }) {
+function CpuCard({ cpu, virt, live }: { cpu: Inventory["cpu"]; virt: Inventory["virtualization"]; live: LiveThermals["cpu"] | null }) {
+  const pkg = live?.package_temp_c ?? cpu.package_c;
+  const mhz = live?.avg_freq_mhz != null ? { min: live.min_freq_mhz ?? 0, avg: live.avg_freq_mhz, max: live.max_freq_mhz ?? 0 } : cpu.mhz;
+  const cores = live?.cores.length
+    ? live.cores.map((c) => ({ label: `Core ${c.core_id}`, c: c.temp_c, mhz: c.freq_mhz, load: c.load_pct }))
+    : cpu.cores_c.map((c) => ({ label: c.label, c: c.c as number | null, mhz: null as number | null, load: null as number | null }));
   return (
-    <Card title="CPU" action={cpu.package_c != null && <span className="text-xs">Package {C(cpu.package_c)}</span>}>
+    <Card title="CPU" action={pkg != null && <span className="text-xs tabular-nums">Package {C(pkg)}</span>}>
       <Rows
         rows={[
           ["Model", cpu.model],
           ["Topology", cpu.cores ? `${cpu.sockets ?? 1} socket · ${cpu.cores} cores · ${cpu.threads} threads` : null],
-          ["Clock", cpu.mhz ? `${cpu.mhz.min.toFixed(0)}–${cpu.mhz.max.toFixed(0)} MHz (avg ${cpu.mhz.avg}) · max ${cpu.max_mhz ?? "?"} MHz` : null],
+          ["Clock", mhz ? <span className="tabular-nums">{`${mhz.min.toFixed(0)}–${mhz.max.toFixed(0)} MHz (avg ${mhz.avg}) · max ${cpu.max_mhz ?? "?"} MHz`}</span> : null],
           ["Virtualization", <span className="flex gap-1.5">
             <GlassBadge tone={virt.cpu ? "success" : "danger"}>{virt.cpu ?? "NO VT-x / AMD-V"}</GlassBadge>
             <GlassBadge tone={virt.iommu ? "success" : "warning"}>{virt.iommu ? "IOMMU ON" : "IOMMU OFF"}</GlassBadge>
@@ -200,16 +207,22 @@ function CpuCard({ cpu, virt }: { cpu: Inventory["cpu"]; virt: Inventory["virtua
           ["Kernel cmdline", <span className="font-mono text-[10px]">{virt.cmdline}</span>],
         ]}
       />
-      {cpu.cores_c.length > 0 && (
+      {cores.length > 0 && (
         <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4">
-          {cpu.cores_c.map((c) => (
-            <div key={c.label} className="text-[11px]">
+          {cores.map((c) => (
+            <div key={c.label} className="text-[11px] tabular-nums">
               <div className="flex justify-between text-slate-400">
                 <span>{c.label}</span>
                 {C(c.c)}
               </div>
-              {/* 100 °C ≈ Tjunction max of current desktop/mobile CPUs. */}
-              <Bar value={c.c} className="bg-emerald-400" />
+              {/* 100 °C ≈ Tjunction max of current desktop/mobile CPUs; without a core sensor the bar shows load. */}
+              <Bar value={c.c ?? c.load ?? 0} className={c.c != null ? "bg-emerald-400" : "bg-sky-400"} />
+              {(c.mhz != null || c.load != null) && (
+                <div className="mt-0.5 flex justify-between text-[10px] text-slate-500">
+                  <span>{c.mhz != null ? `${c.mhz} MHz` : ""}</span>
+                  <span>{c.load != null ? `${c.load.toFixed(0)}%` : ""}</span>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -245,8 +258,13 @@ function MemoryCard({ m }: { m: Inventory["memory"] }) {
   );
 }
 
-function GpuCard({ g, live }: { g: Gpu; live: GpuMetrics | null }) {
-  const m = live ?? g.metrics;
+type LiveGpu = LiveThermals["gpus"][number];
+
+function GpuCard({ g, live }: { g: Gpu; live: LiveGpu | null }) {
+  const b = g.metrics;
+  const m: GpuMetrics | null = live
+    ? { name: live.name, driver_version: b?.driver_version ?? "", vram_total_mib: live.vram_total_mb ?? b?.vram_total_mib ?? null, vram_used_mib: live.vram_used_mb ?? b?.vram_used_mib ?? null, util_pct: live.utilization_pct ?? b?.util_pct ?? null, temp_c: live.temp_c ?? b?.temp_c ?? null, power_w: live.power_w ?? b?.power_w ?? null }
+    : b;
   const vram = m?.vram_total_mib ? m.vram_total_mib * 1024 * 1024 : g.vram_bytes;
   return (
     <Card
@@ -270,11 +288,11 @@ function GpuCard({ g, live }: { g: Gpu; live: GpuMetrics | null }) {
           ["VRAM", vram ? bytes(vram) : g.vendor === "intel" ? "Shared system memory" : "Shown once the driver is active"],
           ["Mode", g.mode === "passthrough" ? "VM passthrough (vfio-pci)" : "Host driver"],
           ...(g.firmware ? ([["GuC / HuC", `${g.firmware.guc ?? "?"} / ${g.firmware.huc ?? "?"} (enable_guc=${g.firmware.enable_guc ?? "?"})`]] as [string, ReactNode][]) : []),
-          ...(m ? ([["Driver version", m.driver_version]] as [string, ReactNode][]) : []),
+          ...(m?.driver_version ? ([["Driver version", m.driver_version]] as [string, ReactNode][]) : []),
         ]}
       />
       {m && (
-        <div className="mt-3 grid grid-cols-2 gap-3 text-[11px] sm:grid-cols-4">
+        <div className="mt-3 grid grid-cols-2 gap-3 text-[11px] tabular-nums sm:grid-cols-4">
           <div>
             <div className="text-slate-400">Utilization {m.util_pct ?? "—"}%</div>
             <Bar value={m.util_pct ?? 0} />
@@ -285,8 +303,14 @@ function GpuCard({ g, live }: { g: Gpu; live: GpuMetrics | null }) {
             </div>
             <Bar value={percent(m.vram_used_mib ?? 0, m.vram_total_mib ?? 0)} className="bg-violet-400" />
           </div>
-          <div className="text-slate-400">Temperature {C(m.temp_c)}</div>
-          <div className="text-slate-400">Power {m.power_w != null ? `${m.power_w.toFixed(0)} W` : "—"}</div>
+          <div className="text-slate-400">
+            Temperature {C(m.temp_c)}
+            {live?.hotspot_temp_c != null && <> · hotspot {C(live.hotspot_temp_c)}</>}
+          </div>
+          <div className="text-slate-400">
+            Power {m.power_w != null ? `${m.power_w.toFixed(0)} W` : "—"}
+            {live?.fan_rpm_or_pct != null && ` · fan ${live.fan_rpm_or_pct.toFixed(0)}${live.fan_unit === "%" ? "%" : " RPM"}`}
+          </div>
         </div>
       )}
       {g.reboot_required && <p className="mt-3 text-[11px] text-amber-300">A reboot is required to apply the configured driver / mode.</p>}
@@ -412,29 +436,51 @@ function DriversCard({ inv, onChanged }: { inv: Inventory; onChanged: () => void
 
 /* ---------------- Panel ---------------- */
 
+/** Pulsing "LIVE · 2s" pill with a Pause / Resume toggle for the shared thermals stream. */
+export function LiveThermalsPill() {
+  const { t } = useTranslation();
+  const paused = useThermals((s) => s.paused);
+  const setPaused = useThermals((s) => s.setPaused);
+  return (
+    <span className="flex items-center gap-1" title={t("si.liveHint")}>
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide"
+        style={{ background: "var(--sd-surface-card)", border: "1px solid var(--sd-border-hairline)", color: "var(--sd-text-secondary)" }}
+      >
+        <span className="relative flex h-2 w-2">
+          {!paused && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />}
+          <span className={`relative inline-flex h-2 w-2 rounded-full ${paused ? "bg-slate-400" : "bg-emerald-400"}`} />
+        </span>
+        {paused ? t("si.livePaused") : t("si.live")}
+      </span>
+      <GlassButton size="xs" variant="ghost" onClick={() => setPaused(!paused)} aria-label={paused ? t("si.liveResume") : t("si.livePause")} title={paused ? t("si.liveResume") : t("si.livePause")}>
+        {paused ? <Play size={12} /> : <Pause size={12} />}
+      </GlassButton>
+    </span>
+  );
+}
+
 export default function HardwarePanel() {
+  const { t } = useTranslation();
   const [inv, setInv] = useState<Inventory | null>(null);
-  const [live, setLive] = useState<Record<string, GpuMetrics>>({});
+  const th = useLiveThermals();
   const { busy, error, run } = useRunner();
   const load = useCallback(() => run(() => api<Inventory>("/hardware/inventory").then(setInv)), [run]);
   useEffect(() => {
     load();
   }, [load]);
-  // Live GPU metrics only while this panel is mounted, and only if a driver reports them.
-  const hasLive = !!inv?.gpus.some((g) => g.metrics || g.vram_bytes);
-  const poll = useCallback(() => {
-    if (hasLive) api<{ nvidia: Record<string, GpuMetrics> }>("/hardware/gpu-metrics").then((r) => setLive(r.nvidia), () => {});
-  }, [hasLive]);
-  usePoll(poll, 5000);
 
   if (!inv) return busy ? <p className="text-sm text-slate-400">Reading host hardware…</p> : <Notice error={error} />;
   const s = inv.system;
+  const liveGpu = new Map(th?.gpus.map((g) => [g.slot, g]));
+  const liveDrive = new Map(th?.drives.map((d) => [d.device, d.temp_c]));
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Cpu size={15} className="text-slate-400" />
         <span className="flex-1 text-xs text-slate-400">Read live from {edition.host} over the SSH bridge.</span>
         {inv.ssh_bridge_connected && <BridgeStatus inv={inv} />}
+        <LiveThermalsPill />
         <GlassButton size="xs" onClick={load} disabled={busy}>
           <RefreshCw size={12} /> Refresh
         </GlassButton>
@@ -451,11 +497,23 @@ export default function HardwarePanel() {
           ]}
         />
       </Card>
-      <CpuCard cpu={inv.cpu} virt={inv.virtualization} />
+      <CpuCard cpu={inv.cpu} virt={inv.virtualization} live={th?.cpu ?? null} />
       <MemoryCard m={inv.memory} />
       {inv.gpus.map((g) => (
-        <GpuCard key={g.id} g={g} live={live[g.id] ?? null} />
+        <GpuCard key={g.id} g={g} live={liveGpu.get(g.id) ?? null} />
       ))}
+      {!!th?.chassis_fans.length && (
+        <Card title={<span className="flex items-center gap-2"><Fan size={15} /> {t("si.fans")}</span>}>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs tabular-nums sm:grid-cols-4">
+            {th.chassis_fans.map((f, i) => (
+              <div key={`${f.label}-${i}`} className="flex justify-between">
+                <span className="truncate text-slate-400">{f.label}</span>
+                <span className="text-slate-100">{f.rpm} RPM</span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
       <DriversCard inv={inv} onChanged={load} />
       <Card title="Storage">
         <Table
@@ -471,7 +529,7 @@ export default function HardwarePanel() {
               <span className="font-mono">{d.serial}</span>,
               d.type,
               d.size ? bytes(d.size) : null,
-              C(d.temp_c),
+              C(liveDrive.get(d.devpath) ?? d.temp_c),
               d.wearout != null && d.wearout !== "N/A" ? `${d.wearout}%` : null,
               d.health && <GlassBadge tone={/PASSED|OK/i.test(d.health) ? "success" : "danger"}>{d.health}</GlassBadge>,
             ])}

@@ -8,6 +8,7 @@ import asyncio
 import json
 import logging
 import re
+import time
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -363,6 +364,175 @@ async def gpu_metrics():
     _, out, _ = await host_ssh.run_host_cmd(f"echo @@nvidia@@; {NVIDIA_CMD}; echo @@amd@@; {AMD_CMD}", timeout=15)
     s = split_sections(out)
     return {"nvidia": parse_nvidia(s.get("nvidia", "")), "amd_vram": parse_amd_vram(s.get("amd", ""))}
+
+
+# ---------------------------------------------------------------- Live thermals (2 s poll)
+
+# Only sysfs/procfs reads and nvidia-smi: no lspci/dmidecode/smartctl, so one call stays well under a second.
+THERMAL_NV_Q = "pci.bus_id,name,temperature.gpu,fan.speed,power.draw,memory.used,memory.total,utilization.gpu"
+THERMAL_PROBE = f"""
+echo @@hwmon@@
+for h in /sys/class/hwmon/hwmon*; do n=$(cat $h/name 2>/dev/null); d=$(readlink -f $h/device 2>/dev/null)
+  b=$(ls $d/block 2>/dev/null | head -n1)
+  for t in $h/temp*_input $h/fan*_input $h/power1_average $h/power1_input; do [ -e "$t" ] || continue
+    echo "$n|${{d##*/}}|$b|${{t##*/}}|$(cat ${{t%_input}}_label 2>/dev/null)|$(cat $t 2>/dev/null)"; done; done
+echo @@freq@@
+for c in /sys/devices/system/cpu/cpu[0-9]*; do echo "${{c##*cpu}}|$(cat $c/topology/core_id 2>/dev/null)|$(cat $c/cpufreq/scaling_cur_freq 2>/dev/null)"; done
+echo @@mhz@@; grep '^cpu MHz' /proc/cpuinfo
+echo @@stat@@; grep '^cpu[0-9]' /proc/stat
+echo @@nvidia@@; command -v nvidia-smi >/dev/null && nvidia-smi --query-gpu={THERMAL_NV_Q} --format=csv,noheader,nounits 2>/dev/null
+true
+"""
+THERMAL_TTL = 1.5  # several open views (Hardware, Info, Resource Monitor) share one host read per poll
+GPU_HWMON = ("amdgpu", "radeon", "i915", "xe", "nouveau")
+_thermals: tuple[float, dict] | None = None
+_thermal_lock = asyncio.Lock()
+_prev_stat: dict[str, tuple[int, int]] = {}
+
+
+def parse_stat(text: str) -> dict[str, tuple[int, int]]:
+    """/proc/stat cpuN lines → {"N": (busy jiffies, total jiffies)}."""
+    out = {}
+    for line in text.splitlines():
+        f = line.split()
+        if len(f) > 5 and f[0][3:].isdigit():
+            v = [int(x) for x in f[1:] if x.isdigit()]
+            idle = v[3] + (v[4] if len(v) > 4 else 0)  # idle + iowait
+            out[f[0][3:]] = (sum(v) - idle, sum(v))
+    return out
+
+
+def load_pct(prev: dict[str, tuple[int, int]], cur: dict[str, tuple[int, int]]) -> dict[str, float]:
+    out = {}
+    for cpu, (busy, total) in cur.items():
+        if cpu in prev and total > prev[cpu][1]:
+            out[cpu] = round(100 * max(0, busy - prev[cpu][0]) / (total - prev[cpu][1]), 1)
+    return out
+
+
+def parse_thermals(s: dict[str, str], prev_stat: dict, drives_meta: list[dict]) -> dict:
+    """THERMAL_PROBE sections → the GET /api/hardware/thermals body (timestamp added by the caller)."""
+    rows = [(line.split("|") + [""] * 6)[:6] for line in s.get("hwmon", "").splitlines()]
+    val = lambda r: int(r[5]) if r[5].strip().lstrip("-").isdigit() else None  # noqa: E731
+    # CPU package and per-core temperatures: same rules as the inventory parser.
+    temps = parse_hwmon("\n".join(f"{r[0]}|{r[4] or 'temp'}|{r[5]}" for r in rows if r[3].startswith("temp")))
+    core_temp = {int(re.sub(r"\D", "", c["label"]) or 0): c["c"] for c in temps["cores"]}
+    # Per-thread clock and load, folded into physical cores (core_id).
+    # shortcut: core_id repeats per socket, so multi-socket hosts merge same-numbered cores; key on (package, core) if that matters.
+    loads = load_pct(prev_stat, parse_stat(s.get("stat", "")))
+    per_core: dict[int, dict] = {}
+    for line in s.get("freq", "").splitlines():
+        cpu, core, khz = (line.split("|") + ["", ""])[:3]
+        if not cpu.isdigit():
+            continue  # unmatched glob on a host without sysfs
+        cid = int(core) if core.isdigit() else int(cpu)
+        c = per_core.setdefault(cid, {"freq": [], "load": []})
+        if khz.isdigit():
+            c["freq"].append(int(khz) / 1000)
+        if cpu in loads:
+            c["load"].append(loads[cpu])
+    mhz = [f for c in per_core.values() for f in c["freq"]] or \
+        [float(x) for x in re.findall(r"cpu MHz\s*:\s*([\d.]+)", s.get("mhz", ""))]
+    ids = sorted(set(per_core) | set(core_temp))
+    cores = [{"core_id": i, "temp_c": core_temp.get(i),
+              "freq_mhz": round(max(per_core[i]["freq"])) if per_core.get(i, {}).get("freq") else None,
+              "load_pct": round(sum(per_core[i]["load"]) / len(per_core[i]["load"]), 1) if per_core.get(i, {}).get("load") else None}
+             for i in ids]
+    # GPUs: nvidia-smi rows, then amdgpu/i915/xe hwmon chips keyed by their PCI address.
+    gpus: dict[str, dict] = {}
+    for line in s.get("nvidia", "").splitlines():
+        c = [x.strip() for x in line.split(",")]
+        if len(c) != 8:
+            continue
+        n = [_num(x) for x in c[2:]]
+        gpus[c[0].lower()[-7:]] = {"slot": c[0].lower()[-7:], "name": c[1], "temp_c": n[0], "hotspot_temp_c": None,
+                                   "fan_rpm_or_pct": n[1], "fan_unit": "%", "power_w": n[2], "vram_used_mb": n[3],
+                                   "vram_total_mb": n[4], "utilization_pct": n[5]}
+    fans, drives = [], {}
+    for r in rows:
+        chip, dev, block, attr, label, v = r[0], r[1], r[2], r[3], r[4], val(r)
+        if v is None:
+            continue
+        if chip in GPU_HWMON and re.fullmatch(r"[0-9a-f]{4}:[0-9a-f:.]+", dev):
+            g = gpus.setdefault(dev[5:], {"slot": dev[5:], "name": chip, "temp_c": None, "hotspot_temp_c": None,
+                                          "fan_rpm_or_pct": None, "fan_unit": "rpm", "power_w": None, "vram_used_mb": None,
+                                          "vram_total_mb": None, "utilization_pct": None})
+            if attr.startswith("temp"):
+                key = "hotspot_temp_c" if label.lower() in ("junction", "hotspot") else "temp_c"
+                if g[key] is None:  # first edge/GPU sensor wins; memory and VR sensors come later
+                    g[key] = round(v / 1000, 1)
+            elif attr.startswith("fan"):
+                g["fan_rpm_or_pct"] = v
+            elif attr.startswith("power"):
+                g["power_w"] = round(v / 1e6, 1)  # microwatts
+        elif chip in ("nvme", "drivetemp") and attr.startswith("temp"):
+            name = block or dev
+            if chip == "nvme" and re.fullmatch(r"nvme\d+", dev):
+                name = f"{dev}n1"
+            # First sensor is the composite / drive temperature; extra NVMe sensors are per-die.
+            drives.setdefault(f"/dev/{name}", round(v / 1000, 1))
+        elif attr.startswith("fan") and v > 0:
+            fans.append({"label": label or f"{chip} {attr.split('_')[0]}", "rpm": v})
+    drive_rows = [{"device": d.get("devpath"), "model": d.get("model"),
+                   "temp_c": drives.pop(d.get("devpath"), d.get("temp_c")), "wear_pct": d.get("life_left_pct")}
+                  for d in drives_meta]
+    drive_rows += [{"device": k, "model": None, "temp_c": v, "wear_pct": None} for k, v in drives.items()]
+    return {"cpu": {"package_temp_c": temps["package_c"], "cores": cores,
+                    "avg_freq_mhz": round(sum(mhz) / len(mhz)) if mhz else None,
+                    "min_freq_mhz": round(min(mhz)) if mhz else None, "max_freq_mhz": round(max(mhz)) if mhz else None},
+            "gpus": sorted(gpus.values(), key=lambda g: g["slot"]), "drives": drive_rows, "chassis_fans": fans}
+
+
+def _num(v: str) -> float | None:
+    try:
+        return float(v)
+    except ValueError:
+        return None  # "[N/A]", "[Not Supported]"
+
+
+async def _thermal_read() -> str:
+    ok, out, _ = await host_ssh.run_host_cmd(THERMAL_PROBE, timeout=8)
+    if ok or out.strip():
+        return out
+    # No bridge: the same reads against this machine (native install, or what the container can see).
+    try:
+        proc = await asyncio.create_subprocess_exec("sh", "-c", THERMAL_PROBE, stdout=asyncio.subprocess.PIPE,
+                                                    stderr=asyncio.subprocess.DEVNULL)
+        stdout, _ = await asyncio.wait_for(proc.communicate(), 8)
+        return stdout.decode(errors="replace")
+    except (OSError, asyncio.TimeoutError):
+        return ""
+
+
+def _drive_meta() -> list[dict]:
+    """Model and wear from the 30 s SMART cache; refreshed in the background so a poll never waits on smartctl."""
+    from . import telemetry  # local: telemetry is an optional router module
+    cached = telemetry._cache
+    if not cached or time.monotonic() - cached[0] > telemetry.CACHE_TTL:
+        global _smart_task
+        if _smart_task is None or _smart_task.done():
+            _smart_task = asyncio.create_task(telemetry.hardware())
+    return cached[1]["disks"] if cached else []
+
+
+_smart_task: asyncio.Task | None = None
+
+
+@router.get("/api/hardware/thermals")
+async def thermals():
+    """Live CPU/GPU/drive temperatures, clocks, loads and fan speeds; static board/BIOS data stays in /inventory."""
+    global _thermals, _prev_stat
+    async with _thermal_lock:
+        if _thermals and time.monotonic() - _thermals[0] < THERMAL_TTL:
+            return _thermals[1]
+        s = split_sections(await _thermal_read())
+        data = guard("thermals", lambda: parse_thermals(s, _prev_stat, _drive_meta()),
+                     {"cpu": {"package_temp_c": None, "cores": [], "avg_freq_mhz": None, "min_freq_mhz": None,
+                              "max_freq_mhz": None}, "gpus": [], "drives": [], "chassis_fans": []})
+        _prev_stat = parse_stat(s.get("stat", "")) or _prev_stat
+        data["timestamp"] = time.time()
+        _thermals = (time.monotonic(), data)
+        return data
 
 
 @router.get("/api/v1/bios/status")

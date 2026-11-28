@@ -4,7 +4,7 @@ import { edition } from "@edition";
 import { api } from "../../lib/api";
 import { bytes, percent, tempColor, uptime } from "../../lib/format";
 import { useRunner } from "../../lib/hooks";
-import { openLink } from "../../lib/stores";
+import { openLink, useLiveThermals } from "../../lib/stores";
 import type { SystemInfo, SystemUpdates, UpdateStatus } from "../../lib/types";
 import { useTranslation } from "../../i18n";
 import { useUpdateStore } from "../../store/updateStore";
@@ -194,9 +194,14 @@ function OsCard({ info, reload }: { info: SystemInfo; reload: () => void }) {
 
 function HardwareCards({ info }: { info: SystemInfo }) {
   const { t } = useTranslation();
+  const th = useLiveThermals();
   const hw = info.hardware;
   if (!hw) return null;
-  const { cpu, memory: mem, gpus, storage: st } = hw;
+  const { memory: mem, storage: st } = hw;
+  // Live clock/temperatures overlay the 30 s cached summary, from the same 2 s stream as the Hardware tab.
+  const cpu = { ...hw.cpu, current_freq_mhz: th?.cpu.avg_freq_mhz ?? hw.cpu.current_freq_mhz, temperature_c: th?.cpu.package_temp_c ?? hw.cpu.temperature_c };
+  const live = new Map(th?.gpus.map((g) => [g.slot, g.temp_c]));
+  const gpus = hw.gpus.map((g) => ({ ...g, temperature_c: live.get(g.slot ?? "") ?? g.temperature_c }));
   const n = (v: number | null | undefined) => (v == null ? null : String(v));
   return (
     <div className="grid gap-4 xl:grid-cols-2">

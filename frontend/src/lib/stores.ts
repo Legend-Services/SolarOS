@@ -391,6 +391,62 @@ export const useTelemetry = create<TelemetryState>((set, get) => ({
   },
 }));
 
+/* ---------------- Live hardware thermals (GET /api/hardware/thermals) ---------------- */
+
+export interface LiveThermals {
+  cpu: {
+    package_temp_c: number | null;
+    cores: { core_id: number; temp_c: number | null; freq_mhz: number | null; load_pct: number | null }[];
+    avg_freq_mhz: number | null;
+    min_freq_mhz: number | null;
+    max_freq_mhz: number | null;
+  };
+  gpus: { slot: string; name: string; temp_c: number | null; hotspot_temp_c: number | null; fan_rpm_or_pct: number | null; fan_unit: "%" | "rpm"; power_w: number | null; vram_used_mb: number | null; vram_total_mb: number | null; utilization_pct: number | null }[];
+  drives: { device: string; model: string | null; temp_c: number | null; wear_pct: number | null }[];
+  chassis_fans: { label: string; rpm: number }[];
+  timestamp: number;
+}
+
+export const THERMAL_MS = 2000;
+
+interface ThermalState {
+  data: LiveThermals | null;
+  paused: boolean;
+  subs: number;
+  setPaused: (paused: boolean) => void;
+  /** Mount-time subscription: one shared 2 s poll runs while any view is subscribed and not paused. */
+  subscribe: () => () => void;
+}
+
+let thermalTimer: ReturnType<typeof setInterval> | undefined;
+
+export const useThermals = create<ThermalState>((set, get) => {
+  const tick = () => !document.hidden && api<LiveThermals>("/hardware/thermals").then((data) => set({ data }), () => {});
+  const sync = () => {
+    const on = get().subs > 0 && !get().paused;
+    if (on && !thermalTimer) (tick(), (thermalTimer = setInterval(tick, THERMAL_MS)));
+    if (!on && thermalTimer) (clearInterval(thermalTimer), (thermalTimer = undefined));
+  };
+  return {
+    data: null,
+    paused: false,
+    subs: 0,
+    setPaused: (paused) => (set({ paused }), sync()),
+    subscribe: () => {
+      set((s) => ({ subs: s.subs + 1 }));
+      sync();
+      return () => (set((s) => ({ subs: s.subs - 1 })), sync());
+    },
+  };
+});
+
+/** Live thermals snapshot for the mounted view (Hardware tab, System › Info, Resource Monitor › GPU & Sensors). */
+export function useLiveThermals() {
+  const subscribe = useThermals((s) => s.subscribe);
+  useEffect(subscribe, [subscribe]);
+  return useThermals((s) => s.data);
+}
+
 export const zfsHealth = (s: StorageInfo | null) => {
   if (!s) return "—";
   if (!s.pools.length) return "N/A";
