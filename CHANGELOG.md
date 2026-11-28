@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.28.0 - Resizable Settings sidebar — 2026-11-28
+
+### Added
+- **Drag the Settings sidebar wider or narrower**: grab the edge between the sidebar and the page (160 to 480 px). The width is remembered in this browser, a double-click on the edge resets it to 240 px, and the edge can be focused with Tab and moved with the arrow keys.
+
+### Fixed
+- **No cut-off names at any width**: sidebar names wrap onto extra lines, and the current page in the breadcrumb wraps too instead of ending in an ellipsis.
+- Browser self-check `scripts/support-docs/check-tree-resize.mjs` drags the edge, checks the limits, the remembered width and that no sidebar name is clipped.
+
 ## v2.27.1 - Full Settings sidebar names — 2026-11-28
 
 ### Fixed
