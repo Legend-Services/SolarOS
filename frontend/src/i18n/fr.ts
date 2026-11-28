@@ -500,6 +500,7 @@ export const fr: Dict = {
   "set.all": "Tous les paramètres",
   "set.guide": "Guide",
   "set.toggleTree": "Afficher ou masquer la barre latérale des catégories",
+  "set.resizeTree": "Faites glisser pour élargir ou réduire la barre latérale (flèches aussi, double-clic pour réinitialiser)",
   "set.noMatch": "Aucun réglage ne correspond à votre filtre.",
   "set.host.hostname": "Nom d'hôte",
   "set.host.platform": "Plateforme",

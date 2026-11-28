@@ -500,6 +500,7 @@ export const es: Dict = {
   "set.all": "Toda la configuración",
   "set.guide": "Guía",
   "set.toggleTree": "Mostrar u ocultar la barra lateral de categorías",
+  "set.resizeTree": "Arrastra para cambiar el ancho de la barra lateral (también con las flechas; doble clic para restablecer)",
   "set.noMatch": "Ningún ajuste coincide con tu filtro.",
   "set.host.hostname": "Nombre de host",
   "set.host.platform": "Plataforma",

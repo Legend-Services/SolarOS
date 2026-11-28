@@ -500,6 +500,7 @@ export const nl: Dict = {
   "set.all": "Alle instellingen",
   "set.guide": "Handleiding",
   "set.toggleTree": "Categoriezijbalk tonen of verbergen",
+  "set.resizeTree": "Sleep om de zijbalk breder of smaller te maken (pijltjestoetsen werken ook, dubbelklik zet terug)",
   "set.noMatch": "Geen instellingen gevonden voor je filter.",
   "set.host.hostname": "Hostnaam",
   "set.host.platform": "Platform",
