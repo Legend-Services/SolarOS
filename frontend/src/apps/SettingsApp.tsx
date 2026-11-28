@@ -402,7 +402,7 @@ export default function SettingsApp() {
                     aria-current={id === module}
                     className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs transition ${id === module ? "bg-white/12 text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-200"}`}
                   >
-                    <Icon size={13} className="shrink-0" /> <span className="min-w-0 flex-1 truncate">{t(`set.mod.${id}`)}</span>
+                    <Icon size={13} className="shrink-0" /> <span className="min-w-0 flex-1 leading-snug">{t(`set.mod.${id}`)}</span>
                     {id === "features-services" && <FeatureCount compact />}
                     {dots[id] && <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${dots[id]}`} aria-hidden />}
                   </button>
