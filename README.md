@@ -131,6 +131,7 @@ Press **⌘K / Ctrl+K** at any time to search every app, setting and help articl
 | 🖥️ **A real desktop** | Movable windows with snapping, a dock or taskbar, live widgets, Spotlight search (⌘K / Ctrl+K), a guided Server Setup Wizard and a speech-balloon Desktop Tour. |
 | ⚙️ **One Settings hub** | Five categories (System, Storage & Data, Privilege & Security, Network & Services, Hypervisor & Runtime), each with its own sidebar. **System → Info** shows the OS, updates, power buttons and a hardware summary; **Features & Services** switches every optional feature and sub-feature on or off. |
 | 📦 **Virtual machines & containers** | Step-by-step wizards, browser consoles and GPU, PCI and USB passthrough. **Smart Compute Groups** group machines by network or by your own groups (Grouped or Flat List), with multi-homed badges and group power actions. Every guest has a **Wireframe Architecture** view with the Hardware Device Inspector & Editor below it, and an **OSI Architecture** view. |
+| 🌡️ **Live hardware thermals** | The **Resource & Thermal Monitor** shows CPU load, every core's temperature and clock, fans, memory, network, GPUs and drive temperatures, updated every 2 seconds, with one subject per tab. |
 | 💽 **ZFS storage made easy** | Mirrors and RAIDZ pools, datasets, snapshots and schedules, SMART health and disk benchmarks. |
 | 🗂️ **Files, shares & backups** | A file browser, built-in SMB shares, and a Backup Center to back up and restore guests. |
 | 🛒 **App Center** | One click for Portainer CE, Solar AI Studio, Jellyfin Media Server, AdGuard Home and Immich, as many labelled instances as you like. Docker Engine & Compose, SMB shares and the reverse proxy with SSL are built in. |
@@ -165,7 +166,7 @@ The same manual is built into the desktop under **Help & Support → Manual**.
 | [Settings › Privilege & Security](docs/settings-security.md) | Users & Roles, Security & 2FA, Security Posture & Hardening, audit logs |
 | [Settings › Network & Services](docs/settings-network.md) | Virtual switch & VLANs (DMZ template), Network Topology, DNS/DHCP, certificates, reverse proxy, firewall, WireGuard |
 | [Settings › Hypervisor & Runtime](docs/settings-hypervisor.md) | Hypervisor defaults, Solar AI Studio runtime, Cluster & High Availability |
-| [Feature deep dives](docs/features.md) | Virtual switch, virtual hardware & labs, multi-seat, clustering & HA, security internals |
+| [Feature deep dives](docs/features.md) | Virtual switch, virtual hardware & labs, multi-seat, live thermals & monitor, clustering & HA, security internals |
 | [Technical notes](docs/TECHNICAL.md) | Architecture, both hypervisor drivers, running from source, testing the ISO, troubleshooting |
 | [REST API](docs/api/README.md) | Every REST endpoint and WebSocket, per driver ([OpenAPI schema](docs/api/openapi.json)) |
 | [SolarOS hypervisor](hypervisor/README.md) | The ISO, the installer and the server console |
