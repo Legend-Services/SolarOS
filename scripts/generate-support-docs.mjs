@@ -222,7 +222,7 @@ function writeDocs(reg) {
   index += `\n\nOpening a setting jumps straight to its tab and briefly highlights the card; opening a help result shows the article with the matched words highlighted. Live virtual machines, containers, pools and shares are listed after the seven groups.\n\n${shot("global-search", "Global Search results")}`;
   index += `## Contents\n\n- [Apps](apps.md): ${reg.apps.map((id) => byId[`app-${id}`].mainTitle).join(", ")}\n`;
   for (const c of reg.categories) index += `- [Settings › ${reg.catTitle[c]}](${PAGES[c]}): ${reg.modules.filter((m) => reg.moduleCat[m] === c).map((m) => byId[`settings-${m}`].mainTitle).join(", ")}\n`;
-  index += `- [Feature deep dives](features.md): virtual switch, virtual hardware & labs, multi-seat, clustering & HA, security internals\n`;
+  index += `- [Feature deep dives](features.md): virtual switch, virtual hardware & labs, multi-seat, live thermals & monitor, clustering & HA, security internals\n`;
   index += `- [REST API reference](api/README.md): every endpoint and WebSocket by area (regenerate with \`node scripts/generate-api-docs.mjs\`)\n`;
   index += `\n## The App Gallery\n\n${shot("app-gallery", "App Gallery")}## Settings\n\n${shot("settings-hub", "Settings hub")}## Help & Support\n\n${shot("help-manual", "Help & Support manual")}`;
   index += `For installation, architecture and development notes see [TECHNICAL.md](TECHNICAL.md).\n`;
