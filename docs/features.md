@@ -35,6 +35,28 @@ Open **Compute → Multi-Seat** (or **Settings → System → Hardware, BIOS/Fir
 - **Physical USB ports & hubs.** Press **Plug to Assign** and plug a mouse, keyboard, game controller, audio DAC or USB hub into any port of the server within 30 seconds: the port is bound to the seat by its physical position (`1-4`, `3-2.1`), so two identical mice on different ports go to different seats. A whole USB controller can be passed through too, for hot-plug and full bandwidth.
 - **CPU core pinning.** Click core pairs (a physical core with its Hyper-Threading sibling) or press **Auto-Balance Cores Across Seats**. Seats never share a core, and the first core(s) stay reserved for the server itself.
 
+## Live Hardware Thermals & the Resource & Thermal Monitor
+
+Open **Settings → System → Resource & Thermal Monitor** (or the desktop app, or click the CPU / RAM pill in the top bar).
+One subject per tab:
+
+- **CPU & Cooling.** The CPU load graph, the package temperature, the average clock and clock range, host details, a
+  **Cores** grid with one bar per physical core (temperature, clock in MHz and load in %) and a **Fans** card with every
+  chassis fan the motherboard reports. Without a per-core sensor (many AMD CPUs only report the package), a core's bar
+  shows its load instead.
+- **Memory** and **Network.** Large live graphs: memory split into apps, ZFS cache (ARC) and free, plus swap; traffic in
+  and out of the host.
+- **GPU.** Every graphics card the host can read: load, temperature, hotspot (AMD junction), fan (% for NVIDIA, RPM for
+  AMD), power and video memory, plus Intel Quick Sync. A GPU in passthrough mode belongs to its VM and is not listed.
+- **Drives.** Temperature, SMART health and remaining life of every disk.
+
+Temperatures, clocks, loads and fans refresh **every 2 seconds** while a view that shows them is open. The pulsing
+**LIVE · 2s** pill shows that the stream runs; **Pause** freezes the readings and **Play** resumes them. The Hardware tab
+(**Settings → System → Hardware, BIOS/Firmware & Multi-Seat → Hardware**: GPU cards and the drive table), **System →
+Info** and the monitor share one stream, so they always show the same numbers. The CPU card in the Hardware tab keeps the
+fixed facts (model, topology, max clock, virtualization, kernel command line) and its **Live sensors** button opens
+*CPU & Cooling*.
+
 ## Multi-Host Cluster, Live Migration & High Availability
 
 Open **Settings → Hypervisor & Runtime → Cluster & High Availability**:

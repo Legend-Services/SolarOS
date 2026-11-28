@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.29.1 - Docs for live thermals and the Resource & Thermal Monitor — 2026-11-28
+
+### Changed
+- **docs/features.md**: new deep dive *Live Hardware Thermals & the Resource & Thermal Monitor* (the five tabs, the 2-second stream, Pause / Resume, what moved from the Hardware tab).
+- **docs/TECHNICAL.md**: new *Live hardware thermals* section (what `GET /api/hardware/thermals` reads, caching, the shared browser poll) and two troubleshooting rows (no per-core temperatures; SATA temperatures that change only every 30 s).
+- **README.md**: a *Live hardware thermals* row in *What you get*, and the docs index mentions the new deep dive.
+
 ## v2.29.0 - Resource & Thermal Monitor — 2026-11-28
 
 ### Changed

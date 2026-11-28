@@ -190,6 +190,21 @@ App Center → AI & Compute → **Solar AI Studio** creates an unprivileged Debi
 
 Models are stored on `/mnt/storage/ai-models` (bind-mounted at `/usr/share/ollama/.ollama/models`) when that option is on. The **Solar AI Studio** desktop app browses the ollama.com library (cached for 15 minutes, with a built-in catalog as a fallback), rates every size for your GPU's VRAM, downloads models with live progress, shows which models are loaded in VRAM, switches between GPU and CPU, toggles Flash Attention and KV cache quantization, and has a test chat. Other tools can use the OpenAI-compatible endpoint `http://<container IP>:11434/v1`.
 
+### Live hardware thermals
+
+`GET /api/hardware/thermals` feeds the Resource & Thermal Monitor, the Hardware tab and System › Info. One call runs a
+single short shell script on the host (over the SSH bridge, or locally when there is no bridge) that reads only sysfs
+and procfs plus `nvidia-smi`: `/sys/class/hwmon/*` (CPU `coretemp`/`k10temp`, `amdgpu`/`i915`/`xe` GPUs, `nvme` and
+`drivetemp` disks, motherboard fan chips), `/sys/devices/system/cpu/*/cpufreq/scaling_cur_freq` and `/proc/stat`.
+Per-core load is the difference with the previous sample; threads are folded into physical cores by `core_id`.
+It never runs `lspci`, `dmidecode` or `smartctl`, so a call takes about 0.25 s on a busy host. Board, BIOS and PCI data
+stay in `GET /api/hardware/inventory` (read on open and on **Refresh**).
+
+Answers are cached for 1.5 s, so every open view and browser shares one host read. The browser keeps one shared 2-second
+poll that runs only while a view is subscribed, is not paused, and the tab is visible. Drive model and wear come from
+the 30-second SMART cache of `GET /api/v1/telemetry/hardware`, refreshed in the background so a poll never waits on
+`smartctl`.
+
 ### Security-by-Design modules
 
 Eight optional modules are governed by `backend/app/platform_modules.py` (`GET /api/platform/modules`,
@@ -275,6 +290,8 @@ undo it. The **FAQ** tab answers the common questions. For everything else:
 | VPN connects but nothing is reachable | Forward UDP 51820 on your router to this server and check the WAN interface in the WireGuard server settings. |
 | Disk almost full | Remove old snapshots (**Settings → Storage & Data → Storage & ZFS Pools → Snapshots**), old backups and unused ISOs. |
 | SolarOS VM in Proxmox VE cannot start its own VMs | Turn on nested virtualization: `cat /sys/module/kvm_intel/parameters/nested` (or `kvm_amd`) must say `Y` or `1`, and the VM's CPU type must be `host`. |
+| No per-core temperatures in *CPU & Cooling* | The host reports only a package sensor (common on AMD) or the SSH bridge is not connected; the bars then show load. Check **Settings → System → Hardware, BIOS/Firmware & Multi-Seat** for *SSH bridge connected*. |
+| SATA drive temperatures change only every 30 s | Load the kernel's drive sensor on the host (`modprobe drivetemp`, and add `drivetemp` to `/etc/modules` to keep it); NVMe temperatures are always live. |
 
 Still stuck? **Report a Bug** in the **?** menu opens a pre-filled GitHub issue with anonymized details.
 
